@@ -1,0 +1,69 @@
+---
+description: Multi-agent build workflow — PM → Architect → Build → Tester
+alwaysApply: false
+---
+
+# Multi-agent workflow (MerchantHub AI)
+
+Use this when building features via the PM / Architect / Tester cycle.
+
+## Sequence (mandatory)
+
+```
+PM (slice brief) → Architect (tech spec) → Builder (code) → Tester (report) → PM (accept)
+```
+
+Do not skip steps. Do not implement before Architect fills the technical section.
+
+## Artifact locations
+
+| Stage | Output | Path |
+|-------|--------|------|
+| PM | Slice brief | `docs/agents/slices/S-XXX-*.md` |
+| Architect | Tech spec + optional ADR | Same slice file + `docs/agents/adrs/` |
+| Builder | Code + doc updates | `backend/`, `frontend/`, `docs/API_REFERENCE.md` |
+| Tester | Test plan + report | `docs/agents/test-plans/`, `docs/agents/test-reports/` |
+| PM | Accept / rework | Update slice `Status` field |
+
+## Slice sizing
+
+- One slice = one PR-sized vertical feature
+- Align to phases in `docs/MERCHANTHUB_AI_BUILD_PROMPT.md` (Foundation → Core → AI → Dashboards → Polish)
+- Examples: "customer review submit", "merchant AI insights", "admin approve business"
+
+## Read order per agent
+
+1. `docs/MERCHANTHUB_AI_BUILD_PROMPT.md` (product context)
+2. Current slice file in `docs/agents/slices/`
+3. Linked ADR if present
+4. Relevant docs: `ARCHITECTURE.md`, `ERD.md`, `API_REFERENCE.md`
+
+## Conflict resolution
+
+| Dispute | Owner |
+|---------|-------|
+| User value / UX / AC wording | Product Manager |
+| API shape, schema, layering, NFRs | Architect |
+| Test coverage / release readiness | Tester |
+| AI phrasing must be "suggestion" | Product Manager |
+| Implementation style | Existing builder rules (`.cursor/rules/*.mdc`) |
+
+## Parallel work
+
+- PM + Architect may draft **next** slice while Builder implements **current**
+- Tester writes test plan as soon as Architect API contract is done (TDD-friendly)
+- Tester runs verification after Builder completes
+
+## Definition of done (full cycle)
+
+- [ ] All acceptance criteria numbered and testable
+- [ ] Architect checklist complete on slice file
+- [ ] Code merged with builder rules satisfied
+- [ ] Every AC mapped to a test in test report
+- [ ] PM set `Status: Accepted` on slice file
+
+## Invoking roles
+
+Tell the agent explicitly: *"Act as Product Manager for slice S-00X"* or *"Run full cycle for S-00X"*.
+
+Builder work uses existing rules: `backend-fastapi`, `frontend-nextjs`, `ai-and-integrations`, etc.
