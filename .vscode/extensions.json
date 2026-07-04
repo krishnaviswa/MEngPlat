@@ -1,0 +1,15 @@
+{
+    "recommendations": [
+      "ms-python.python",
+      "ms-python.vscode-pylance",
+      "astral-sh.ruff",
+      "bradlc.vscode-tailwindcss",
+      "rangav.vscode-thunder-client",
+      "ms-azuretools.vscode-docker",
+      "mikestead.dotenv",
+      "usernamehw.errorlens",
+      "esbenp.prettier-vscode",
+      "eamodio.gitlens",
+      "mjbvz.vscode-markdown-mermaid"
+    ]
+  }

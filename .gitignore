@@ -216,3 +216,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# MerchantHub AI
+node_modules/
+frontend/.next/
+backend/uploads/
+.env
+.env.local
+*.local
