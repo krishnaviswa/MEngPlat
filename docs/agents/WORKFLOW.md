@@ -130,4 +130,5 @@ Update this table as slices move through the workflow.
 
 - [Master build prompt](../MERCHANTHUB_AI_BUILD_PROMPT.md)
 - [Architecture](../ARCHITECTURE.md)
+- [End-to-end example (S-011 Favorites)](EXAMPLE-END-TO-END.md)
 - [AGENTS.md](../../AGENTS.md)

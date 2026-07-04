@@ -76,5 +76,6 @@ Three specialized agents collaborate via **shared artifacts** in `docs/agents/`:
 | ADR | `docs/agents/adrs/_TEMPLATE.md` |
 | Test plan | `docs/agents/test-plans/_TEMPLATE.md` |
 | Test report | `docs/agents/test-reports/_TEMPLATE.md` |
+| **End-to-end example** | [`docs/agents/EXAMPLE-END-TO-END.md`](docs/agents/EXAMPLE-END-TO-END.md) |
 
 See [`docs/agents/WORKFLOW.md`](docs/agents/WORKFLOW.md) for the full playbook and slice backlog.
