@@ -1,0 +1,20 @@
+---
+description: Testing expectations
+globs: backend/tests/**/*,frontend/**/__tests__/**/*
+alwaysApply: false
+---
+
+# Testing
+
+## Backend (pytest)
+- `httpx.AsyncClient` + `ASGITransport` against `app.main:app`
+- Test auth, RBAC, happy path per router
+- `AI_PROVIDER=mock` — no network in tests
+
+## Frontend (Jest + RTL)
+- Colocate under `__tests__/`
+- Test behavior, not implementation
+
+## Before merge
+- `cd backend && pytest`
+- `cd frontend && npm test`

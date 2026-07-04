@@ -1,0 +1,29 @@
+---
+description: Next.js frontend conventions
+globs: frontend/**/*
+alwaysApply: false
+---
+
+# Frontend rules
+
+## Rendering
+- **Server Components** (default): home, search, business profile
+- **`"use client"`** only for: forms, hooks, localStorage, charts, modals
+
+## Structure
+- Pages: `src/app/**/page.tsx`
+- Components: `src/components/`
+- API client: `src/lib/api.ts` — extend here, don't scatter fetch
+
+## API URLs
+- Browser: `NEXT_PUBLIC_API_URL`
+- Server in Docker: `API_URL_INTERNAL` (see `src/lib/api.ts`)
+
+## UI
+- Tailwind + `brand-*` colors
+- AI UI must say "suggestion", not fact
+- Reuse: BusinessCard, ReviewCard, RatingWidget, AIInsights, Dashboard
+- JSDoc on components: purpose, props, state/hooks
+
+## Auth
+Tokens in localStorage (MVP); attach via `apiFetch` Authorization header.

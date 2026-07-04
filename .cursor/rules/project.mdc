@@ -1,0 +1,30 @@
+---
+description: MerchantHub AI global project conventions
+alwaysApply: true
+---
+
+# MerchantHub AI (MEngPlat)
+
+Monorepo: local-business review platform with AI insights.
+
+## Stack
+- Frontend: Next.js 15 App Router, React, TypeScript, Tailwind (`frontend/`)
+- Backend: FastAPI, async SQLAlchemy, Pydantic (`backend/`)
+- Data: PostgreSQL, Redis, local uploads (S3/Azure placeholders)
+- Auth: JWT; roles: `customer` | `merchant` | `admin`
+
+## Source of truth
+- `docs/MERCHANTHUB_AI_BUILD_PROMPT.md` — product spec
+- `docs/ARCHITECTURE.md`, `docs/ERD.md`, `docs/API_REFERENCE.md`
+
+## Non-negotiables
+1. AI output is **suggestions**, never definitive judgments.
+2. Use abstraction layers for AI (`app/services/ai/`) and storage (`app/services/storage/`).
+3. Business logic in `services/`, not routers.
+4. REST routes mount under `/api/v1`.
+5. Keep diffs minimal; match existing patterns.
+6. Never commit secrets (`.env`, API keys).
+7. Local dev: `docker compose up --build`.
+
+## RBAC
+Use `require_roles()` from `app/dependencies.py`.

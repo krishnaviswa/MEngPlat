@@ -1,0 +1,18 @@
+---
+description: Documentation sync requirements
+globs: docs/**/*
+alwaysApply: false
+---
+
+# Documentation sync
+
+| Change | Update |
+|--------|--------|
+| New endpoint | `docs/API_REFERENCE.md` |
+| New flow | `docs/FLOWS.md` |
+| Architecture change | `docs/ARCHITECTURE.md` |
+| New component pattern | `docs/FRONTEND_GUIDE.md` |
+| Schema change | `docs/ERD.md` |
+| Deploy/env change | `docs/DEPLOYMENT.md` |
+
+Keep docs beginner-friendly. Use mermaid for non-trivial flows.

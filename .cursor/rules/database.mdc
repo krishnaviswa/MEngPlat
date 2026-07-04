@@ -1,0 +1,24 @@
+---
+description: Database and schema conventions
+globs: backend/app/models/**/*
+alwaysApply: false
+---
+
+# Database rules
+
+- PostgreSQL, normalized — see `docs/ERD.md`
+- UUID PKs, timezone-aware timestamps
+- Enums: UserRole, BusinessStatus, ReviewStatus, Sentiment
+
+## Model changes
+1. Update SQLAlchemy model
+2. Update Pydantic schemas
+3. Update `docs/ERD.md`
+4. Update `backend/scripts/seed.py` if needed
+
+## Naming
+- Tables: plural snake_case
+- Avoid reserved names (use `extra_data`, not `metadata`)
+
+## Moderation
+Use `ReviewStatus` enum; prefer status changes over hard deletes.

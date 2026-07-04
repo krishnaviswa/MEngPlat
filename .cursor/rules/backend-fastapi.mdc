@@ -1,0 +1,30 @@
+---
+description: FastAPI backend conventions
+globs: backend/**/*
+alwaysApply: false
+---
+
+# Backend rules
+
+## Layering
+- `routers/` — HTTP only (validation, auth, responses)
+- `services/` — business logic, AI, cache, storage
+- `models/` — SQLAlchemy ORM
+- `schemas/` — Pydantic DTOs
+- `dependencies.py` — auth helpers
+
+## Patterns
+- Async SQLAlchemy: `AsyncSession`, `await db.execute(select(...))`
+- Eager-load with `selectinload` for nested JSON
+- Static routes before dynamic (e.g. `/categories/all` before `/{slug}`)
+- Invalidate search cache after writes: `cache_delete_pattern("search:*")`
+
+## New endpoint checklist
+1. Pydantic schema in `schemas/`
+2. Router with docstring (method, auth, request, response)
+3. RBAC via `require_roles(UserRole....)`
+4. Update `docs/API_REFERENCE.md`
+5. Pytest in `backend/tests/`
+
+## Errors
+Use `HTTPException` (401/403/404/409). Never expose stack traces.
