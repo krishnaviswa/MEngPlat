@@ -1,0 +1,226 @@
+# MerchantHub AI — Next Phase Plan
+
+## Context
+
+The backend is live on Railway (Postgres + Redis + FastAPI, seeded, serving). The frontend now builds after the `.gitignore` fix. That's the end of "get it deployed" and the start of "make it a product."
+
+Four things drove this plan:
+
+1. **The AI layer only pretends to be pluggable.** `AI_PROVIDER` is a closed `Literal["mock","openai","deepseek"]` and the entire factory is a 3-line if/else where anything not `"mock"` falls through to one hardcoded OpenAI-shaped HTTP client. You cannot hold credentials for two providers at once — there is a single `ai_api_key`/`ai_base_url`/`ai_model` triple. You want one switch that selects among Qwen, GLM, Kimi, Gemini, Groq, DeepSeek, OpenAI, and Anthropic; the current shape cannot express that.
+2. **The product's core action is unreachable.** Business detail renders a "Write a review" button pointing at `/businesses/{slug}/review`. That route does not exist. Nobody can submit a review through the UI at all.
+3. **No Google sign-in, no map.** Both are stubs: `POST /auth/oauth/callback` returns tokens for a hardcoded UUID that isn't in the database, and all three `/maps/*` endpoints are no-ops (`nearby` literally `return []`). The frontend has zero map code and zero map dependencies.
+4. **The UI is thin because it ignores the backend.** The frontend calls 11 of ~35 endpoints. Notifications, favorites, photos, analytics, categories, moderation, business creation — all built server-side, none surfaced.
+
+**Decisions locked in:** Leaflet + OpenStreetMap (no Google billing account). Env-var-only AI switch. Alembic adopted properly. Google Identity Services ID-token flow. All four UI gap areas in scope. Visual design deferred until the Figma template is ready. Cost/billing features parked for scoping later.
+
+**Outcome:** a working product — sign in with Google, find a business on a map, write a review, get it analyzed by whichever AI you configured, and have the merchant and admin act on it.
+
+---
+
+## Three bugs that block turning off `AI_PROVIDER=mock`
+
+These are not cleanup. Each destroys user data the first time a real model responds.
+
+| | Location | What happens |
+|---|---|---|
+| **B1** | `backend/app/routers/reviews.py:116` and `:176` | `Sentiment(analysis_result.sentiment)` — a model returning `"Positive"`, `"mixed"`, or `""` raises `ValueError`. Unhandled → `get_db` rolls back → **the customer's review is deleted**. The mock provider hides this by only ever emitting the three exact enum strings. |
+| **B2** | same rollback path | *Any* AI exception — bad key, 429, timeout — takes the review down with it. There is no try/except anywhere in the AI call path. |
+| **B3** | `backend/app/services/business_service.py:25-46` + `openai_provider.py:72` | Every review submission triggers **two** LLM calls, the second `json.dumps`-ing up to 50 full review bodies with no truncation (~25k input tokens *per submission*). |
+
+B1 and B2 are fixed in Phase 1c. Do not point the app at a paid provider before that lands.
+
+---
+
+## Phase 0 — Alembic
+
+Everything downstream needs schema changes, and `Base.metadata.create_all()` (`backend/app/main.py:17-18`) creates tables but **never alters them**. `alembic==1.14.0` is already in `requirements.txt` and was never initialised — no `alembic.ini`, no `alembic/`.
+
+- `alembic init -t async alembic` in `backend/`; point `env.py` at `app.models.Base.metadata` and read the URL from `get_settings()` rather than `alembic.ini`.
+- Generate an initial revision that **matches the current schema** and stamp the deployed Railway DB with it, so the first real migration doesn't try to recreate 19 existing tables.
+- Replace `create_all()` in the lifespan with a documented `alembic upgrade head`, run from the Railway start command in `backend/railway.json` (which already chains commands via `sh -c`).
+
+Gate for every later phase: no model change ships without a migration.
+
+---
+
+## Phase 1 — Pluggable AI (the headline ask)
+
+### 1a. Registry replacing the if/else
+
+Restructure `backend/app/services/ai/`:
+
+```
+base.py            AIProvider ABC (was a structural Protocol), result dataclasses,
+                   AICallMeta, TokenUsage, coerce_sentiment()
+registry.py        @register_provider decorator + dict + pkgutil autoload of providers/
+provider_config.py per-provider credential resolution
+http.py            shared AsyncClient, retry loop, error classification
+prompts.py         the 3 system prompts lifted out of openai_provider.py:41-71
+gateway.py         AIGateway — retry / fallback / usage (Phase 1c)
+providers/
+  mock.py          moved from ../mock_provider.py
+  openai_family.py declarative specs — 7 of your 8 providers
+  anthropic.py     full class — different protocol
+```
+
+Two contract fixes worth doing here: promote `provider_name` into the ABC (two call sites currently do `getattr(provider, "provider_name", "unknown")` because it isn't part of the contract), and add the missing `raw_response` field to `MerchantSummaryResult` — the other two result dataclasses have it.
+
+Keep 2-line re-export shims at `mock_provider.py` and `openai_provider.py`; `README.md` §12 and `.cursor/rules` reference those paths.
+
+### 1b. The eight providers
+
+Seven of the eight speak OpenAI's `/chat/completions`, so they are declarative config, not classes:
+
+```python
+@dataclass(frozen=True)
+class OpenAISpec:
+    name: str
+    base_url: str
+    default_model: str
+    supports_json_mode: bool = True    # response_format: {"type": "json_object"}
+    supports_vision: bool = False
+    api_key_env: tuple[str, ...] = ()
+```
+
+| Provider | Notes |
+|---|---|
+| `deepseek` | Already reachable today via base-URL swap. |
+| `groq` | Free tier, open-weight models (Llama/Mixtral/Qwen). |
+| `gemini` | OpenAI-compat endpoint; free tier, no card. |
+| `qwen` | Alibaba DashScope compat mode. **Mainland vs international endpoints differ** — pick per your account. |
+| `glm` | Zhipu/Z.ai. Same mainland/international split. |
+| `kimi` | Moonshot. Same split. |
+| `openai` | Vision-capable. |
+| `anthropic` | **Own class.** `x-api-key` + `anthropic-version` headers, `/messages` path, `system` is top-level not a message, text at `content[0].text`, usage as `input_tokens`/`output_tokens`, no `response_format` (use assistant prefill `{`). |
+
+> Resolve exact base URLs and model IDs from each vendor's current docs during implementation — not from memory, and not from this file. Qwen/GLM/Kimi in particular have separate CN and international hosts, and model IDs churn.
+
+Config, in `backend/app/config.py`:
+
+- `AI_PROVIDER` becomes a plain `str` validated against the registry at startup. Dropping the `Literal` is the entire point — adding a provider must not require editing config.
+- `env_nested_delimiter="__"` plus an open-ended `ai_providers: dict[str, AIProviderCredentials]`, giving `AI_PROVIDERS__KIMI__API_KEY`, `AI_PROVIDERS__GLM__MODEL`, etc. New providers need **zero** `config.py` edits.
+- Vendor-native aliases (`DEEPSEEK_API_KEY`, `GROQ_API_KEY`, `ANTHROPIC_API_KEY`…) folded in by a `model_validator`.
+- Legacy `AI_API_KEY`/`AI_BASE_URL`/`AI_MODEL` still honored, applied to the active provider only, so the current Railway deployment keeps working untouched.
+- Startup validation: unknown `AI_PROVIDER` → fail with the registered list; non-mock provider with no resolvable key → fail. A silently-degraded production deploy is worse than a boot failure. `AI_PROVIDER=mock` must still need zero config.
+
+**Trap:** `get_settings()` is `@lru_cache`d *and* called at module import in six modules including `services/ai/__init__.py:6`. Every new AI module must call it **inside** functions or none of this is testable.
+
+### 1c. Reliability — required before any real provider
+
+An `AIGateway` wrapping the active provider and implementing the same interface, so the five call sites don't change shape:
+
+- **`coerce_sentiment()`** normalising `"Positive"`/`"MIXED"`/`""`/`None` to the enum. Fixes **B1**.
+- **Degrade to the mock provider** on any provider failure, so a bad key returns a 201 with degraded analysis instead of eating the review. Fixes **B2**.
+- Retry with jittered backoff on 429/5xx/timeouts; **never** retry 400/401/403 (config errors — go straight to fallback); an overall deadline so retries can't stack into a hung request.
+- One shared `httpx.AsyncClient` created in the lifespan — the current code builds a new client and throws away the TLS handshake on every call (`openai_provider.py:23`).
+- Truncate the merchant-summary prompt (cap review count and per-review chars) and move it to `BackgroundTasks` with a Redis `SET NX` debounce lock. Fixes **B3**: 20 reviews in 5 minutes becomes 1 summary call, not 20, and review submission stops blocking on two sequential LLM round-trips.
+- Capture the `usage` object that `_chat` currently parses past and discards — this is the raw material for the parked cost work, so record it now even if nothing reads it yet.
+
+**Decision you need to make here:** when the gateway degrades, the mock provider returns *plausible fabricated* analysis ("Friendly staff", "Good value") which gets persisted and rendered behind the UI's AI badge as though it were real. If your provider is down for a day, users see invented insights presented as genuine. I'd surface `degraded: true` through `AIAnalysisResponse` and have the frontend label or suppress it. Flagging it because it's a product call, not a technical one.
+
+**Checkpoint:** revoke the API key mid-flight; `POST /reviews` still returns 201, the review persists, `ai_analyses.provider == "mock"`.
+
+---
+
+## Phase 2 — Google sign-in
+
+Google Identity Services, ID-token flow — no client secret, no redirect route.
+
+- **Migration** (needs Phase 0): `users.hashed_password` → nullable; add `auth_provider`, `google_sub` (unique, indexed), `email_verified`. `avatar_url` already exists at `models/__init__.py:66` and is already in `UserResponse` — wire Google's `picture` claim into it.
+- **Guard `login`**: `auth.py:70` calls `verify_password(payload.password, user.hashed_password)` unguarded. With nullable hashes that crashes. A Google-only account attempting password login must get a clean 400 telling them to use Google.
+- **Rewrite `POST /auth/oauth/callback`** (`auth.py:114-129`) — currently a stub returning tokens for hardcoded UUID `00000000-...-0001`, which isn't in the database, so those tokens 401 on the very next request. Replace with: verify the ID token signature against Google's JWKS, check `aud`/`iss`/`exp`, then look-up-or-create the user by `google_sub` and issue your own JWTs. Add `google-auth` to `requirements.txt`; there is currently no OAuth library of any kind.
+- **Account linking:** decide whether a Google sign-in whose email matches an existing password account links to it or is rejected. Auto-linking on unverified email is a real account-takeover vector — only link when Google reports `email_verified`.
+- **Frontend:** the button already exists at `LoginForm.tsx:60-62`, permanently `disabled` with `title="OAuth placeholder"`. Wire it up, add `auth.google()` to `lib/api.ts` (no OAuth client function exists), add `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, and mirror it onto `RegisterForm`.
+
+Worth folding in while here: the refresh token is stored in `localStorage` but `POST /auth/refresh` is **never called** from the frontend, so every session hard-expires after 30 minutes with a raw error string. Add refresh-on-401 to `apiFetch` (`lib/api.ts:54-69`).
+
+---
+
+## Phase 3 — The review loop
+
+The single highest-value fix: the product's core action currently 404s, and this is also what lets you exercise the AI providers from the UI rather than from Swagger.
+
+- **Create `frontend/src/app/businesses/[slug]/review/page.tsx`** — the missing route. `reviews.create` already exists in `lib/api.ts:91` and is called from nowhere.
+- **Turn on `ReviewCard`'s actions.** The component already renders like/report buttons and takes `onLike`/`onReport`; both call sites pass `showActions={false}`, so it's dead UI. Backend `/reviews/{id}/like` and `/report` exist and are unused.
+- **Merchant replies.** `POST /reviews/{id}/reply` exists; `ReviewCard` never renders `review.reply` at all despite the data being there.
+- **Photo upload** on review submission, and fix the gallery: business detail fakes it from `[storefront_url, logo_url]` instead of calling `GET /photos/business/{id}`.
+
+Note the interaction with Phase 1c — this is the path that triggers AI analysis, so degradation behaviour becomes user-visible here.
+
+---
+
+## Phase 4 — Merchant onboarding + dashboard
+
+- **No business-creation UI exists.** A merchant signing up today cannot add their business. `POST /businesses` is built and unreachable. Add the create + edit forms.
+- **Fix `MerchantDashboard.tsx:21-22`** — it calls `businesses.list()` and takes `list[0]`, so every merchant sees whichever business happens to sort first globally, with someone else's stats and someone else's AI insights. Needs a real "my businesses" resolution via the merchant relationship.
+- Surface `GET /analytics/merchant/{id}` and the `POST /ai/businesses/{id}/refresh` button — both built, both unused.
+
+---
+
+## Phase 5 — Maps (Leaflet + OpenStreetMap)
+
+`latitude`/`longitude` already exist on `Business` (`models/__init__.py:117-118`) and are already returned by the API — but the frontend `Business` TypeScript interface omits both fields, so step one is adding them.
+
+- Add `leaflet` + `react-leaflet`; a `<BusinessMap>` client component (SSR-unsafe, needs `dynamic(..., { ssr: false })`).
+- Map view on search results; location map on business detail.
+- **Replace the three stub endpoints** in `routers/maps.py`: `nearby` unconditionally returns `[]`; `geocode` returns a placeholder string in both branches (configuring a real key makes it *strictly less* useful); `config` hardcodes `placeholder: True`. Geocoding via Nominatim (free, but its usage policy requires a real User-Agent and rate limiting) or accept manual lat/lng entry on the business form.
+- **Fix radius search:** `search.py:78-82` applies a Python Haversine filter *after* the SQL `LIMIT`, so "within 5km" only filters the current page rather than searching the table. Push it into SQL.
+- Address-entry UI is where Google Places autocomplete would normally go — worth noting as the one real capability given up by choosing OSM.
+
+---
+
+## Phase 6 — Admin moderation
+
+`/admin` currently iterates `Object.entries(stats)` into a key-value grid, and **prints hardcoded credentials (`admin@merchanthub.ai / admin12345`) into the UI on error** — remove that regardless of anything else here.
+
+Build the actual queues against endpoints that already exist and have no UI: pending-business approval (`/businesses/{id}/approve`, `/suspend`) and reported-review moderation (`/reviews/{id}/moderate`).
+
+Also: `/merchant/dashboard` and `/admin` have **no client-side route guard** and there is no `middleware.ts`. The backend's `require_roles` is the only real enforcement — fine for security, bad UX (a logged-out user gets a flash of empty admin chrome then an error).
+
+---
+
+## Phase 7 — Page enrichment
+
+Content that already exists in the API and simply isn't rendered:
+
+- **Business detail** ignores `phone`, `email`, `website`, `business_hours`, `categories`, `state`/`postal_code`.
+- **Search** has no pagination (backend supports `page`/`page_size`), no sort, no empty state, and `FilterPanel` **hardcodes** its category list while `GET /businesses/categories/all` sits unused. Its filter form is also separate from the search form, so applying a filter silently drops the `q` param.
+- **Home** is a hero plus a grid, nothing else — categories, platform stats, and how-it-works are the obvious additions.
+- **Notifications** — the entire `/notifications` API is unused; no bell, no UI.
+- **Profile** is read-only despite the docstring claiming edit; **Settings** contains exactly one logout button and zero settings.
+- **Favorites** — the `Favorite` model exists with no router and no UI (the `S-011` draft slice). Needs a backend endpoint too.
+
+---
+
+## Phase 8 — Visual design (blocked on Figma)
+
+Deferred by your call. Phases 3–7 build with the existing utility classes so nothing needs redoing twice structurally — only re-skinning.
+
+When the template lands: shared `Button`/`Card`/`Input`/`Badge` primitives (the same class strings are copy-pasted across ~10 files), a real font (`layout.tsx` loads none), a `public/` dir and favicon (neither exists), and the token/palette mapping. Two small bugs to sweep up then: `AIInsights.tsx:50` uses `border-brand-400`, which was never defined in `tailwind.config.ts` and silently does nothing; and `clsx` is a dependency imported by no file.
+
+To have me read the Figma file directly, the Figma MCP connector needs authorizing from an interactive session — it's currently unauthenticated.
+
+---
+
+## Parked — cost & billing
+
+Deferred at your request. The raw material gets captured in Phase 1c regardless (the `usage` object is currently discarded), so nothing is lost by deciding later. When you're ready, the scoping questions are: per-call token/cost persistence and a usage dashboard; a monthly spend cap with auto-fallback; Redis caching of AI results to avoid re-billing repeat analyses; and Railway hosting-cost tuning.
+
+One thing worth deciding early: `services/cache.py` swallows **every** exception, so if you later build a Redis-backed spend cap, it fails *open* — silently becoming a no-op exactly when a cost runaway is most likely.
+
+---
+
+## Verification
+
+Per phase, not just at the end:
+
+- **Phase 0:** `alembic upgrade head` against a copy of the Railway DB is a no-op on first run; a deliberate throwaway column change generates and applies cleanly.
+- **Phase 1:** `pytest` green after the refactor with `AI_PROVIDER=mock` behaving identically. Then, per provider, a `respx`-mocked test asserting the actual outgoing request shape (Anthropic's `x-api-key`, `response_format` present only where supported). Then one real smoke call per provider you hold a key for. Backend currently has **3 tests and no `conftest.py`** — that gets created here.
+- **Phase 1c:** revoke the key mid-flight → `POST /reviews` still 201s and the review persists. Feed `"Positive"`/`"mixed"`/`""` through `coerce_sentiment` → valid enum, no rollback.
+- **Phases 2–7:** exercise on the deployed Railway URL, not just locally — Google OAuth origins, CORS, and `NEXT_PUBLIC_*` wiring only break in the deployed environment. I can drive the browser to verify each flow end to end.
+
+## Sequencing
+
+Phase 0 gates 1c, 2, and 7 (all need migrations). Phase 1c gates using any paid provider. Phase 3 gates meaningfully testing the AI from the UI. Phases 5, 6, 7 are mutually independent and can reorder freely. Phase 8 waits on Figma.
+
+This is genuinely several weeks of work — worth agreeing where to stop, or which phases matter enough to do properly versus rough in.
