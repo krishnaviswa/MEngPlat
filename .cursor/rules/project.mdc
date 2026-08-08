@@ -14,8 +14,9 @@ Monorepo: local-business review platform with AI insights.
 - Auth: JWT; roles: `customer` | `merchant` | `admin`
 
 ## Source of truth
-- `docs/MERCHANTHUB_AI_BUILD_PROMPT.md` — product spec
-- `docs/ARCHITECTURE.md`, `docs/ERD.md`, `docs/API_REFERENCE.md`
+`README.md` is the single project document. Sections: §2 logical design, §3 architecture,
+§4 stack rationale, §5 domain model, §6 flows, §7 API, §8 frontend, §9 security,
+§13 multi-agent workflow, §14 known gaps.
 
 ## Non-negotiables
 1. AI output is **suggestions**, never definitive judgments.

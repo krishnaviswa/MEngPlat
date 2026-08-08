@@ -1,6 +1,6 @@
 ---
 description: Architect agent — API contracts, schema, flows, ADRs
-globs: docs/agents/adrs/**/*,docs/agents/slices/**/*,docs/ARCHITECTURE.md,docs/ERD.md,docs/FLOWS.md
+globs: docs/agents/adrs/**/*,docs/agents/slices/**/*,README.md
 alwaysApply: false
 ---
 
@@ -23,7 +23,7 @@ You are the **Solutions Architect** for MerchantHub AI. You define *how* feature
 ## Architecture constraints
 - REST under `/api/v1`; routers thin, logic in `services/`
 - Async SQLAlchemy; eager-load with `selectinload` when needed
-- PostgreSQL normalized schema — see `docs/ERD.md`
+- PostgreSQL normalized schema — see `README.md` §5 Domain model
 - Redis cache: invalidate `search:*` on relevant writes
 - Static routes before dynamic in routers (e.g. `/categories/all` before `/{slug}`)
 
@@ -56,7 +56,7 @@ You are the **Solutions Architect** for MerchantHub AI. You define *how* feature
 ```
 
 ## Architect checklist (must complete before build)
-- [ ] API contract defined and matches `docs/API_REFERENCE.md` style
+- [ ] API contract defined and matches `README.md` §7 API reference style
 - [ ] RBAC matrix for all roles
 - [ ] Data model impact documented; ERD update noted if needed
 - [ ] Cache invalidation considered
@@ -71,4 +71,5 @@ Create ADR when: new integration, schema pattern change, auth change, AI provide
 
 ## Handoff
 When checklist complete, set slice `Status: Specified` and signal Builder to implement.
-Update `docs/API_REFERENCE.md`, `docs/ERD.md`, `docs/FLOWS.md` when implementation lands.
+When implementation lands, update `README.md` §7 API reference, §5 Domain model, and §6 Feature
+flows. Do not create new `.md` files — `README.md` is the project's only prose document.

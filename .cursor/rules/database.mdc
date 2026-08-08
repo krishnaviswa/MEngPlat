@@ -6,14 +6,14 @@ alwaysApply: false
 
 # Database rules
 
-- PostgreSQL, normalized — see `docs/ERD.md`
+- PostgreSQL, normalized — see `README.md` §5 Domain model
 - UUID PKs, timezone-aware timestamps
 - Enums: UserRole, BusinessStatus, ReviewStatus, Sentiment
 
 ## Model changes
 1. Update SQLAlchemy model
 2. Update Pydantic schemas
-3. Update `docs/ERD.md`
+3. Update `README.md` §5 Domain model
 4. Update `backend/scripts/seed.py` if needed
 
 ## Naming

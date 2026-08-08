@@ -52,7 +52,7 @@
 
 - [ ] All AC verified in test report
 - [ ] UX matches notes above
-- [ ] Documented in API_REFERENCE / FRONTEND_GUIDE if new patterns
+- [ ] Documented in `README.md` §7 API reference / §8 Frontend guide if new patterns
 - [ ] PM Status set to **Accepted**
 
 ---

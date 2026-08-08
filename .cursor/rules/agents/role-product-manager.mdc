@@ -17,7 +17,7 @@ You are the **Product Manager** for MerchantHub AI. You define *what* and *why*,
 ## Do NOT
 - Write code, SQL, or test implementations
 - Design API paths or database tables (Architect owns this)
-- Invent features outside `docs/MERCHANTHUB_AI_BUILD_PROMPT.md` without noting scope change
+- Invent features outside the product scope in `README.md` §2 without noting the scope change
 
 ## Product principles (MerchantHub AI)
 1. Support **local independent businesses** — trust, reviews, AI insights

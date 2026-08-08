@@ -21,22 +21,22 @@ Do not skip steps. Do not implement before Architect fills the technical section
 |-------|--------|------|
 | PM | Slice brief | `docs/agents/slices/S-XXX-*.md` |
 | Architect | Tech spec + optional ADR | Same slice file + `docs/agents/adrs/` |
-| Builder | Code + doc updates | `backend/`, `frontend/`, `docs/API_REFERENCE.md` |
+| Builder | Code + doc updates | `backend/`, `frontend/`, `README.md` §7 API reference |
 | Tester | Test plan + report | `docs/agents/test-plans/`, `docs/agents/test-reports/` |
 | PM | Accept / rework | Update slice `Status` field |
 
 ## Slice sizing
 
 - One slice = one PR-sized vertical feature
-- Align to phases in `docs/MERCHANTHUB_AI_BUILD_PROMPT.md` (Foundation → Core → AI → Dashboards → Polish)
+- Align to the phases in `README.md` §13 slice backlog (Foundation → Core → AI → Dashboards → Polish)
 - Examples: "customer review submit", "merchant AI insights", "admin approve business"
 
 ## Read order per agent
 
-1. `docs/MERCHANTHUB_AI_BUILD_PROMPT.md` (product context)
+1. `README.md` §2 logical design + §14 known gaps (product context)
 2. Current slice file in `docs/agents/slices/`
 3. Linked ADR if present
-4. Relevant docs: `ARCHITECTURE.md`, `ERD.md`, `API_REFERENCE.md`
+4. Relevant `README.md` sections: §3 architecture, §5 domain model, §7 API reference
 
 ## Conflict resolution
 

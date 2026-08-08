@@ -23,7 +23,7 @@ alwaysApply: false
 1. Pydantic schema in `schemas/`
 2. Router with docstring (method, auth, request, response)
 3. RBAC via `require_roles(UserRole....)`
-4. Update `docs/API_REFERENCE.md`
+4. Update `README.md` §7 API reference
 5. Pytest in `backend/tests/`
 
 ## Errors

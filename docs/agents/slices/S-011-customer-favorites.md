@@ -8,7 +8,7 @@
 | **Role(s)** | customer |
 | **Owner** | PM / example slice for multi-agent practice |
 
-> **Practice guide:** See [`EXAMPLE-END-TO-END.md`](../EXAMPLE-END-TO-END.md) for step-by-step agent prompts.
+> **Practice guide:** See [`README.md`](../../../README.md) §13 Multi-agent workflow for the stage-by-stage agent prompts and a worked example of this slice.
 
 ---
 
@@ -58,7 +58,7 @@
 
 - [ ] All AC verified in test report
 - [ ] Favorites list and toggle work for customer role
-- [ ] Documented in `docs/API_REFERENCE.md`
+- [ ] Documented in `README.md` §7 API reference
 - [ ] PM Status set to **Accepted**
 
 ---
@@ -129,7 +129,7 @@ sequenceDiagram
 
 ## Links
 
-- Walkthrough: [`docs/agents/EXAMPLE-END-TO-END.md`](../EXAMPLE-END-TO-END.md)
+- Walkthrough: [`README.md`](../../../README.md) §13 Multi-agent workflow
 - Test plan: `docs/agents/test-plans/TP-S-011-customer-favorites.md` (to be created)
 - Test report: `docs/agents/test-reports/TR-S-011-customer-favorites.md` (to be created)
 

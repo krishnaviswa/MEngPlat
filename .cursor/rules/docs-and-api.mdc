@@ -1,18 +1,27 @@
 ---
 description: Documentation sync requirements
-globs: docs/**/*
+globs: README.md,docs/**/*
 alwaysApply: false
 ---
 
 # Documentation sync
 
+This project keeps **one** prose document: `README.md`. Never create a new `.md` file for
+documentation — update the relevant section instead.
+
 | Change | Update |
 |--------|--------|
-| New endpoint | `docs/API_REFERENCE.md` |
-| New flow | `docs/FLOWS.md` |
-| Architecture change | `docs/ARCHITECTURE.md` |
-| New component pattern | `docs/FRONTEND_GUIDE.md` |
-| Schema change | `docs/ERD.md` |
-| Deploy/env change | `docs/DEPLOYMENT.md` |
+| New endpoint | `README.md` §7 API reference |
+| New flow | `README.md` §6 Feature flows |
+| Architecture change | `README.md` §3 Architecture |
+| New technology or dependency | `README.md` §4 Why this stack (state the rationale) |
+| New component pattern | `README.md` §8 Frontend guide |
+| Schema change | `README.md` §5 Domain model |
+| Auth / RBAC / security change | `README.md` §9 Security |
+| Deploy/env change | `README.md` §10 Deployment, §15 Environment variables |
+| Feature completed or gap closed | `README.md` §14 Known gaps |
 
 Keep docs beginner-friendly. Use mermaid for non-trivial flows.
+
+Exception: `docs/agents/` holds live workflow artifacts (slices, ADRs, test plans/reports)
+created from their `_TEMPLATE.md` files — those are artifacts, not documentation.
