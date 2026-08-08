@@ -1,12 +1,49 @@
-from app.config import get_settings
-from app.services.ai.base import AIProvider
-from app.services.ai.mock_provider import MockAIProvider
-from app.services.ai.openai_provider import OpenAICompatibleProvider
+"""Public entry point for the AI layer."""
 
-settings = get_settings()
+from app.config import get_settings
+from app.services.ai.base import (
+    AICallMeta,
+    AIProvider,
+    ImageAnalysisResult,
+    MerchantSummaryResult,
+    Operation,
+    ReviewAnalysisResult,
+    TokenUsage,
+    coerce_sentiment,
+)
+from app.services.ai.registry import (
+    UnknownAIProviderError,
+    available_providers,
+    create_provider,
+    register_provider,
+)
 
 
 def get_ai_provider() -> AIProvider:
-    if settings.ai_provider == "mock":
-        return MockAIProvider()
-    return OpenAICompatibleProvider()
+    """Return the provider named by AI_PROVIDER.
+
+    Settings are read per call rather than at import time. get_settings() is
+    lru_cached, so binding `settings` at module scope -- as this module used to
+    -- freezes configuration before tests get a chance to override it.
+
+    Unlike the previous if/else, an unrecognised AI_PROVIDER now raises
+    UnknownAIProviderError instead of silently falling through to OpenAI.
+    """
+    return create_provider(get_settings().ai_provider)
+
+
+__all__ = [
+    "AICallMeta",
+    "AIProvider",
+    "ImageAnalysisResult",
+    "MerchantSummaryResult",
+    "Operation",
+    "ReviewAnalysisResult",
+    "TokenUsage",
+    "UnknownAIProviderError",
+    "available_providers",
+    "coerce_sentiment",
+    "create_provider",
+    "get_ai_provider",
+    "register_provider",
+]
