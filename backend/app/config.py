@@ -61,6 +61,25 @@ class Settings(BaseSettings):
     # New providers need zero edits here -- see providers/openai_family.py.
     ai_providers: dict[str, AIProviderCredentials] = Field(default_factory=dict)
 
+    # Gateway reliability knobs (app/services/ai/gateway.py). Retries apply
+    # only to 429/5xx/timeout/connect errors -- a 401/403 goes straight to the
+    # fallback since retrying a bad key just burns time for the same result.
+    ai_max_retries: int = 2
+    ai_total_deadline_seconds: float = 25.0
+    # On exhausted retries, serve the fallback provider's result (with
+    # meta.degraded=True) instead of raising into the request. Set False in
+    # tests that need to assert failure actually propagates.
+    ai_degrade_on_failure: bool = True
+
+    # Merchant-summary prompt bounds (app/services/business_service.py). The
+    # summary used to json.dumps up to 50 full review bodies on every single
+    # review submission -- unbounded input size on the hottest AI call path.
+    ai_max_reviews_per_summary: int = 30
+    ai_max_review_chars: int = 600
+    # Redis SET NX EX lock TTL: a burst of reviews within this window triggers
+    # one summary refresh, not one per review.
+    ai_summary_debounce_seconds: int = 300
+
     storage_provider: Literal["local", "s3", "azure"] = "local"
     storage_local_path: str = "/app/uploads"
 

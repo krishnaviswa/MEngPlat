@@ -16,8 +16,6 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-import httpx
-
 from app.services.ai import prompts
 from app.services.ai.base import (
     AICallMeta,
@@ -28,6 +26,7 @@ from app.services.ai.base import (
     TokenUsage,
     coerce_sentiment,
 )
+from app.services.ai.http_client import get_shared_client
 from app.services.ai.provider_config import resolve_provider_config
 from app.services.ai.registry import register_provider
 
@@ -65,28 +64,28 @@ class AnthropicProvider(AIProvider):
     async def _messages(
         self, system: str, user_content: str | list[dict[str, Any]], *, model: str | None = None
     ) -> tuple[dict[str, Any], AICallMeta]:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                f"{self.base_url}/v1/messages",
-                headers={
-                    "x-api-key": self.api_key,
-                    "anthropic-version": ANTHROPIC_VERSION,
-                    "content-type": "application/json",
-                },
-                json={
-                    "model": model or self.model,
-                    "max_tokens": MAX_OUTPUT_TOKENS,
-                    "system": system + " Respond with a single JSON object and nothing else.",
-                    "messages": [
-                        {"role": "user", "content": user_content},
-                        # Prefilling the assistant turn is Anthropic's documented
-                        # way to force a JSON-only reply without a JSON mode flag.
-                        {"role": "assistant", "content": "{"},
-                    ],
-                },
-            )
-            response.raise_for_status()
-            payload = response.json()
+        client = get_shared_client()
+        response = await client.post(
+            f"{self.base_url}/v1/messages",
+            headers={
+                "x-api-key": self.api_key,
+                "anthropic-version": ANTHROPIC_VERSION,
+                "content-type": "application/json",
+            },
+            json={
+                "model": model or self.model,
+                "max_tokens": MAX_OUTPUT_TOKENS,
+                "system": system + " Respond with a single JSON object and nothing else.",
+                "messages": [
+                    {"role": "user", "content": user_content},
+                    # Prefilling the assistant turn is Anthropic's documented
+                    # way to force a JSON-only reply without a JSON mode flag.
+                    {"role": "assistant", "content": "{"},
+                ],
+            },
+        )
+        response.raise_for_status()
+        payload = response.json()
 
         text = "{" + payload["content"][0]["text"]
         usage = payload.get("usage") or {}

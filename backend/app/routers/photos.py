@@ -53,8 +53,11 @@ async def upload_photo(
         photo_id=photo.id,
         analysis_type="image",
         image_insights=image_result.insights,
-        provider=getattr(provider, "provider_name", "unknown"),
+        # meta.provider is who actually answered -- the configured provider's
+        # name after a gateway fallback would misattribute this analysis.
+        provider=image_result.meta.provider,
         raw_response=image_result.raw_response,
+        degraded=image_result.meta.degraded,
     )
     db.add(ai)
 

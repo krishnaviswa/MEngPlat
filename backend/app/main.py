@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.routers import ai, analytics, auth, businesses, dashboard, maps, notifications, photos, reviews, search
 from app.services.ai import validate_startup_config
+from app.services.ai.http_client import close_shared_client
 
 settings = get_settings()
 
@@ -24,6 +25,7 @@ async def lifespan(app: FastAPI):
     # first review a customer submits.
     validate_startup_config()
     yield
+    await close_shared_client()
 
 
 app = FastAPI(

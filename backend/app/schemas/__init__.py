@@ -140,6 +140,10 @@ class AIAnalysisResponse(BaseModel):
     suggested_response: str | None = None
     image_insights: dict[str, Any] | None = None
     provider: str
+    # True when the configured AI provider failed and this analysis was served
+    # by the fallback instead -- lets the frontend distinguish real analysis
+    # from a plausible-looking fabricated stand-in.
+    degraded: bool = False
 
 
 class ReplyResponse(BaseModel):
@@ -207,6 +211,7 @@ class MerchantInsightsResponse(BaseModel):
     suggested_responses: list[str]
     monthly_trends: list[dict[str, Any]]
     sentiment_breakdown: dict[str, int]
+    degraded: bool = False
 
 
 class DashboardStats(BaseModel):

@@ -42,3 +42,23 @@ async def cache_delete_pattern(pattern: str) -> None:
             await client.delete(*keys)
     except Exception:
         pass
+
+
+async def try_acquire_lock(key: str, ttl: int) -> bool:
+    """Best-effort SET NX EX lock. Returns False on any Redis error.
+
+    This intentionally fails CLOSED, unlike every other function in this
+    module (which fail open -- a cache miss is harmless). A debounce lock
+    exists specifically to stop N events from triggering N expensive calls;
+    if Redis is unreachable and this returned True unconditionally instead,
+    every caller would proceed as if it held the lock, and the debounce
+    protection would silently vanish at exactly the moment -- an outage --
+    when duplicate expensive work is most likely. The trade-off is that a
+    Redis outage also pauses whatever this lock gates (here: merchant AI
+    summary refreshes) rather than letting it run unprotected.
+    """
+    try:
+        client = await get_redis()
+        return bool(await client.set(key, "1", ex=ttl, nx=True))
+    except Exception:
+        return False

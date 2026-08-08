@@ -131,6 +131,9 @@ class Business(Base):
     ai_positives: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     ai_complaints: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     ai_monthly_trends: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # Mirrors AIAnalysis.degraded for the aggregate merchant summary, which
+    # isn't backed by an ai_analyses row of its own.
+    ai_degraded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -212,6 +215,10 @@ class AIAnalysis(Base):
     image_insights: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     provider: Mapped[str] = mapped_column(String(50), default="mock")
     raw_response: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # True when the configured provider failed and this analysis was served by
+    # the fallback instead -- distinguishes real analysis from a plausible
+    # fabricated stand-in, which otherwise looks identical to the caller.
+    degraded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     review: Mapped[Review | None] = relationship(back_populates="ai_analysis")

@@ -18,8 +18,6 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any
 
-import httpx
-
 from app.services.ai import prompts
 from app.services.ai.base import (
     AICallMeta,
@@ -30,6 +28,7 @@ from app.services.ai.base import (
     TokenUsage,
     coerce_sentiment,
 )
+from app.services.ai.http_client import get_shared_client
 from app.services.ai.provider_config import resolve_provider_config
 from app.services.ai.registry import register_provider
 
@@ -149,14 +148,14 @@ class OpenAICompatibleProvider(AIProvider):
         if self.spec.supports_json_mode:
             body["response_format"] = {"type": "json_object"}
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                f"{self.base_url}/chat/completions",
-                headers={"Authorization": f"Bearer {self.api_key}"},
-                json=body,
-            )
-            response.raise_for_status()
-            payload = response.json()
+        client = get_shared_client()
+        response = await client.post(
+            f"{self.base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            json=body,
+        )
+        response.raise_for_status()
+        payload = response.json()
 
         content = payload["choices"][0]["message"]["content"]
         raw_usage = payload.get("usage") or {}

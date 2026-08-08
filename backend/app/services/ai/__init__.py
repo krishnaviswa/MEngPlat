@@ -11,6 +11,7 @@ from app.services.ai.base import (
     TokenUsage,
     coerce_sentiment,
 )
+from app.services.ai.gateway import AIGateway
 from app.services.ai.registry import (
     UnknownAIProviderError,
     available_providers,
@@ -57,7 +58,7 @@ def validate_startup_config() -> None:
 
 
 def get_ai_provider() -> AIProvider:
-    """Return the provider named by AI_PROVIDER.
+    """Return the provider named by AI_PROVIDER, wrapped in AIGateway.
 
     Settings are read per call rather than at import time. get_settings() is
     lru_cached, so binding `settings` at module scope -- as this module used to
@@ -65,12 +66,34 @@ def get_ai_provider() -> AIProvider:
 
     Unlike the previous if/else, an unrecognised AI_PROVIDER now raises
     UnknownAIProviderError instead of silently falling through to OpenAI.
+
+    When AI_PROVIDER and AI_FALLBACK_PROVIDER name the same provider (the
+    default: mock/mock), wrapping would be pure overhead -- degrading to
+    yourself is a no-op -- so the bare provider is returned instead. This is
+    also what keeps `get_ai_provider().provider_name == "mock"` true for the
+    default configuration, matching what callers checked before this existed.
     """
-    return create_provider(get_settings().ai_provider)
+    settings = get_settings()
+    primary_name = settings.ai_provider.strip().lower()
+    fallback_name = settings.ai_fallback_provider.strip().lower()
+
+    primary = create_provider(primary_name)
+    if primary_name == fallback_name:
+        return primary
+
+    fallback = create_provider(fallback_name)
+    return AIGateway(
+        primary,
+        fallback,
+        max_retries=settings.ai_max_retries,
+        total_deadline_seconds=settings.ai_total_deadline_seconds,
+        degrade_on_failure=settings.ai_degrade_on_failure,
+    )
 
 
 __all__ = [
     "AICallMeta",
+    "AIGateway",
     "AIProvider",
     "ImageAnalysisResult",
     "MerchantSummaryResult",

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -9,8 +9,7 @@ from app.database import get_db
 from app.dependencies import require_roles
 from app.models import AIAnalysis, Business, Merchant, Review, User, UserRole
 from app.schemas import AIAnalysisResponse, MerchantInsightsResponse
-from app.services.ai import get_ai_provider
-from app.services.business_service import refresh_merchant_ai_summary
+from app.services.business_service import refresh_merchant_ai_summary, refresh_merchant_ai_summary_bg
 
 router = APIRouter(prefix="/ai", tags=["AI Analysis"])
 
@@ -33,6 +32,7 @@ async def get_review_analysis(review_id: UUID, db: AsyncSession = Depends(get_db
 @router.get("/businesses/{business_id}/insights", response_model=MerchantInsightsResponse)
 async def get_merchant_insights(
     business_id: UUID,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> MerchantInsightsResponse:
@@ -42,6 +42,12 @@ async def get_merchant_insights(
     **Path:** business_id
     **Response:** Merchant summary, themes, trends, suggested responses
     **Auth:** Merchant (own business) or Admin
+
+    If no summary has been generated yet, this schedules one in the
+    background and returns immediately with merchant_summary=None, rather
+    than blocking the request on a live LLM call as it used to -- a GET
+    should not have unbounded latency (or cost) hiding behind it. Poll again,
+    or use POST .../refresh for a summary you need synchronously.
     """
     business = await db.get(Business, business_id)
     if not business:
@@ -54,8 +60,7 @@ async def get_merchant_insights(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your business")
 
     if not business.ai_merchant_summary:
-        await refresh_merchant_ai_summary(db, business_id)
-        await db.refresh(business)
+        background_tasks.add_task(refresh_merchant_ai_summary_bg, business_id)
 
     result = await db.execute(
         select(AIAnalysis)
@@ -79,15 +84,19 @@ async def get_merchant_insights(
         suggested_responses=list(dict.fromkeys(suggested))[:5],
         monthly_trends=business.ai_monthly_trends or [],
         sentiment_breakdown=sentiment_breakdown,
+        degraded=business.ai_degraded,
     )
 
 
 @router.post("/businesses/{business_id}/refresh", response_model=MerchantInsightsResponse)
 async def refresh_insights(
     business_id: UUID,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> MerchantInsightsResponse:
-    """Manually trigger AI summary refresh for a business."""
+    """Manually trigger AI summary refresh for a business. Synchronous,
+    unlike GET .../insights -- this endpoint exists specifically for a caller
+    that wants a fresh summary right now and is willing to wait for it."""
     await refresh_merchant_ai_summary(db, business_id)
-    return await get_merchant_insights(business_id, db, user)
+    return await get_merchant_insights(business_id, background_tasks, db, user)

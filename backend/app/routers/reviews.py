@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -34,8 +34,11 @@ from app.schemas import (
     ReviewUpdate,
     UserResponse,
 )
-from app.services.ai import get_ai_provider
-from app.services.business_service import refresh_merchant_ai_summary, update_business_rating
+from app.services.ai import coerce_sentiment, get_ai_provider
+from app.services.business_service import (
+    refresh_merchant_ai_summary_bg,
+    update_business_rating,
+)
 from app.services.cache import cache_delete_pattern
 
 router = APIRouter(prefix="/reviews", tags=["Reviews"])
@@ -84,6 +87,7 @@ async def list_business_reviews(business_id: UUID, db: AsyncSession = Depends(ge
 @router.post("", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
 async def create_review(
     payload: ReviewCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.CUSTOMER, UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> ReviewResponse:
@@ -113,13 +117,21 @@ async def create_review(
     ai = AIAnalysis(
         review_id=review.id,
         analysis_type="text",
-        sentiment=Sentiment(analysis_result.sentiment),
+        # coerce_sentiment runs a second time here even though every provider
+        # already applies it -- a provider bug that skips it would otherwise
+        # raise ValueError on Sentiment(...) and roll back this review via
+        # get_db's except-block, which is the exact failure this whole
+        # gateway/coercion chain exists to prevent.
+        sentiment=Sentiment(coerce_sentiment(analysis_result.sentiment)),
         summary=analysis_result.summary,
         positives=analysis_result.positives,
         complaints=analysis_result.complaints,
         suggested_response=analysis_result.suggested_response,
-        provider=provider.provider_name if hasattr(provider, "provider_name") else "unknown",
+        # meta.provider is who actually answered this call -- the configured
+        # provider after a gateway fallback, not necessarily who was asked.
+        provider=analysis_result.meta.provider,
         raw_response=analysis_result.raw_response,
+        degraded=analysis_result.meta.degraded,
     )
     db.add(ai)
 
@@ -137,8 +149,13 @@ async def create_review(
         )
 
     await update_business_rating(db, business.id)
-    await refresh_merchant_ai_summary(db, business.id)
     await cache_delete_pattern("search:*")
+    # Was a synchronous second LLM call on every review create -- the summary
+    # blocked the response on two sequential round-trips, and a burst of
+    # reviews meant one summary call per review. Debounced in the background
+    # task itself (see refresh_merchant_ai_summary_bg) so a burst produces one
+    # call, not N, and review submission no longer waits on it at all.
+    background_tasks.add_task(refresh_merchant_ai_summary_bg, business.id)
 
     await db.refresh(review)
     result = await db.execute(
@@ -173,11 +190,13 @@ async def update_review(
         provider = get_ai_provider()
         result = await provider.analyze_review_text(review.body)
         if review.ai_analysis:
-            review.ai_analysis.sentiment = Sentiment(result.sentiment)
+            review.ai_analysis.sentiment = Sentiment(coerce_sentiment(result.sentiment))
             review.ai_analysis.summary = result.summary
             review.ai_analysis.positives = result.positives
             review.ai_analysis.complaints = result.complaints
             review.ai_analysis.suggested_response = result.suggested_response
+            review.ai_analysis.provider = result.meta.provider
+            review.ai_analysis.degraded = result.meta.degraded
 
     await update_business_rating(db, review.business_id)
     result = await db.execute(
