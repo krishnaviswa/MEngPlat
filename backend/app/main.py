@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.routers import ai, analytics, auth, businesses, dashboard, maps, notifications, photos, reviews, search
+from app.services.ai import validate_startup_config
 
 settings = get_settings()
 
@@ -19,6 +20,9 @@ async def lifespan(app: FastAPI):
     # ones, so any column added to a model after its table already existed was
     # silently ignored on every deployed database.
     Path(settings.storage_local_path).mkdir(parents=True, exist_ok=True)
+    # Catch an unregistered AI_PROVIDER or a missing API key here, not on the
+    # first review a customer submits.
+    validate_startup_config()
     yield
 
 

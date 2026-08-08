@@ -83,12 +83,18 @@ def test_settings_are_read_per_call_not_at_import(monkeypatch):
 
         monkeypatch.setenv("AI_PROVIDER", "openai")
         get_settings.cache_clear()
-        assert get_ai_provider().provider_name == "openai_compatible"
+        assert get_ai_provider().provider_name == "openai"
     finally:
         get_settings.cache_clear()
 
 
-# NOTE: AI_PROVIDER is still Literal["mock", "openai", "deepseek"] in config.py,
-# so pydantic rejects an unrecognised value before create_provider() is reached.
-# Phase 1b drops that Literal in favour of validating against the registry,
-# which is what makes UnknownAIProviderError reachable from configuration.
+def test_unregistered_provider_name_is_rejected_at_creation(monkeypatch):
+    """AI_PROVIDER is a plain str now (was Literal["mock","openai","deepseek"]),
+    so create_provider(), not pydantic, is what rejects a typo."""
+    monkeypatch.setenv("AI_PROVIDER", "definitely-not-a-provider")
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(UnknownAIProviderError):
+            get_ai_provider()
+    finally:
+        get_settings.cache_clear()
