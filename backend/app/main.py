@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.database import Base, engine
 from app.routers import ai, analytics, auth, businesses, dashboard, maps, notifications, photos, reviews, search
 
 settings = get_settings()
@@ -14,8 +13,11 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # The schema is owned by Alembic -- `alembic upgrade head` runs in the start
+    # command, before this process boots. Base.metadata.create_all() used to run
+    # here, but it only ever CREATEs missing tables and never ALTERs existing
+    # ones, so any column added to a model after its table already existed was
+    # silently ignored on every deployed database.
     Path(settings.storage_local_path).mkdir(parents=True, exist_ok=True)
     yield
 

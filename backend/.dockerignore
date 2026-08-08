@@ -1,0 +1,19 @@
+# The Dockerfile does `COPY . .`, so anything not excluded here lands in the image.
+# A local .venv is built from Windows/macOS binaries and must never be copied into
+# the Linux container -- it would shadow the pip-installed packages.
+.venv/
+venv/
+env/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+.env
+.env.local
+
+uploads/
+*.db
+*.sqlite3

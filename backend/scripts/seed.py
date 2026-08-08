@@ -5,14 +5,13 @@ import asyncio
 from sqlalchemy import select
 
 from app.core.security import get_password_hash
-from app.database import AsyncSessionLocal, Base, engine
+from app.database import AsyncSessionLocal
 from app.models import Business, BusinessCategory, BusinessStatus, Category, Merchant, User, UserRole
 
 
 async def seed() -> None:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
+    # Tables are created by `alembic upgrade head`, which the start command runs
+    # before this script. Seeding no longer creates schema of its own.
     async with AsyncSessionLocal() as db:
         admin = await db.execute(select(User).where(User.email == "admin@merchanthub.ai"))
         if admin.scalar_one_or_none():
