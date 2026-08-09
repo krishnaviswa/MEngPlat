@@ -21,6 +21,16 @@ This repo is **MerchantHub AI** (MEngPlat): a full-stack merchant engagement pla
 - `frontend/` — Next.js 15 App Router, Tailwind
 - `docs/agents/` — live artifacts for the multi-agent workflow (templates + slices)
 - `.cursor/rules/` — Cursor rules; loaded automatically by `alwaysApply` and `globs`
+- `CLAUDE.md` (root + nested in `backend/`, `backend/app/models/`, `backend/app/services/`,
+  `backend/tests/`, `frontend/`, `docs/`) and `.claude/agents/` — Claude Code's equivalent
+  of `.cursor/rules/`, loaded automatically by directory instead of by glob. Mirrors the
+  same conventions and the same PM/Architect/Tester roles, so a session started in either
+  tool has the context of what the other has done.
+
+**Sync rule:** this project is developed with both Cursor and Claude Code. When you change
+a convention in `.cursor/rules/**`, port the same change to the matching `CLAUDE.md` /
+`.claude/agents/**` file in the same commit, and vice versa. See the parity table in the
+root [`CLAUDE.md`](CLAUDE.md) for the exact file-to-file mapping.
 
 ## Local development
 
