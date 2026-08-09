@@ -2,6 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -101,6 +102,17 @@ async def create_review(
     if not business or business.status != BusinessStatus.APPROVED:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found or not approved")
 
+    merchant_result = await db.execute(select(Merchant).where(Merchant.user_id == user.id))
+    merchant = merchant_result.scalar_one_or_none()
+    if merchant and business.merchant_id == merchant.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot review your own business")
+
+    existing = await db.execute(
+        select(Review).where(Review.author_id == user.id, Review.business_id == payload.business_id)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="You have already reviewed this business")
+
     review = Review(
         business_id=payload.business_id,
         author_id=user.id,
@@ -109,7 +121,12 @@ async def create_review(
         body=payload.body,
     )
     db.add(review)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="You have already reviewed this business"
+        ) from None
 
     provider = get_ai_provider()
     analysis_result = await provider.analyze_review_text(payload.body, {"business_id": str(payload.business_id)})

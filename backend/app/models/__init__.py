@@ -169,6 +169,7 @@ class BusinessCategory(Base):
 
 class Review(Base):
     __tablename__ = "reviews"
+    __table_args__ = (UniqueConstraint("author_id", "business_id", name="uq_author_business_review"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"), index=True)

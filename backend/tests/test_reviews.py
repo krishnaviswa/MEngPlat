@@ -296,6 +296,76 @@ class TestCreateReview:
             await reviews_module.create_review(payload, BackgroundTasks(), db, user)
         assert exc_info.value.status_code == 404
 
+    async def test_owner_merchant_reviews_own_business_returns_403(self, monkeypatch):
+        merchant_user = _make_user(role=UserRole.MERCHANT)
+        business = _make_business()
+        merchant = Merchant(id=business.merchant_id, user_id=merchant_user.id)
+        db = FakeDB(businesses=[business], merchants=[merchant])
+        monkeypatch.setattr(reviews_module, "get_ai_provider", lambda: FakeProvider())
+
+        payload = ReviewCreate(
+            business_id=business.id, rating=5, title="Great place", body="Loved my own café very much"
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            await reviews_module.create_review(payload, BackgroundTasks(), db, merchant_user)
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.detail == "Cannot review your own business"
+
+    async def test_merchant_reviews_other_business_succeeds(self, monkeypatch):
+        merchant_user = _make_user(role=UserRole.MERCHANT)
+        own_business = _make_business(name="Own Biz", slug="own-biz")
+        other_business = _make_business(name="Other Biz", slug="other-biz")
+        merchant = Merchant(id=own_business.merchant_id, user_id=merchant_user.id)
+        db = FakeDB(businesses=[own_business, other_business], merchants=[merchant])
+        monkeypatch.setattr(reviews_module, "get_ai_provider", lambda: FakeProvider())
+
+        payload = ReviewCreate(
+            business_id=other_business.id, rating=4, title="Nice spot", body="Good food and friendly staff here"
+        )
+        result = await reviews_module.create_review(payload, BackgroundTasks(), db, merchant_user)
+        assert result.rating == 4
+        assert result.business_id == other_business.id
+
+    async def test_duplicate_review_returns_409(self, monkeypatch):
+        user = _make_user()
+        business = _make_business()
+        existing = Review(
+            id=uuid.uuid4(),
+            business_id=business.id,
+            author_id=user.id,
+            rating=3,
+            body="First review on this business",
+        )
+        db = FakeDB(businesses=[business], reviews=[existing])
+        monkeypatch.setattr(reviews_module, "get_ai_provider", lambda: FakeProvider())
+
+        payload = ReviewCreate(
+            business_id=business.id, rating=5, title="Again", body="Trying to post a second review here"
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            await reviews_module.create_review(payload, BackgroundTasks(), db, user)
+        assert exc_info.value.status_code == 409
+        assert exc_info.value.detail == "You have already reviewed this business"
+
+    async def test_different_users_can_review_same_business(self, monkeypatch):
+        business = _make_business()
+        user_a = _make_user()
+        user_b = User(id=uuid.uuid4(), email="b@example.com", full_name="B", role=UserRole.CUSTOMER, is_active=True)
+        db = FakeDB(businesses=[business])
+        monkeypatch.setattr(reviews_module, "get_ai_provider", lambda: FakeProvider())
+
+        payload_a = ReviewCreate(
+            business_id=business.id, rating=5, title="Great", body="First customer loved this place a lot"
+        )
+        payload_b = ReviewCreate(
+            business_id=business.id, rating=4, title="Good", body="Second customer also enjoyed the visit"
+        )
+        result_a = await reviews_module.create_review(payload_a, BackgroundTasks(), db, user_a)
+        result_b = await reviews_module.create_review(payload_b, BackgroundTasks(), db, user_b)
+        assert result_a.rating == 5
+        assert result_b.rating == 4
+        assert len([r for r in db.reviews if r.business_id == business.id]) == 2
+
 
 class TestLikeReview:
     async def test_like_is_idempotent(self):

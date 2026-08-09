@@ -82,9 +82,10 @@ This starts PostgreSQL, Redis, the backend (which auto-seeds demo users, then ru
 | Admin    | `admin@merchanthub.ai` | `admin12345`  |
 | Merchant | `merchant@example.com` | `merchant123` |
 | Customer | `customer@example.com` | `customer123` |
+| Chennai demo (×10) | `demo.customer1@example.com` … `demo.customer10@example.com` | `demo12345` |
 
 
-`backend/scripts/seed.py` creates these three users plus one sample business, idempotently.
+`backend/scripts/seed.py` creates the three core demo users, one Portland sample business, and — on first run after the Chennai dataset is absent — ~20 Chrompet / Radha Nagar businesses in Chennai with synthetic hand-authored reviews, stock photo URLs, and mock AI analysis rows. Extra demo customers `demo.customer1@example.com` … `demo.customer10@example.com` share password `demo12345` so multiple reviews per business are possible without violating the one-review-per-user constraint. Seeding is idempotent in two phases: base Portland data if `admin@merchanthub.ai` is missing, then Chennai data if no business has `city == "Chennai"`.
 
 ### Running natively (no Docker)
 
@@ -505,7 +506,7 @@ erDiagram
 ### Indexes & constraints
 
 - Unique: `users.email`, `businesses.slug`, `categories.slug`
-- Unique pairs: `(user_id, business_id)` on `favorites`, `(user_id, review_id)` on `review_likes`
+- Unique pairs: `(user_id, business_id)` on `favorites`, `(user_id, review_id)` on `review_likes`, `(author_id, business_id)` on `reviews` (`uq_author_business_review` — one review per user per business)
 - Foreign keys with `CASCADE` on delete for reviews, photos, etc.
 
 ---
@@ -733,6 +734,8 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | ------ | --------------------------------- | -------- | --------------------------- |
 | GET    | `/reviews/business/{business_id}` | Public   | List reviews                |
 | POST   | `/reviews`                        | User     | Create review (triggers AI) |
+
+**POST `/reviews` errors:** `403` if a merchant reviews their own business (`"Cannot review your own business"`); `409` if the author already reviewed that business (`"You have already reviewed this business"`), including concurrent double-submit races caught by `uq_author_business_review`.
 | PATCH  | `/reviews/{id}`                   | Author   | Edit review                 |
 | DELETE | `/reviews/{id}`                   | Author   | Delete review               |
 | POST   | `/reviews/{id}/like`              | User     | Like review                 |
@@ -1545,7 +1548,7 @@ An honest delta between the original specification and what the code actually do
 | AI layer        | Pluggable provider — `mock` (canned, no network) or OpenAI-compatible (works for OpenAI *or* DeepSeek via `AI_BASE_URL`) |
 | Storage         | `local` disk provider implemented                                                                                        |
 | Frontend        | Home, search, business detail, login, register, profile, settings, merchant dashboard, admin                             |
-| Seeding         | `scripts/seed.py` — 3 demo users + 1 business, idempotent                                                                |
+| Seeding         | `scripts/seed.py` — Portland demo users + café; Chrompet/Radha Nagar ~20 Chennai businesses with synthetic reviews and mock AI rows, idempotent two-phase |
 | Local dev       | `docker compose up --build`                                                                                              |
 
 
