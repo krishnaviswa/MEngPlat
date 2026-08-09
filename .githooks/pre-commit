@@ -1,0 +1,9 @@
+#!/bin/sh
+# Blocks a commit that edits .cursor/rules/** without the matching CLAUDE.md /
+# .claude/agents/** update, or vice versa. See scripts/check_agent_config_sync.py
+# and the parity table in the root CLAUDE.md.
+#
+# One-time setup per clone: git config core.hooksPath .githooks
+
+python scripts/check_agent_config_sync.py --staged
+exit $?

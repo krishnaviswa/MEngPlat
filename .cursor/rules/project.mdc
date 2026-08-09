@@ -29,3 +29,28 @@ Monorepo: local-business review platform with AI insights.
 
 ## RBAC
 Use `require_roles()` from `app/dependencies.py`.
+
+## Claude Code parity
+
+This project is built with both Cursor and Claude Code. Every rule in `.cursor/rules/`
+has a mirror in Claude Code's native config, so a session started in either tool
+understands the whole repo:
+
+| This Cursor rule                  | Mirrors                                          |
+| ----------------------------------- | ------------------------------------------------- |
+| `project.mdc` (this file)         | `CLAUDE.md` (root)                                |
+| `backend-fastapi.mdc`             | `backend/CLAUDE.md`                               |
+| `frontend-nextjs.mdc`             | `frontend/CLAUDE.md`                              |
+| `ai-and-integrations.mdc`         | `backend/app/services/CLAUDE.md`                  |
+| `database.mdc`                    | `backend/app/models/CLAUDE.md`                    |
+| `docs-and-api.mdc`                | `docs/CLAUDE.md`                                  |
+| `testing.mdc`                     | `backend/tests/CLAUDE.md`, `frontend/CLAUDE.md`   |
+| `agents/workflow.mdc`             | "Multi-agent workflow" section of `CLAUDE.md`     |
+| `agents/role-product-manager.mdc` | `.claude/agents/product-manager.md`               |
+| `agents/role-architect.mdc`       | `.claude/agents/architect.md`                     |
+| `agents/role-tester.mdc`          | `.claude/agents/tester.md`                        |
+
+**Sync rule:** if you change a convention here, port it to the matching Claude Code file
+in the same commit, and vice versa. This is enforced, not advisory —
+`scripts/check_agent_config_sync.py` fails a commit or PR that edits one side of a pair
+without the other (see `README.md` §12 for the pre-commit hook and CI check).

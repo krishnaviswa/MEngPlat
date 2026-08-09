@@ -67,3 +67,11 @@ Do not skip steps. Do not implement before Architect fills the technical section
 Tell the agent explicitly: *"Act as Product Manager for slice S-00X"* or *"Run full cycle for S-00X"*.
 
 Builder work uses existing rules: `backend-fastapi`, `frontend-nextjs`, `ai-and-integrations`, etc.
+
+## Claude Code parity
+
+In Claude Code, this sequence is documented in the "Multi-agent workflow" section of the
+root `CLAUDE.md`, and the three roles are subagents in `.claude/agents/` (`product-manager.md`,
+`architect.md`, `tester.md`) instead of `.mdc` rule files — invoked the same way, e.g.
+*"Act as Product Manager for slice S-00X"*, or the Agent tool with `subagent_type: architect`.
+Keep this file and those in sync (enforced by `scripts/check_agent_config_sync.py`).

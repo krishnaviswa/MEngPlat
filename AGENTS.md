@@ -32,6 +32,11 @@ a convention in `.cursor/rules/**`, port the same change to the matching `CLAUDE
 `.claude/agents/**` file in the same commit, and vice versa. See the parity table in the
 root [`CLAUDE.md`](CLAUDE.md) for the exact file-to-file mapping.
 
+This is enforced automatically, not just a convention: [`scripts/check_agent_config_sync.py`](scripts/check_agent_config_sync.py)
+fails if one side of a pair changed without the other, wired up as both a local pre-commit
+hook (`.githooks/pre-commit`, enable with `git config core.hooksPath .githooks`) and a
+required CI check (`.github/workflows/agent-config-sync.yml`).
+
 ## Local development
 
 ```bash

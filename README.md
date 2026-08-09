@@ -1191,7 +1191,6 @@ These are real and currently unmitigated. They are acceptable for a local demo, 
 | 4   | `debug: bool = True` default                                                                                  | Verbose errors can leak internals                                                      | Default to `False`, enable per-environment                                           |
 | 5   | No MIME/size validation on upload                                                                             | Arbitrary file content and size accepted into `/uploads`                               | Validate content type and cap size in `LocalStorageProvider.save()`                  |
 | 6   | `/uploads` served as unauthenticated static files                                                             | Any uploaded photo is world-readable to anyone with the URL                            | Acceptable for public gallery photos; use signed URLs if private media is ever added |
-| 7   | No token revocation / denylist                                                                                | A stolen refresh token stays valid for its full 7 days                                 | Persist a `jti` denylist, or rotate refresh tokens on use                            |
 
 
 
@@ -1382,8 +1381,13 @@ MEngPlat/
 ├── docker-compose.yml          # Local dev: postgres, redis, backend, frontend
 ├── README.md                   # ← this file, the single source of truth
 ├── AGENTS.md                   # Pointer for AI coding agents
+├── CLAUDE.md                   # Claude Code config (root) — mirrors .cursor/rules/project.mdc
 │
 ├── .cursor/rules/              # Cursor AI rules (builder + agent layers)
+├── .claude/agents/             # Claude Code subagents — mirror .cursor/rules/agents/
+├── .githooks/pre-commit        # Blocks a commit if Cursor/Claude config falls out of sync
+├── .github/workflows/          # CI, incl. the same config-sync check on every PR
+├── scripts/check_agent_config_sync.py  # Enforces the Cursor ↔ Claude Code sync rule
 │
 ├── docs/agents/                # Live multi-agent artifacts (see §13)
 │   ├── slices/_TEMPLATE.md
@@ -1442,25 +1446,48 @@ MEngPlat/
 
 
 
-### Cursor rules
+### AI coding tool configuration (Cursor + Claude Code)
 
+This repo is built with both Cursor and Claude Code, so every convention is defined
+**twice, in each tool's native format** — a session started in either tool should
+understand the whole repo, and what the other tool already did to it.
 
-| Layer   | Rule                              | Scope                          |
-| ------- | --------------------------------- | ------------------------------ |
-| Builder | `project.mdc`                     | Always applies                 |
-| Builder | `backend-fastapi.mdc`             | `backend/**/*`                 |
-| Builder | `frontend-nextjs.mdc`             | `frontend/**/*`                |
-| Builder | `ai-and-integrations.mdc`         | `backend/app/services/**/*`    |
-| Builder | `database.mdc`                    | `backend/app/models/**/*`      |
-| Builder | `docs-and-api.mdc`                | `docs/**/*`                    |
-| Builder | `testing.mdc`                     | test files                     |
-| Agent   | `agents/workflow.mdc`             | Multi-agent orchestration      |
-| Agent   | `agents/role-product-manager.mdc` | `docs/agents/slices/**/*`      |
-| Agent   | `agents/role-architect.mdc`       | slices, ADRs, architecture     |
-| Agent   | `agents/role-tester.mdc`          | test plans, reports, test code |
+- **Cursor** reads `.cursor/rules/**` (`.mdc` files, attached via `alwaysApply` or `globs`).
+- **Claude Code** reads `CLAUDE.md` — the root file always, plus one nested in each scoped
+  directory below, loaded automatically the same way `globs` attaches a Cursor rule — and
+  invokes the PM/Architect/Tester roles as subagents from `.claude/agents/`.
 
+| Layer   | Cursor rule (`.cursor/rules/`)    | Claude Code equivalent                          | Scope                           |
+| ------- | ---------------------------------- | ------------------------------------------------ | -------------------------------- |
+| Builder | `project.mdc`                     | `CLAUDE.md` (root)                                | Always applies                   |
+| Builder | `backend-fastapi.mdc`             | `backend/CLAUDE.md`                               | `backend/**/*`                   |
+| Builder | `frontend-nextjs.mdc`             | `frontend/CLAUDE.md`                              | `frontend/**/*`                  |
+| Builder | `ai-and-integrations.mdc`         | `backend/app/services/CLAUDE.md`                  | `backend/app/services/**/*`      |
+| Builder | `database.mdc`                    | `backend/app/models/CLAUDE.md`                    | `backend/app/models/**/*`        |
+| Builder | `docs-and-api.mdc`                | `docs/CLAUDE.md`                                  | `docs/**/*`, `README.md`         |
+| Builder | `testing.mdc`                     | `backend/tests/CLAUDE.md`, `frontend/CLAUDE.md`   | test files                       |
+| Agent   | `agents/workflow.mdc`             | "Multi-agent workflow" section of `CLAUDE.md`     | Multi-agent orchestration        |
+| Agent   | `agents/role-product-manager.mdc` | `.claude/agents/product-manager.md`               | `docs/agents/slices/**/*`        |
+| Agent   | `agents/role-architect.mdc`       | `.claude/agents/architect.md`                     | slices, ADRs, architecture       |
+| Agent   | `agents/role-tester.mdc`          | `.claude/agents/tester.md`                        | test plans, reports, test code   |
 
-Cursor loads these automatically via `alwaysApply` and `globs` — you do not enable them manually. Opening the relevant file attaches the right rules.
+Neither side is enabled manually: Cursor auto-attaches by `alwaysApply`/`globs`; Claude
+Code auto-loads `CLAUDE.md` by directory and the subagents by explicit role invocation
+(e.g. *"Act as Architect for slice S-00X"*, or the Agent tool with `subagent_type: architect`).
+
+**Enforcing the sync, not just documenting it.** A convention change is only real if it
+lands in both files. Whoever does the code change — human, Cursor, or Claude Code — is
+expected to update both sides in the same commit, and the repo checks that automatically:
+
+- [`scripts/check_agent_config_sync.py`](scripts/check_agent_config_sync.py) encodes the
+  table above as pairs of files that must change together. Given a set of changed files,
+  it fails if one side of a pair changed without the other.
+- [`.githooks/pre-commit`](.githooks/pre-commit) runs that check against staged files
+  before every local commit. One-time setup per clone: `git config core.hooksPath .githooks`.
+- [`.github/workflows/agent-config-sync.yml`](.github/workflows/agent-config-sync.yml) runs
+  the same check over the full diff on every PR and push to `main`. Add it as a **required
+  status check** in GitHub branch protection to make the sync rule non-bypassable, not just
+  advisory.
 
 ---
 
@@ -1597,7 +1624,7 @@ An honest delta between the original specification and what the code actually do
 | --------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Backend routers | 10, all wired into `main.py`                                                                                             |
 | Data models     | 19 SQLAlchemy models                                                                                                     |
-| Auth            | JWT access/refresh via `python-jose`, bcrypt hashing, `require_roles()` RBAC                                             |
+| Auth            | JWT access/refresh via `python-jose`, bcrypt hashing, `require_roles()` RBAC, token revocation via Redis `jti` blocklist on logout |
 | AI layer        | Pluggable provider — `mock` (canned, no network) or OpenAI-compatible (works for OpenAI *or* DeepSeek via `AI_BASE_URL`) |
 | Storage         | `local` disk provider implemented                                                                                        |
 | Frontend        | Home, search (map + location), business detail, login, register, profile, settings, merchant dashboard + business create/edit, admin moderation queues |
@@ -1616,9 +1643,9 @@ An honest delta between the original specification and what the code actually do
 | **Favorites unwired**                     | The `Favorite` table exists in the models, but there is no favorites router/endpoint and no UI. Tracked as the S-011 example slice (§13), never carried through to implementation.              |
 | **S3 / Azure storage are stubs**          | Both raise `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). Only `local` works.                                                                                     |
 | **Thin tests**                            | 3 backend + 1 frontend test, no fixtures, no DB isolation. See §11.                                                                                                                             |
-| **OAuth is a placeholder**                | `/auth/oauth/callback` and `/auth/logout` are stubs. Google ID-token sign-in via `POST /auth/google` is implemented when `GOOGLE_CLIENT_ID` is set. |
+| **OAuth callback is a placeholder**       | `/auth/oauth/callback` is a stub. Google ID-token sign-in via `POST /auth/google` is implemented when `GOOGLE_CLIENT_ID` is set. `/auth/logout` is fully implemented (Redis `jti` blocklist), not a stub. |
 | **Multi-agent workflow is scaffold-only** | `adrs/`, `test-plans/`, `test-reports/` contain only their `_TEMPLATE.md`. No real ADRs, plans, or reports written. `slices/` has exactly one slice (S-011, Draft/example).                     |
-| **Security items 1–7**                    | See [§9 Known weaknesses](#known-weaknesses--read-before-deploying).                                                                                                                            |
+| **Security items 1–6**                    | See [§9 Known weaknesses](#known-weaknesses--read-before-deploying).                                                                                                                            |
 | **No structured logging**                 | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                          |
 | **No CI/CD**                              | No GitHub Actions workflow.                                                                                                                                                                     |
 

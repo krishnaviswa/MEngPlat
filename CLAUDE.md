@@ -55,7 +55,10 @@ Claude Code loads nested `CLAUDE.md` files automatically when it works in that d
 the same way Cursor auto-attaches a rule when a file matches its `globs`.
 
 **Sync rule:** if you change conventions in one tool's config, port the change to the
-other's in the same commit. Don't let them drift.
+other's in the same commit. Don't let them drift. This is enforced, not just advisory —
+see [`scripts/check_agent_config_sync.py`](scripts/check_agent_config_sync.py) and
+`README.md` §12 for the pre-commit hook and CI check that fail when a pair falls out of
+sync.
 
 ## Multi-agent workflow
 
