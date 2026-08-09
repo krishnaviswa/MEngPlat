@@ -3,10 +3,21 @@ export function FilterPanel() {
   return (
     <aside className="rounded-xl border bg-white p-4">
       <h3 className="font-semibold text-gray-900">Filters</h3>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <a href="/search?city=Chennai" className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-800 hover:bg-brand-100">
+          Chennai
+        </a>
+        <a href="/search?q=Chrompet" className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-800 hover:bg-brand-100">
+          Chrompet
+        </a>
+        <a href="/search?q=Radha+Nagar" className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-800 hover:bg-brand-100">
+          Radha Nagar
+        </a>
+      </div>
       <form action="/search" method="get" className="mt-4 space-y-4">
         <div>
           <label className="text-sm text-gray-600">City</label>
-          <input name="city" className="mt-1 w-full rounded border px-3 py-2 text-sm" placeholder="Portland" />
+          <input name="city" className="mt-1 w-full rounded border px-3 py-2 text-sm" placeholder="Chennai" />
         </div>
         <div>
           <label className="text-sm text-gray-600">Category</label>

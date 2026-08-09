@@ -18,6 +18,14 @@ export interface Business {
   description?: string;
   address: string;
   city: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  phone?: string;
+  email?: string;
+  website?: string;
   average_rating: number;
   review_count: number;
   logo_url?: string;

@@ -67,18 +67,15 @@ async def _seed_base(db) -> tuple[Merchant, list[Category]]:
     await db.flush()
     db.add(BusinessCategory(business_id=business.id, category_id=categories[4].id))
 
-    return merchant, categories
+    return merchant, list(categories)
 
 
 async def seed() -> None:
     # Tables are created by `alembic upgrade head`, which the start command runs
     # before this script. Seeding no longer creates schema of its own.
+    # Chrompet/Radha Nagar data is upserted on every run so image/review refreshes land
+    # on already-seeded databases (not only on empty volumes).
     async with AsyncSessionLocal() as db:
-        chennai_exists = await db.execute(select(Business.id).where(Business.city == "Chennai").limit(1))
-        if chennai_exists.scalar_one_or_none():
-            print("Database already seeded (Chennai demo data present).")
-            return
-
         admin = await db.execute(select(User).where(User.email == "admin@merchanthub.ai"))
         if not admin.scalar_one_or_none():
             merchant, categories = await _seed_base(db)
@@ -87,7 +84,7 @@ async def seed() -> None:
                 select(Merchant).join(User, Merchant.user_id == User.id).where(User.email == "merchant@example.com")
             )
             merchant = merchant_result.scalar_one()
-            categories = (await db.execute(select(Category))).scalars().all()
+            categories = list((await db.execute(select(Category))).scalars().all())
 
         counts = await seed_chennai(db, merchant, categories)
         await db.commit()
@@ -96,9 +93,15 @@ async def seed() -> None:
         print("  Admin:    admin@merchanthub.ai / admin12345")
         print("  Merchant: merchant@example.com / merchant123")
         print("  Customer: customer@example.com / customer123")
-        print(f"  Chennai demo customers: demo.customer1@example.com … demo.customer{counts['customers']}@example.com / {CHENNAI_CUSTOMER_PASSWORD}")
-        print(f"  Chennai businesses: {counts['businesses']} (Chrompet / Radha Nagar)")
-        print(f"  Chennai reviews: {counts['reviews']} (synthetic, hand-authored)")
+        print(
+            f"  Chennai demo customers: demo.customer1@example.com … "
+            f"demo.customer{counts['customers']}@example.com / {CHENNAI_CUSTOMER_PASSWORD}"
+        )
+        print(
+            f"  Chrompet / Radha Nagar: {counts['businesses']} businesses "
+            f"(created={counts.get('created', 0)}, refreshed={counts.get('refreshed', 0)}), "
+            f"new reviews this run={counts['reviews']}"
+        )
 
 
 if __name__ == "__main__":

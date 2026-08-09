@@ -85,7 +85,7 @@ This starts PostgreSQL, Redis, the backend (which auto-seeds demo users, then ru
 | Chennai demo (×10) | `demo.customer1@example.com` … `demo.customer10@example.com` | `demo12345` |
 
 
-`backend/scripts/seed.py` creates the three core demo users, one Portland sample business, and — on first run after the Chennai dataset is absent — ~20 Chrompet / Radha Nagar businesses in Chennai with synthetic hand-authored reviews, stock photo URLs, and mock AI analysis rows. Extra demo customers `demo.customer1@example.com` … `demo.customer10@example.com` share password `demo12345` so multiple reviews per business are possible without violating the one-review-per-user constraint. Seeding is idempotent in two phases: base Portland data if `admin@merchanthub.ai` is missing, then Chennai data if no business has `city == "Chennai"`.
+`backend/scripts/seed.py` creates the three core demo users, one Portland sample business, and upserts ~20 Chrompet / Radha Nagar businesses in Chennai with synthetic hand-authored reviews, Unsplash stock photos (storefront + gallery + some review photos), and mock AI analysis rows. Extra demo customers `demo.customer1@example.com` … `demo.customer10@example.com` share password `demo12345`. Seeding is safe to re-run: base users/categories are created if missing, then Chennai shops are created or refreshed (images/addresses) on every start.
 
 ### Running natively (no Docker)
 
@@ -1548,7 +1548,7 @@ An honest delta between the original specification and what the code actually do
 | AI layer        | Pluggable provider — `mock` (canned, no network) or OpenAI-compatible (works for OpenAI *or* DeepSeek via `AI_BASE_URL`) |
 | Storage         | `local` disk provider implemented                                                                                        |
 | Frontend        | Home, search, business detail, login, register, profile, settings, merchant dashboard, admin                             |
-| Seeding         | `scripts/seed.py` — Portland demo users + café; Chrompet/Radha Nagar ~20 Chennai businesses with synthetic reviews and mock AI rows, idempotent two-phase |
+| Seeding         | `scripts/seed.py` — Portland demo + upsert Chrompet/Radha Nagar (~20 Chennai businesses, Unsplash photos, synthetic reviews) |
 | Local dev       | `docker compose up --build`                                                                                              |
 
 

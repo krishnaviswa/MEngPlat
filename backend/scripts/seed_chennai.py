@@ -354,9 +354,82 @@ _SENTIMENT_FOR_RATING = {
     1: Sentiment.NEGATIVE,
 }
 
+# Freely hotlinkable Unsplash photos (stock) — category-themed so listings look like a local map directory.
+_CATEGORY_STOREFRONTS: dict[str, list[str]] = {
+    "restaurant": [
+        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&h=800&q=80",
+        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&h=800&q=80",
+        "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&h=800&q=80",
+        "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&h=800&q=80",
+        "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=1200&h=800&q=80",
+    ],
+    "cafe": [
+        "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&h=800&q=80",
+        "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&h=800&q=80",
+        "https://images.unsplash.com/photo-1442512595331-e89e7384260c?auto=format&fit=crop&w=1200&h=800&q=80",
+        "https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&w=1200&h=800&q=80",
+    ],
+    "salon": [
+        "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1200&h=800&q=80",
+        "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=1200&h=800&q=80",
+        "https://images.unsplash.com/photo-1633681926022-84c23e8cb2d7?auto=format&fit=crop&w=1200&h=800&q=80",
+    ],
+    "pharmacy": [
+        "https://images.unsplash.com/photo-1576602976047-174e57a47881?auto=format&fit=crop&w=1200&h=800&q=80",
+        "https://images.unsplash.com/photo-1587854692159-eb1d381c3c48?auto=format&fit=crop&w=1200&h=800&q=80",
+        "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=1200&h=800&q=80",
+    ],
+    "grocery": [
+        "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&h=800&q=80",
+        "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=1200&h=800&q=80",
+        "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1200&h=800&q=80",
+        "https://images.unsplash.com/photo-1534723452862-4c874018d66d?auto=format&fit=crop&w=1200&h=800&q=80",
+    ],
+}
 
-def _picsum(seed: str, width: int = 800, height: int = 600) -> str:
-    return f"https://picsum.photos/seed/{seed}/{width}/{height}"
+_CATEGORY_GALLERY: dict[str, list[str]] = {
+    "restaurant": [
+        "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=800&h=600&q=80",
+        "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=800&h=600&q=80",
+        "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=800&h=600&q=80",
+    ],
+    "cafe": [
+        "https://images.unsplash.com/photo-1511920170033-901324e5af66?auto=format&fit=crop&w=800&h=600&q=80",
+        "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&h=600&q=80",
+        "https://images.unsplash.com/photo-1485808191679-5f86510681a2?auto=format&fit=crop&w=800&h=600&q=80",
+    ],
+    "salon": [
+        "https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?auto=format&fit=crop&w=800&h=600&q=80",
+        "https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=800&h=600&q=80",
+    ],
+    "pharmacy": [
+        "https://images.unsplash.com/photo-1585435557343-3b092031a831?auto=format&fit=crop&w=800&h=600&q=80",
+        "https://images.unsplash.com/photo-1471864190281-a93a3070b6de?auto=format&fit=crop&w=800&h=600&q=80",
+    ],
+    "grocery": [
+        "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=800&h=600&q=80",
+        "https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&fit=crop&w=800&h=600&q=80",
+    ],
+}
+
+
+def _pick(pool: list[str], key: str, offset: int = 0) -> str:
+    return pool[(sum(ord(c) for c in key) + offset) % len(pool)]
+
+
+def _storefront_url(category: str, slug: str) -> str:
+    return _pick(_CATEGORY_STOREFRONTS.get(category, _CATEGORY_STOREFRONTS["restaurant"]), slug)
+
+
+def _logo_url(category: str, slug: str) -> str:
+    # Smaller crop of a related storefront for card thumbnails.
+    base = _pick(_CATEGORY_STOREFRONTS.get(category, _CATEGORY_STOREFRONTS["restaurant"]), slug, offset=1)
+    return base.replace("w=1200&h=800", "w=400&h=400")
+
+
+def _gallery_urls(category: str, slug: str) -> list[str]:
+    pool = _CATEGORY_GALLERY.get(category, _CATEGORY_GALLERY["restaurant"])
+    return [_pick(pool, slug, offset=i) for i in range(min(3, len(pool)))]
 
 
 async def seed_chennai(
@@ -364,7 +437,7 @@ async def seed_chennai(
     merchant: Merchant,
     categories: list[Category],
 ) -> dict[str, int]:
-    """Insert Chrompet / Radha Nagar demo data. Caller must commit."""
+    """Upsert Chrompet / Radha Nagar demo data (safe to re-run). Caller must commit."""
     category_by_slug = {c.slug: c for c in categories}
 
     existing_customers = (
@@ -384,52 +457,99 @@ async def seed_chennai(
         customers.append(customer)
     await db.flush()
 
+    existing_by_slug = {
+        b.slug: b
+        for b in (
+            await db.execute(select(Business).where(Business.city == "Chennai"))
+        ).scalars().all()
+    }
+
     business_count = 0
     review_count = 0
+    created = 0
+    refreshed = 0
 
     for idx, spec in enumerate(_CHENNAI_BUSINESSES):
         lat_j, lng_j = spec["jitter"]
         slug = spec["slug"]
-        business = Business(
-            merchant_id=merchant.id,
-            name=spec["name"],
-            slug=slug,
-            description=spec["description"],
-            address=spec["address"],
-            city="Chennai",
-            state="TN",
-            postal_code=spec["postal_code"],
-            country="IN",
-            latitude=_CHENNAI_BASE_LAT + lat_j,
-            longitude=_CHENNAI_BASE_LNG + lng_j,
-            phone=spec["phone"],
-            email=f"hello@{slug}.example",
-            logo_url=_picsum(f"{slug}-logo", 200, 200),
-            storefront_url=_picsum(slug, 800, 600),
-            business_hours={"mon-sat": "9am-9pm", "sun": "10am-8pm"},
-            status=BusinessStatus.APPROVED,
-        )
-        db.add(business)
-        await db.flush()
+        category = spec["category"]
+        storefront = _storefront_url(category, slug)
+        logo = _logo_url(category, slug)
+
+        business = existing_by_slug.get(slug)
+        if business is None:
+            business = Business(
+                merchant_id=merchant.id,
+                name=spec["name"],
+                slug=slug,
+                description=spec["description"],
+                address=spec["address"],
+                city="Chennai",
+                state="TN",
+                postal_code=spec["postal_code"],
+                country="IN",
+                latitude=_CHENNAI_BASE_LAT + lat_j,
+                longitude=_CHENNAI_BASE_LNG + lng_j,
+                phone=spec["phone"],
+                email=f"hello@{slug}.example",
+                logo_url=logo,
+                storefront_url=storefront,
+                business_hours={"mon-sat": "9am-9pm", "sun": "10am-8pm"},
+                status=BusinessStatus.APPROVED,
+            )
+            db.add(business)
+            await db.flush()
+            created += 1
+
+            cat = category_by_slug.get(category)
+            if cat:
+                db.add(BusinessCategory(business_id=business.id, category_id=cat.id))
+        else:
+            business.name = spec["name"]
+            business.description = spec["description"]
+            business.address = spec["address"]
+            business.postal_code = spec["postal_code"]
+            business.latitude = _CHENNAI_BASE_LAT + lat_j
+            business.longitude = _CHENNAI_BASE_LNG + lng_j
+            business.phone = spec["phone"]
+            business.logo_url = logo
+            business.storefront_url = storefront
+            business.status = BusinessStatus.APPROVED
+            refreshed += 1
+
         business_count += 1
 
-        cat = category_by_slug.get(spec["category"])
-        if cat:
-            db.add(BusinessCategory(business_id=business.id, category_id=cat.id))
+        # Replace gallery photos with fresh stock URLs so re-seed upgrades picsum → Unsplash.
+        old_photos = (
+            await db.execute(select(Photo).where(Photo.business_id == business.id, Photo.review_id.is_(None)))
+        ).scalars().all()
+        for photo in old_photos:
+            db.delete(photo)
+        await db.flush()
 
-        db.add(
-            Photo(
-                business_id=business.id,
-                uploaded_by=customers[idx % len(customers)].id,
-                url=_picsum(f"{slug}-gallery-1", 800, 600),
-                caption="Storefront view",
-                photo_type="gallery",
+        for g_idx, url in enumerate(_gallery_urls(category, slug)):
+            db.add(
+                Photo(
+                    business_id=business.id,
+                    uploaded_by=customers[idx % len(customers)].id,
+                    url=url,
+                    caption="Storefront" if g_idx == 0 else f"Inside / product {g_idx}",
+                    photo_type="storefront" if g_idx == 0 else "gallery",
+                )
             )
-        )
+
+        existing_review_authors = {
+            row[0]
+            for row in (
+                await db.execute(select(Review.author_id).where(Review.business_id == business.id))
+            ).all()
+        }
 
         reviews_for_business = _CHENNAI_REVIEWS.get(slug, [])
         for r_idx, review_spec in enumerate(reviews_for_business):
             author = customers[(idx + r_idx) % len(customers)]
+            if author.id in existing_review_authors:
+                continue
             review = Review(
                 business_id=business.id,
                 author_id=author.id,
@@ -440,6 +560,22 @@ async def seed_chennai(
             db.add(review)
             await db.flush()
             review_count += 1
+            existing_review_authors.add(author.id)
+
+            # Attach a food/shop photo to every other review for a Maps-like feed.
+            if r_idx % 2 == 0:
+                db.add(
+                    Photo(
+                        review_id=review.id,
+                        uploaded_by=author.id,
+                        url=_pick(
+                            _CATEGORY_GALLERY.get(category, _CATEGORY_GALLERY["restaurant"]),
+                            f"{slug}-review-{r_idx}",
+                        ),
+                        caption="Customer photo",
+                        photo_type="review",
+                    )
+                )
 
             sentiment = _SENTIMENT_FOR_RATING.get(review_spec["rating"], Sentiment.NEUTRAL)
             db.add(
@@ -463,4 +599,6 @@ async def seed_chennai(
         "businesses": business_count,
         "reviews": review_count,
         "customers": len(customers),
+        "created": created,
+        "refreshed": refreshed,
     }
