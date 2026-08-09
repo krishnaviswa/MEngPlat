@@ -294,6 +294,7 @@ async def reply_to_review(
 
     reply = Reply(review_id=review_id, merchant_id=merchant.id, body=payload.body)
     db.add(reply)
+    await db.flush()
     await db.refresh(reply)
     return ReplyResponse.model_validate(reply)
 

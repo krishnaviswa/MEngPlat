@@ -9,6 +9,11 @@ so the regression test for that (test_create_review_eager_loads_reply)
 instead asserts on the SELECT statement's loader options directly: the bug
 was a *missing* selectinload(Review.reply), and that's exactly what's
 checked, independent of whether the db is real or fake.
+
+FakeDB.refresh() does enforce one thing a real AsyncSession would: it raises
+if called on an object that was never add()-ed and flush()-ed first, since a
+real session raises InvalidRequestError in that case (this caught a genuine
+missing-flush() bug in reply_to_review's new-reply path).
 """
 
 import uuid
@@ -100,6 +105,14 @@ class FakeDB:
         self.added: list[object] = []
         self.deleted: list[object] = []
         self.executed_statements: list[object] = []
+        # Pre-seeded fixture rows represent existing DB state and are already
+        # persistent; objects passed to add() need an intervening flush()
+        # before refresh(), same as a real session enforces.
+        self._persistent_ids = {
+            id(o)
+            for table in (self.businesses, self.merchants, self.reviews, self.likes, self.reports, self.replies)
+            for o in table
+        }
 
     def _table_for(self, model):
         return {
@@ -147,12 +160,17 @@ class FakeDB:
     async def flush(self):
         for obj in self.added:
             _apply_pending_defaults(obj)
+            self._persistent_ids.add(id(obj))
 
     async def refresh(self, obj):
-        # A real db.refresh() implies whatever flush was needed to resolve
-        # this object's pending state, then reloads server-generated columns
-        # -- reply_to_review calls refresh() on a brand-new Reply without an
-        # intervening flush(), so the defaults have to apply here too.
+        # Real SQLAlchemy raises InvalidRequestError if you refresh() an
+        # object that was never flushed -- enforce the same here so a missing
+        # flush() in route code fails the test instead of silently working.
+        if id(obj) not in self._persistent_ids:
+            raise AssertionError(
+                "FakeDB.refresh() called on an object that was never added+flushed -- "
+                "a real AsyncSession would raise InvalidRequestError here; add a flush() call"
+            )
         _apply_pending_defaults(obj)
 
     async def delete(self, obj):
