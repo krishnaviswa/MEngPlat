@@ -28,6 +28,7 @@ export interface Business {
 
 export interface Review {
   id: string;
+  business_id: string;
   rating: number;
   title?: string;
   body: string;
@@ -39,7 +40,15 @@ export interface Review {
     summary?: string;
     suggested_response?: string;
   };
+  reply?: { id: string; body: string; created_at: string } | null;
   photo_urls?: string[];
+}
+
+export interface Photo {
+  id: string;
+  url: string;
+  caption?: string;
+  photo_type: string;
 }
 
 export interface TokenResponse {
@@ -149,6 +158,30 @@ export const reviews = {
   list: (businessId: string) => apiFetch<Review[]>(`/api/v1/reviews/business/${businessId}`),
   create: (data: { business_id: string; rating: number; title?: string; body: string }) =>
     apiFetch<Review>("/api/v1/reviews", { method: "POST", body: JSON.stringify(data) }),
+  like: (id: string) => apiFetch<{ message: string }>(`/api/v1/reviews/${id}/like`, { method: "POST" }),
+  report: (id: string, reason: string) =>
+    apiFetch<{ message: string }>(`/api/v1/reviews/${id}/report`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+  reply: (id: string, body: string) =>
+    apiFetch<{ id: string; body: string; created_at: string }>(`/api/v1/reviews/${id}/reply`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    }),
+};
+
+export const photos = {
+  listForBusiness: (businessId: string) => apiFetch<Photo[]>(`/api/v1/photos/business/${businessId}`),
+  upload: (file: File, opts: { reviewId?: string; businessId?: string; photoType?: string; caption?: string }) => {
+    const form = new FormData();
+    form.append("file", file);
+    if (opts.businessId) form.append("business_id", opts.businessId);
+    if (opts.reviewId) form.append("review_id", opts.reviewId);
+    if (opts.photoType) form.append("photo_type", opts.photoType);
+    if (opts.caption) form.append("caption", opts.caption);
+    return apiFetch<Photo>("/api/v1/photos/upload", { method: "POST", body: form });
+  },
 };
 
 export const dashboard = {

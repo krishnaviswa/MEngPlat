@@ -1,20 +1,56 @@
-import type { Review } from "@/lib/api";
+"use client";
+
+import { useState } from "react";
 import { RatingWidget } from "./RatingWidget";
+import { API_URL } from "@/lib/api";
+import type { Review } from "@/lib/api";
 
 interface ReviewCardProps {
   review: Review;
   onLike?: (id: string) => void;
-  onReport?: (id: string) => void;
+  onReport?: (id: string, reason: string) => void;
   showActions?: boolean;
+  canReply?: boolean;
+  onReply?: (id: string, body: string) => void;
 }
 
-/** ReviewCard — single review with AI sentiment badge and optional actions. */
-export function ReviewCard({ review, onLike, onReport, showActions = true }: ReviewCardProps) {
+function resolveUrl(url: string): string {
+  return url.startsWith("http") ? url : `${API_URL}${url}`;
+}
+
+/** ReviewCard — single review with AI sentiment badge, optional actions, and merchant reply. */
+export function ReviewCard({ review, onLike, onReport, showActions = true, canReply = false, onReply }: ReviewCardProps) {
+  const [reporting, setReporting] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [replying, setReplying] = useState(false);
+  const [replyBody, setReplyBody] = useState("");
+  const [submittingReply, setSubmittingReply] = useState(false);
+
   const sentiment = review.ai_analysis?.sentiment;
   const sentimentColor =
     sentiment === "positive" ? "bg-green-100 text-green-800" :
     sentiment === "negative" ? "bg-red-100 text-red-800" :
     "bg-gray-100 text-gray-800";
+
+  function submitReport(e: React.FormEvent) {
+    e.preventDefault();
+    onReport?.(review.id, reportReason);
+    setReporting(false);
+    setReportReason("");
+  }
+
+  async function submitReply(e: React.FormEvent) {
+    e.preventDefault();
+    if (!onReply) return;
+    setSubmittingReply(true);
+    try {
+      await onReply(review.id, replyBody);
+      setReplying(false);
+      setReplyBody("");
+    } finally {
+      setSubmittingReply(false);
+    }
+  }
 
   return (
     <article className="rounded-xl border bg-white p-4 shadow-sm">
@@ -39,7 +75,7 @@ export function ReviewCard({ review, onLike, onReport, showActions = true }: Rev
       {review.photo_urls && review.photo_urls.length > 0 && (
         <div className="mt-3 flex gap-2">
           {review.photo_urls.map((url) => (
-            <img key={url} src={url} alt="" className="h-16 w-16 rounded object-cover" />
+            <img key={url} src={resolveUrl(url)} alt="" className="h-16 w-16 rounded object-cover" />
           ))}
         </div>
       )}
@@ -48,10 +84,86 @@ export function ReviewCard({ review, onLike, onReport, showActions = true }: Rev
           <button onClick={() => onLike?.(review.id)} className="hover:text-brand-600">
             👍 {review.like_count}
           </button>
-          <button onClick={() => onReport?.(review.id)} className="hover:text-red-600">
-            Report
-          </button>
+          {!reporting && (
+            <button onClick={() => setReporting(true)} className="hover:text-red-600">
+              Report
+            </button>
+          )}
         </div>
+      )}
+      {reporting && (
+        <form onSubmit={submitReport} className="mt-3 space-y-2 rounded border border-red-100 bg-red-50 p-3">
+          <textarea
+            required
+            minLength={10}
+            value={reportReason}
+            onChange={(e) => setReportReason(e.target.value)}
+            placeholder="Why are you reporting this review? (min 10 characters)"
+            className="w-full rounded border px-2 py-1 text-sm"
+            rows={2}
+          />
+          <div className="flex gap-2">
+            <button type="submit" className="rounded bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700">
+              Submit report
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setReporting(false);
+                setReportReason("");
+              }}
+              className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+      {review.reply && (
+        <div className="mt-3 rounded border-l-2 border-brand-300 bg-gray-50 p-3">
+          <p className="text-xs font-medium text-gray-500">Response from the business</p>
+          <p className="mt-1 text-sm text-gray-700">{review.reply.body}</p>
+        </div>
+      )}
+      {canReply && !review.reply && !replying && (
+        <button
+          onClick={() => setReplying(true)}
+          className="mt-3 text-sm text-brand-600 hover:text-brand-700"
+        >
+          Reply as business
+        </button>
+      )}
+      {canReply && !review.reply && replying && (
+        <form onSubmit={submitReply} className="mt-3 space-y-2 rounded border p-3">
+          <textarea
+            required
+            minLength={5}
+            value={replyBody}
+            onChange={(e) => setReplyBody(e.target.value)}
+            placeholder="Write a response to this review"
+            className="w-full rounded border px-2 py-1 text-sm"
+            rows={2}
+          />
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={submittingReply}
+              className="rounded bg-brand-600 px-3 py-1 text-sm text-white hover:bg-brand-700 disabled:opacity-50"
+            >
+              {submittingReply ? "Posting..." : "Post reply"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setReplying(false);
+                setReplyBody("");
+              }}
+              className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
       )}
     </article>
   );

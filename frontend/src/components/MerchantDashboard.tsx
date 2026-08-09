@@ -5,8 +5,8 @@ import { AIInsights } from "./AIInsights";
 import { Charts } from "./Charts";
 import { Dashboard } from "./Dashboard";
 import { ReviewCard } from "./ReviewCard";
-import { businesses, dashboard } from "@/lib/api";
-import type { Business, Review } from "@/lib/api";
+import { auth, businesses, dashboard, reviews as reviewsApi } from "@/lib/api";
+import type { Business, Review, User } from "@/lib/api";
 
 /** MerchantDashboard — stats, charts, AI insights, recent reviews. */
 export default function MerchantDashboardPage() {
@@ -14,6 +14,11 @@ export default function MerchantDashboardPage() {
   const [stats, setStats] = useState<Record<string, unknown> | null>(null);
   const [insights, setInsights] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    auth.me().then(setUser).catch(() => setUser(null));
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -34,6 +39,15 @@ export default function MerchantDashboardPage() {
     }
     load();
   }, []);
+
+  async function handleReply(reviewId: string, body: string) {
+    const reply = await reviewsApi.reply(reviewId, body);
+    setStats((prev) => {
+      if (!prev) return prev;
+      const recent = (prev.recent_reviews as Review[]) || [];
+      return { ...prev, recent_reviews: recent.map((r) => (r.id === reviewId ? { ...r, reply } : r)) };
+    });
+  }
 
   if (loading) return <p className="p-8 text-center">Loading dashboard...</p>;
   if (!business) return <p className="p-8 text-center">No business found. Register one first.</p>;
@@ -79,7 +93,13 @@ export default function MerchantDashboardPage() {
           <h3 className="mb-3 font-semibold">Recent reviews</h3>
           <div className="space-y-3">
             {((stats?.recent_reviews as Review[]) || []).map((r) => (
-              <ReviewCard key={r.id} review={r} showActions={false} />
+              <ReviewCard
+                key={r.id}
+                review={r}
+                showActions={false}
+                canReply={user?.role === "merchant"}
+                onReply={handleReply}
+              />
             ))}
           </div>
         </div>

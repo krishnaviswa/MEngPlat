@@ -12,6 +12,9 @@ from app.services.storage import get_storage_provider
 
 router = APIRouter(prefix="/photos", tags=["Photos"])
 
+_ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+_MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+
 
 @router.post("/upload", response_model=PhotoResponse, status_code=status.HTTP_201_CREATED)
 async def upload_photo(
@@ -31,6 +34,22 @@ async def upload_photo(
     """
     if not business_id and not review_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="business_id or review_id required")
+
+    if file.content_type not in _ALLOWED_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file type '{file.content_type}'. Allowed: {', '.join(sorted(_ALLOWED_CONTENT_TYPES))}",
+        )
+    # Read once to enforce the size cap, then rewind -- storage.save() does its
+    # own read() and an UploadFile is backed by a SpooledTemporaryFile, so a
+    # seek(0) here is cheap and leaves it exactly as save() expects it.
+    content = await file.read()
+    if len(content) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large. Max size is {_MAX_UPLOAD_BYTES // (1024 * 1024)}MB.",
+        )
+    await file.seek(0)
 
     storage = get_storage_provider()
     folder = f"businesses/{business_id}" if business_id else f"reviews/{review_id}"

@@ -163,6 +163,7 @@ async def create_review(
         .options(
             selectinload(Review.author),
             selectinload(Review.ai_analysis),
+            selectinload(Review.reply),
             selectinload(Review.photos),
         )
         .where(Review.id == review.id)
@@ -201,7 +202,12 @@ async def update_review(
     await update_business_rating(db, review.business_id)
     result = await db.execute(
         select(Review)
-        .options(selectinload(Review.author), selectinload(Review.ai_analysis), selectinload(Review.photos))
+        .options(
+            selectinload(Review.author),
+            selectinload(Review.ai_analysis),
+            selectinload(Review.reply),
+            selectinload(Review.photos),
+        )
         .where(Review.id == review_id)
     )
     return _review_response(result.scalar_one())

@@ -1,7 +1,7 @@
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { RatingWidget } from "@/components/RatingWidget";
-import { ReviewCard } from "@/components/ReviewCard";
-import { API_URL, businesses, reviews } from "@/lib/api";
+import { ReviewsList } from "@/components/ReviewsList";
+import { API_URL, businesses, photos as photosApi, reviews } from "@/lib/api";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -25,7 +25,10 @@ export default async function BusinessPage({ params }: Props) {
     );
   }
 
-  const photos = [business.storefront_url, business.logo_url].filter(Boolean) as string[];
+  const galleryPhotos = await photosApi.listForBusiness(business.id).catch(() => []);
+  const photos = galleryPhotos.length
+    ? galleryPhotos.map((p) => p.url)
+    : ([business.storefront_url, business.logo_url].filter(Boolean) as string[]);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -61,13 +64,7 @@ export default async function BusinessPage({ params }: Props) {
       )}
       <section className="mt-8">
         <h2 className="mb-4 text-xl font-semibold">Reviews</h2>
-        <div className="space-y-4">
-          {reviewList.length ? (
-            reviewList.map((r) => <ReviewCard key={r.id} review={r} showActions={false} />)
-          ) : (
-            <p className="text-gray-500">No reviews yet. Be the first!</p>
-          )}
-        </div>
+        <ReviewsList initialReviews={reviewList} />
       </section>
     </div>
   );
