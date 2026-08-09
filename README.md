@@ -525,7 +525,7 @@ sequenceDiagram
     participant Frontend
     participant API as FastAPI
     participant DB as PostgreSQL
-    participant OAuth as OAuth provider (placeholder)
+    participant Google as Google Identity Services
 
     alt Email / password
         User->>Frontend: Register or login
@@ -535,14 +535,14 @@ sequenceDiagram
         Frontend->>Frontend: Store tokens (localStorage today)
         Frontend->>API: GET /auth/me (Bearer)
         API-->>Frontend: User profile
-    else OAuth (placeholder)
+    else Google sign-in
         User->>Frontend: "Continue with Google"
-        Frontend->>OAuth: Redirect to provider
-        OAuth-->>Frontend: Authorization code
-        Frontend->>API: POST /auth/oauth/callback
-        API->>OAuth: Exchange code (stub)
-        API->>DB: Upsert user
-        API-->>Frontend: JWT tokens
+        Frontend->>Google: Client-side sign-in (GIS button)
+        Google-->>Frontend: Signed ID token (credential)
+        Frontend->>API: POST /auth/google { credential }
+        API->>Google: Verify ID token against Google JWKS
+        API->>DB: Look up or create user by google_sub
+        API-->>Frontend: JWT access_token + refresh_token
     end
 
     Note over Frontend,API: All protected routes send Authorization: Bearer {token}
@@ -732,8 +732,8 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | POST   | `/auth/login`          | Public | Get JWT tokens     |
 | POST   | `/auth/refresh`        | Public | Refresh tokens     |
 | GET    | `/auth/me`             | Bearer | Current user       |
-| POST   | `/auth/oauth/callback` | Public | OAuth placeholder  |
-| POST   | `/auth/logout`         | Public | Logout placeholder |
+| POST   | `/auth/google`         | Public | Google ID-token sign-in (register-or-login) |
+| POST   | `/auth/logout`         | Bearer | Blocklist caller's access token (+ optional refresh token) |
 
 
 ```jsonc
@@ -1643,7 +1643,6 @@ An honest delta between the original specification and what the code actually do
 | **Favorites unwired**                     | The `Favorite` table exists in the models, but there is no favorites router/endpoint and no UI. Tracked as the S-011 example slice (§13), never carried through to implementation.              |
 | **S3 / Azure storage are stubs**          | Both raise `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). Only `local` works.                                                                                     |
 | **Thin tests**                            | 3 backend + 1 frontend test, no fixtures, no DB isolation. See §11.                                                                                                                             |
-| **OAuth callback is a placeholder**       | `/auth/oauth/callback` is a stub. Google ID-token sign-in via `POST /auth/google` is implemented when `GOOGLE_CLIENT_ID` is set. `/auth/logout` is fully implemented (Redis `jti` blocklist), not a stub. |
 | **Multi-agent workflow is scaffold-only** | `adrs/`, `test-plans/`, `test-reports/` contain only their `_TEMPLATE.md`. No real ADRs, plans, or reports written. `slices/` has exactly one slice (S-011, Draft/example).                     |
 | **Security items 1–6**                    | See [§9 Known weaknesses](#known-weaknesses--read-before-deploying).                                                                                                                            |
 | **No structured logging**                 | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                          |
