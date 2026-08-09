@@ -246,10 +246,11 @@ class MessageResponse(BaseModel):
     message: str
 
 
-class OAuthCallbackRequest(BaseModel):
-    provider: str
-    code: str
-    redirect_uri: str
+class GoogleAuthRequest(BaseModel):
+    # The ID token JWT ("credential") returned client-side by Google Identity
+    # Services -- not an authorization code, so there's no redirect_uri or
+    # client secret involved on this side at all.
+    credential: str
 
 
 class NearbyBusinessRequest(BaseModel):

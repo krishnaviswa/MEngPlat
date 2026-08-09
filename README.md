@@ -1253,12 +1253,14 @@ The frontend needs no changes: `next dev` picks up a shell-level `$PORT` automat
    STORAGE_PROVIDER=local
    STORAGE_LOCAL_PATH=/app/uploads
    CORS_ORIGINS=https://${{frontend.RAILWAY_PUBLIC_DOMAIN}}
+   GOOGLE_CLIENT_ID=<from Google Cloud Console>
   ```
    Railway's Postgres plugin exposes `DATABASE_URL` as plain `postgresql://`, which does **not** match this codebase's required `postgresql+asyncpg://` ([config.py](backend/app/config.py)) — hence composing it from the individual `PG`* variables instead of referencing `DATABASE_URL` directly.
 7. Frontend → Variables:
   ```
    NEXT_PUBLIC_API_URL=https://${{backend.RAILWAY_PUBLIC_DOMAIN}}
    NEXT_PUBLIC_GOOGLE_MAPS_KEY=placeholder
+   NEXT_PUBLIC_GOOGLE_CLIENT_ID=<same client ID as the backend's GOOGLE_CLIENT_ID>
   ```
 8. Redeploy both services.
 
@@ -1277,6 +1279,10 @@ On Render/Railway the disk is ephemeral. Options: **AWS S3** (implement `S3Stora
 ### Google Maps
 
 Set `GOOGLE_MAPS_API_KEY` on the backend and `NEXT_PUBLIC_GOOGLE_MAPS_KEY` on the frontend when implementing real geocoding.
+
+### Google sign-in
+
+ID-token flow via Google Identity Services — no client secret, no redirect route. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials): create an **OAuth client ID** of type **Web application**, and add both your local (`http://localhost:3000`) and deployed frontend origins under **Authorized JavaScript origins** (no path, no trailing slash — Google matches the origin exactly). Set the resulting client ID as `GOOGLE_CLIENT_ID` on the backend and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` on the frontend — same value, both places. `POST /api/v1/auth/google` verifies the token's signature, audience, and issuer server-side before ever trusting it.
 
 ### CI/CD — recommended next step
 
@@ -1609,6 +1615,7 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `STORAGE_LOCAL_PATH`          | `/app/uploads`                                                           | Served as static files at `/uploads`                            |
 | `CORS_ORIGINS`                | `http://localhost:3000`                                                  | Comma-separated allowlist                                       |
 | `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | For real geocoding                                              |
+| `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
 
 
 
@@ -1621,6 +1628,7 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `NEXT_PUBLIC_API_URL`         | `http://localhost:8000` | Backend base URL, browser-side                      |
 | `API_URL_INTERNAL`            | —                       | Backend URL for server-side rendering inside Docker |
 | `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | `placeholder`           | Maps rendering                                      |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | *(empty)*              | OAuth client ID for Google sign-in                   |
 
 
 ---

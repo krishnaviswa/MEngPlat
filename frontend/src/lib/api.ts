@@ -23,6 +23,7 @@ export interface Business {
   logo_url?: string;
   storefront_url?: string;
   categories?: { name: string; slug: string }[];
+  ai_merchant_summary?: string;
 }
 
 export interface Review {
@@ -51,7 +52,46 @@ function getToken(): string | null {
   return localStorage.getItem("access_token");
 }
 
-export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("refresh_token");
+}
+
+function storeTokens(tokens: TokenResponse): void {
+  localStorage.setItem("access_token", tokens.access_token);
+  localStorage.setItem("refresh_token", tokens.refresh_token);
+}
+
+function clearTokens(): void {
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+}
+
+// Auth endpoints 401 on bad credentials, not an expired session -- retrying
+// those through the refresh flow would just loop a login failure forever.
+const NO_REFRESH_RETRY_PREFIXES = ["/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/refresh", "/api/v1/auth/google"];
+
+// Concurrent 401s (a page firing several requests at once after the access
+// token expires) must share one refresh call, not one each -- the second
+// refresh would already be racing a rotated refresh_token from the first.
+let refreshInFlight: Promise<TokenResponse> | null = null;
+
+async function refreshTokens(): Promise<TokenResponse> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) throw new Error("No refresh token");
+  const res = await fetch(`${API_URL}/api/v1/auth/refresh?refresh_token=${encodeURIComponent(refreshToken)}`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    clearTokens();
+    throw new Error("Session expired");
+  }
+  const tokens: TokenResponse = await res.json();
+  storeTokens(tokens);
+  return tokens;
+}
+
+export async function apiFetch<T>(path: string, options: RequestInit = {}, _retried = false): Promise<T> {
   const token = getToken();
   const headers: HeadersInit = {
     ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
@@ -60,6 +100,23 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   };
 
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+
+  const canRetry = !_retried && getRefreshToken() && !NO_REFRESH_RETRY_PREFIXES.some((p) => path.startsWith(p));
+  if (res.status === 401 && canRetry) {
+    try {
+      if (!refreshInFlight) {
+        refreshInFlight = refreshTokens().finally(() => {
+          refreshInFlight = null;
+        });
+      }
+      await refreshInFlight;
+      return apiFetch<T>(path, options, true);
+    } catch {
+      // Refresh itself failed (expired/invalid refresh token) -- fall through
+      // and report the original 401 below rather than masking it.
+    }
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || "Request failed");
@@ -73,6 +130,8 @@ export const auth = {
     apiFetch<User>("/api/v1/auth/register", { method: "POST", body: JSON.stringify(data) }),
   login: (data: { email: string; password: string }) =>
     apiFetch<TokenResponse>("/api/v1/auth/login", { method: "POST", body: JSON.stringify(data) }),
+  google: (data: { credential: string }) =>
+    apiFetch<TokenResponse>("/api/v1/auth/google", { method: "POST", body: JSON.stringify(data) }),
   me: () => apiFetch<User>("/api/v1/auth/me"),
   logout: () => apiFetch<{ message: string }>("/api/v1/auth/logout", { method: "POST" }),
 };

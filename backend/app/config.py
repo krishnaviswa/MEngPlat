@@ -86,6 +86,10 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
 
     google_maps_api_key: str = "placeholder"
+    # OAuth 2.0 client ID (not secret -- it's public, embedded in frontend JS)
+    # for Google Identity Services. Verifying an ID token without this set
+    # would accept a token minted for any Google application, not just ours.
+    google_client_id: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:

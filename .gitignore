@@ -224,3 +224,5 @@ backend/uploads/
 .env
 .env.local
 *.local
+frontend/next-env.d.ts
+*.tsbuildinfo

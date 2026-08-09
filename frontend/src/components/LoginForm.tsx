@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { auth } from "@/lib/api";
 
 /** LoginForm — email/password login. State: email, password, error, loading. Hooks: useState, useRouter. */
@@ -26,6 +27,19 @@ export function LoginForm() {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogleCredential(credential: string) {
+    setError("");
+    try {
+      const tokens = await auth.google({ credential });
+      localStorage.setItem("access_token", tokens.access_token);
+      localStorage.setItem("refresh_token", tokens.refresh_token);
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-in failed");
     }
   }
 
@@ -56,11 +70,12 @@ export function LoginForm() {
       >
         {loading ? "Signing in..." : "Sign in"}
       </button>
-      <p className="text-center text-sm text-gray-500">
-        <button type="button" className="text-brand-600 underline" disabled title="OAuth placeholder">
-          Continue with Google (placeholder)
-        </button>
-      </p>
+      <div className="flex items-center gap-3 text-xs text-gray-400">
+        <div className="h-px flex-1 bg-gray-200" />
+        or
+        <div className="h-px flex-1 bg-gray-200" />
+      </div>
+      <GoogleSignInButton onCredential={handleGoogleCredential} />
     </form>
   );
 }

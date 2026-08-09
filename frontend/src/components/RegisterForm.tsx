@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { auth } from "@/lib/api";
 
 /** RegisterForm — account creation with role selection. State: form fields, error, loading. */
@@ -30,6 +31,21 @@ export function RegisterForm() {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogleCredential(credential: string) {
+    setError("");
+    try {
+      // Google quick sign-up always creates a customer account -- there's no
+      // way to convey a merchant-role choice through the ID-token exchange,
+      // matching how the backend's /auth/google new-account path decides role.
+      const tokens = await auth.google({ credential });
+      localStorage.setItem("access_token", tokens.access_token);
+      localStorage.setItem("refresh_token", tokens.refresh_token);
+      router.push("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-in failed");
     }
   }
 
@@ -76,6 +92,12 @@ export function RegisterForm() {
       >
         {loading ? "Creating..." : "Sign up"}
       </button>
+      <div className="flex items-center gap-3 text-xs text-gray-400">
+        <div className="h-px flex-1 bg-gray-200" />
+        or
+        <div className="h-px flex-1 bg-gray-200" />
+      </div>
+      <GoogleSignInButton onCredential={handleGoogleCredential} />
     </form>
   );
 }
