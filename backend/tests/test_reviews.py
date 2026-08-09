@@ -450,6 +450,8 @@ class TestListReportedReviews:
             rating=1,
             body="Inappropriate content here",
             status=ReviewStatus.REPORTED,
+            like_count=0,
+            created_at=datetime.now(timezone.utc),
         )
         active = Review(
             id=uuid.uuid4(),
@@ -458,6 +460,8 @@ class TestListReportedReviews:
             rating=5,
             body="Fine review content here",
             status=ReviewStatus.ACTIVE,
+            like_count=0,
+            created_at=datetime.now(timezone.utc),
         )
         admin = _make_user(role=UserRole.ADMIN)
         db = FakeDB(reviews=[reported, active])

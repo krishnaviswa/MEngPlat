@@ -1291,7 +1291,7 @@ This fixes two Railway-specific problems without touching the Dockerfile:
 1. The Dockerfile's own `CMD` hardcodes port 8000 in exec form, which cannot expand Railway's injected `$PORT`. The `sh -c` override can.
 2. The Dockerfile's `CMD` never runs `scripts/seed.py` — only `docker-compose.yml`'s command override does. The override adds it back so demo accounts get created.
 
-The frontend needs no changes: `next dev` picks up a shell-level `$PORT` automatically.
+The frontend's `Dockerfile` now bakes a real production build into the image (`RUN npm run build`, with `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_GOOGLE_CLIENT_ID` passed in as build `ARG`s — Railway auto-forwards matching service Variables as build args for Dockerfile builds). The Dockerfile's own `CMD` still runs `npm run dev` so `docker-compose.yml` keeps local hot-reload unchanged; `frontend/railway.json` overrides the deploy start command to `npm run start` (`next start`, which reads Railway's injected `$PORT` the same way `next dev` does). Previously the frontend had no start-command override at all, so Railway ran the dev server — including the dev-tools overlay — in production.
 
 **Remaining steps (require a Railway account):**
 

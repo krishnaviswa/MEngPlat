@@ -1,10 +1,8 @@
+import { BusinessMap } from "@/components/BusinessMapClient";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { RatingWidget } from "@/components/RatingWidget";
 import { ReviewsList } from "@/components/ReviewsList";
 import { API_URL, businesses, photos as photosApi, reviews } from "@/lib/api";
-import dynamic from "next/dynamic";
-
-const BusinessMap = dynamic(() => import("@/components/BusinessMap"), { ssr: false });
 
 interface Props {
   params: Promise<{ slug: string }>;

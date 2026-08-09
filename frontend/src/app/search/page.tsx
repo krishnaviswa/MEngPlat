@@ -1,12 +1,10 @@
 import { BusinessCard } from "@/components/BusinessCard";
-import { businessMarkers } from "@/components/BusinessMap";
+import { BusinessMap } from "@/components/BusinessMapClient";
 import { FilterPanel } from "@/components/FilterPanel";
 import { SearchBar } from "@/components/SearchBar";
 import { UseLocationButton } from "@/components/UseLocationButton";
 import { businesses } from "@/lib/api";
-import dynamic from "next/dynamic";
-
-const BusinessMap = dynamic(() => import("@/components/BusinessMap"), { ssr: false });
+import { businessMarkers } from "@/lib/mapMarkers";
 
 interface Props {
   searchParams: Promise<{

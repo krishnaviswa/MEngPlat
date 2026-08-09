@@ -1,6 +1,6 @@
 "use client";
 
-import type { Business } from "@/lib/api";
+import type { MapMarker } from "@/lib/mapMarkers";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
@@ -16,14 +16,6 @@ const markerIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-export interface MapMarker {
-  id: string;
-  name: string;
-  slug?: string;
-  latitude: number;
-  longitude: number;
-}
-
 interface BusinessMapProps {
   /** Businesses or explicit markers to plot (must include coordinates). */
   markers: MapMarker[];
@@ -32,18 +24,6 @@ interface BusinessMapProps {
   zoom?: number;
   className?: string;
   height?: string;
-}
-
-function toMarkers(businesses: Business[]): MapMarker[] {
-  return businesses
-    .filter((b) => b.latitude != null && b.longitude != null)
-    .map((b) => ({
-      id: b.id,
-      name: b.name,
-      slug: b.slug,
-      latitude: b.latitude!,
-      longitude: b.longitude!,
-    }));
 }
 
 /** BusinessMap — Leaflet + OpenStreetMap markers; click navigates when slug is set. */
@@ -90,11 +70,6 @@ export function BusinessMap({
       </MapContainer>
     </div>
   );
-}
-
-/** Convenience helper for server pages that already have Business[]. */
-export function businessMarkers(businesses: Business[]): MapMarker[] {
-  return toMarkers(businesses);
 }
 
 /** Default export for next/dynamic lazy loading. */
