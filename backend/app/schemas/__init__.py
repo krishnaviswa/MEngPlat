@@ -246,6 +246,13 @@ class MessageResponse(BaseModel):
     message: str
 
 
+class GeocodeResponse(BaseModel):
+    message: str
+    latitude: float | None = None
+    longitude: float | None = None
+    display_name: str | None = None
+
+
 class GoogleAuthRequest(BaseModel):
     # The ID token JWT ("credential") returned client-side by Google Identity
     # Services -- not an authorization code, so there's no redirect_uri or

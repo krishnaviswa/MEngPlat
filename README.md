@@ -237,7 +237,7 @@ flowchart TB
     API --> STORAGE
     STORAGE --> FS
     AI --> LLM[OpenAI / DeepSeek / Mock]
-    API -.-> Maps[Google Maps placeholder]
+    API --> Maps[OpenStreetMap / Nominatim + Leaflet]
 ```
 
 
@@ -651,9 +651,40 @@ flowchart TD
     UI --> CH[Charts + AIInsights panel]
 ```
 
+### Merchant business registration
 
+Merchants create listings at `/merchant/businesses/new` (wrapped in `RequireAuth role="merchant"`). The shared `BusinessForm` posts to `POST /businesses`; new rows start with `status=pending`. Country defaults to `IN` in the form (backend model default is `US` if omitted). Optional coordinates can be entered manually or filled once via **Look up address**, which calls `GET /maps/geocode` (Nominatim) on button click only — not per keystroke.
 
+```mermaid
+sequenceDiagram
+    participant M as Merchant
+    participant UI as BusinessForm
+    participant API as FastAPI
+    participant OSM as Nominatim
 
+    M->>UI: Fill address + optional "Look up address"
+    UI->>API: GET /maps/geocode?address=...
+    API->>OSM: Forward geocode (User-Agent set)
+    OSM-->>API: lat/lng + display_name
+    API-->>UI: GeocodeResponse
+    M->>UI: Submit for approval
+    UI->>API: POST /businesses (Bearer merchant)
+    API-->>UI: Business status=pending
+```
+
+### Search with location and map
+
+The search page (`/search`) SSR-fetches via `GET /search/businesses` with optional `lat`, `lng`, and `radius_km`. **Use my location** sets those query params from browser geolocation. Results with coordinates render on a Leaflet map (`BusinessMap`) using OpenStreetMap tiles — not Google Maps. `FilterPanel` preserves existing `q`, `lat`, `lng`, and `radius_km` when applying city/category/rating filters.
+
+```mermaid
+flowchart LR
+    U[User on /search] --> L[Use my location]
+    L --> Q[URL ?lat=&lng=&radius_km=]
+    Q --> S[GET /search/businesses]
+    S --> M[BusinessMap markers]
+    U --> F[FilterPanel Apply]
+    F --> Q
+```
 
 ### Admin moderation
 
@@ -666,8 +697,15 @@ sequenceDiagram
     A->>API: GET /dashboard/admin/platform
     API-->>A: Platform stats
 
+    A->>API: GET /businesses?status_filter=pending
+    Note over API: Non-approved status_filter requires admin Bearer token
+    API-->>A: Pending business queue
+
     A->>API: POST /businesses/:id/approve
     API->>DB: status=approved + audit_log
+
+    A->>API: GET /reviews/reported
+    API-->>A: Reported review queue
 
     A->>API: POST /reviews/:id/moderate?action=hide
     API->>DB: status=hidden + audit_log
@@ -713,16 +751,19 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 ### Businesses — `/businesses`
 
 
-| Method | Path                         | Auth           | Description                        |
-| ------ | ---------------------------- | -------------- | ---------------------------------- |
-| GET    | `/businesses`                | Public         | List businesses                    |
-| GET    | `/businesses/categories/all` | Public         | List categories                    |
-| GET    | `/businesses/{slug}`         | Public         | Get by slug                        |
-| POST   | `/businesses`                | Merchant       | Create business (status `pending`) |
-| PATCH  | `/businesses/{id}`           | Merchant/Admin | Update business                    |
-| POST   | `/businesses/{id}/approve`   | Admin          | Approve listing                    |
-| POST   | `/businesses/{id}/suspend`   | Admin          | Suspend listing                    |
-| POST   | `/businesses/categories`     | Admin          | Create category                    |
+| Method | Path                         | Auth           | Description                                                        |
+| ------ | ---------------------------- | -------------- | ------------------------------------------------------------------ |
+| GET    | `/businesses`                | Public         | List businesses (default `status_filter=approved`)                 |
+| GET    | `/businesses/mine`           | Merchant       | List businesses owned by current merchant (any status)             |
+| GET    | `/businesses/categories/all` | Public         | List categories                                                    |
+| GET    | `/businesses/{slug}`         | Public         | Get by slug                                                        |
+| POST   | `/businesses`                | Merchant       | Create business (status `pending`)                                 |
+| PATCH  | `/businesses/{id}`           | Merchant/Admin | Update business                                                    |
+| POST   | `/businesses/{id}/approve`   | Admin          | Approve listing                                                    |
+| POST   | `/businesses/{id}/suspend`   | Admin          | Suspend listing                                                    |
+| POST   | `/businesses/categories`     | Admin          | Create category                                                    |
+
+Query on `GET /businesses`: `city`, `status_filter` (`approved` default). Listing with any non-`approved` `status_filter` (e.g. `pending`) requires an admin Bearer token; anonymous callers receive `403`.
 
 
 
@@ -733,6 +774,7 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | Method | Path                              | Auth     | Description                 |
 | ------ | --------------------------------- | -------- | --------------------------- |
 | GET    | `/reviews/business/{business_id}` | Public   | List reviews                |
+| GET    | `/reviews/reported`               | Admin    | List reported reviews       |
 | POST   | `/reviews`                        | User     | Create review (triggers AI) |
 
 **POST `/reviews` errors:** `403` if a merchant reviews their own business (`"Cannot review your own business"`); `409` if the author already reviewed that business (`"You have already reviewed this business"`), including concurrent double-submit races caught by `uq_author_business_review`.
@@ -819,14 +861,17 @@ Query params: `q`, `city`, `category`, `min_rating`, `sentiment`, `lat`, `lng`, 
 
 
 
-### Maps — `/maps` (placeholder)
+### Maps — `/maps` (OpenStreetMap)
 
+Uses **Nominatim** for geocoding and **Haversine** bounding-box queries for nearby approved businesses. The frontend map is **Leaflet + OSM tiles** — no Google Maps API key required.
 
-| Method | Path            | Auth   | Description                   |
-| ------ | --------------- | ------ | ----------------------------- |
-| POST   | `/maps/nearby`  | Public | Nearby businesses placeholder |
-| GET    | `/maps/geocode` | Public | Geocode placeholder           |
-| GET    | `/maps/config`  | Public | Maps config for frontend      |
+| Method | Path            | Auth   | Description                                      |
+| ------ | --------------- | ------ | ------------------------------------------------ |
+| POST   | `/maps/nearby`  | Public | Approved businesses within `radius_km` of a point |
+| GET    | `/maps/geocode` | Public | Forward-geocode an address via Nominatim         |
+| GET    | `/maps/config`  | Public | Provider config (`provider: osm`, tile URL)       |
+
+`GET /maps/geocode` returns `{ message, latitude?, longitude?, display_name? }`. Respect Nominatim usage policy — the merchant form geocodes on button click only, not per keystroke.
 
 
 
@@ -912,8 +957,10 @@ File-based routing under `frontend/src/app/`. A `page.tsx` file defines a route.
 | `/register`           | `register/page.tsx`           | Client form page       |
 | `/profile`            | `profile/page.tsx`            | Client                 |
 | `/settings`           | `settings/page.tsx`           | Client                 |
-| `/merchant/dashboard` | `merchant/dashboard/page.tsx` | Client dashboard       |
-| `/admin`              | `admin/page.tsx`              | Client                 |
+| `/merchant/dashboard`           | `merchant/dashboard/page.tsx`           | Client dashboard (`RequireAuth`) |
+| `/merchant/businesses/new`      | `merchant/businesses/new/page.tsx`      | Client — create business         |
+| `/merchant/businesses/[id]/edit`| `merchant/businesses/[id]/edit/page.tsx`| Client — edit owned business     |
+| `/admin`                        | `admin/page.tsx`                        | Client (`RequireAuth admin`)     |
 
 
 
@@ -955,7 +1002,13 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | `ReviewCard.tsx`        | Review with rating, photos, likes, AI badge   |
 | `RatingWidget.tsx`      | Interactive star rating input/display         |
 | `SearchBar.tsx`         | Query input with debounce                     |
-| `FilterPanel.tsx`       | Category, rating, distance, sentiment filters |
+| `FilterPanel.tsx`       | City, category, rating filters (preserves location params) |
+| `UseLocationButton.tsx` | Browser geolocation → `/search?lat=&lng=`     |
+| `BusinessMap.tsx`       | Leaflet map with OSM tiles for search results |
+| `BusinessForm.tsx`      | Merchant create/edit business form + geocode  |
+| `RequireAuth.tsx`       | Client route guard by role (JWT in localStorage) |
+| `PendingBusinessQueue.tsx` | Admin pending-business approval queue      |
+| `ReportedReviewsQueue.tsx` | Admin reported-review moderation queue     |
 | `Dashboard.tsx`         | Layout shell for merchant/admin analytics     |
 | `Charts.tsx`            | Recharts sentiment / volume / rating charts   |
 | `PhotoGallery.tsx`      | Image grid + lightbox                         |
@@ -1094,6 +1147,7 @@ Confusing these is the classic RBAC bug, so they are separate mechanisms:
 | ----------------------------------------------- | -------- | ---------------- | ------ |
 | Register / login / refresh                      | public   | public           | public |
 | Browse, search, view business, list reviews     | public   | public           | public |
+| List businesses with non-approved status_filter | —        | —                | ✅      |
 | Create / edit / delete own review, like, report | ✅        | ✅                | ✅      |
 | Upload photo                                    | ✅        | ✅                | ✅      |
 | Create / update business                        | —        | ✅                | ✅      |
@@ -1138,7 +1192,6 @@ These are real and currently unmitigated. They are acceptable for a local demo, 
 | 5   | No MIME/size validation on upload                                                                             | Arbitrary file content and size accepted into `/uploads`                               | Validate content type and cap size in `LocalStorageProvider.save()`                  |
 | 6   | `/uploads` served as unauthenticated static files                                                             | Any uploaded photo is world-readable to anyone with the URL                            | Acceptable for public gallery photos; use signed URLs if private media is ever added |
 | 7   | No token revocation / denylist                                                                                | A stolen refresh token stays valid for its full 7 days                                 | Persist a `jti` denylist, or rotate refresh tokens on use                            |
-| 8   | Schema created via `Base.metadata.create_all()`                                                               | Not a security hole itself, but blocks controlled, reviewable schema change            | Adopt Alembic (already a dependency)                                                 |
 
 
 
@@ -1279,9 +1332,9 @@ The frontend needs no changes: `next dev` picks up a shell-level `$PORT` automat
 
 On Render/Railway the disk is ephemeral. Options: **AWS S3** (implement `S3StorageProvider` with boto3), **Azure Blob** (`AzureBlobStorageProvider`), or **Cloudinary**. Set `STORAGE_PROVIDER=s3` once implemented.
 
-### Google Maps
+### Maps (OpenStreetMap)
 
-Set `GOOGLE_MAPS_API_KEY` on the backend and `NEXT_PUBLIC_GOOGLE_MAPS_KEY` on the frontend when implementing real geocoding.
+Search and merchant geocoding use **Leaflet + OSM tiles** and **Nominatim** — no Google Maps API key is required for the current implementation. Legacy `GOOGLE_MAPS_API_KEY` / `NEXT_PUBLIC_GOOGLE_MAPS_KEY` env vars remain in config but are unused by the OSM path.
 
 ### Google sign-in
 
@@ -1501,7 +1554,7 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-006 | Merchant dashboard + AI insights      | 4 Dashboards | Partial         |
 | S-007 | Admin moderation + platform analytics | 4 Dashboards | Partial         |
 | S-008 | Notifications                         | 4 Dashboards | Scaffolded      |
-| S-009 | OAuth + maps placeholders             | 5 Polish     | Partial         |
+| S-009 | OAuth + OpenStreetMap maps              | 5 Polish     | Partial (maps done; OAuth callback stub) |
 | S-010 | Test hardening + deploy verification  | 5 Polish     | Open            |
 | S-011 | Customer favorites                    | 2 Core       | Draft (example) |
 
@@ -1547,7 +1600,8 @@ An honest delta between the original specification and what the code actually do
 | Auth            | JWT access/refresh via `python-jose`, bcrypt hashing, `require_roles()` RBAC                                             |
 | AI layer        | Pluggable provider — `mock` (canned, no network) or OpenAI-compatible (works for OpenAI *or* DeepSeek via `AI_BASE_URL`) |
 | Storage         | `local` disk provider implemented                                                                                        |
-| Frontend        | Home, search, business detail, login, register, profile, settings, merchant dashboard, admin                             |
+| Frontend        | Home, search (map + location), business detail, login, register, profile, settings, merchant dashboard + business create/edit, admin moderation queues |
+| Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine |
 | Seeding         | `scripts/seed.py` — Portland demo + upsert Chrompet/Radha Nagar (~20 Chennai businesses, Unsplash photos, synthetic reviews) |
 | Local dev       | `docker compose up --build`                                                                                              |
 
@@ -1560,13 +1614,11 @@ An honest delta between the original specification and what the code actually do
 | Gap                                       | Detail                                                                                                                                                                                          |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Favorites unwired**                     | The `Favorite` table exists in the models, but there is no favorites router/endpoint and no UI. Tracked as the S-011 example slice (§13), never carried through to implementation.              |
-| **No Alembic migrations**                 | Alembic is a declared dependency, but the schema is created by `Base.metadata.create_all()` on startup ([main.py](backend/app/main.py)). Fine for a demo; unworkable for real schema evolution. |
 | **S3 / Azure storage are stubs**          | Both raise `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). Only `local` works.                                                                                     |
 | **Thin tests**                            | 3 backend + 1 frontend test, no fixtures, no DB isolation. See §11.                                                                                                                             |
-| **OAuth is a placeholder**                | `/auth/oauth/callback` and `/auth/logout` are stubs.                                                                                                                                            |
-| **Maps are placeholders**                 | `/maps/`* endpoints return placeholder data; no real geocoding.                                                                                                                                 |
+| **OAuth is a placeholder**                | `/auth/oauth/callback` and `/auth/logout` are stubs. Google ID-token sign-in via `POST /auth/google` is implemented when `GOOGLE_CLIENT_ID` is set. |
 | **Multi-agent workflow is scaffold-only** | `adrs/`, `test-plans/`, `test-reports/` contain only their `_TEMPLATE.md`. No real ADRs, plans, or reports written. `slices/` has exactly one slice (S-011, Draft/example).                     |
-| **Security items 1–8**                    | See [§9 Known weaknesses](#known-weaknesses--read-before-deploying).                                                                                                                            |
+| **Security items 1–7**                    | See [§9 Known weaknesses](#known-weaknesses--read-before-deploying).                                                                                                                            |
 | **No structured logging**                 | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                          |
 | **No CI/CD**                              | No GitHub Actions workflow.                                                                                                                                                                     |
 
@@ -1582,11 +1634,10 @@ The MVP is complete when: (1) a customer can register, search, and submit a revi
 ### Suggested next steps, in order
 
 1. Harden security items 1–4 in §9 (secret key, cookies, rate limiting, debug default)
-2. Adopt Alembic before any further schema change
-3. Build out the test suite with fixtures and an isolated test database
-4. Implement S-011 favorites end-to-end as a full multi-agent cycle rehearsal
-5. Implement `S3StorageProvider` so uploads survive redeploys
-6. Add GitHub Actions CI
+2. Build out the test suite with fixtures and an isolated test database
+3. Implement S-011 favorites end-to-end as a full multi-agent cycle rehearsal
+4. Implement `S3StorageProvider` so uploads survive redeploys
+5. Add GitHub Actions CI
 
 ---
 
@@ -1617,7 +1668,7 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `STORAGE_PROVIDER`            | `local`                                                                  | `local` | `s3` | `azure` — only `local` is implemented          |
 | `STORAGE_LOCAL_PATH`          | `/app/uploads`                                                           | Served as static files at `/uploads`                            |
 | `CORS_ORIGINS`                | `http://localhost:3000`                                                  | Comma-separated allowlist                                       |
-| `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | For real geocoding                                              |
+| `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap/Nominatim                         |
 | `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
 
 
@@ -1630,7 +1681,7 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | ----------------------------- | ----------------------- | --------------------------------------------------- |
 | `NEXT_PUBLIC_API_URL`         | `http://localhost:8000` | Backend base URL, browser-side                      |
 | `API_URL_INTERNAL`            | —                       | Backend URL for server-side rendering inside Docker |
-| `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | `placeholder`           | Maps rendering                                      |
+| `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | `placeholder`           | Unused — Leaflet uses OSM tiles directly            |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | *(empty)*              | OAuth client ID for Google sign-in                   |
 
 

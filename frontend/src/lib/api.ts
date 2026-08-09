@@ -11,6 +11,8 @@ export interface User {
   is_active: boolean;
 }
 
+export type BusinessStatus = "pending" | "approved" | "rejected" | "suspended";
+
 export interface Business {
   id: string;
   name: string;
@@ -26,12 +28,69 @@ export interface Business {
   phone?: string;
   email?: string;
   website?: string;
+  business_hours?: Record<string, unknown>;
+  status?: BusinessStatus;
   average_rating: number;
   review_count: number;
   logo_url?: string;
   storefront_url?: string;
-  categories?: { name: string; slug: string }[];
+  categories?: { id?: string; name: string; slug: string }[];
   ai_merchant_summary?: string;
+}
+
+export interface BusinessCreateInput {
+  name: string;
+  description?: string;
+  address: string;
+  city: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  phone?: string;
+  email?: string;
+  website?: string;
+  business_hours?: Record<string, unknown>;
+  category_ids?: string[];
+}
+
+export interface BusinessUpdateInput {
+  name?: string;
+  description?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  phone?: string;
+  email?: string;
+  website?: string;
+  business_hours?: Record<string, unknown>;
+  category_ids?: string[];
+}
+
+export interface NearbyRequest {
+  lat: number;
+  lng: number;
+  radius_km?: number;
+}
+
+export interface GeocodeResponse {
+  message: string;
+  latitude?: number;
+  longitude?: number;
+  display_name?: string;
+}
+
+export interface MapsConfig {
+  provider: string;
+  api_key_configured: boolean;
+  placeholder: boolean;
+  tile_url?: string;
+  attribution?: string;
 }
 
 export interface Review {
@@ -154,12 +213,40 @@ export const auth = {
 };
 
 export const businesses = {
-  list: () => apiFetch<Business[]>("/api/v1/businesses"),
+  /** Public list; pass status_filter (e.g. "pending") and/or city for admin/filtered views. */
+  list: (params?: { status_filter?: string; city?: string }) => {
+    const qs = params ? new URLSearchParams(Object.entries(params).filter(([, v]) => v != null) as [string, string][]).toString() : "";
+    return apiFetch<Business[]>(`/api/v1/businesses${qs ? `?${qs}` : ""}`);
+  },
   get: (slug: string) => apiFetch<Business>(`/api/v1/businesses/${slug}`),
+  mine: () => apiFetch<Business[]>("/api/v1/businesses/mine"),
+  create: (data: BusinessCreateInput) =>
+    apiFetch<Business>("/api/v1/businesses", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: BusinessUpdateInput) =>
+    apiFetch<Business>(`/api/v1/businesses/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  approve: (id: string) => apiFetch<Business>(`/api/v1/businesses/${id}/approve`, { method: "POST" }),
+  suspend: (id: string) => apiFetch<{ message: string }>(`/api/v1/businesses/${id}/suspend`, { method: "POST" }),
   search: (params: Record<string, string>) => {
     const qs = new URLSearchParams(params).toString();
     return apiFetch<Business[]>(`/api/v1/search/businesses?${qs}`);
   },
+  categoriesAll: () => apiFetch<Category[]>("/api/v1/businesses/categories/all"),
+};
+
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  icon?: string;
+}
+
+export const maps = {
+  nearby: (data: NearbyRequest) =>
+    apiFetch<Business[]>("/api/v1/maps/nearby", { method: "POST", body: JSON.stringify(data) }),
+  geocode: (address: string) =>
+    apiFetch<GeocodeResponse>(`/api/v1/maps/geocode?address=${encodeURIComponent(address)}`),
+  config: () => apiFetch<MapsConfig>("/api/v1/maps/config"),
 };
 
 export const reviews = {
@@ -177,6 +264,11 @@ export const reviews = {
       method: "POST",
       body: JSON.stringify({ body }),
     }),
+  /** Admin: hide | restore | remove */
+  moderate: (id: string, action: "hide" | "restore" | "remove") =>
+    apiFetch<{ message: string }>(`/api/v1/reviews/${id}/moderate?action=${action}`, { method: "POST" }),
+  /** Admin: list reviews flagged for moderation */
+  reported: () => apiFetch<Review[]>("/api/v1/reviews/reported"),
 };
 
 export const photos = {
@@ -196,6 +288,8 @@ export const dashboard = {
   merchant: (businessId: string) => apiFetch<Record<string, unknown>>(`/api/v1/dashboard/merchant/${businessId}`),
   insights: (businessId: string) =>
     apiFetch<Record<string, unknown>>(`/api/v1/ai/businesses/${businessId}/insights`),
+  refreshInsights: (businessId: string) =>
+    apiFetch<Record<string, unknown>>(`/api/v1/ai/businesses/${businessId}/refresh`, { method: "POST" }),
 };
 
 export { API_URL };

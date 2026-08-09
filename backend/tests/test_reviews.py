@@ -438,3 +438,103 @@ class TestReplyToReview:
         )
         assert second.body == "Edited: thanks again!"
         assert len(db.replies) == 1, "editing an existing reply must not create a second row"
+
+
+class TestListReportedReviews:
+    async def test_returns_reported_reviews_only(self):
+        business = _make_business()
+        reported = Review(
+            id=uuid.uuid4(),
+            business_id=business.id,
+            author_id=uuid.uuid4(),
+            rating=1,
+            body="Inappropriate content here",
+            status=ReviewStatus.REPORTED,
+        )
+        active = Review(
+            id=uuid.uuid4(),
+            business_id=business.id,
+            author_id=uuid.uuid4(),
+            rating=5,
+            body="Fine review content here",
+            status=ReviewStatus.ACTIVE,
+        )
+        admin = _make_user(role=UserRole.ADMIN)
+        db = FakeDB(reviews=[reported, active])
+
+        result = await reviews_module.list_reported_reviews(db, admin)
+
+        assert len(result) == 1
+        assert result[0].id == reported.id
+        assert result[0].status == ReviewStatus.REPORTED
+
+
+class TestModerateReview:
+    async def test_hide_sets_status_hidden(self):
+        business = _make_business()
+        review = Review(
+            id=uuid.uuid4(),
+            business_id=business.id,
+            author_id=uuid.uuid4(),
+            rating=2,
+            body="Needs moderation",
+            status=ReviewStatus.REPORTED,
+        )
+        admin = _make_user(role=UserRole.ADMIN)
+        db = FakeDB(reviews=[review])
+
+        result = await reviews_module.moderate_review(review.id, "hide", db, admin)
+
+        assert review.status == ReviewStatus.HIDDEN
+        assert "hide" in result.message
+
+    async def test_restore_sets_status_active(self):
+        business = _make_business()
+        review = Review(
+            id=uuid.uuid4(),
+            business_id=business.id,
+            author_id=uuid.uuid4(),
+            rating=4,
+            body="False report",
+            status=ReviewStatus.REPORTED,
+        )
+        admin = _make_user(role=UserRole.ADMIN)
+        db = FakeDB(reviews=[review])
+
+        await reviews_module.moderate_review(review.id, "restore", db, admin)
+
+        assert review.status == ReviewStatus.ACTIVE
+
+    async def test_remove_sets_status_removed(self):
+        business = _make_business()
+        review = Review(
+            id=uuid.uuid4(),
+            business_id=business.id,
+            author_id=uuid.uuid4(),
+            rating=1,
+            body="Spam content",
+            status=ReviewStatus.REPORTED,
+        )
+        admin = _make_user(role=UserRole.ADMIN)
+        db = FakeDB(reviews=[review])
+
+        await reviews_module.moderate_review(review.id, "remove", db, admin)
+
+        assert review.status == ReviewStatus.REMOVED
+
+    async def test_invalid_action_returns_400(self):
+        business = _make_business()
+        review = Review(
+            id=uuid.uuid4(),
+            business_id=business.id,
+            author_id=uuid.uuid4(),
+            rating=3,
+            body="Some review",
+            status=ReviewStatus.REPORTED,
+        )
+        admin = _make_user(role=UserRole.ADMIN)
+        db = FakeDB(reviews=[review])
+
+        with pytest.raises(HTTPException) as exc_info:
+            await reviews_module.moderate_review(review.id, "ban", db, admin)
+        assert exc_info.value.status_code == 400

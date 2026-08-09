@@ -2,6 +2,9 @@ import { PhotoGallery } from "@/components/PhotoGallery";
 import { RatingWidget } from "@/components/RatingWidget";
 import { ReviewsList } from "@/components/ReviewsList";
 import { API_URL, businesses, photos as photosApi, reviews } from "@/lib/api";
+import dynamic from "next/dynamic";
+
+const BusinessMap = dynamic(() => import("@/components/BusinessMap"), { ssr: false });
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -80,6 +83,25 @@ export default async function BusinessPage({ params }: Props) {
           </p>
         )}
       </div>
+
+      {business.latitude != null && business.longitude != null && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-xl font-semibold">Location</h2>
+          <BusinessMap
+            markers={[
+              {
+                id: business.id,
+                name: business.name,
+                slug: business.slug,
+                latitude: business.latitude,
+                longitude: business.longitude,
+              },
+            ]}
+            zoom={15}
+            height="280px"
+          />
+        </section>
+      )}
 
       {photos.length > 0 && (
         <section className="mt-8">

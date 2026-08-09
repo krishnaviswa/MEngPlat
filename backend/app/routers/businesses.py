@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import require_roles, slugify
+from app.dependencies import get_optional_user, require_roles, slugify
 from app.models import Business, BusinessCategory, BusinessStatus, Category, Merchant, User, UserRole
 from app.schemas import (
     BusinessCreate,
@@ -52,8 +52,12 @@ async def list_businesses(
     city: str | None = None,
     status_filter: BusinessStatus | None = BusinessStatus.APPROVED,
     db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
 ) -> list[BusinessResponse]:
-    """List businesses with optional city filter."""
+    """List businesses with optional city filter. Non-approved status filters require admin."""
+    if status_filter and status_filter != BusinessStatus.APPROVED:
+        if not user or user.role != UserRole.ADMIN:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
     query = select(Business).options(selectinload(Business.categories).selectinload(BusinessCategory.category))
     if status_filter:
         query = query.where(Business.status == status_filter)
@@ -69,6 +73,25 @@ async def list_categories(db: AsyncSession = Depends(get_db)) -> list[CategoryRe
     """List all business categories."""
     result = await db.execute(select(Category).order_by(Category.name))
     return list(result.scalars().all())
+
+
+@router.get("/mine", response_model=list[BusinessResponse])
+async def list_my_businesses(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.MERCHANT)),
+) -> list[BusinessResponse]:
+    """List businesses owned by the current merchant (any status)."""
+    merchant = await db.execute(select(Merchant).where(Merchant.user_id == user.id))
+    merchant_obj = merchant.scalar_one_or_none()
+    if not merchant_obj:
+        return []
+    result = await db.execute(
+        select(Business)
+        .options(selectinload(Business.categories).selectinload(BusinessCategory.category))
+        .where(Business.merchant_id == merchant_obj.id)
+        .order_by(Business.name)
+    )
+    return [_to_response(b) for b in result.scalars().all()]
 
 
 @router.post("/categories", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)

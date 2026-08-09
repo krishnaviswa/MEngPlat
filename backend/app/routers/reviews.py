@@ -85,6 +85,26 @@ async def list_business_reviews(business_id: UUID, db: AsyncSession = Depends(ge
     return [_review_response(r) for r in result.scalars().all()]
 
 
+@router.get("/reported", response_model=list[ReviewResponse])
+async def list_reported_reviews(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+) -> list[ReviewResponse]:
+    """Admin: list reviews flagged for moderation."""
+    result = await db.execute(
+        select(Review)
+        .options(
+            selectinload(Review.author),
+            selectinload(Review.ai_analysis),
+            selectinload(Review.reply),
+            selectinload(Review.photos),
+        )
+        .where(Review.status == ReviewStatus.REPORTED)
+        .order_by(Review.created_at.desc())
+    )
+    return [_review_response(r) for r in result.scalars().all()]
+
+
 @router.post("", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
 async def create_review(
     payload: ReviewCreate,
