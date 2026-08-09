@@ -1,7 +1,9 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_roles
@@ -89,18 +91,20 @@ async def upload_photo(
         if business:
             business.storefront_url = url
 
-    await db.refresh(photo)
-    result_photo = await db.get(Photo, photo.id)
-    return PhotoResponse.model_validate(result_photo)
+    result = await db.execute(
+        select(Photo).options(selectinload(Photo.ai_analysis)).where(Photo.id == photo.id)
+    )
+    return PhotoResponse.model_validate(result.scalar_one())
 
 
 @router.get("/business/{business_id}", response_model=list[PhotoResponse])
 async def list_business_photos(business_id: UUID, db: AsyncSession = Depends(get_db)) -> list[PhotoResponse]:
     """List gallery photos for a business."""
-    from sqlalchemy import select
-
     result = await db.execute(
-        select(Photo).where(Photo.business_id == business_id, Photo.review_id.is_(None)).order_by(Photo.created_at.desc())
+        select(Photo)
+        .options(selectinload(Photo.ai_analysis))
+        .where(Photo.business_id == business_id, Photo.review_id.is_(None))
+        .order_by(Photo.created_at.desc())
     )
     return [PhotoResponse.model_validate(p) for p in result.scalars().all()]
 
@@ -112,8 +116,6 @@ async def delete_photo(
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> None:
     """Delete a photo. Merchants can delete their business photos."""
-    from sqlalchemy import select
-
     photo = await db.get(Photo, photo_id)
     if not photo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo not found")
