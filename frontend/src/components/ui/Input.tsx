@@ -1,0 +1,21 @@
+import { InputHTMLAttributes } from "react";
+import clsx from "clsx";
+
+type Size = "sm" | "md";
+
+const base =
+  "w-full rounded border border-gray-200 bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 disabled:opacity-50 disabled:cursor-not-allowed";
+
+const sizeClasses: Record<Size, string> = {
+  sm: "px-3 py-2 text-sm",
+  md: "px-4 py-2 text-base",
+};
+
+export type InputProps = InputHTMLAttributes<HTMLInputElement> & {
+  size?: Size;
+};
+
+/** Input — text field. Mirrors the Figma `Input` primitive (Components / Primitives). */
+export function Input({ size = "sm", className, ...props }: InputProps) {
+  return <input className={clsx(base, sizeClasses[size], className)} {...props} />;
+}
