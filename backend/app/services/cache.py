@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -60,5 +61,41 @@ async def try_acquire_lock(key: str, ttl: int) -> bool:
     try:
         client = await get_redis()
         return bool(await client.set(key, "1", ex=ttl, nx=True))
+    except Exception:
+        return False
+
+
+async def blocklist_token(jti: str, exp: float) -> None:
+    """Revoke a token by jti until it would have expired anyway.
+
+    TTL is derived from the token's own exp claim, so the blocklist entry
+    self-expires exactly when the token would have stopped working
+    naturally -- nothing ever needs to clean this up. Fails open like
+    cache_get/cache_set: if Redis is unreachable, the token simply isn't
+    blocklisted rather than raising into the logout/refresh request.
+    """
+    ttl = int(exp - datetime.now(UTC).timestamp())
+    if ttl <= 0:
+        return
+    try:
+        client = await get_redis()
+        await client.set(f"blocklist:token:{jti}", "1", ex=ttl)
+    except Exception:
+        pass
+
+
+async def is_token_blocklisted(jti: str) -> bool:
+    """Fail-open blocklist check: Redis unreachable -> not blocklisted -> allow.
+
+    Deliberately the opposite of try_acquire_lock's fail-closed behavior.
+    This is called from get_current_user, the chokepoint for every
+    authenticated request platform-wide -- failing closed here would mean a
+    Redis outage 401s every protected request across the whole platform,
+    whereas failing open just means a revoked token stays valid until its
+    natural exp (<=30 min for access tokens) during the outage.
+    """
+    try:
+        client = await get_redis()
+        return bool(await client.exists(f"blocklist:token:{jti}"))
     except Exception:
         return False

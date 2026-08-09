@@ -13,6 +13,10 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class LogoutRequest(BaseModel):
+    refresh_token: str | None = None
+
+
 class UserBase(BaseModel):
     email: EmailStr
     full_name: str

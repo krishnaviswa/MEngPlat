@@ -15,7 +15,12 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await auth.logout();
+    } catch {
+      // best-effort server-side revoke; local logout proceeds regardless
+    }
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     setUser(null);

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,16 +12,18 @@ from app.core.security import (
     verify_password,
 )
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, security
 from app.models import Merchant, User, UserRole
 from app.schemas import (
     GoogleAuthRequest,
+    LogoutRequest,
     MessageResponse,
     TokenResponse,
     UserLogin,
     UserRegister,
     UserResponse,
 )
+from app.services.cache import blocklist_token, is_token_blocklisted
 from app.services.google_auth import InvalidGoogleTokenError, verify_google_id_token
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -102,6 +105,10 @@ async def refresh_token(refresh_token: str, db: AsyncSession = Depends(get_db)) 
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token") from exc
 
+    jti = payload.get("jti")
+    if jti and await is_token_blocklisted(jti):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token has been revoked")
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
@@ -182,9 +189,44 @@ async def google_auth(payload: GoogleAuthRequest, db: AsyncSession = Depends(get
 
 
 @router.post("/logout", response_model=MessageResponse)
-async def logout() -> MessageResponse:
+async def logout(
+    payload: LogoutRequest | None = None,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> MessageResponse:
     """
-    Logout placeholder — client should discard tokens.
-    In production, add token blocklist via Redis.
+    Logout: blocklist the caller's access token in Redis (and its refresh
+    token, if supplied), so both stop working immediately instead of
+    lingering until their natural expiry.
+
+    **Request:** `Authorization: Bearer <access_token>` header (required);
+    optional JSON body `{"refresh_token": "..."}` to also revoke a refresh
+    token
+    **Response:** confirmation message
+    **Errors:** 401 if the Authorization header is missing or not a valid
+    access token
     """
-    return MessageResponse(message="Logged out successfully. Discard tokens on client.")
+    if not credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    try:
+        access_payload = decode_token(credentials.credentials)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+    if access_payload.get("type") != "access":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
+
+    jti, exp = access_payload.get("jti"), access_payload.get("exp")
+    if jti and exp:
+        await blocklist_token(jti, exp)
+
+    refresh_token = payload.refresh_token if payload else None
+    if refresh_token:
+        try:
+            refresh_payload = decode_token(refresh_token)
+        except ValueError:
+            refresh_payload = None
+        if refresh_payload and refresh_payload.get("type") == "refresh":
+            r_jti, r_exp = refresh_payload.get("jti"), refresh_payload.get("exp")
+            if r_jti and r_exp:
+                await blocklist_token(r_jti, r_exp)
+
+    return MessageResponse(message="Logged out successfully.")

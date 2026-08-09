@@ -13,7 +13,12 @@ export default function SettingsPage() {
     auth.me().catch(() => router.push("/login")).finally(() => setLoading(false));
   }, [router]);
 
-  function logout() {
+  async function logout() {
+    try {
+      await auth.logout();
+    } catch {
+      // best-effort server-side revoke; local logout proceeds regardless
+    }
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     router.push("/");

@@ -16,6 +16,7 @@ from app.schemas import (
     CategoryResponse,
     MessageResponse,
 )
+from app.services.cache import cache_delete_pattern
 
 router = APIRouter(prefix="/businesses", tags=["Businesses"])
 
@@ -193,6 +194,8 @@ async def update_business(
         for cat_id in payload.category_ids:
             db.add(BusinessCategory(business_id=business_id, category_id=cat_id))
 
+    await cache_delete_pattern("search:*")
+
     result = await db.execute(
         select(Business)
         .options(selectinload(Business.categories).selectinload(BusinessCategory.category))
@@ -215,6 +218,7 @@ async def approve_business(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
     business.status = BusinessStatus.APPROVED
     db.add(AuditLog(admin_id=admin.id, action="approve", entity_type="business", entity_id=str(business_id)))
+    await cache_delete_pattern("search:*")
     result = await db.execute(
         select(Business)
         .options(selectinload(Business.categories).selectinload(BusinessCategory.category))
@@ -237,4 +241,5 @@ async def suspend_business(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
     business.status = BusinessStatus.SUSPENDED
     db.add(AuditLog(admin_id=admin.id, action="suspend", entity_type="business", entity_id=str(business_id)))
+    await cache_delete_pattern("search:*")
     return MessageResponse(message="Business suspended")

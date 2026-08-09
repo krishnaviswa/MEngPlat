@@ -26,7 +26,12 @@ export function AlreadySignedIn({ children }: { children: React.ReactNode }) {
       .finally(() => setChecked(true));
   }, []);
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await auth.logout();
+    } catch {
+      // best-effort server-side revoke; local logout proceeds regardless
+    }
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     window.location.href = "/login";

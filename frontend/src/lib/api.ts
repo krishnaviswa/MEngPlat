@@ -209,7 +209,13 @@ export const auth = {
   google: (data: { credential: string }) =>
     apiFetch<TokenResponse>("/api/v1/auth/google", { method: "POST", body: JSON.stringify(data) }),
   me: () => apiFetch<User>("/api/v1/auth/me"),
-  logout: () => apiFetch<{ message: string }>("/api/v1/auth/logout", { method: "POST" }),
+  logout: () => {
+    const refreshToken = getRefreshToken();
+    return apiFetch<{ message: string }>("/api/v1/auth/logout", {
+      method: "POST",
+      body: JSON.stringify(refreshToken ? { refresh_token: refreshToken } : {}),
+    });
+  },
 };
 
 export const businesses = {
