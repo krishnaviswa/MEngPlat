@@ -1,13 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { auth } from "@/lib/api";
 
-/** LoginForm — email/password login. State: email, password, error, loading. Hooks: useState, useRouter. */
+/** LoginForm — email/password login. State: email, password, error, loading. Hooks: useState. */
 export function LoginForm() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,8 +19,10 @@ export function LoginForm() {
       const tokens = await auth.login({ email, password });
       localStorage.setItem("access_token", tokens.access_token);
       localStorage.setItem("refresh_token", tokens.refresh_token);
-      router.push("/");
-      router.refresh();
+      // Hard reload, not router.push -- ClientLayout only fetches the current
+      // user once on mount and doesn't remount on client-side navigation, so
+      // a soft push leaves the Navbar showing the pre-login state.
+      window.location.href = "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -36,8 +36,7 @@ export function LoginForm() {
       const tokens = await auth.google({ credential });
       localStorage.setItem("access_token", tokens.access_token);
       localStorage.setItem("refresh_token", tokens.refresh_token);
-      router.push("/");
-      router.refresh();
+      window.location.href = "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Google sign-in failed");
     }

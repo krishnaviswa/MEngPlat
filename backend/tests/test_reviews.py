@@ -111,7 +111,7 @@ class FakeDB:
             Reply: self.replies,
         }.get(model, [])
 
-    async def get(self, model, id_):
+    async def get(self, model, id_, options=None):
         return next((o for o in self._table_for(model) if o.id == id_), None)
 
     async def execute(self, stmt):

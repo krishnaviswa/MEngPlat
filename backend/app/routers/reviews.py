@@ -179,7 +179,7 @@ async def update_review(
     user: User = Depends(get_current_user),
 ) -> ReviewResponse:
     """Edit own review. Re-runs AI analysis if body changes."""
-    review = await db.get(Review, review_id)
+    review = await db.get(Review, review_id, options=[selectinload(Review.ai_analysis)])
     if not review or review.author_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
 
@@ -274,7 +274,7 @@ async def reply_to_review(
     user: User = Depends(require_roles(UserRole.MERCHANT)),
 ) -> ReplyResponse:
     """Merchant responds to a review."""
-    review = await db.get(Review, review_id)
+    review = await db.get(Review, review_id, options=[selectinload(Review.reply)])
     if not review:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
 

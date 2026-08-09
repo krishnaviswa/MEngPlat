@@ -53,6 +53,7 @@ async def merchant_dashboard(
         .options(
             selectinload(Review.author),
             selectinload(Review.ai_analysis),
+            selectinload(Review.reply),
             selectinload(Review.photos),
         )
         .where(Review.business_id == business_id)

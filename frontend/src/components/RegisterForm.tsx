@@ -1,13 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { auth } from "@/lib/api";
 
 /** RegisterForm — account creation with role selection. State: form fields, error, loading. */
 export function RegisterForm() {
-  const router = useRouter();
   const [form, setForm] = useState({
     email: "",
     full_name: "",
@@ -26,7 +24,8 @@ export function RegisterForm() {
       const tokens = await auth.login({ email: form.email, password: form.password });
       localStorage.setItem("access_token", tokens.access_token);
       localStorage.setItem("refresh_token", tokens.refresh_token);
-      router.push(form.role === "merchant" ? "/merchant/dashboard" : "/");
+      // Hard reload, not router.push -- see LoginForm for why.
+      window.location.href = form.role === "merchant" ? "/merchant/dashboard" : "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -43,7 +42,7 @@ export function RegisterForm() {
       const tokens = await auth.google({ credential });
       localStorage.setItem("access_token", tokens.access_token);
       localStorage.setItem("refresh_token", tokens.refresh_token);
-      router.push("/");
+      window.location.href = "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Google sign-in failed");
     }
