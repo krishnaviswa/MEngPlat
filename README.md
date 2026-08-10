@@ -85,7 +85,7 @@ This starts PostgreSQL, Redis, the backend (which auto-seeds demo users, then ru
 | Chennai demo (×10) | `demo.customer1@example.com` … `demo.customer10@example.com` | `demo12345` |
 
 
-`backend/scripts/seed.py` creates the three core demo users, one Portland sample business, then upserts ~20 Chrompet / Radha Nagar businesses (`seed_chennai.py`) and 40 US listings from `data/real-businesses/` (`seed_us.py`: Fremont, Union City, Brandon, Dallas). Both regional seeds use synthetic hand-authored reviews, Unsplash stock photos by category (not hotlinked listing photos), and mock AI analysis rows. Display ratings come from seeded reviews via `update_business_rating()` — JSON `rating` / `review_count` fields are ignored. Extra demo customers `demo.customer1@example.com` … `demo.customer10@example.com` share password `demo12345`. Categories include `auto_repair` and `hospital` (ensured on re-run). Docker Compose mounts `./data/real-businesses` read-only at `/data/real-businesses` for the backend. Seeding is safe to re-run: base users/categories are created if missing, then Chennai and US shops are created or refreshed on every start.
+`backend/scripts/seed.py` creates the three core demo users, one Portland sample business, then upserts ~20 Chrompet / Radha Nagar businesses (`seed_chennai.py`) and 40 US listings (`seed_us.py`: Fremont, Union City, Brandon, Dallas). US JSON lives in `backend/data/real-businesses/` so the backend Docker image (Railway) includes it; a mirror under `data/real-businesses/` plus a Compose mount at `/data/real-businesses` are fallbacks. Both regional seeds use synthetic hand-authored reviews, Unsplash stock photos by category (not hotlinked listing photos), and mock AI analysis rows. Display ratings come from seeded reviews via `update_business_rating()` — JSON `rating` / `review_count` fields are ignored. Extra demo customers `demo.customer1@example.com` … `demo.customer10@example.com` share password `demo12345`. Categories include `auto_repair` and `hospital` (ensured on re-run). Seeding is safe to re-run: base users/categories are created if missing, then Chennai and US shops are created or refreshed on every start.
 
 ### Running natively (no Docker)
 
@@ -1418,7 +1418,8 @@ MEngPlat/
 │   │       └── business_service.py
 │   ├── scripts/seed.py          # Demo data seeder (Portland + Chennai + US)
 │   ├── scripts/seed_chennai.py  # Chrompet / Radha Nagar upsert
-│   ├── scripts/seed_us.py       # data/real-businesses/ upsert
+│   ├── scripts/seed_us.py       # US listings upsert (backend/data/real-businesses/)
+│   ├── data/real-businesses/    # US seed JSON (packaged in backend image)
 │   └── tests/test_api.py
 │
 └── frontend/
@@ -1631,7 +1632,7 @@ An honest delta between the original specification and what the code actually do
 | Storage         | `local` disk provider implemented                                                                                        |
 | Frontend        | Home, search (map + location), business detail, login, register, profile, settings, merchant dashboard + business create/edit, admin moderation queues |
 | Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine |
-| Seeding         | `scripts/seed.py` — Portland demo + Chennai upsert (~20) + US upsert (40 from `data/real-businesses/` via `seed_us.py`; Unsplash + synthetic reviews) |
+| Seeding         | `scripts/seed.py` — Portland demo + Chennai upsert (~20) + US upsert (40 from `backend/data/real-businesses/` via `seed_us.py`; Unsplash + synthetic reviews) |
 | Local dev       | `docker compose up --build`                                                                                              |
 
 

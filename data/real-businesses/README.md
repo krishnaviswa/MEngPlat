@@ -58,9 +58,13 @@ Fields that couldn't be verified via search are `null` rather than guessed.
 
 ## Using this data
 
-Wired for local/demo seeding: `seed_us.py` loads these four JSON files (repo path
-`data/real-businesses/` locally, or Docker mount `/data/real-businesses`), upserts
-by slug (`name-city`), maps `zip` → `postal_code` and `hours` →
+Wired for local/demo seeding via `seed_us.py`. Resolution order:
+
+1. [`backend/data/real-businesses/`](../../backend/data/real-businesses/) — **packaged in the backend Docker image** (required for Railway; keep in sync with this folder)
+2. This directory (monorepo root)
+3. `/data/real-businesses` (Compose mount in [`docker-compose.yml`](../../docker-compose.yml))
+
+Upserts by slug (`name-city`), maps `zip` → `postal_code` and `hours` →
 `business_hours={"raw": "..."}`, places pins at city-center lat/lng with slug
 jitter, attaches Unsplash photos, and adds three synthetic reviews + mock
 `AIAnalysis` per shop. Safe to re-run.

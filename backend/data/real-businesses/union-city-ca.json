@@ -1,0 +1,201 @@
+{
+  "city": "Union City, CA",
+  "collected_date": "2026-08-10",
+  "businesses": [
+    {
+      "name": "Kapow Thai Eatery",
+      "category": "restaurant",
+      "address": "34571 Alvarado-Niles Rd",
+      "city": "Union City",
+      "state": "CA",
+      "zip": "94587",
+      "phone": "(510) 253-8873",
+      "website": "https://kapow.toast.site/",
+      "hours": "Mon-Wed: 11:00 AM-2:00 PM, 4:00-9:00 PM (hours for Thu-Sun not confirmed)",
+      "rating": 4.2,
+      "review_count": 216,
+      "maps_url": "https://www.yelp.com/biz/kapow-thai-eatery-union-city",
+      "photo_reference_url": "https://www.yelp.com/biz/kapow-thai-eatery-union-city",
+      "sources": [
+        "https://www.yelp.com/biz/kapow-thai-eatery-union-city",
+        "https://maps.apple.com/place?place-id=I7B92EC109AC0F17",
+        "https://kapow.toast.site/"
+      ]
+    },
+    {
+      "name": "Home Eat",
+      "category": "restaurant",
+      "address": "33348 Alvarado Niles Rd",
+      "city": "Union City",
+      "state": "CA",
+      "zip": "94587",
+      "phone": "(510) 952-9062",
+      "website": "https://www.homeeat.com/unioncity",
+      "hours": "Mon-Sun: 11:15 AM-11:15 PM",
+      "rating": 4.6,
+      "review_count": 104,
+      "maps_url": "https://www.yelp.com/biz/home-eat-union-city",
+      "photo_reference_url": "https://www.yelp.com/biz/home-eat-union-city",
+      "sources": [
+        "https://www.yelp.com/biz/home-eat-union-city",
+        "https://www.homeeat.com/unioncity",
+        "https://maps.apple.com/place?place-id=I613BC5DC2860E717"
+      ]
+    },
+    {
+      "name": "Cafe 86",
+      "category": "cafe",
+      "address": "34391 Alvarado-Niles Rd",
+      "city": "Union City",
+      "state": "CA",
+      "zip": "94587",
+      "phone": "(510) 431-3226",
+      "website": "https://www.cafe-86.com/",
+      "hours": "Mon-Thu: 12:30-9:00 PM, Fri-Sat: 12:30-10:00 PM, Sun: 12:30-9:00 PM",
+      "rating": null,
+      "review_count": 496,
+      "maps_url": "https://www.yelp.com/biz/cafe-86-union-city",
+      "photo_reference_url": "https://www.yelp.com/biz_photos/cafe-86-union-city",
+      "sources": [
+        "https://www.yelp.com/biz/cafe-86-union-city",
+        "https://www.cafe-86.com/locations"
+      ]
+    },
+    {
+      "name": "Suju's Coffee & Tea",
+      "category": "cafe",
+      "address": "1752 Decoto Rd",
+      "city": "Union City",
+      "state": "CA",
+      "zip": "94587",
+      "phone": "(510) 400-3187",
+      "website": "https://sujuscoffee.com/",
+      "hours": "Mon-Fri: 6:00 AM-10:00 PM, Sat-Sun: 6:30 AM-10:00 PM",
+      "rating": null,
+      "review_count": 127,
+      "maps_url": "https://www.yelp.com/biz/sujus-coffee-and-tea-union-city",
+      "photo_reference_url": "https://www.yelp.com/biz/sujus-coffee-and-tea-union-city",
+      "sources": [
+        "https://www.yelp.com/biz/sujus-coffee-and-tea-union-city",
+        "https://sujuscoffee.com/"
+      ]
+    },
+    {
+      "name": "Excellent Hair",
+      "category": "salon",
+      "address": "32220 Alvarado Blvd",
+      "city": "Union City",
+      "state": "CA",
+      "zip": "94587",
+      "phone": "(510) 675-0882",
+      "website": "http://excellent-hair.edan.io/",
+      "hours": "Mon-Fri: 9:00 AM-7:30 PM, Sat: 9:00 AM-6:00 PM",
+      "rating": 4.3,
+      "review_count": 125,
+      "maps_url": "https://www.yelp.com/biz/excellent-hair-union-city",
+      "photo_reference_url": "https://www.yelp.com/biz/excellent-hair-union-city",
+      "sources": [
+        "https://www.yelp.com/biz/excellent-hair-union-city",
+        "https://www.fresha.com/lvp/excellent-hair-alvarado-boulevard-union-city-2GvjlJ",
+        "https://reviews.birdeye.com/excellent-hair-170203966162156"
+      ]
+    },
+    {
+      "name": "Sunny Salon & Spa",
+      "category": "salon",
+      "address": "1836 Whipple Rd",
+      "city": "Union City",
+      "state": "CA",
+      "zip": "94587",
+      "phone": "(510) 471-4666",
+      "website": null,
+      "hours": null,
+      "rating": null,
+      "review_count": 191,
+      "maps_url": "https://www.yelp.com/biz/sunny-salon-and-spa-union-city",
+      "photo_reference_url": "https://www.yelp.com/biz/sunny-salon-and-spa-union-city",
+      "sources": [
+        "https://www.yelp.com/biz/sunny-salon-and-spa-union-city",
+        "https://reviews.birdeye.com/sunny-salon-spa-157273808739141"
+      ]
+    },
+    {
+      "name": "One Stop Auto Service",
+      "category": "auto_repair",
+      "address": "1279 Atlantic St",
+      "city": "Union City",
+      "state": "CA",
+      "zip": "94587",
+      "phone": "(510) 489-8614",
+      "website": null,
+      "hours": "Mon-Sat: 8:00 AM-5:00 PM, Sun: Closed",
+      "rating": null,
+      "review_count": 27,
+      "maps_url": "https://www.yelp.com/biz/one-stop-auto-service-union-city",
+      "photo_reference_url": "https://www.yelp.com/biz/one-stop-auto-service-union-city",
+      "sources": [
+        "https://www.yelp.com/biz/one-stop-auto-service-union-city",
+        "https://www.yellowpages.com/union-city-ca/mip/one-stop-auto-service-467902879"
+      ]
+    },
+    {
+      "name": "Escutia's Auto Repair",
+      "category": "auto_repair",
+      "address": "967 H St",
+      "city": "Union City",
+      "state": "CA",
+      "zip": "94587",
+      "phone": "(510) 489-7890",
+      "website": null,
+      "hours": "Mon-Fri: 9:00 AM-6:00 PM",
+      "rating": null,
+      "review_count": 164,
+      "maps_url": "https://www.yelp.com/biz/escutias-auto-repair-union-city",
+      "photo_reference_url": "https://www.yelp.com/biz/escutias-auto-repair-union-city",
+      "sources": [
+        "https://www.yelp.com/biz/escutias-auto-repair-union-city",
+        "https://reviews.birdeye.com/escutias-auto-repair-156042606514887"
+      ]
+    },
+    {
+      "name": "Kaiser Permanente Union City Medical Offices",
+      "category": "hospital",
+      "address": "3555 Whipple Rd",
+      "city": "Union City",
+      "state": "CA",
+      "zip": "94587",
+      "phone": "(510) 675-4010",
+      "website": "https://healthy.kaiserpermanente.org/northern-california/facilities/Union-City-Medical-Offices-100358",
+      "hours": "Mon-Fri: 8:30 AM-5:00 PM",
+      "rating": 2.9,
+      "review_count": 152,
+      "maps_url": "https://www.yelp.com/biz/kaiser-permanente-union-city-medical-offices-union-city-2",
+      "photo_reference_url": "https://www.yelp.com/biz/kaiser-permanente-union-city-medical-offices-union-city-2",
+      "sources": [
+        "https://www.yelp.com/biz/kaiser-permanente-union-city-medical-offices-union-city-2",
+        "https://thrive.kaiserpermanente.org/care-near-you/northern-california/gsaa/locations/union-city-medical-offices/",
+        "https://healthy.kaiserpermanente.org/northern-california/facilities/Union-City-Medical-Offices-100358"
+      ]
+    },
+    {
+      "name": "U.S. HealthWorks Medical Group",
+      "category": "hospital",
+      "address": "33560 Alvarado Niles Rd",
+      "city": "Union City",
+      "state": "CA",
+      "zip": "94587",
+      "phone": "(510) 489-8700",
+      "website": "https://www.ushealthworks.com/",
+      "hours": "Mon-Fri: 8:00 AM-5:00 PM, Closed weekends",
+      "rating": 1.9,
+      "review_count": 68,
+      "maps_url": "https://www.yelp.com/biz/u-s-healthworks-medical-group-union-city-2",
+      "photo_reference_url": "https://www.yelp.com/biz/u-s-healthworks-medical-group-union-city-2",
+      "sources": [
+        "https://www.yelp.com/biz/u-s-healthworks-medical-group-union-city-2",
+        "https://reviews.birdeye.com/us-healthworks-urgent-care-155721546836750",
+        "https://www.healthgrades.com/urgent-care-directory/us-healthworks-medical-group-uc7474"
+      ]
+    }
+  ]
+}

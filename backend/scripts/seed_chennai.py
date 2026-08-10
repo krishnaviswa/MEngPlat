@@ -524,7 +524,7 @@ async def seed_chennai(
             await db.execute(select(Photo).where(Photo.business_id == business.id, Photo.review_id.is_(None)))
         ).scalars().all()
         for photo in old_photos:
-            db.delete(photo)
+            await db.delete(photo)
         await db.flush()
 
         for g_idx, url in enumerate(_gallery_urls(category, slug)):

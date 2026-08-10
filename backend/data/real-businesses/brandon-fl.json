@@ -1,0 +1,204 @@
+{
+  "city": "Brandon, FL",
+  "collected_date": "2026-08-10",
+  "businesses": [
+    {
+      "name": "Tibby's New Orleans Kitchen",
+      "category": "restaurant",
+      "address": "1721 W Brandon Blvd",
+      "city": "Brandon",
+      "state": "FL",
+      "zip": "33511",
+      "phone": "(813) 315-8443",
+      "website": "https://tibbys.com/locations/brandon/",
+      "hours": "Mon-Thu 11:00 AM-9:00 PM; Fri 11:00 AM-10:00 PM; Sat-Sun hours not confirmed via search",
+      "rating": 4.5,
+      "review_count": 974,
+      "maps_url": "https://www.yelp.com/biz/tibbys-new-orleans-kitchen-brandon-2",
+      "photo_reference_url": "https://www.yelp.com/biz/tibbys-new-orleans-kitchen-brandon-2",
+      "sources": [
+        "https://www.yelp.com/biz/tibbys-new-orleans-kitchen-brandon-2",
+        "https://tibbys.com/locations/brandon/",
+        "https://www.tripadvisor.com/Restaurant_Review-g34099-d10289888-Reviews-Tibby_s_New_Orleans_Kitchen-Brandon_Florida.html"
+      ]
+    },
+    {
+      "name": "Carrabba's Italian Grill",
+      "category": "restaurant",
+      "address": "801 Providence Rd",
+      "city": "Brandon",
+      "state": "FL",
+      "zip": "33511",
+      "phone": "(813) 657-8166",
+      "website": "https://locations.carrabbas.com/florida/brandon/801-providence-road",
+      "hours": "Mon-Thu & Sun 11:00 AM-10:00 PM; Fri-Sat 11:00 AM-11:00 PM",
+      "rating": 4.2,
+      "review_count": 260,
+      "maps_url": "https://www.yelp.com/biz/carrabbas-italian-grill-brandon-3",
+      "photo_reference_url": "https://www.yelp.com/biz/carrabbas-italian-grill-brandon-3",
+      "sources": [
+        "https://www.yelp.com/biz/carrabbas-italian-grill-brandon-3",
+        "https://locations.carrabbas.com/florida/brandon/801-providence-road",
+        "https://www.sirved.com/restaurant/brandon-florida-usa/carrabbas-italian-grill/473676/menus"
+      ]
+    },
+    {
+      "name": "Just Love Coffee Cafe - Brandon FL",
+      "category": "cafe",
+      "address": "2020 W Brandon Blvd, Ste 105",
+      "city": "Brandon",
+      "state": "FL",
+      "zip": "33511",
+      "phone": "(813) 381-4395",
+      "website": "https://www.facebook.com/justlovebrandonfl/",
+      "hours": "Daily 7:00 AM-4:00 PM",
+      "rating": 4.7,
+      "review_count": 208,
+      "maps_url": "https://www.yelp.com/biz/just-love-coffee-cafe-brandon-fl-brandon-2",
+      "photo_reference_url": "https://www.yelp.com/biz/just-love-coffee-cafe-brandon-fl-brandon-2",
+      "sources": [
+        "https://www.yelp.com/biz/just-love-coffee-cafe-brandon-fl-brandon-2",
+        "https://www.tripadvisor.com/Restaurant_Review-g34099-d21338462-Reviews-Just_Love_Coffee_Cafe_Brandon_FL-Brandon_Florida.html",
+        "https://www.facebook.com/justlovebrandonfl/"
+      ]
+    },
+    {
+      "name": "Blind Tiger Coffee Roasters - Brandon Mall",
+      "category": "cafe",
+      "address": "459 Brandon Town Ctr Dr",
+      "city": "Brandon",
+      "state": "FL",
+      "zip": "33511",
+      "phone": "(813) 540-2233",
+      "website": "https://blindtigercafe.com/locations-3/brandon-mall/",
+      "hours": "Mon-Sat 10:00 AM-9:00 PM; Sun 11:00 AM-7:00 PM (some sources show slightly different weekday close times, treat as approximate)",
+      "rating": 4.1,
+      "review_count": 167,
+      "maps_url": "https://www.yelp.com/biz/blind-tiger-coffee-roasters-brandon",
+      "photo_reference_url": "https://www.yelp.com/biz/blind-tiger-coffee-roasters-brandon",
+      "sources": [
+        "https://www.yelp.com/biz/blind-tiger-coffee-roasters-brandon",
+        "https://blindtigercafe.com/locations-3/brandon-mall/",
+        "https://www.restaurantji.com/fl/brandon/the-blind-tiger-cafe-brandon-mall-/"
+      ]
+    },
+    {
+      "name": "Sunrise Nails & Spa",
+      "category": "salon",
+      "address": "1925 W Brandon Blvd",
+      "city": "Brandon",
+      "state": "FL",
+      "zip": "33511",
+      "phone": null,
+      "website": null,
+      "hours": null,
+      "rating": 4.0,
+      "review_count": 38,
+      "maps_url": "https://www.yelp.com/biz/sunrise-nails-and-spa-brandon",
+      "photo_reference_url": "https://www.yelp.com/biz/sunrise-nails-and-spa-brandon",
+      "sources": [
+        "https://www.yelp.com/biz/sunrise-nails-and-spa-brandon",
+        "https://www.yellowpages.com/brandon-fl/mip/sunrise-nails-spas-560488854"
+      ]
+    },
+    {
+      "name": "Brandon Hairstyling",
+      "category": "salon",
+      "address": "2064 Badlands Dr, Ste 11",
+      "city": "Brandon",
+      "state": "FL",
+      "zip": "33511",
+      "phone": "(813) 458-4565",
+      "website": "https://www.brandonhairstyling.com/",
+      "hours": "Mon Closed; Tue 10:00 AM-6:00 PM; Wed-Thu 10:00 AM-7:00 PM; Fri 10:00 AM-6:00 PM; Sat 9:00 AM-3:00 PM; Sun Closed",
+      "rating": null,
+      "review_count": null,
+      "maps_url": "https://www.yelp.com/biz/brandon-hairstyling-brandon",
+      "photo_reference_url": "https://www.brandonhairstyling.com/",
+      "sources": [
+        "https://www.yelp.com/biz/brandon-hairstyling-brandon",
+        "https://www.brandonhairstyling.com/",
+        "https://booksy.com/en-us/182205_brandon-hairstyling_hair-salon_15746_brandon"
+      ]
+    },
+    {
+      "name": "Auto Clinic of Brandon",
+      "category": "auto_repair",
+      "address": "901 W Brandon Blvd, Ste A",
+      "city": "Brandon",
+      "state": "FL",
+      "zip": "33511",
+      "phone": "(813) 654-8686",
+      "website": "https://www.autoclinicofbrandon.com/",
+      "hours": "Mon-Fri 7:00 AM-4:30 PM; Sat-Sun Closed",
+      "rating": 4.2,
+      "review_count": 33,
+      "maps_url": "https://www.yelp.com/biz/auto-clinic-of-brandon-brandon",
+      "photo_reference_url": "https://www.yelp.com/biz/auto-clinic-of-brandon-brandon",
+      "sources": [
+        "https://www.yelp.com/biz/auto-clinic-of-brandon-brandon",
+        "https://www.autoclinicofbrandon.com/"
+      ]
+    },
+    {
+      "name": "Auto Works of Brandon",
+      "category": "auto_repair",
+      "address": "211 N Kings Ave",
+      "city": "Brandon",
+      "state": "FL",
+      "zip": "33510",
+      "phone": "(813) 657-4399",
+      "website": "https://brandonautorepair.com/",
+      "hours": "Mon-Fri 8:00 AM-5:00 PM; Sat-Sun Closed",
+      "rating": null,
+      "review_count": 48,
+      "maps_url": "https://www.yelp.com/biz/auto-works-of-brandon-brandon",
+      "photo_reference_url": "https://www.yelp.com/biz/auto-works-of-brandon-brandon",
+      "sources": [
+        "https://www.yelp.com/biz/auto-works-of-brandon-brandon",
+        "https://brandonautorepair.com/",
+        "https://www.bbb.org/us/fl/brandon/profile/auto-repair/auto-works-of-brandon-inc-0653-44001523"
+      ]
+    },
+    {
+      "name": "HCA Florida Brandon Hospital",
+      "category": "hospital",
+      "address": "119 Oakfield Dr",
+      "city": "Brandon",
+      "state": "FL",
+      "zip": "33511",
+      "phone": "(813) 681-5551",
+      "website": "https://www.hcafloridahealthcare.com/locations/brandon-hospital",
+      "hours": "Open 24 hours (Emergency Department operates 24/7)",
+      "rating": 3.9,
+      "review_count": 6534,
+      "maps_url": "https://www.yelp.com/biz/hca-florida-brandon-hospital-brandon",
+      "photo_reference_url": "https://www.yelp.com/biz/hca-florida-brandon-hospital-brandon",
+      "sources": [
+        "https://www.yelp.com/biz/hca-florida-brandon-hospital-brandon",
+        "https://www.hcafloridahealthcare.com/locations/brandon-hospital",
+        "https://www.hcafloridahealthcare.com/locations/brandon-hospital/specialties/emergency-care"
+      ]
+    },
+    {
+      "name": "Tampa Urgent Care - TampaUC Brandon",
+      "category": "hospital",
+      "address": "1236 Kingsway Rd",
+      "city": "Brandon",
+      "state": "FL",
+      "zip": "33510",
+      "phone": "(813) 616-8810",
+      "website": "https://www.tampauc.com/brandon",
+      "hours": "Mon-Fri 8:00 AM-8:00 PM; Sat-Sun 8:00 AM-5:00 PM",
+      "rating": 4.9,
+      "review_count": null,
+      "maps_url": "https://www.yelp.com/biz/tampa-urgent-care-brandon",
+      "photo_reference_url": "https://www.yelp.com/biz/tampa-urgent-care-brandon",
+      "sources": [
+        "https://www.yelp.com/biz/tampa-urgent-care-brandon",
+        "https://www.tampauc.com/brandon",
+        "https://www.urgentcare.com/practice/U27000-tampa-urgent-care-brandon-fl-33510"
+      ]
+    }
+  ]
+}

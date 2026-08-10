@@ -157,18 +157,24 @@ _US_REVIEW_TEMPLATES: dict[str, list[dict]] = {
 
 
 def _resolve_data_dir() -> Path:
-    """Local monorepo first, then Docker volume mount."""
+    """Prefer packaged backend copy (Railway/Docker image), then monorepo / compose mount."""
+    here = Path(__file__).resolve()
     candidates = [
-        Path(__file__).resolve().parents[2] / "data" / "real-businesses",
+        # backend/data/real-businesses — shipped via backend Dockerfile `COPY . .`
+        here.parents[1] / "data" / "real-businesses",
+        # monorepo root data/real-businesses (local checkout without packaging)
+        here.parents[2] / "data" / "real-businesses",
+        # docker-compose volume mount
         Path("/data/real-businesses"),
     ]
     for path in candidates:
-        if path.is_dir():
+        if path.is_dir() and any(path.glob("*.json")):
             return path
     raise FileNotFoundError(
-        "US seed data directory not found. Expected "
-        "`data/real-businesses` at the repo root (local) or `/data/real-businesses` "
-        "(Docker mount of ./data/real-businesses)."
+        "US seed data directory not found. Expected JSON under "
+        "`backend/data/real-businesses` (packaged in the image), "
+        "`data/real-businesses` at the repo root, or `/data/real-businesses` "
+        "(Docker Compose mount)."
     )
 
 
@@ -341,7 +347,7 @@ async def seed_us(
             await db.execute(select(Photo).where(Photo.business_id == business.id, Photo.review_id.is_(None)))
         ).scalars().all()
         for photo in old_photos:
-            db.delete(photo)
+            await db.delete(photo)
         await db.flush()
 
         for g_idx, url in enumerate(_gallery_urls(category, slug)):
