@@ -7,15 +7,17 @@
 
 ## Problem (current)
 
-Backend start on Railway ([`backend/railway.json`](backend/railway.json)):
+Backend start on Railway (`[backend/railway.json](backend/railway.json)`):
 
 ```text
 alembic upgrade head → python scripts/seed.py → uvicorn
 ```
 
-[`backend/scripts/seed.py`](backend/scripts/seed.py) + Chennai/US upserts refresh ~60 businesses, reviews, photos, and ratings on **every** deploy. Idempotent ≠ cheap.
+`[backend/scripts/seed.py](backend/scripts/seed.py)` + Chennai/US upserts refresh ~60 businesses, reviews, photos, and ratings on **every** deploy. Idempotent ≠ cheap.
 
 ---
+
+
 
 ## Target outcomes
 
@@ -26,11 +28,15 @@ alembic upgrade head → python scripts/seed.py → uvicorn
 
 ---
 
+
+
 ## Phase 1 — Stop seeding on every deploy (do this first)
+
+
 
 ### 1.1 Change Railway start command
 
-**File:** [`backend/railway.json`](backend/railway.json)
+**File:** `[backend/railway.json](backend/railway.json)`
 
 **From:**
 
@@ -44,24 +50,28 @@ alembic upgrade head && (PYTHONPATH=/app python scripts/seed.py || echo 'WARNING
 alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 ```
 
+
+
 ### 1.2 Keep Compose demo-friendly
 
-**File:** [`docker-compose.yml`](docker-compose.yml)
+**File:** `[docker-compose.yml](docker-compose.yml)`
 
 - Keep seed in the **local** backend command override, **or** switch to env-gated seed (Phase 2) so local and Railway share one code path.
 - Prefer one path: `SEED_MODE` (below) rather than “Railway never seeds / Compose always seeds” forever.
 
+
+
 ### 1.3 Document how to seed on Railway after deploy
 
-**File:** [`README.md`](README.md) §10 / §1
+**File:** `[README.md](README.md)` §10 / §1
 
 - One-shot: Railway shell / one-off job:
-
   ```sh
   PYTHONPATH=/app SEED_MODE=force python scripts/seed.py
   ```
-
 - Or: add a Railway “cron / one-shot” service later that only runs seed (Phase 3).
+
+
 
 ### 1.4 Acceptance
 
@@ -71,29 +81,37 @@ alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 
 ---
 
+
+
 ## Phase 2 — Version-gated seed (skip when already applied)
+
+
 
 ### 2.1 Add a seed marker table (Alembic migration)
 
 New table, e.g. `seed_runs`:
 
-| Column | Type | Notes |
-|--------|------|--------|
-| `id` | UUID PK | |
-| `version` | `varchar` unique | e.g. `2026-08-10-chennai-us-v1` |
-| `applied_at` | timestamptz | |
-| `notes` | text nullable | optional |
 
-Bump `SEED_VERSION` constant in [`backend/scripts/seed.py`](backend/scripts/seed.py) whenever seed content meaningfully changes.
+| Column       | Type             | Notes                           |
+| ------------ | ---------------- | ------------------------------- |
+| `id`         | UUID PK          |                                 |
+| `version`    | `varchar` unique | e.g. `2026-08-10-chennai-us-v1` |
+| `applied_at` | timestamptz      |                                 |
+| `notes`      | text nullable    | optional                        |
+
+
+Bump `SEED_VERSION` constant in `[backend/scripts/seed.py](backend/scripts/seed.py)` whenever seed content meaningfully changes.
 
 ### 2.2 Seed modes via env
 
-| `SEED_MODE` | Behavior |
-|-------------|----------|
-| `off` | No-op (default on Railway production) |
-| `if_empty` | Seed only if no approved businesses (or no `seed_runs` row) |
-| `if_outdated` | Seed only if `seed_runs` missing current `SEED_VERSION` |
-| `force` | Always run full upsert; then upsert marker to current version |
+
+| `SEED_MODE`   | Behavior                                                      |
+| ------------- | ------------------------------------------------------------- |
+| `off`         | No-op (default on Railway production)                         |
+| `if_empty`    | Seed only if no approved businesses (or no `seed_runs` row)   |
+| `if_outdated` | Seed only if `seed_runs` missing current `SEED_VERSION`       |
+| `force`       | Always run full upsert; then upsert marker to current version |
+
 
 **Defaults suggestion:**
 
@@ -101,7 +119,9 @@ Bump `SEED_VERSION` constant in [`backend/scripts/seed.py`](backend/scripts/seed
 - Docker Compose: `SEED_MODE=if_outdated` or `if_empty`
 - Manual refresh: `SEED_MODE=force`
 
-### 2.3 Wire seed.py
+
+
+### 2.3 Wire [seed.py](http://seed.py)
 
 At start of `seed()`:
 
@@ -111,12 +131,16 @@ At start of `seed()`:
 4. Else run existing `_seed_base` / `seed_chennai` / `seed_us`.
 5. Insert/update `seed_runs` for current version; commit.
 
+
+
 ### 2.4 Tests
 
 - Unit/integration: `SEED_MODE=off` does not create businesses.
 - `if_outdated` second run is no-op.
 - `force` refreshes and updates marker.
 - Existing stats/favorites tests unchanged when DB already seeded in fixtures.
+
+
 
 ### 2.5 Acceptance
 
@@ -125,6 +149,8 @@ At start of `seed()`:
 - [ ] README §15 lists `SEED_MODE`, `SEED_VERSION`.
 
 ---
+
+
 
 ## Phase 3 — Optional seed job (not on web dyno)
 
@@ -137,6 +163,8 @@ Only if you want scheduled or button-click demo refresh:
 
 ---
 
+
+
 ## Phase 4 — Blue-green **apps**, one database (optional, later)
 
 Use when you need zero-downtime **code** deploys — **not** to fix seed slowness (Phase 1–2 already did).
@@ -146,12 +174,16 @@ Users → router → Blue (live) ─┐
                  Green (warm) ─┴→ same Postgres
 ```
 
+
+
 ### Rules
 
 - Migrations: **expand → deploy → contract** (additive columns first).
 - Both colors point at **one** `DATABASE_URL`.
 - Do **not** run seed on green boot.
 - Health check green → flip traffic → keep blue for rollback window.
+
+
 
 ### Railway-shaped steps (conceptual)
 
@@ -161,6 +193,8 @@ Users → router → Blue (live) ─┐
 4. Roll back = point traffic to previous revision (DB still compatible).
 
 ---
+
+
 
 ## Phase 5 — Dual-database swap (optional, demo-only)
 
@@ -173,15 +207,21 @@ Cutover: flip DATABASE_URL (or DNS) to DB_B
 Rollback: flip back to DB_A within N hours
 ```
 
+
+
 ### When to use
 
 - You want a clean known-good demo snapshot without locking the live API during seed.
 - You accept that writes on the old DB during prep are abandoned unless you freeze writes or replicate.
 
+
+
 ### When **not** to use
 
 - Normal feature deploys (use Phase 1–2).
 - Production with real user data (prefer one DB + expand/contract migrations).
+
+
 
 ### Cheaper alternative to dual DB
 
@@ -189,33 +229,43 @@ Keep a **Postgres snapshot / backup** of a known-good seeded DB and restore into
 
 ---
 
+
+
 ## Recommended apply order
 
-| Order | Phase | Effort | Deploy impact |
-|------:|-------|--------|----------------|
-| 1 | Phase 1 — remove seed from Railway start | Small | Immediate faster deploys |
-| 2 | Phase 2 — `SEED_MODE` + `seed_runs` | Medium | Safe re-runs, Compose parity |
-| 3 | Phase 3 — one-shot seed job | Small | Ops convenience |
-| 4 | Phase 4 — blue-green apps | Larger | Zero-downtime code |
-| 5 | Phase 5 — dual DB swap | Largest | Demo reset only |
+
+| Order | Phase                                    | Effort  | Deploy impact                |
+| ----- | ---------------------------------------- | ------- | ---------------------------- |
+| 1     | Phase 1 — remove seed from Railway start | Small   | Immediate faster deploys     |
+| 2     | Phase 2 — `SEED_MODE` + `seed_runs`      | Medium  | Safe re-runs, Compose parity |
+| 3     | Phase 3 — one-shot seed job              | Small   | Ops convenience              |
+| 4     | Phase 4 — blue-green apps                | Larger  | Zero-downtime code           |
+| 5     | Phase 5 — dual DB swap                   | Largest | Demo reset only              |
+
 
 **Do not start with Phase 5** to fix slow deploys.
 
 ---
 
+
+
 ## Files likely touched (when implementing)
 
-| File | Change |
-|------|--------|
-| [`backend/railway.json`](backend/railway.json) | Drop `seed.py` from `startCommand` |
-| [`docker-compose.yml`](docker-compose.yml) | Pass `SEED_MODE` |
-| [`backend/scripts/seed.py`](backend/scripts/seed.py) | Gate + version marker write |
-| [`backend/app/models/`](backend/app/models/) + Alembic | `seed_runs` table |
-| [`backend/app/config.py`](backend/app/config.py) | `SEED_MODE` / `SEED_VERSION` settings |
-| [`backend/tests/`](backend/tests/) | Mode / skip / force cases |
-| [`README.md`](README.md) §1, §10, §15 | Deploy + env docs (project single prose doc) |
+
+| File                                                   | Change                                       |
+| ------------------------------------------------------ | -------------------------------------------- |
+| `[backend/railway.json](backend/railway.json)`         | Drop `seed.py` from `startCommand`           |
+| `[docker-compose.yml](docker-compose.yml)`             | Pass `SEED_MODE`                             |
+| `[backend/scripts/seed.py](backend/scripts/seed.py)`   | Gate + version marker write                  |
+| `[backend/app/models/](backend/app/models/)` + Alembic | `seed_runs` table                            |
+| `[backend/app/config.py](backend/app/config.py)`       | `SEED_MODE` / `SEED_VERSION` settings        |
+| `[backend/tests/](backend/tests/)`                     | Mode / skip / force cases                    |
+| `[README.md](README.md)` §1, §10, §15                  | Deploy + env docs (project single prose doc) |
+
 
 ---
+
+
 
 ## Out of scope for this plan
 
@@ -225,9 +275,12 @@ Keep a **Postgres snapshot / backup** of a known-good seeded DB and restore into
 
 ---
 
+
+
 ## Done definition
 
 - Production deploys no longer block on Chennai/US upsert.
 - Demo data can still be created/refreshed deliberately.
 - Re-seed is O(1) skip when version unchanged.
 - Blue-green / dual-DB documented as optional follow-ons, not required for the seed fix.
+
