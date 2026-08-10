@@ -11,7 +11,8 @@ const sizeClasses: Record<Size, string> = {
   md: "px-4 py-2 text-base",
 };
 
-export type InputProps = InputHTMLAttributes<HTMLInputElement> & {
+// Omit native HTML `size` (number) so our visual size variant isn't intersected to `never`.
+export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & {
   size?: Size;
 };
 

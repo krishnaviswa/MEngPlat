@@ -11,7 +11,8 @@ const sizeClasses: Record<Size, string> = {
   md: "px-4 py-2 text-base",
 };
 
-export type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
+// Omit native HTML `size` (number of visible options) so our visual size variant isn't `never`.
+export type SelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, "size"> & {
   size?: Size;
 };
 
