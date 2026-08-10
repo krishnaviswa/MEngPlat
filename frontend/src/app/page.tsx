@@ -1,12 +1,35 @@
-import { BusinessCard } from "@/components/BusinessCard";
 import { SearchBar } from "@/components/SearchBar";
-import { Card } from "@/components/ui/Card";
-import { StatCard } from "@/components/ui/StatCard";
-import { businesses, type Category, type PublicPlatformStats } from "@/lib/api";
+import { CategoryIndex } from "@/components/home/CategoryIndex";
+import { CityIndex } from "@/components/home/CityIndex";
+import { FeaturedGrid } from "@/components/home/FeaturedGrid";
+import { ReviewVoices, type ReviewVoiceItem } from "@/components/home/ReviewVoices";
+import { TrustMetrics } from "@/components/home/TrustMetrics";
+import { businesses, reviews, type Business, type Category, type PublicPlatformStats } from "@/lib/api";
 
-const HERO_CITY_LINK_CAP = 6;
+const HERO_PHOTO_CAP = 6;
+const FEATURED_CAP = 6;
+const VOICE_BUSINESS_CAP = 3;
 
-/** Home page — SSR: hero, stats, categories, featured grid, how-it-works. */
+function countByCity(list: Business[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const b of list) {
+    if (!b.city) continue;
+    map.set(b.city, (map.get(b.city) || 0) + 1);
+  }
+  return map;
+}
+
+function countByCategorySlug(list: Business[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const b of list) {
+    for (const c of b.categories || []) {
+      map.set(c.slug, (map.get(c.slug) || 0) + 1);
+    }
+  }
+  return map;
+}
+
+/** Home page — SSR: brand hero, live metrics, indexes, featured, voices, journey, merchant CTA. */
 export default async function HomePage() {
   const [listResult, citiesResult, categoriesResult, statsResult] = await Promise.allSettled([
     businesses.list(),
@@ -30,122 +53,170 @@ export default async function HomePage() {
     }
   }
 
-  const grid = cityFeatured.slice(0, 12);
-  const heroCities = cities.slice(0, HERO_CITY_LINK_CAP);
+  const grid = cityFeatured.slice(0, FEATURED_CAP);
+  const cityCounts = countByCity(listed);
+  const categoryCounts = countByCategorySlug(listed);
+
+  const cityIndex = cities
+    .map((name) => ({ name, count: cityCounts.get(name) || 0 }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+  const categoryIndex = categories
+    .map((category) => ({ category, count: categoryCounts.get(category.slug) || 0 }))
+    .sort((a, b) => b.count - a.count || a.category.name.localeCompare(b.category.name));
+
+  const heroPhotos = listed
+    .map((b) => b.storefront_url || b.logo_url)
+    .filter((url): url is string => Boolean(url))
+    .slice(0, HERO_PHOTO_CAP);
+
+  const voiceCandidates = grid.filter((b) => b.review_count > 0).slice(0, VOICE_BUSINESS_CAP);
+  const voiceResults = await Promise.allSettled(voiceCandidates.map((b) => reviews.list(b.id)));
+  const voiceItems: ReviewVoiceItem[] = [];
+  voiceResults.forEach((result, i) => {
+    if (result.status !== "fulfilled") return;
+    const review = result.value.find((r) => r.body?.trim()) || result.value[0];
+    if (!review) return;
+    voiceItems.push({ business: voiceCandidates[i], review });
+  });
 
   return (
     <div>
-      <section className="bg-gradient-to-br from-brand-700 to-brand-900 px-4 py-16 text-white">
-        <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-4xl font-bold">Support local businesses you trust</h1>
-          <p className="mt-4 text-brand-100">
-            Discover neighborhood shops with photos, ratings, and reviews in one place.
-          </p>
-          <div className="mt-8">
-            <SearchBar className="mx-auto max-w-xl [&_input]:text-gray-900" />
-          </div>
-          {heroCities.length > 0 && (
-            <p className="mt-4 text-sm text-brand-100">
-              Try searching{" "}
-              {heroCities.map((city, i) => (
-                <span key={city}>
-                  {i > 0 && (i === heroCities.length - 1 ? " or " : ", ")}
-                  <a href={`/search?city=${encodeURIComponent(city)}`} className="underline hover:text-white">
-                    {city}
-                  </a>
-                </span>
+      {/* Hero — brand first; no overlays, stats, or category pills */}
+      <section className="relative min-h-[min(88vh,720px)] overflow-hidden bg-slate-900 text-white">
+        <div className="absolute inset-0" aria-hidden>
+          {heroPhotos.length > 0 ? (
+            <div className="grid h-full grid-cols-2 md:grid-cols-3">
+              {heroPhotos.map((src, i) => (
+                <div key={`${src}-${i}`} className="relative overflow-hidden">
+                  <img
+                    src={src}
+                    alt=""
+                    className="h-full w-full object-cover opacity-55 animate-ken-burns"
+                    style={{ animationDelay: `${i * 1.2}s` }}
+                  />
+                </div>
               ))}
-            </p>
-          )}
-        </div>
-      </section>
-
-      {stats && (
-        <section className="mx-auto max-w-6xl px-4 py-10">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <StatCard label="Approved businesses" value={stats.total_businesses} />
-            <StatCard label="Active reviews" value={stats.total_reviews} />
-            <StatCard label="Categories" value={stats.total_categories} />
-          </div>
-        </section>
-      )}
-
-      {categories.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 pb-10">
-          <h2 className="text-2xl font-bold">Browse by category</h2>
-          <p className="mt-1 text-sm text-gray-600">Jump straight into a search filtered by what you need</p>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {categories.map((c) => (
-              <a key={c.id} href={`/search?category=${encodeURIComponent(c.slug)}`}>
-                <Card className="transition hover:border-brand-300 hover:shadow-md">
-                  <p className="text-2xl" aria-hidden>
-                    {c.icon || "🏷️"}
-                  </p>
-                  <p className="mt-2 font-semibold text-gray-900">{c.name}</p>
-                </Card>
-              </a>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="mx-auto max-w-6xl px-4 py-12">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-bold">
-              {featuredCity ? `Explore ${featuredCity}` : "Featured businesses"}
-            </h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Local cafés, restaurants, salons, pharmacies, and shops with photos and reviews
-            </p>
-          </div>
-          {featuredCity ? (
-            <a
-              href={`/search?city=${encodeURIComponent(featuredCity)}`}
-              className="text-sm font-medium text-brand-700 hover:underline"
-            >
-              View all in {featuredCity} →
-            </a>
+            </div>
           ) : (
-            <a href="/search" className="text-sm font-medium text-brand-700 hover:underline">
-              View all →
-            </a>
+            <div className="h-full bg-gradient-to-br from-brand-800 via-slate-900 to-slate-950" />
           )}
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/75 to-slate-900/55" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-900/40" />
         </div>
-        <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {grid.length > 0 ? (
-            grid.map((b) => <BusinessCard key={b.id} business={b} />)
-          ) : (
-            <p className="col-span-full rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-gray-600">
-              No businesses loaded yet. On Railway, confirm the backend deploy log shows{" "}
-              <code className="rounded bg-white px-1">Seed complete</code> with Chrompet counts, that{" "}
-              <code className="rounded bg-white px-1">NEXT_PUBLIC_API_URL</code> and{" "}
-              <code className="rounded bg-white px-1">API_URL_INTERNAL</code> point at the backend HTTPS
-              URL, then redeploy the frontend and refresh.
-            </p>
-          )}
-        </div>
-      </section>
 
-      <section className="border-t bg-gray-50 px-4 py-14">
-        <div className="mx-auto max-w-6xl">
-          <h2 className="text-center text-2xl font-bold">How it works</h2>
-          <p className="mx-auto mt-2 max-w-xl text-center text-sm text-gray-600">
-            Three simple steps to find and support local businesses
+        <div className="relative mx-auto flex min-h-[min(88vh,720px)] max-w-6xl flex-col justify-center px-4 py-20">
+          <p className="animate-fade-up font-display text-sm font-semibold uppercase tracking-[0.2em] text-brand-300">
+            MerchantHub
           </p>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <Card>
-              <p className="text-sm font-semibold text-brand-700">1. Search</p>
-              <p className="mt-2 text-sm text-gray-700">Find shops near you by name, city, or category.</p>
-            </Card>
-            <Card>
-              <p className="text-sm font-semibold text-brand-700">2. Compare</p>
-              <p className="mt-2 text-sm text-gray-700">Read ratings and reviews to pick a place you trust.</p>
-            </Card>
-            <Card>
-              <p className="text-sm font-semibold text-brand-700">3. Support local</p>
-              <p className="mt-2 text-sm text-gray-700">Visit, share feedback, and help neighborhood businesses grow.</p>
-            </Card>
+          <h1 className="animate-fade-up animate-delay-100 mt-4 max-w-3xl font-display text-4xl font-semibold leading-tight tracking-tight sm:text-5xl md:text-6xl">
+            Local businesses, reviewed with clarity
+          </h1>
+          <p className="animate-fade-up animate-delay-200 mt-5 max-w-xl text-lg text-slate-200">
+            Find neighborhood shops with photos, ratings, and AI-suggested insights — never presented as
+            definitive judgments.
+          </p>
+          <div className="animate-fade-up animate-delay-300 mt-8 max-w-xl">
+            <SearchBar className="w-full" placeholder="Try café, salon, pharmacy, Chrompet…" />
+            <div className="mt-4 flex flex-wrap gap-3">
+              <a
+                href="/search"
+                className="rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-brand-50"
+              >
+                Explore listings
+              </a>
+              <a
+                href="/register"
+                className="rounded-lg border border-white/40 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10"
+              >
+                List your business
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {stats && <TrustMetrics stats={stats} />}
+
+      <CityIndex cities={cityIndex} />
+
+      <CategoryIndex categories={categoryIndex} />
+
+      <FeaturedGrid
+        businesses={grid}
+        title={featuredCity ? `Explore ${featuredCity}` : "Featured businesses"}
+        subtitle="Photos, ratings, and optional AI suggestions drawn from live reviews"
+        viewAllHref={featuredCity ? `/search?city=${encodeURIComponent(featuredCity)}` : "/search"}
+        viewAllLabel={featuredCity ? `View all in ${featuredCity}` : "View all"}
+      />
+
+      <ReviewVoices items={voiceItems} />
+
+      <section className="mh-section-reveal border-t border-slate-200 bg-white/70 px-4 py-16">
+        <div className="mx-auto max-w-6xl">
+          <h2 className="text-center font-display text-3xl font-semibold tracking-tight text-slate-900">
+            How it works
+          </h2>
+          <p className="mx-auto mt-2 max-w-xl text-center text-slate-600">
+            Three steps from discovery to supporting the shops around you
+          </p>
+          <ol className="mt-12 grid gap-10 md:grid-cols-3">
+            {[
+              {
+                n: "01",
+                title: "Search",
+                body: "Find shops by name, city, or category — with maps and hours when available.",
+              },
+              {
+                n: "02",
+                title: "Compare",
+                body: "Read ratings and reviews. AI summaries are suggestions to help you scan faster.",
+              },
+              {
+                n: "03",
+                title: "Support local",
+                body: "Visit, leave feedback, and help independent businesses grow with clearer signal.",
+              },
+            ].map((step) => (
+              <li key={step.n} className="border-t border-brand-200 pt-6">
+                <p className="font-display text-sm font-semibold tracking-widest text-brand-700">{step.n}</p>
+                <h3 className="mt-3 font-display text-xl font-semibold text-slate-900">{step.title}</h3>
+                <p className="mt-2 text-slate-600">{step.body}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="mh-section-reveal relative overflow-hidden bg-brand-900 px-4 py-20 text-white">
+        <div
+          className="pointer-events-none absolute -right-20 top-0 h-64 w-64 rounded-full bg-brand-500/20 blur-3xl"
+          aria-hidden
+        />
+        <div className="relative mx-auto max-w-6xl">
+          <p className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-brand-200">
+            For business owners
+          </p>
+          <h2 className="mt-3 max-w-2xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+            Turn reviews into AI-suggested next steps
+          </h2>
+          <p className="mt-4 max-w-2xl text-brand-100">
+            Claim your listing, reply to customers, and read sentiment suggestions on your dashboard —
+            always framed as guidance, not a final verdict.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <a
+              href="/register"
+              className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-brand-900 transition hover:bg-brand-50"
+            >
+              Create a merchant account
+            </a>
+            <a
+              href="/login"
+              className="rounded-lg border border-white/35 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+            >
+              Sign in to dashboard
+            </a>
           </div>
         </div>
       </section>

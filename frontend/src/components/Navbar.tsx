@@ -15,7 +15,7 @@ export function Navbar({ user, onLogout }: NavbarProps) {
   return (
     <header className="border-b bg-white shadow-sm">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-        <a href="/" className="text-xl font-bold text-brand-700">
+        <a href="/" className="font-display text-xl font-bold text-brand-700">
           MerchantHub AI
         </a>
         <nav className="flex items-center gap-4 text-sm">

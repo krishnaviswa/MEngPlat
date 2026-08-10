@@ -766,13 +766,13 @@ export API=http://localhost:8000
 # Health
 curl -s "$API/health"
 
-# Platform counts (home StatCards)
+# Platform counts (home trust metrics)
 curl -s "$API/api/v1/businesses/stats/summary"
 
-# Distinct cities (FilterPanel chips + home hero links)
+# Distinct cities (FilterPanel chips + home neighborhood index)
 curl -s "$API/api/v1/businesses/cities"
 
-# Categories (home grid + search dropdown)
+# Categories (home category index + search dropdown)
 curl -s "$API/api/v1/businesses/categories/all"
 
 # Search / filter (Redis-cached). Same query shape the Next.js search page uses.
@@ -888,7 +888,7 @@ All ten routers are mounted with the `/api/v1` prefix in [`main.py`](backend/app
 | GET    | `/businesses/mine`           | Merchant       | List businesses owned by current merchant (any status)             |
 | GET    | `/businesses/categories/all` | Public         | List categories                                                    |
 | GET    | `/businesses/cities`         | Public         | Distinct cities from approved businesses (search filter chips)     |
-| GET    | `/businesses/stats/summary`  | Public         | Public counts: businesses, reviews, categories (no admin fields)   |
+| GET    | `/businesses/stats/summary`  | Public         | Public counts: businesses, reviews, categories, cities (no admin fields)   |
 | GET    | `/businesses/{slug}`         | Public         | Get by slug                                                        |
 | POST   | `/businesses`                | Merchant       | Create business (status `pending`)                                 |
 | PATCH  | `/businesses/{id}`           | Merchant/Admin | Update business                                                    |
@@ -1129,7 +1129,7 @@ export default async function HomePage() {
 }
 ```
 
-The home page loads cities, categories, and stats from the API on SSR (same pattern as search). Hero city links and the featured section title come from `GET /businesses/cities` — not hardcoded place names.
+The home page loads cities, categories, stats, and (for the voices band) reviews from the API on SSR. Bands in order: brand-first hero (search + CTAs over a storefront photo plane — no stats overlays), live trust metrics (`GET /businesses/stats/summary` including `total_cities`), neighborhood and category indexes with counts derived from the listed catalog, featured listings with optional `ai_merchant_summary` suggestion blurbs, real review voices with AI summaries labeled as suggestions, how-it-works, and a merchant AI CTA. Featured section title and city-scoped grid come from `GET /businesses/cities` — not hardcoded place names.
 **CSR** — the browser downloads JavaScript and fetches data *after* the page loads. Used for interactive forms and authenticated dashboards: login, register, merchant dashboard, admin panel.
 
 ```tsx
@@ -1151,7 +1151,12 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | ----------------------- | --------------------------------------------- |
 | `Navbar.tsx`            | Global nav, auth state, role-aware links      |
 | `NotificationBell.tsx`  | Navbar notifications dropdown (S-015)         |
-| `Footer.tsx`            | Links, legal, platform info                   |
+| `Footer.tsx`            | Multi-column site map: Discover, merchants, Account |
+| `home/TrustMetrics.tsx` | Editorial live platform counts on the home page |
+| `home/CityIndex.tsx`    | Neighborhood links with listing counts        |
+| `home/CategoryIndex.tsx`| Category search index with counts             |
+| `home/FeaturedGrid.tsx` | Featured cards + optional AI suggestion blurbs |
+| `home/ReviewVoices.tsx` | Real reviews with AI suggestion callouts      |
 | `BusinessCard.tsx`      | Compact listing card for search results       |
 | `ReviewCard.tsx`        | Review with rating, photos, likes, AI badge   |
 | `RatingWidget.tsx`      | Interactive star rating input/display         |

@@ -230,6 +230,7 @@ export interface PublicPlatformStats {
   total_businesses: number;
   total_reviews: number;
   total_categories: number;
+  total_cities: number;
 }
 
 export const businesses = {

@@ -17,11 +17,11 @@ export function SearchBar({
         name="q"
         defaultValue={defaultValue}
         placeholder={placeholder}
-        className="flex-1 rounded-lg border px-4 py-2 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+        className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm placeholder:text-slate-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
       />
       <button
         type="submit"
-        className="rounded-lg bg-brand-600 px-4 py-2 text-white hover:bg-brand-700"
+        className="shrink-0 rounded-lg bg-brand-600 px-5 py-3 font-medium text-white transition hover:bg-brand-700"
       >
         Search
       </button>

@@ -43,7 +43,7 @@ async def test_public_stats_summary_shape(client):
     res = await client.get("/api/v1/businesses/stats/summary")
     assert res.status_code == 200
     body = res.json()
-    assert set(body.keys()) == {"total_businesses", "total_reviews", "total_categories"}
+    assert set(body.keys()) == {"total_businesses", "total_reviews", "total_categories", "total_cities"}
     assert "total_users" not in body
     assert "pending_businesses" not in body
     assert "reported_reviews" not in body

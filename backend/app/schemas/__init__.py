@@ -56,6 +56,7 @@ class PublicPlatformStats(BaseModel):
     total_businesses: int
     total_reviews: int
     total_categories: int
+    total_cities: int
 
 
 class CategoryResponse(BaseModel):

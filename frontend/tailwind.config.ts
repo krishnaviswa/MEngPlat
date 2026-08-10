@@ -7,7 +7,8 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+        sans: ["var(--font-source-sans)", "system-ui", "sans-serif"],
+        display: ["var(--font-outfit)", "var(--font-source-sans)", "system-ui", "sans-serif"],
       },
       colors: {
         brand: {
@@ -22,6 +23,25 @@ module.exports = {
           800: "#075985",
           900: "#0c4a6e",
         },
+      },
+      keyframes: {
+        "fade-up": {
+          "0%": { opacity: "0", transform: "translateY(12px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "ken-burns": {
+          "0%": { transform: "scale(1)" },
+          "100%": { transform: "scale(1.06)" },
+        },
+        "reveal-in": {
+          "0%": { opacity: "0", transform: "translateY(16px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+      },
+      animation: {
+        "fade-up": "fade-up 0.7s ease-out both",
+        "ken-burns": "ken-burns 18s ease-out forwards",
+        "reveal-in": "reveal-in 0.6s ease-out both",
       },
     },
   },

@@ -106,10 +106,18 @@ async def public_stats_summary(db: AsyncSession = Depends(get_db)) -> PublicPlat
         select(func.count()).select_from(Review).where(Review.status == ReviewStatus.ACTIVE)
     )
     categories_count = await db.scalar(select(func.count()).select_from(Category))
+    cities_count = await db.scalar(
+        select(func.count(func.distinct(Business.city))).where(
+            Business.status == BusinessStatus.APPROVED,
+            Business.city.isnot(None),
+            Business.city != "",
+        )
+    )
     return PublicPlatformStats(
         total_businesses=int(businesses_count or 0),
         total_reviews=int(reviews_count or 0),
         total_categories=int(categories_count or 0),
+        total_cities=int(cities_count or 0),
     )
 
 
