@@ -1,4 +1,5 @@
 import type { User } from "@/lib/api";
+import { NotificationBell } from "@/components/NotificationBell";
 
 interface NavbarProps {
   user?: User | null;
@@ -8,7 +9,7 @@ interface NavbarProps {
 /**
  * Navbar — global navigation with role-aware links.
  * Props: user (auth state), onLogout callback.
- * State: none (presentational; auth from layout).
+ * State: none (presentational; auth from layout). NotificationBell is client-side.
  */
 export function Navbar({ user, onLogout }: NavbarProps) {
   return (
@@ -33,6 +34,7 @@ export function Navbar({ user, onLogout }: NavbarProps) {
           )}
           {user ? (
             <>
+              <NotificationBell />
               <a href="/profile" className="text-gray-600 hover:text-brand-600">
                 {user.full_name}
               </a>

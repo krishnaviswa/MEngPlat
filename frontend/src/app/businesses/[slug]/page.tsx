@@ -1,7 +1,11 @@
+import { BusinessHours } from "@/components/BusinessHours";
 import { BusinessMap } from "@/components/BusinessMapClient";
+import { CategoryBadges } from "@/components/CategoryBadges";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { RatingWidget } from "@/components/RatingWidget";
 import { ReviewsList } from "@/components/ReviewsList";
+import { Card } from "@/components/ui/Card";
 import { API_URL, businesses, photos as photosApi, reviews } from "@/lib/api";
 
 interface Props {
@@ -38,6 +42,11 @@ export default async function BusinessPage({ params }: Props) {
     .filter(Boolean)
     .join(", ");
 
+  const hasCategories = (business.categories?.length ?? 0) > 0;
+  const hasContactInfo = Boolean(business.email || business.website);
+  const hasHours = Boolean(business.business_hours && Object.keys(business.business_hours).length > 0);
+  const hasDetails = hasCategories || hasContactInfo || hasHours;
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       {hero && (
@@ -66,6 +75,10 @@ export default async function BusinessPage({ params }: Props) {
               </span>
               <span className="text-sm text-gray-500">({business.review_count} reviews)</span>
             </div>
+            {/* S-011: favorite toggle — keep separate from S-012 Details section below */}
+            <div className="mt-3">
+              <FavoriteButton businessId={business.id} />
+            </div>
           </div>
           <a
             href={`/businesses/${slug}/review`}
@@ -82,8 +95,50 @@ export default async function BusinessPage({ params }: Props) {
         )}
       </div>
 
-      {business.latitude != null && business.longitude != null && (
+      {hasDetails && (
         <section className="mt-8">
+          <h2 className="mb-3 text-xl font-semibold">Details</h2>
+          <Card className="space-y-4">
+            {hasCategories && (
+              <div>
+                <h3 className="mb-1.5 text-sm font-semibold text-gray-700">Categories</h3>
+                <CategoryBadges categories={business.categories} />
+              </div>
+            )}
+            {hasContactInfo && (
+              <div className="space-y-1 text-sm">
+                {business.email && (
+                  <p>
+                    <a href={`mailto:${business.email}`} className="text-brand-600 hover:underline">
+                      {business.email}
+                    </a>
+                  </p>
+                )}
+                {business.website && (
+                  <p>
+                    <a
+                      href={business.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-brand-600 hover:underline"
+                    >
+                      {business.website}
+                    </a>
+                  </p>
+                )}
+              </div>
+            )}
+            {hasHours && (
+              <div>
+                <h3 className="mb-1.5 text-sm font-semibold text-gray-700">Hours</h3>
+                <BusinessHours hours={business.business_hours} />
+              </div>
+            )}
+          </Card>
+        </section>
+      )}
+
+      {business.latitude != null && business.longitude != null && (        <section className="mt-8">
           <h2 className="mb-3 text-xl font-semibold">Location</h2>
           <BusinessMap
             markers={[

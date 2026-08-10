@@ -732,6 +732,7 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | POST   | `/auth/login`          | Public | Get JWT tokens     |
 | POST   | `/auth/refresh`        | Public | Refresh tokens     |
 | GET    | `/auth/me`             | Bearer | Current user       |
+| PATCH  | `/auth/me`             | Bearer | Update own `full_name` / `avatar_url` (email & role immutable) |
 | POST   | `/auth/google`         | Public | Google ID-token sign-in (register-or-login) |
 | POST   | `/auth/logout`         | Bearer | Blocklist caller's access token (+ optional refresh token) |
 
@@ -756,6 +757,7 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | GET    | `/businesses`                | Public         | List businesses (default `status_filter=approved`)                 |
 | GET    | `/businesses/mine`           | Merchant       | List businesses owned by current merchant (any status)             |
 | GET    | `/businesses/categories/all` | Public         | List categories                                                    |
+| GET    | `/businesses/stats/summary`  | Public         | Public counts: businesses, reviews, categories (no admin fields)   |
 | GET    | `/businesses/{slug}`         | Public         | Get by slug                                                        |
 | POST   | `/businesses`                | Merchant       | Create business (status `pending`)                                 |
 | PATCH  | `/businesses/{id}`           | Merchant/Admin | Update business                                                    |
@@ -836,7 +838,20 @@ Upload form fields: `file`, `business_id`, `review_id`, `photo_type`, `caption`.
 | GET    | `/search/businesses` | Public | Search + filter (Redis-cached) |
 
 
-Query params: `q`, `city`, `category`, `min_rating`, `sentiment`, `lat`, `lng`, `radius_km`, `page`, `page_size`.
+Query params: `q`, `city`, `category`, `min_rating`, `sentiment`, `lat`, `lng`, `radius_km`, `page`, `page_size`, `sort` (`rating` \| `name` \| `reviews`).
+
+
+
+### Favorites — `/favorites`
+
+
+| Method | Path                       | Auth     | Description                                      |
+| ------ | -------------------------- | -------- | ------------------------------------------------ |
+| GET    | `/favorites`               | Customer | List favorited businesses (newest first)         |
+| POST   | `/favorites`               | Customer | Favorite an approved business (`{ business_id }`) |
+| DELETE | `/favorites/{business_id}` | Customer | Remove favorite (idempotent 204)                 |
+
+
 
 ### Analytics — `/analytics`
 
@@ -997,10 +1012,14 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | Component               | Description                                   |
 | ----------------------- | --------------------------------------------- |
 | `Navbar.tsx`            | Global nav, auth state, role-aware links      |
+| `NotificationBell.tsx`  | Navbar notifications dropdown (S-015)         |
 | `Footer.tsx`            | Links, legal, platform info                   |
 | `BusinessCard.tsx`      | Compact listing card for search results       |
 | `ReviewCard.tsx`        | Review with rating, photos, likes, AI badge   |
 | `RatingWidget.tsx`      | Interactive star rating input/display         |
+| `FavoriteButton.tsx`    | Customer favorite toggle on business detail   |
+| `BusinessHours.tsx`     | Opening-hours list for business detail        |
+| `CategoryBadges.tsx`    | Full category Badge list                      |
 | `SearchBar.tsx`         | Query input with debounce                     |
 | `FilterPanel.tsx`       | City, category, rating filters (preserves location params) |
 | `UseLocationButton.tsx` | Browser geolocation → `/search?lat=&lng=`     |
@@ -1053,8 +1072,8 @@ The brand ramp was completed to 50–900 while building this. `border-brand-400`
 
 | Figma page | Components                                                    |
 | ---------- | ------------------------------------------------------------- |
-| Primitives | `Button` (18 variants), `Input`, `Select`, `Badge`            |
-| Rating     | `RatingWidget` (Value 0–5 × Size)                             |
+| Primitives | `Button`, `Input`, `Select`, `Badge`, `StatCard`, `ui/RatingWidget` (code in `frontend/src/components/ui/`) |
+| Rating     | `RatingWidget` (legacy path + `ui/` copy)                     |
 | Cards      | `BusinessCard`, `ReviewCard`, `StatCard`                      |
 | Navigation | `Navbar` (4 role states), `Footer`, `NavItem`, `DashboardNav` |
 | Search     | `SearchBar`, `FilterPanel`                                    |
@@ -1551,7 +1570,7 @@ Which rules attach at which stage:
 
 ### Worked example — S-011 Customer Favorites
 
-`[docs/agents/slices/S-011-customer-favorites.md](docs/agents/slices/S-011-customer-favorites.md)` is a pre-filled PM-stage slice kept as a practice target. It is a clean vertical slice because the `Favorite` model already exists in the DB but has **no router, no API client method, and no UI**.
+`[docs/agents/slices/S-011-customer-favorites.md](docs/agents/slices/S-011-customer-favorites.md)` is the worked-example slice. The `Favorite` model already existed; S-011 added the router, API client, FavoriteButton, and profile favorites list. **Status: Accepted.**
 
 Its five acceptance criteria: (1) favoriting an approved business as a logged-in customer saves it and shows a "Favorited" state; (2) clicking again removes it (toggle); (3) `/profile` lists favorites with name, city, rating; (4) an anonymous click redirects to `/login`; (5) favoriting an unapproved business returns 404/400 and creates nothing. Out of scope: sharing favorites, notifications, merchants seeing who favorited them.
 
@@ -1583,10 +1602,16 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-005 | AI review analysis pipeline           | 3 AI         | Scaffolded      |
 | S-006 | Merchant dashboard + AI insights      | 4 Dashboards | Partial         |
 | S-007 | Admin moderation + platform analytics | 4 Dashboards | Partial         |
-| S-008 | Notifications                         | 4 Dashboards | Scaffolded      |
+| S-008 | Notifications                         | 4 Dashboards | Accepted (UI wired) |
 | S-009 | OAuth + OpenStreetMap maps              | 5 Polish     | Partial (maps done; OAuth callback stub) |
 | S-010 | Test hardening + deploy verification  | 5 Polish     | Open            |
-| S-011 | Customer favorites                    | 2 Core       | Draft (example) |
+| S-011 | Customer favorites                    | 2 Core       | Accepted        |
+| S-012 | Business detail enrichment            | 2 Core       | Accepted        |
+| S-013 | Search pagination / sort / categories | 2 Core       | Accepted        |
+| S-014 | Home page enrichment                  | 5 Polish     | Accepted        |
+| S-015 | Notifications UI                      | 4 Dashboards | Accepted        |
+| S-016 | Profile & settings edit               | 5 Polish     | Accepted        |
+| S-017 | Design system primitives              | 5 Polish     | Accepted (additive; migration deferred) |
 
 
 
@@ -1625,7 +1650,7 @@ An honest delta between the original specification and what the code actually do
 
 | Area            | State                                                                                                                    |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Backend routers | 10, all wired into `main.py`                                                                                             |
+| Backend routers | 11, all wired into `main.py` (includes favorites)                                                                            |
 | Data models     | 19 SQLAlchemy models                                                                                                     |
 | Auth            | JWT access/refresh via `python-jose`, bcrypt hashing, `require_roles()` RBAC, token revocation via Redis `jti` blocklist on logout |
 | AI layer        | Pluggable provider — `mock` (canned, no network) or OpenAI-compatible (works for OpenAI *or* DeepSeek via `AI_BASE_URL`) |
@@ -1643,13 +1668,12 @@ An honest delta between the original specification and what the code actually do
 
 | Gap                                       | Detail                                                                                                                                                                                          |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Favorites unwired**                     | The `Favorite` table exists in the models, but there is no favorites router/endpoint and no UI. Tracked as the S-011 example slice (§13), never carried through to implementation.              |
 | **S3 / Azure storage are stubs**          | Both raise `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). Only `local` works.                                                                                     |
-| **Thin tests**                            | 3 backend + 1 frontend test, no fixtures, no DB isolation. See §11.                                                                                                                             |
-| **Multi-agent workflow is scaffold-only** | `adrs/`, `test-plans/`, `test-reports/` contain only their `_TEMPLATE.md`. No real ADRs, plans, or reports written. `slices/` has exactly one slice (S-011, Draft/example).                     |
+| **Thin tests**                            | Expanding, but still no full fixture/DB isolation suite. See §11.                                                                                                                               |
+| **Design-system migration deferred**      | `Select` / `StatCard` / `ui/RatingWidget` exist (S-017) but ~25 existing call sites still use native controls / inline tiles.                                                                    |
 | **Security items 1–6**                    | See [§9 Known weaknesses](#known-weaknesses--read-before-deploying).                                                                                                                            |
 | **No structured logging**                 | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                          |
-| **No CI/CD**                              | No GitHub Actions workflow.                                                                                                                                                                     |
+| **No CI/CD for app tests**                | Agent-config sync workflow exists; full pytest/Jest CI still open.                                                                                                                              |
 
 
 
@@ -1664,9 +1688,9 @@ The MVP is complete when: (1) a customer can register, search, and submit a revi
 
 1. Harden security items 1–4 in §9 (secret key, cookies, rate limiting, debug default)
 2. Build out the test suite with fixtures and an isolated test database
-3. Implement S-011 favorites end-to-end as a full multi-agent cycle rehearsal
+3. Migrate existing screens to `ui/Select`, `ui/StatCard`, and `ui/RatingWidget` (post S-017)
 4. Implement `S3StorageProvider` so uploads survive redeploys
-5. Add GitHub Actions CI
+5. Expand GitHub Actions CI beyond agent-config sync
 
 ---
 

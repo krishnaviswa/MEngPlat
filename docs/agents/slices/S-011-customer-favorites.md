@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-011 |
 | **Phase** | 2 Core |
-| **Status** | Draft |
+| **Status** | Accepted |
 | **Role(s)** | customer |
 | **Owner** | PM / example slice for multi-agent practice |
 

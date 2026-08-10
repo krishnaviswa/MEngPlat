@@ -6,7 +6,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routers import ai, analytics, auth, businesses, dashboard, maps, notifications, photos, reviews, search
+from app.routers import (
+    ai,
+    analytics,
+    auth,
+    businesses,
+    dashboard,
+    favorites,
+    maps,
+    notifications,
+    photos,
+    reviews,
+    search,
+)
 from app.services.ai import validate_startup_config
 from app.services.ai.http_client import close_shared_client
 
@@ -54,6 +66,7 @@ app.include_router(search.router, prefix=api_prefix)
 app.include_router(maps.router, prefix=api_prefix)
 app.include_router(analytics.router, prefix=api_prefix)
 app.include_router(notifications.router, prefix=api_prefix)
+app.include_router(favorites.router, prefix=api_prefix)
 
 uploads_path = Path(settings.storage_local_path)
 uploads_path.mkdir(parents=True, exist_ok=True)

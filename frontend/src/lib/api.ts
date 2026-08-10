@@ -9,6 +9,7 @@ export interface User {
   full_name: string;
   role: "customer" | "merchant" | "admin";
   is_active: boolean;
+  avatar_url?: string;
 }
 
 export type BusinessStatus = "pending" | "approved" | "rejected" | "suspended";
@@ -209,6 +210,8 @@ export const auth = {
   google: (data: { credential: string }) =>
     apiFetch<TokenResponse>("/api/v1/auth/google", { method: "POST", body: JSON.stringify(data) }),
   me: () => apiFetch<User>("/api/v1/auth/me"),
+  updateMe: (data: UserProfileUpdateInput) =>
+    apiFetch<User>("/api/v1/auth/me", { method: "PATCH", body: JSON.stringify(data) }),
   logout: () => {
     const refreshToken = getRefreshToken();
     return apiFetch<{ message: string }>("/api/v1/auth/logout", {
@@ -217,6 +220,17 @@ export const auth = {
     });
   },
 };
+
+export interface UserProfileUpdateInput {
+  full_name?: string;
+  avatar_url?: string;
+}
+
+export interface PublicPlatformStats {
+  total_businesses: number;
+  total_reviews: number;
+  total_categories: number;
+}
 
 export const businesses = {
   /** Public list; pass status_filter (e.g. "pending") and/or city for admin/filtered views. */
@@ -237,6 +251,7 @@ export const businesses = {
     return apiFetch<Business[]>(`/api/v1/search/businesses?${qs}`);
   },
   categoriesAll: () => apiFetch<Category[]>("/api/v1/businesses/categories/all"),
+  stats: () => apiFetch<PublicPlatformStats>("/api/v1/businesses/stats/summary"),
 };
 
 export interface Category {
@@ -296,6 +311,39 @@ export const dashboard = {
     apiFetch<Record<string, unknown>>(`/api/v1/ai/businesses/${businessId}/insights`),
   refreshInsights: (businessId: string) =>
     apiFetch<Record<string, unknown>>(`/api/v1/ai/businesses/${businessId}/refresh`, { method: "POST" }),
+};
+
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  extra_data?: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export const notifications = {
+  list: (params?: { unreadOnly?: boolean }) =>
+    apiFetch<Notification[]>(`/api/v1/notifications${params?.unreadOnly ? "?unread_only=true" : ""}`),
+  markRead: (id: string) =>
+    apiFetch<{ message: string }>(`/api/v1/notifications/${id}/read`, { method: "POST" }),
+  markAllRead: () => apiFetch<{ message: string }>("/api/v1/notifications/read-all", { method: "POST" }),
+};
+
+export interface FavoriteToggleResponse {
+  favorited: boolean;
+  business_id: string;
+}
+
+export const favorites = {
+  list: () => apiFetch<Business[]>("/api/v1/favorites"),
+  add: (businessId: string) =>
+    apiFetch<FavoriteToggleResponse>("/api/v1/favorites", {
+      method: "POST",
+      body: JSON.stringify({ business_id: businessId }),
+    }),
+  remove: (businessId: string) => apiFetch<void>(`/api/v1/favorites/${businessId}`, { method: "DELETE" }),
 };
 
 export { API_URL };

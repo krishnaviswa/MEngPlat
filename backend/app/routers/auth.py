@@ -20,6 +20,7 @@ from app.schemas import (
     MessageResponse,
     TokenResponse,
     UserLogin,
+    UserProfileUpdate,
     UserRegister,
     UserResponse,
 )
@@ -123,6 +124,23 @@ async def refresh_token(refresh_token: str, db: AsyncSession = Depends(get_db)) 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)) -> User:
     """Get the currently authenticated user. Requires Bearer token."""
+    return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_me(
+    payload: UserProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """
+    Update the caller's own profile (full_name and/or avatar_url).
+    email, role, and is_active are not on the schema and are silently ignored if sent.
+    """
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(current_user, field, value)
+    await db.flush()
+    await db.refresh(current_user)
     return current_user
 
 

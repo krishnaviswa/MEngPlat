@@ -1,13 +1,13 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import get_optional_user, require_roles, slugify
-from app.models import Business, BusinessCategory, BusinessStatus, Category, Merchant, User, UserRole
+from app.models import Business, BusinessCategory, BusinessStatus, Category, Merchant, Review, ReviewStatus, User, UserRole
 from app.schemas import (
     BusinessCreate,
     BusinessResponse,
@@ -15,6 +15,7 @@ from app.schemas import (
     CategoryCreate,
     CategoryResponse,
     MessageResponse,
+    PublicPlatformStats,
 )
 from app.services.cache import cache_delete_pattern
 
@@ -74,6 +75,26 @@ async def list_categories(db: AsyncSession = Depends(get_db)) -> list[CategoryRe
     """List all business categories."""
     result = await db.execute(select(Category).order_by(Category.name))
     return list(result.scalars().all())
+
+
+@router.get("/stats/summary", response_model=PublicPlatformStats)
+async def public_stats_summary(db: AsyncSession = Depends(get_db)) -> PublicPlatformStats:
+    """
+    Public platform counts for the home page.
+    Excludes admin-only signals (users, pending, reported).
+    """
+    businesses_count = await db.scalar(
+        select(func.count()).select_from(Business).where(Business.status == BusinessStatus.APPROVED)
+    )
+    reviews_count = await db.scalar(
+        select(func.count()).select_from(Review).where(Review.status == ReviewStatus.ACTIVE)
+    )
+    categories_count = await db.scalar(select(func.count()).select_from(Category))
+    return PublicPlatformStats(
+        total_businesses=int(businesses_count or 0),
+        total_reviews=int(reviews_count or 0),
+        total_categories=int(categories_count or 0),
+    )
 
 
 @router.get("/mine", response_model=list[BusinessResponse])

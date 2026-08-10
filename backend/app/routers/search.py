@@ -24,15 +24,16 @@ async def search_businesses(
     radius_km: float = 10.0,
     page: int = 1,
     page_size: int = 20,
+    sort: str = Query(default="rating", description="rating | name | reviews"),
     db: AsyncSession = Depends(get_db),
 ) -> list[BusinessResponse]:
     """
     Search and filter businesses.
 
-    **Query params:** q, city, category (slug), min_rating, sentiment, lat, lng, radius_km, page, page_size
+    **Query params:** q, city, category (slug), min_rating, sentiment, lat, lng, radius_km, page, page_size, sort
     **Response:** Paginated business list (cached in Redis)
     """
-    cache_key = f"search:{q}:{city}:{category}:{min_rating}:{sentiment}:{lat}:{lng}:{radius_km}:{page}:{page_size}"
+    cache_key = f"search:{q}:{city}:{category}:{min_rating}:{sentiment}:{lat}:{lng}:{radius_km}:{page}:{page_size}:{sort}"
     cached = await cache_get(cache_key)
     if cached:
         return [BusinessResponse.model_validate(b) for b in cached]
@@ -72,7 +73,12 @@ async def search_businesses(
             Business.longitude <= max_lng,
         )
 
-    query = query.order_by(Business.average_rating.desc())
+    if sort == "name":
+        query = query.order_by(Business.name.asc())
+    elif sort == "reviews":
+        query = query.order_by(Business.review_count.desc())
+    else:
+        query = query.order_by(Business.average_rating.desc())
 
     if geo_search:
         result = await db.execute(query)

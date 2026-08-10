@@ -42,6 +42,22 @@ class UserResponse(UserBase):
     created_at: datetime
 
 
+class UserProfileUpdate(BaseModel):
+    """Self-service PATCH /auth/me payload. Only full_name / avatar_url are editable;
+    email, role, and is_active are omitted so extra body keys are silently dropped."""
+
+    full_name: str | None = Field(default=None, min_length=1, max_length=255)
+    avatar_url: str | None = None
+
+
+class PublicPlatformStats(BaseModel):
+    """Public home-page counts — deliberately excludes admin-only fields."""
+
+    total_businesses: int
+    total_reviews: int
+    total_categories: int
+
+
 class CategoryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -268,3 +284,12 @@ class NearbyBusinessRequest(BaseModel):
     lat: float
     lng: float
     radius_km: float = 10.0
+
+
+class FavoriteCreate(BaseModel):
+    business_id: UUID
+
+
+class FavoriteResponse(BaseModel):
+    favorited: bool
+    business_id: UUID
