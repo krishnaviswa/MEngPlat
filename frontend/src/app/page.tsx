@@ -41,7 +41,15 @@ export default async function HomePage() {
   const listed = listResult.status === "fulfilled" ? listResult.value : [];
   const cities = citiesResult.status === "fulfilled" ? citiesResult.value : [];
   const categories: Category[] = categoriesResult.status === "fulfilled" ? categoriesResult.value : [];
-  const stats: PublicPlatformStats | null = statsResult.status === "fulfilled" ? statsResult.value : null;
+  const statsRaw = statsResult.status === "fulfilled" ? statsResult.value : null;
+  const stats: PublicPlatformStats | null =
+    statsRaw &&
+    typeof statsRaw.total_businesses === "number" &&
+    typeof statsRaw.total_reviews === "number" &&
+    typeof statsRaw.total_categories === "number" &&
+    typeof statsRaw.total_cities === "number"
+      ? statsRaw
+      : null;
 
   const featuredCity = cities[0] ?? null;
   let cityFeatured = listed;
