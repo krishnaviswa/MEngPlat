@@ -67,9 +67,13 @@ This starts PostgreSQL, Redis, the backend (which auto-seeds demo users, then ru
 | App               | [http://localhost:3000](http://localhost:3000)               |
 | API               | [http://localhost:8000](http://localhost:8000)               |
 | Swagger / OpenAPI | [http://localhost:8000/docs](http://localhost:8000/docs)     |
+| ReDoc             | [http://localhost:8000/redoc](http://localhost:8000/redoc)   |
+| OpenAPI JSON      | [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json) |
 | Health check      | [http://localhost:8000/health](http://localhost:8000/health) |
 | PostgreSQL        | localhost:5432                                               |
 | Redis             | localhost:6379                                               |
+
+On Railway, the same paths (`/docs`, `/redoc`, `/openapi.json`, `/health`) hang off the **backend** public URL. Full curl recipes and “how the UI loads data” are in [§7 API reference — Trying the API](#where-to-try-every-endpoint-swagger).
 
 
 
@@ -719,9 +723,135 @@ sequenceDiagram
 
 ## 7. API reference
 
-Base URL: `http://localhost:8000/api/v1` — interactive docs at `[/docs](http://localhost:8000/docs)`.
+Base URL (local): `http://localhost:8000/api/v1`  
+Base URL (Railway): `https://<your-backend>.up.railway.app/api/v1` — replace with the backend service’s public domain from Railway → Settings → Networking.
 
-All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/main.py)`. `/health` and `/` sit outside the prefix. Uploaded files are served as static assets from `/uploads`.
+### Where to try every endpoint (Swagger)
+
+FastAPI generates interactive docs from the route type hints and docstrings. **You do not need a separate Swagger file in the repo** — it is served live by the running backend:
+
+| Surface | Local | Railway (example) |
+| ------- | ----- | ----------------- |
+| **Swagger UI** (click “Try it out”) | [http://localhost:8000/docs](http://localhost:8000/docs) | `https://<your-backend>.up.railway.app/docs` |
+| **ReDoc** (read-only) | [http://localhost:8000/redoc](http://localhost:8000/redoc) | `https://<your-backend>.up.railway.app/redoc` |
+| **OpenAPI JSON** (machine-readable) | [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json) | `https://<your-backend>.up.railway.app/openapi.json` |
+| Health | [http://localhost:8000/health](http://localhost:8000/health) | `https://<your-backend>.up.railway.app/health` |
+
+This project’s live backend (when deployed) is typically `https://backend-production-2783.up.railway.app` — open `/docs` on that host to exercise the full catalog.
+
+**In Swagger UI**
+
+1. Open `/docs`.
+2. Expand any route → **Try it out** → **Execute**.
+3. For protected routes: call `POST /api/v1/auth/login` first, copy `access_token`, click **Authorize**, enter `Bearer <token>` (or just the token if the UI prepends `Bearer`).
+4. Demo accounts are in [§1 Quick start](#1-quick-start) (`customer@example.com` / `customer123`, etc.).
+
+The tables below are the human-readable contract; Swagger is always the up-to-date executable list (including request/response schemas).
+
+### curl starter kit
+
+Set the base once (local or Railway):
+
+```bash
+# Local
+export API=http://localhost:8000
+
+# Or Railway
+# export API=https://backend-production-2783.up.railway.app
+```
+
+**Public reads (no auth)** — how the home/search pages load data:
+
+```bash
+# Health
+curl -s "$API/health"
+
+# Platform counts (home StatCards)
+curl -s "$API/api/v1/businesses/stats/summary"
+
+# Distinct cities (FilterPanel chips + home hero links)
+curl -s "$API/api/v1/businesses/cities"
+
+# Categories (home grid + search dropdown)
+curl -s "$API/api/v1/businesses/categories/all"
+
+# Search / filter (Redis-cached). Same query shape the Next.js search page uses.
+curl -s "$API/api/v1/search/businesses?city=Chennai&category=cafe&sort=rating&page=1&page_size=20"
+
+# Free-text q matches name, description, or city
+curl -s "$API/api/v1/search/businesses?q=Chrompet"
+
+# List approved businesses
+curl -s "$API/api/v1/businesses"
+
+# One business by slug (from search/list JSON → .slug)
+curl -s "$API/api/v1/businesses/krishna-sweets-chrompet"
+
+# Reviews for a business (use .id from the business JSON)
+curl -s "$API/api/v1/reviews/business/<business-uuid>"
+
+# Maps
+curl -s "$API/api/v1/maps/config"
+curl -s --get --data-urlencode "address=Chrompet, Chennai" "$API/api/v1/maps/geocode"
+```
+
+**Auth + Bearer calls**
+
+```bash
+# Login → JWT
+curl -s -X POST "$API/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"customer@example.com","password":"customer123"}'
+
+# Save token (bash). On PowerShell, copy access_token from the JSON manually.
+export TOKEN='eyJ...'   # paste access_token
+
+curl -s "$API/api/v1/auth/me" -H "Authorization: Bearer $TOKEN"
+
+# Favorites (customer role)
+curl -s "$API/api/v1/favorites" -H "Authorization: Bearer $TOKEN"
+
+# Merchant / admin: login as merchant@example.com / merchant123 or admin@merchanthub.ai / admin12345
+curl -s "$API/api/v1/businesses/mine" -H "Authorization: Bearer $TOKEN"
+curl -s "$API/api/v1/dashboard/admin/platform" -H "Authorization: Bearer $TOKEN"
+```
+
+**Write example (creates a review + mock AI analysis)** — use a business `id` you do not already own/review:
+
+```bash
+curl -s -X POST "$API/api/v1/reviews" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"business_id":"<uuid>","rating":5,"title":"Great visit","body":"Friendly staff and excellent food. Will return!"}'
+```
+
+For every other route (photos upload, notifications, AI refresh, moderate, …), use **Swagger → Try it out** — schemas and required fields are generated there. Dump the full path list anytime with:
+
+```bash
+curl -s "$API/openapi.json" | python -c "import sys,json; print('\n'.join(sorted(json.load(sys.stdin)['paths'])))"
+```
+
+### How the website extracts this data
+
+```mermaid
+flowchart LR
+  Browser --> NextSSR[Next.js Server Component]
+  NextSSR -->|"API_URL_INTERNAL or NEXT_PUBLIC_API_URL"| FastAPI
+  FastAPI --> Postgres[(PostgreSQL)]
+  FastAPI --> Redis[(Redis cache)]
+  Browser -->|"client fetch + Bearer JWT"| FastAPI
+```
+
+| UI surface | Calls (via [`frontend/src/lib/api.ts`](frontend/src/lib/api.ts)) |
+| ---------- | --------------------------------------------------------------- |
+| Home `/` | `stats`, `cities`, `categories/all`, then `search?city=<first city>` or `list` |
+| Search `/search` | `search/businesses?...`, `cities`, `categories/all` |
+| Business profile | `businesses/{slug}`, `reviews/business/{id}`, photos |
+| Login / dashboards | Browser `fetch` with `Authorization: Bearer …` from `localStorage` |
+
+SSR prefers `API_URL_INTERNAL` inside the Next container (Railway must set it to the backend HTTPS URL); the browser uses `NEXT_PUBLIC_API_URL` (baked at **frontend build** time).
+
+All ten routers are mounted with the `/api/v1` prefix in [`main.py`](backend/app/main.py). `/health` and `/` sit outside the prefix. Uploaded files are served as static assets from `/uploads`.
 
 ### Authentication — `/auth`
 
