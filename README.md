@@ -59,7 +59,7 @@ Built as a portfolio-grade full-stack MVP demonstrating Forward Deployed Enginee
 docker compose up --build
 ```
 
-This starts PostgreSQL, Redis, the backend (which auto-seeds demo users, then runs `uvicorn --reload`), and the frontend together.
+This starts PostgreSQL, Redis, the backend (migrate → version-gated seed → `uvicorn --reload`), and the frontend together. Local Compose sets `SEED_MODE=if_outdated` so the full demo upsert runs once per `SEED_VERSION`, then skips on restart.
 
 
 | Service           | URL                                                          |
@@ -89,7 +89,15 @@ On Railway, the same paths (`/docs`, `/redoc`, `/openapi.json`, `/health`) hang 
 | Chennai demo (×10) | `demo.customer1@example.com` … `demo.customer10@example.com` | `demo12345` |
 
 
-`backend/scripts/seed.py` creates the three core demo users, one Portland sample business, then upserts ~20 Chrompet / Radha Nagar businesses (`seed_chennai.py`) and 40 US listings (`seed_us.py`: Fremont, Union City, Brandon, Dallas). US JSON lives in `backend/data/real-businesses/` so the backend Docker image (Railway) includes it; a mirror under `data/real-businesses/` plus a Compose mount at `/data/real-businesses` are fallbacks. Both regional seeds use synthetic hand-authored reviews, Unsplash stock photos by category (not hotlinked listing photos), and mock AI analysis rows. Display ratings come from seeded reviews via `update_business_rating()` — JSON `rating` / `review_count` fields are ignored. Extra demo customers `demo.customer1@example.com` … `demo.customer10@example.com` share password `demo12345`. Categories include `auto_repair` and `hospital` (ensured on re-run). Seeding is safe to re-run: base users/categories are created if missing, then Chennai and US shops are created or refreshed on every start.
+`backend/scripts/seed.py` creates the three core demo users, one Portland sample business, then upserts ~20 Chrompet / Radha Nagar businesses (`seed_chennai.py`) and 40 US listings (`seed_us.py`: Fremont, Union City, Brandon, Dallas). US JSON lives in `backend/data/real-businesses/` so the backend Docker image (Railway) includes it; a mirror under `data/real-businesses/` plus a Compose mount at `/data/real-businesses` are fallbacks. Both regional seeds use synthetic hand-authored reviews, Unsplash stock photos by category (not hotlinked listing photos), and mock AI analysis rows. Display ratings come from seeded reviews via `update_business_rating()` — JSON `rating` / `review_count` fields are ignored. Extra demo customers `demo.customer1@example.com` … `demo.customer10@example.com` share password `demo12345`. Categories include `auto_repair` and `hospital` (ensured on re-run).
+
+**Seed is version-gated** via `SEED_MODE` / `SEED_VERSION` and the `seed_runs` table (see §15). Compose uses `if_outdated` (skip when the current version marker exists). Railway production **does not** run seed on boot — migrate + API only. To refresh demo data on Railway (shell / one-shot):
+
+```bash
+PYTHONPATH=/app SEED_MODE=force python scripts/seed.py
+```
+
+Bump `SEED_VERSION` whenever seed content meaningfully changes so `if_outdated` re-applies once.
 
 ### Running natively (no Docker)
 
@@ -109,6 +117,8 @@ cd backend
 python -m venv .venv && .venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env      # then change DATABASE_URL host: postgres -> localhost
+alembic upgrade head
+set SEED_MODE=force
 python scripts/seed.py
 uvicorn app.main:app --reload --port 8000
 ```
@@ -469,9 +479,10 @@ erDiagram
 | `audit_logs`          | Admin action trail                                                  |
 | `review_likes`        | Customer likes on reviews                                           |
 | `review_reports`      | Reported reviews queue                                              |
+| `seed_runs`           | Demo seed version markers (`SEED_VERSION`) — skip re-upsert on boot |
 
 
-19 SQLAlchemy models live in a single file: `[backend/app/models/__init__.py](backend/app/models/__init__.py)`.
+20 SQLAlchemy models live in a single file: `[backend/app/models/__init__.py](backend/app/models/__init__.py)`.
 
 ### Relationships
 
@@ -1444,15 +1455,19 @@ flowchart LR
 The backend's `railway.json` overrides the container start command to:
 
 ```
-sh -c "alembic upgrade head && (PYTHONPATH=/app python scripts/seed.py || echo 'WARNING: seed failed — starting API anyway') && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
 ```
 
-This fixes Railway-specific problems without touching the Dockerfile:
+This keeps deploys fast: migrate + API only. Demo seed is **not** on the boot path (see `SEED_MODE` in §15 and [`SEED_DEPLOY_PLAN.md`](SEED_DEPLOY_PLAN.md)).
 
-1. Runs `alembic upgrade head` so schema migrations apply before seed/API.
+1. Runs `alembic upgrade head` so schema migrations apply before the API.
 2. The Dockerfile's own `CMD` hardcodes port 8000 in exec form, which cannot expand Railway's injected `$PORT`. The `sh -c` override can.
-3. The Dockerfile's `CMD` never runs `scripts/seed.py` — only `docker-compose.yml`'s command override does. The override adds it back so demo accounts get created.
-4. Seed failure is non-fatal (`|| echo …`) so uvicorn still starts; `seed.py` also commits Chrompet before US so a US JSON miss cannot wipe Chennai shops.
+3. Seed runs only when invoked explicitly (Railway shell / one-shot) with `SEED_MODE=force` (or `if_outdated` / `if_empty`). Local Compose still calls `scripts/seed.py` on start with `SEED_MODE=if_outdated`.
+4. After a first deploy to an empty DB, run seed once manually so demo accounts and listings exist:
+
+```bash
+PYTHONPATH=/app SEED_MODE=force python scripts/seed.py
+```
 
 The frontend's `Dockerfile` now bakes a real production build into the image (`RUN npm run build`, with `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_GOOGLE_CLIENT_ID` passed in as build `ARG`s — Railway auto-forwards matching service Variables as build args for Dockerfile builds). The Dockerfile's own `CMD` still runs `npm run dev` so `docker-compose.yml` keeps local hot-reload unchanged; `frontend/railway.json` overrides the deploy start command to `npm run start` (`next start`, which reads Railway's injected `$PORT` the same way `next dev` does). Previously the frontend had no start-command override at all, so Railway ran the dev server — including the dev-tools overlay — in production.
 
@@ -1483,7 +1498,7 @@ The frontend's `Dockerfile` now bakes a real production build into the image (`R
    NEXT_PUBLIC_GOOGLE_CLIENT_ID=<same client ID as the backend's GOOGLE_CLIENT_ID>
   ```
    `NEXT_PUBLIC_API_URL` is baked into the client bundle at **build** time (must be set before a frontend rebuild). `API_URL_INTERNAL` is read at **runtime** by Server Components ([`frontend/src/lib/api.ts`](frontend/src/lib/api.ts)) so SSR does not fall back to `http://localhost:8000` inside the Railway container. Use the backend public HTTPS URL (or Railway private networking URL if you enable it).
-8. Redeploy both services (backend first so seed runs, then frontend so `NEXT_PUBLIC_API_URL` is baked in).
+8. Redeploy both services (backend first so migrations apply, then frontend so `NEXT_PUBLIC_API_URL` is baked in). On a fresh Postgres, run seed once with `SEED_MODE=force` (see above).
 
 **Caveats:**
 
@@ -1804,7 +1819,7 @@ An honest delta between the original specification and what the code actually do
 | Storage         | `local` disk provider implemented                                                                                        |
 | Frontend        | Home, search (map + location), business detail, login, register, profile, settings, merchant dashboard + business create/edit, admin moderation queues |
 | Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine |
-| Seeding         | `scripts/seed.py` — Portland demo + Chennai upsert (~20) + US upsert (40 from `backend/data/real-businesses/` via `seed_us.py`; Unsplash + synthetic reviews) |
+| Seeding         | `scripts/seed.py` — Portland + Chennai + US; gated by `SEED_MODE` / `seed_runs` (Railway: not on boot) |
 | Local dev       | `docker compose up --build`                                                                                              |
 
 
@@ -1870,6 +1885,8 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `CORS_ORIGINS`                | `http://localhost:3000`                                                  | Comma-separated allowlist                                       |
 | `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap/Nominatim                         |
 | `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
+| `SEED_MODE`                   | `off`                                                                    | `off` \| `if_empty` \| `if_outdated` \| `force` — gates `scripts/seed.py` (Railway boot leaves default `off`; Compose uses `if_outdated`) |
+| `SEED_VERSION`                | `2026-08-10-chennai-us-v1`                                               | Marker written to `seed_runs`; bump when demo seed content changes |
 
 
 

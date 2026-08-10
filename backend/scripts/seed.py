@@ -1,17 +1,37 @@
-"""Seed the database with sample data for local development."""
+"""Seed the database with sample data for local development.
+
+Gated by SEED_MODE / SEED_VERSION (see app.config.Settings):
+  off          — no-op (default; Railway production boots must not re-upsert)
+  if_empty     — run only when there are zero approved businesses
+  if_outdated  — run only when seed_runs lacks the current SEED_VERSION
+  force        — always upsert, then record the marker
+"""
 
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from datetime import datetime, timezone
+from typing import Any, Literal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
+from app.config import get_settings
 from app.core.security import get_password_hash
 from app.database import AsyncSessionLocal
-from app.models import Business, BusinessCategory, BusinessStatus, Category, Merchant, User, UserRole
+from app.models import (
+    Business,
+    BusinessCategory,
+    BusinessStatus,
+    Category,
+    Merchant,
+    SeedRun,
+    User,
+    UserRole,
+)
 from scripts.seed_chennai import CHENNAI_CUSTOMER_PASSWORD, seed_chennai
 from scripts.seed_us import seed_us
+
+SeedMode = Literal["off", "if_empty", "if_outdated", "force"]
 
 # Shared category catalog — first-run creates all; re-runs insert any missing slugs.
 _SEED_CATEGORIES: list[tuple[str, str, str]] = [
@@ -23,6 +43,29 @@ _SEED_CATEGORIES: list[tuple[str, str, str]] = [
     ("Auto Repair", "auto_repair", "🔧"),
     ("Hospital", "hospital", "🏥"),
 ]
+
+
+def should_run_seed(
+    mode: str,
+    *,
+    has_current_version: bool,
+    approved_business_count: int,
+) -> tuple[bool, str]:
+    """Decide whether to run the demo upsert. Pure helper for tests + seed()."""
+    normalized = (mode or "off").strip().lower()
+    if normalized == "off":
+        return False, "SEED_MODE=off — skipping seed"
+    if normalized == "force":
+        return True, "SEED_MODE=force — running seed"
+    if normalized == "if_empty":
+        if approved_business_count > 0:
+            return False, f"SEED_MODE=if_empty — {approved_business_count} approved businesses already present"
+        return True, "SEED_MODE=if_empty — catalog empty, running seed"
+    if normalized == "if_outdated":
+        if has_current_version:
+            return False, "SEED_MODE=if_outdated — current SEED_VERSION already applied"
+        return True, "SEED_MODE=if_outdated — marker missing or outdated, running seed"
+    return False, f"Unknown SEED_MODE={mode!r} — treating as off"
 
 
 async def _ensure_categories(db, categories: list[Category]) -> list[Category]:
@@ -101,12 +144,50 @@ async def _seed_base(db) -> tuple[Merchant, list[Category]]:
     return merchant, list(categories)
 
 
+async def _record_seed_run(db, version: str, notes: str | None = None) -> None:
+    """Upsert seed_runs row for this version (refresh applied_at on force)."""
+    existing = (
+        await db.execute(select(SeedRun).where(SeedRun.version == version))
+    ).scalar_one_or_none()
+    now = datetime.now(timezone.utc)
+    if existing:
+        existing.applied_at = now
+        existing.notes = notes
+    else:
+        db.add(SeedRun(version=version, applied_at=now, notes=notes))
+
+
 async def seed() -> None:
     # Tables are created by `alembic upgrade head`, which the start command runs
     # before this script. Seeding no longer creates schema of its own.
     # Chrompet/Radha Nagar is committed before US so a US seed failure cannot roll
-    # back Chennai shops (critical on Railway where seed runs before uvicorn).
+    # back Chennai shops.
+    settings = get_settings()
+    mode: str = settings.seed_mode
+    version: str = settings.seed_version
+
     async with AsyncSessionLocal() as db:
+        marker = (
+            await db.execute(select(SeedRun).where(SeedRun.version == version))
+        ).scalar_one_or_none()
+        approved_count = int(
+            await db.scalar(
+                select(func.count())
+                .select_from(Business)
+                .where(Business.status == BusinessStatus.APPROVED)
+            )
+            or 0
+        )
+
+        run, reason = should_run_seed(
+            mode,
+            has_current_version=marker is not None,
+            approved_business_count=approved_count,
+        )
+        print(reason)
+        if not run:
+            return
+
         admin = await db.execute(select(User).where(User.email == "admin@merchanthub.ai"))
         if not admin.scalar_one_or_none():
             merchant, categories = await _seed_base(db)
@@ -126,12 +207,22 @@ async def seed() -> None:
         try:
             counts_us = await seed_us(db, merchant, categories)
             await db.commit()
-        except Exception as exc:  # noqa: BLE001 — never block boot / wipe Chennai for US seed
+        except Exception as exc:  # noqa: BLE001 — never wipe Chennai for US seed
             await db.rollback()
             print(f"WARNING: US seed skipped ({type(exc).__name__}: {exc})")
             print("  Chrompet / Radha Nagar data from this run was already committed.")
 
+        async with AsyncSessionLocal() as marker_db:
+            await _record_seed_run(
+                marker_db,
+                version,
+                notes=f"mode={mode}; chennai={counts_chennai.get('businesses')}; "
+                f"us={None if counts_us is None else counts_us.get('businesses')}",
+            )
+            await marker_db.commit()
+
         print("Seed complete.")
+        print(f"  SEED_VERSION marker: {version}")
         print("  Admin:    admin@merchanthub.ai / admin12345")
         print("  Merchant: merchant@example.com / merchant123")
         print("  Customer: customer@example.com / customer123")

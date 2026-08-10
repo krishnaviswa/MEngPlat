@@ -316,3 +316,14 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     admin: Mapped[User | None] = relationship(back_populates="audit_logs")
+
+
+class SeedRun(Base):
+    """Marker that a demo seed version has been applied (skip re-upsert on boot)."""
+
+    __tablename__ = "seed_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    version: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)

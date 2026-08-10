@@ -1,6 +1,6 @@
 # Plan: Decouple seeding from deploys (+ optional blue-green later)
 
-**Status:** Not implemented — apply when ready  
+**Status:** Phase 1–2 implemented (2026-08-10). Phases 3–5 not started.  
 **Goal:** Stop every Railway/backend boot from re-upserting demo data, so deploys stay fast and scale. Optionally add blue-green later without dual-DB complexity first.
 
 ---
