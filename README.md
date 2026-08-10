@@ -674,7 +674,7 @@ sequenceDiagram
 
 ### Search with location and map
 
-The search page (`/search`) SSR-fetches via `GET /search/businesses` with optional `lat`, `lng`, and `radius_km`. **Use my location** sets those query params from browser geolocation. Results with coordinates render on a Leaflet map (`BusinessMap`) using OpenStreetMap tiles — not Google Maps. `FilterPanel` preserves existing `q`, `lat`, `lng`, and `radius_km` when applying city/category/rating filters.
+The search page (`/search`) SSR-fetches via `GET /search/businesses` with optional `lat`, `lng`, and `radius_km`. **Use my location** sets those query params from browser geolocation. Results with coordinates render on a Leaflet map (`BusinessMap`) using OpenStreetMap tiles — not Google Maps. `FilterPanel` loads city chips from `GET /businesses/cities` and categories from `GET /businesses/categories/all`, and preserves existing `q`, `lat`, `lng`, and `radius_km` when applying city/category/rating filters.
 
 ```mermaid
 flowchart LR
@@ -757,6 +757,7 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | GET    | `/businesses`                | Public         | List businesses (default `status_filter=approved`)                 |
 | GET    | `/businesses/mine`           | Merchant       | List businesses owned by current merchant (any status)             |
 | GET    | `/businesses/categories/all` | Public         | List categories                                                    |
+| GET    | `/businesses/cities`         | Public         | Distinct cities from approved businesses (search filter chips)     |
 | GET    | `/businesses/stats/summary`  | Public         | Public counts: businesses, reviews, categories (no admin fields)   |
 | GET    | `/businesses/{slug}`         | Public         | Get by slug                                                        |
 | POST   | `/businesses`                | Merchant       | Create business (status `pending`)                                 |
@@ -987,11 +988,18 @@ File-based routing under `frontend/src/app/`. A `page.tsx` file defines a route.
 ```tsx
 // No "use client" — runs on the server
 export default async function HomePage() {
-  const featured = await businesses.list();
+  const [listed, cities, categories, stats] = await Promise.all([
+    businesses.list(),
+    businesses.cities(),
+    businesses.categoriesAll(),
+    businesses.stats(),
+  ]);
+  // Featured grid: search by first city from GET /businesses/cities, else list()
   return <div>...</div>;
 }
 ```
 
+The home page loads cities, categories, and stats from the API on SSR (same pattern as search). Hero city links and the featured section title come from `GET /businesses/cities` — not hardcoded place names.
 **CSR** — the browser downloads JavaScript and fetches data *after* the page loads. Used for interactive forms and authenticated dashboards: login, register, merchant dashboard, admin panel.
 
 ```tsx
@@ -1021,7 +1029,7 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | `BusinessHours.tsx`     | Opening-hours list for business detail        |
 | `CategoryBadges.tsx`    | Full category Badge list                      |
 | `SearchBar.tsx`         | Query input with debounce                     |
-| `FilterPanel.tsx`       | City, category, rating filters (preserves location params) |
+| `FilterPanel.tsx`       | City chips from API + category/rating filters (preserves location params) |
 | `UseLocationButton.tsx` | Browser geolocation → `/search?lat=&lng=`     |
 | `BusinessMap.tsx`       | Leaflet map with OSM tiles for search results |
 | `BusinessForm.tsx`      | Merchant create/edit business form + geocode  |
@@ -1301,13 +1309,15 @@ flowchart LR
 The backend's `railway.json` overrides the container start command to:
 
 ```
-sh -c "python scripts/seed.py && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+sh -c "alembic upgrade head && (PYTHONPATH=/app python scripts/seed.py || echo 'WARNING: seed failed — starting API anyway') && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
 ```
 
-This fixes two Railway-specific problems without touching the Dockerfile:
+This fixes Railway-specific problems without touching the Dockerfile:
 
-1. The Dockerfile's own `CMD` hardcodes port 8000 in exec form, which cannot expand Railway's injected `$PORT`. The `sh -c` override can.
-2. The Dockerfile's `CMD` never runs `scripts/seed.py` — only `docker-compose.yml`'s command override does. The override adds it back so demo accounts get created.
+1. Runs `alembic upgrade head` so schema migrations apply before seed/API.
+2. The Dockerfile's own `CMD` hardcodes port 8000 in exec form, which cannot expand Railway's injected `$PORT`. The `sh -c` override can.
+3. The Dockerfile's `CMD` never runs `scripts/seed.py` — only `docker-compose.yml`'s command override does. The override adds it back so demo accounts get created.
+4. Seed failure is non-fatal (`|| echo …`) so uvicorn still starts; `seed.py` also commits Chrompet before US so a US JSON miss cannot wipe Chennai shops.
 
 The frontend's `Dockerfile` now bakes a real production build into the image (`RUN npm run build`, with `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_GOOGLE_CLIENT_ID` passed in as build `ARG`s — Railway auto-forwards matching service Variables as build args for Dockerfile builds). The Dockerfile's own `CMD` still runs `npm run dev` so `docker-compose.yml` keeps local hot-reload unchanged; `frontend/railway.json` overrides the deploy start command to `npm run start` (`next start`, which reads Railway's injected `$PORT` the same way `next dev` does). Previously the frontend had no start-command override at all, so Railway ran the dev server — including the dev-tools overlay — in production.
 

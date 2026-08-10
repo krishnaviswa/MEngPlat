@@ -77,6 +77,22 @@ async def list_categories(db: AsyncSession = Depends(get_db)) -> list[CategoryRe
     return list(result.scalars().all())
 
 
+@router.get("/cities", response_model=list[str])
+async def list_cities(db: AsyncSession = Depends(get_db)) -> list[str]:
+    """Distinct city names for approved businesses (search filter chips)."""
+    result = await db.execute(
+        select(Business.city)
+        .where(
+            Business.status == BusinessStatus.APPROVED,
+            Business.city.isnot(None),
+            Business.city != "",
+        )
+        .distinct()
+        .order_by(Business.city.asc())
+    )
+    return [city for city in result.scalars().all() if city]
+
+
 @router.get("/stats/summary", response_model=PublicPlatformStats)
 async def public_stats_summary(db: AsyncSession = Depends(get_db)) -> PublicPlatformStats:
     """

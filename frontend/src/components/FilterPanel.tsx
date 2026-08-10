@@ -26,33 +26,37 @@ interface FilterPanelProps {
   params?: SearchFilterParams;
   /** Live categories from GET /businesses/categories/all */
   categories?: Category[];
+  /** Distinct cities from GET /businesses/cities (approved listings). */
+  cities?: string[];
 }
 
 /** FilterPanel — sidebar filters for search page. Uses native form GET to /search. */
-export function FilterPanel({ params, categories = [] }: FilterPanelProps) {
+export function FilterPanel({ params, categories = [], cities = [] }: FilterPanelProps) {
+  const activeCity = params?.city?.trim().toLowerCase() ?? "";
+
   return (
     <aside className="rounded-xl border bg-white p-4">
       <h3 className="font-semibold text-gray-900">Filters</h3>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <a
-          href={buildSearchHref({ city: "Chennai", page: "1" }, params)}
-          className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-800 hover:bg-brand-100"
-        >
-          Chennai
-        </a>
-        <a
-          href={buildSearchHref({ q: "Chrompet", page: "1" }, params)}
-          className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-800 hover:bg-brand-100"
-        >
-          Chrompet
-        </a>
-        <a
-          href={buildSearchHref({ q: "Radha Nagar", page: "1" }, params)}
-          className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-800 hover:bg-brand-100"
-        >
-          Radha Nagar
-        </a>
-      </div>
+      {cities.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {cities.map((city) => {
+            const selected = activeCity === city.toLowerCase();
+            return (
+              <a
+                key={city}
+                href={buildSearchHref({ city, q: "", page: "1" }, params)}
+                className={
+                  selected
+                    ? "rounded-full bg-brand-600 px-3 py-1 text-xs font-medium text-white"
+                    : "rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-800 hover:bg-brand-100"
+                }
+              >
+                {city}
+              </a>
+            );
+          })}
+        </div>
+      )}
       <form action="/search" method="get" className="mt-4 space-y-4">
         {params?.q && <input type="hidden" name="q" value={params.q} />}
         {params?.lat && <input type="hidden" name="lat" value={params.lat} />}
@@ -65,7 +69,7 @@ export function FilterPanel({ params, categories = [] }: FilterPanelProps) {
             name="city"
             defaultValue={params?.city}
             className="mt-1 w-full rounded border px-3 py-2 text-sm"
-            placeholder="Chennai"
+            placeholder="Any city"
           />
         </div>
         <div>

@@ -44,3 +44,13 @@ async def test_list_businesses(client):
     response = await client.get("/api/v1/businesses")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
+
+@pytest.mark.asyncio
+async def test_list_cities(client):
+    response = await client.get("/api/v1/businesses/cities")
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert all(isinstance(city, str) and city for city in body)
+    assert body == sorted(body)

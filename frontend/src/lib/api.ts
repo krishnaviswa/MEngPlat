@@ -251,6 +251,7 @@ export const businesses = {
     return apiFetch<Business[]>(`/api/v1/search/businesses?${qs}`);
   },
   categoriesAll: () => apiFetch<Category[]>("/api/v1/businesses/categories/all"),
+  cities: () => apiFetch<string[]>("/api/v1/businesses/cities"),
   stats: () => apiFetch<PublicPlatformStats>("/api/v1/businesses/stats/summary"),
 };
 

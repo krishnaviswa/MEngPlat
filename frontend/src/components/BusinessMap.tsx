@@ -19,7 +19,7 @@ const markerIcon = L.icon({
 interface BusinessMapProps {
   /** Businesses or explicit markers to plot (must include coordinates). */
   markers: MapMarker[];
-  /** Map centre when no markers; defaults to first marker or Chennai. */
+  /** Map centre; defaults to the single marker or the markers' centroid. */
   center?: [number, number];
   zoom?: number;
   className?: string;

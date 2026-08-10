@@ -53,16 +53,20 @@ export default async function SearchPage({ searchParams }: Props) {
 
   let results: Awaited<ReturnType<typeof businesses.search>> = [];
   let categories: Awaited<ReturnType<typeof businesses.categoriesAll>> = [];
+  let cities: string[] = [];
   try {
-    const [searchResults, cats] = await Promise.all([
+    const [searchResults, cats, cityList] = await Promise.all([
       businesses.search(query),
       businesses.categoriesAll(),
+      businesses.cities(),
     ]);
     results = searchResults;
     categories = cats;
+    cities = cityList;
   } catch {
     results = [];
     categories = [];
+    cities = [];
   }
 
   const mapMarkers = businessMarkers(results);
@@ -103,7 +107,7 @@ export default async function SearchPage({ searchParams }: Props) {
         </div>
       )}
       <div className="grid gap-6 lg:grid-cols-4">
-        <FilterPanel params={params} categories={categories} />
+        <FilterPanel params={params} categories={categories} cities={cities} />
         <div className="lg:col-span-3">
           <p className="mb-4 text-sm text-gray-500">
             {results.length} businesses on page {page}
