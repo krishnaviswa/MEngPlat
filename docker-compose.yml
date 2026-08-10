@@ -39,6 +39,7 @@ services:
       CORS_ORIGINS: http://localhost:3000
     volumes:
       - ./backend:/app
+      - ./data/real-businesses:/data/real-businesses:ro
       - uploads_data:/app/uploads
     depends_on:
       postgres:

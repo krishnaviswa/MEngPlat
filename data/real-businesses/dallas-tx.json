@@ -1,0 +1,203 @@
+{
+  "city": "Dallas, TX",
+  "collected_date": "2026-08-10",
+  "businesses": [
+    {
+      "name": "Pecan Lodge",
+      "category": "restaurant",
+      "address": "2702 Main St",
+      "city": "Dallas",
+      "state": "TX",
+      "zip": "75226",
+      "phone": "(214) 748-8900",
+      "website": "https://pecanlodge.com/",
+      "hours": "Mon 11:00 AM-3:00 PM; Tue-Thu 11:00 AM-8:00 PM; Fri 11:00 AM-9:00 PM; Sat 11:00 AM-10:00 PM; Sun 11:00 AM-9:00 PM",
+      "rating": 4.5,
+      "review_count": 7017,
+      "maps_url": "https://www.yelp.com/biz/pecan-lodge-dallas-3",
+      "photo_reference_url": "https://www.yelp.com/biz/pecan-lodge-dallas-3",
+      "sources": [
+        "https://www.yelp.com/biz/pecan-lodge-dallas-3",
+        "https://pecanlodge.com/",
+        "https://www.tripadvisor.com/Restaurant_Review-g55711-d2640654-Reviews-Pecan_Lodge-Dallas_Texas.html"
+      ]
+    },
+    {
+      "name": "Sushiya",
+      "category": "restaurant",
+      "address": "1306 Elm St",
+      "city": "Dallas",
+      "state": "TX",
+      "zip": "75202",
+      "phone": "(214) 744-9600",
+      "website": "https://www.sushiyatx.com/",
+      "hours": "Mon-Wed 11:00 AM-2:00 PM, 5:30 PM-9:00 PM (Thu-Sun hours not confirmed via search)",
+      "rating": 4.7,
+      "review_count": 622,
+      "maps_url": "https://www.yelp.com/biz/sushiya-dallas",
+      "photo_reference_url": "https://www.yelp.com/biz/sushiya-dallas",
+      "sources": [
+        "https://www.yelp.com/biz/sushiya-dallas",
+        "https://www.tripadvisor.com/Restaurant_Review-g55711-d4024620-Reviews-Sushiya-Dallas_Texas.html",
+        "https://www.sushiyatx.com/",
+        "https://www.opentable.com/r/sushiya-dallas"
+      ]
+    },
+    {
+      "name": "Coffee House Cafe",
+      "category": "cafe",
+      "address": "6150 Frankford Rd",
+      "city": "Dallas",
+      "state": "TX",
+      "zip": "75252",
+      "phone": "(972) 232-2333",
+      "website": "https://www.coffeehousecafe.com/",
+      "hours": "Mon-Sun 7:00 AM-3:00 PM",
+      "rating": 4.3,
+      "review_count": 2759,
+      "maps_url": "https://www.yelp.com/biz/coffee-house-caf%C3%A9-dallas-2",
+      "photo_reference_url": "https://www.yelp.com/biz/coffee-house-caf%C3%A9-dallas-2",
+      "sources": [
+        "https://www.yelp.com/biz/coffee-house-caf%C3%A9-dallas-2",
+        "https://www.coffeehousecafe.com/",
+        "https://www.restaurantji.com/tx/dallas/coffee-house-cafe-/"
+      ]
+    },
+    {
+      "name": "Kaffeine Shop",
+      "category": "cafe",
+      "address": "13440 T I Blvd, Ste 1",
+      "city": "Dallas",
+      "state": "TX",
+      "zip": "75243",
+      "phone": "(214) 643-6477",
+      "website": null,
+      "hours": "Mon-Fri 7:00 AM-4:00 PM; Sat 7:00 AM-1:00 PM; Sun Closed",
+      "rating": null,
+      "review_count": null,
+      "maps_url": "https://www.yelp.com/biz/kaffeine-shop-dallas",
+      "photo_reference_url": "https://www.yelp.com/biz/kaffeine-shop-dallas",
+      "sources": [
+        "https://www.yelp.com/biz/kaffeine-shop-dallas",
+        "https://www.chamberofcommerce.com/business-directory/texas/dallas/coffee-shop/2023142091-kaffeine-shop"
+      ]
+    },
+    {
+      "name": "Tangerine Salon",
+      "category": "salon",
+      "address": "7949 Walnut Hill Ln, Ste 105",
+      "city": "Dallas",
+      "state": "TX",
+      "zip": "75230",
+      "phone": "(972) 236-4725",
+      "website": "https://www.tangerinesalon.net/dallas-hair-salon",
+      "hours": "Mon 9:00 AM-7:00 PM; Tue-Fri 9:00 AM-8:00 PM; Sat 9:00 AM-7:00 PM; Sun Closed",
+      "rating": null,
+      "review_count": null,
+      "maps_url": "https://www.yelp.com/biz/tangerine-salon-dallas",
+      "photo_reference_url": "https://www.yelp.com/biz/tangerine-salon-dallas",
+      "sources": [
+        "https://www.yelp.com/biz/tangerine-salon-dallas",
+        "https://www.tangerinesalon.net/dallas-hair-salon",
+        "https://freshchalk.com/tangerine-salon-dallas"
+      ]
+    },
+    {
+      "name": "Grand Nail Salon",
+      "category": "salon",
+      "address": "3878 Oak Lawn Ave, Ste 305",
+      "city": "Dallas",
+      "state": "TX",
+      "zip": "75219",
+      "phone": "(214) 812-9651",
+      "website": "https://dallasgrandnail.com/",
+      "hours": "Mon-Fri 9:30 AM-7:30 PM; Sat 9:00 AM-7:00 PM; Sun 11:30 AM-6:00 PM",
+      "rating": 3.3,
+      "review_count": 233,
+      "maps_url": "https://www.yelp.com/biz/grand-nail-salon-dallas-dallas",
+      "photo_reference_url": "https://www.yelp.com/biz/grand-nail-salon-dallas-dallas",
+      "sources": [
+        "https://www.yelp.com/biz/grand-nail-salon-dallas-dallas",
+        "https://dallasgrandnail.com/",
+        "https://www.yellowpages.com/dallas-tx/mip/grand-nail-salon-533219953"
+      ]
+    },
+    {
+      "name": "R & B Automotive",
+      "category": "auto_repair",
+      "address": "955 S Corinth Street Rd",
+      "city": "Dallas",
+      "state": "TX",
+      "zip": "75203",
+      "phone": "(214) 946-3311",
+      "website": "https://www.rbdallas.com/",
+      "hours": null,
+      "rating": 4.7,
+      "review_count": 299,
+      "maps_url": "https://www.yelp.com/biz/r-and-b-automotive-dallas",
+      "photo_reference_url": "https://www.yelp.com/biz/r-and-b-automotive-dallas",
+      "sources": [
+        "https://www.yelp.com/biz/r-and-b-automotive-dallas",
+        "https://www.rbdallas.com/",
+        "https://www.bbb.org/us/tx/dallas/profile/auto-repair/r-b-automotive-0875-90431446"
+      ]
+    },
+    {
+      "name": "Auto Dallas Service Center",
+      "category": "auto_repair",
+      "address": "2647 W Northwest Hwy, Ste 110",
+      "city": "Dallas",
+      "state": "TX",
+      "zip": "75220",
+      "phone": "(469) 317-7550",
+      "website": "https://www.autodallassc.com/",
+      "hours": "Mon-Sat 9:00 AM-6:00 PM; Sun Closed",
+      "rating": null,
+      "review_count": null,
+      "maps_url": "https://www.yelp.com/biz/auto-dallas-service-center-dallas",
+      "photo_reference_url": "https://www.yelp.com/biz/auto-dallas-service-center-dallas",
+      "sources": [
+        "https://www.yelp.com/biz/auto-dallas-service-center-dallas",
+        "https://www.autodallassc.com/"
+      ]
+    },
+    {
+      "name": "CityDoc Urgent Care - Uptown",
+      "category": "hospital",
+      "address": "2909 McKinney Ave, Ste B",
+      "city": "Dallas",
+      "state": "TX",
+      "zip": "75204",
+      "phone": "(214) 871-7000",
+      "website": "https://citydoc.net/locations/uptown-dallas-urgent-care/",
+      "hours": "Mon-Sat 8:00 AM-8:00 PM; Sun 9:00 AM-6:00 PM",
+      "rating": null,
+      "review_count": 152,
+      "maps_url": "https://www.yelp.com/biz/citydoc-urgent-care-dallas-2",
+      "photo_reference_url": "https://www.yelp.com/biz/citydoc-urgent-care-dallas-2",
+      "sources": [
+        "https://www.yelp.com/biz/citydoc-urgent-care-dallas-2",
+        "https://citydoc.net/locations/uptown-dallas-urgent-care/"
+      ]
+    },
+    {
+      "name": "NextCare Urgent Care",
+      "category": "hospital",
+      "address": "7910 Belt Line Rd",
+      "city": "Dallas",
+      "state": "TX",
+      "zip": "75254",
+      "phone": "(972) 980-6753",
+      "website": "https://nextcare.com/locations/tx/dallas-beltline-rd/",
+      "hours": "Mon-Fri 8:00 AM-8:00 PM; Sat 8:00 AM-5:00 PM; Sun 8:00 AM-5:00 PM",
+      "rating": null,
+      "review_count": 76,
+      "maps_url": "https://www.yelp.com/biz/nextcare-urgent-care-dallas-2",
+      "photo_reference_url": "https://www.yelp.com/biz/nextcare-urgent-care-dallas-2",
+      "sources": [
+        "https://www.yelp.com/biz/nextcare-urgent-care-dallas-2",
+        "https://nextcare.com/locations/tx/dallas-beltline-rd/"
+      ]
+    }
+  ]
+}

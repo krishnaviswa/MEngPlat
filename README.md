@@ -85,7 +85,7 @@ This starts PostgreSQL, Redis, the backend (which auto-seeds demo users, then ru
 | Chennai demo (×10) | `demo.customer1@example.com` … `demo.customer10@example.com` | `demo12345` |
 
 
-`backend/scripts/seed.py` creates the three core demo users, one Portland sample business, and upserts ~20 Chrompet / Radha Nagar businesses in Chennai with synthetic hand-authored reviews, Unsplash stock photos (storefront + gallery + some review photos), and mock AI analysis rows. Extra demo customers `demo.customer1@example.com` … `demo.customer10@example.com` share password `demo12345`. Seeding is safe to re-run: base users/categories are created if missing, then Chennai shops are created or refreshed (images/addresses) on every start.
+`backend/scripts/seed.py` creates the three core demo users, one Portland sample business, then upserts ~20 Chrompet / Radha Nagar businesses (`seed_chennai.py`) and 40 US listings from `data/real-businesses/` (`seed_us.py`: Fremont, Union City, Brandon, Dallas). Both regional seeds use synthetic hand-authored reviews, Unsplash stock photos by category (not hotlinked listing photos), and mock AI analysis rows. Display ratings come from seeded reviews via `update_business_rating()` — JSON `rating` / `review_count` fields are ignored. Extra demo customers `demo.customer1@example.com` … `demo.customer10@example.com` share password `demo12345`. Categories include `auto_repair` and `hospital` (ensured on re-run). Docker Compose mounts `./data/real-businesses` read-only at `/data/real-businesses` for the backend. Seeding is safe to re-run: base users/categories are created if missing, then Chennai and US shops are created or refreshed on every start.
 
 ### Running natively (no Docker)
 
@@ -1416,7 +1416,9 @@ MEngPlat/
 │   │       ├── storage/         # Local implemented; S3 / Azure are stubs
 │   │       ├── cache.py         # Redis helpers (fail-soft)
 │   │       └── business_service.py
-│   ├── scripts/seed.py          # Demo data seeder
+│   ├── scripts/seed.py          # Demo data seeder (Portland + Chennai + US)
+│   ├── scripts/seed_chennai.py  # Chrompet / Radha Nagar upsert
+│   ├── scripts/seed_us.py       # data/real-businesses/ upsert
 │   └── tests/test_api.py
 │
 └── frontend/
@@ -1629,7 +1631,7 @@ An honest delta between the original specification and what the code actually do
 | Storage         | `local` disk provider implemented                                                                                        |
 | Frontend        | Home, search (map + location), business detail, login, register, profile, settings, merchant dashboard + business create/edit, admin moderation queues |
 | Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine |
-| Seeding         | `scripts/seed.py` — Portland demo + upsert Chrompet/Radha Nagar (~20 Chennai businesses, Unsplash photos, synthetic reviews) |
+| Seeding         | `scripts/seed.py` — Portland demo + Chennai upsert (~20) + US upsert (40 from `data/real-businesses/` via `seed_us.py`; Unsplash + synthetic reviews) |
 | Local dev       | `docker compose up --build`                                                                                              |
 
 

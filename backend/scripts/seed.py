@@ -8,6 +8,37 @@ from app.core.security import get_password_hash
 from app.database import AsyncSessionLocal
 from app.models import Business, BusinessCategory, BusinessStatus, Category, Merchant, User, UserRole
 from scripts.seed_chennai import CHENNAI_CUSTOMER_PASSWORD, seed_chennai
+from scripts.seed_us import seed_us
+
+# Shared category catalog — first-run creates all; re-runs insert any missing slugs.
+_SEED_CATEGORIES: list[tuple[str, str, str]] = [
+    ("Restaurant", "restaurant", "🍽️"),
+    ("Grocery", "grocery", "🛒"),
+    ("Salon", "salon", "💇"),
+    ("Pharmacy", "pharmacy", "💊"),
+    ("Café", "cafe", "☕"),
+    ("Auto Repair", "auto_repair", "🔧"),
+    ("Hospital", "hospital", "🏥"),
+]
+
+
+async def _ensure_categories(db, categories: list[Category]) -> list[Category]:
+    """Insert any missing Category rows from `_SEED_CATEGORIES` (idempotent)."""
+    by_slug = {c.slug: c for c in categories}
+    added = False
+    for name, slug, icon in _SEED_CATEGORIES:
+        if slug in by_slug:
+            continue
+        cat = Category(name=name, slug=slug, icon=icon)
+        db.add(cat)
+        by_slug[slug] = cat
+        added = True
+    if added:
+        await db.flush()
+    # Preserve a stable order matching the catalog, then any extras.
+    ordered = [by_slug[slug] for _, slug, _ in _SEED_CATEGORIES if slug in by_slug]
+    extras = [c for c in categories if c.slug not in {s for _, s, _ in _SEED_CATEGORIES}]
+    return ordered + extras
 
 
 async def _seed_base(db) -> tuple[Merchant, list[Category]]:
@@ -38,11 +69,7 @@ async def _seed_base(db) -> tuple[Merchant, list[Category]]:
     await db.flush()
 
     categories = [
-        Category(name="Restaurant", slug="restaurant", icon="🍽️"),
-        Category(name="Grocery", slug="grocery", icon="🛒"),
-        Category(name="Salon", slug="salon", icon="💇"),
-        Category(name="Pharmacy", slug="pharmacy", icon="💊"),
-        Category(name="Café", slug="cafe", icon="☕"),
+        Category(name=name, slug=slug, icon=icon) for name, slug, icon in _SEED_CATEGORIES
     ]
     db.add_all(categories)
     await db.flush()
@@ -65,7 +92,8 @@ async def _seed_base(db) -> tuple[Merchant, list[Category]]:
     )
     db.add(business)
     await db.flush()
-    db.add(BusinessCategory(business_id=business.id, category_id=categories[4].id))
+    cafe = next(c for c in categories if c.slug == "cafe")
+    db.add(BusinessCategory(business_id=business.id, category_id=cafe.id))
 
     return merchant, list(categories)
 
@@ -73,8 +101,8 @@ async def _seed_base(db) -> tuple[Merchant, list[Category]]:
 async def seed() -> None:
     # Tables are created by `alembic upgrade head`, which the start command runs
     # before this script. Seeding no longer creates schema of its own.
-    # Chrompet/Radha Nagar data is upserted on every run so image/review refreshes land
-    # on already-seeded databases (not only on empty volumes).
+    # Chrompet/Radha Nagar and US real-business data are upserted on every run so
+    # image/review refreshes land on already-seeded databases (not only on empty volumes).
     async with AsyncSessionLocal() as db:
         admin = await db.execute(select(User).where(User.email == "admin@merchanthub.ai"))
         if not admin.scalar_one_or_none():
@@ -86,7 +114,10 @@ async def seed() -> None:
             merchant = merchant_result.scalar_one()
             categories = list((await db.execute(select(Category))).scalars().all())
 
-        counts = await seed_chennai(db, merchant, categories)
+        categories = await _ensure_categories(db, categories)
+
+        counts_chennai = await seed_chennai(db, merchant, categories)
+        counts_us = await seed_us(db, merchant, categories)
         await db.commit()
 
         print("Seed complete.")
@@ -95,12 +126,18 @@ async def seed() -> None:
         print("  Customer: customer@example.com / customer123")
         print(
             f"  Chennai demo customers: demo.customer1@example.com … "
-            f"demo.customer{counts['customers']}@example.com / {CHENNAI_CUSTOMER_PASSWORD}"
+            f"demo.customer{counts_chennai['customers']}@example.com / {CHENNAI_CUSTOMER_PASSWORD}"
         )
         print(
-            f"  Chrompet / Radha Nagar: {counts['businesses']} businesses "
-            f"(created={counts.get('created', 0)}, refreshed={counts.get('refreshed', 0)}), "
-            f"new reviews this run={counts['reviews']}"
+            f"  Chrompet / Radha Nagar: {counts_chennai['businesses']} businesses "
+            f"(created={counts_chennai.get('created', 0)}, refreshed={counts_chennai.get('refreshed', 0)}), "
+            f"new reviews this run={counts_chennai['reviews']}"
+        )
+        print(
+            f"  US real businesses: {counts_us['businesses']} businesses across "
+            f"{counts_us.get('cities', 0)} cities "
+            f"(created={counts_us.get('created', 0)}, refreshed={counts_us.get('refreshed', 0)}), "
+            f"new reviews this run={counts_us['reviews']}"
         )
 
 

@@ -1,0 +1,205 @@
+{
+  "city": "Fremont, CA",
+  "collected_date": "2026-08-10",
+  "businesses": [
+    {
+      "name": "Shalimar Restaurant",
+      "category": "restaurant",
+      "address": "3325 Walnut Ave",
+      "city": "Fremont",
+      "state": "CA",
+      "zip": "94538",
+      "phone": "(510) 494-1919",
+      "website": "https://shalimarfremont.com/",
+      "hours": "Mon-Thu 11:30 AM-2:30 PM & 5:30 PM-10:30 PM; Fri 11:30 AM-2:30 PM & 5:30 PM-11:00 PM; Sat 12:30 PM-3:30 PM & 5:30 PM-11:00 PM; Sun 12:30 PM-3:30 PM & 5:30 PM-10:30 PM",
+      "rating": null,
+      "review_count": 1750,
+      "maps_url": "https://www.yelp.com/biz/shalimar-restaurant-fremont",
+      "photo_reference_url": "https://www.yelp.com/biz/shalimar-restaurant-fremont",
+      "sources": [
+        "https://www.yelp.com/biz/shalimar-restaurant-fremont",
+        "https://shalimarfremont.com/",
+        "https://www.tripadvisor.com/Restaurant_Review-g32411-d799483-Reviews-Shalimar-Fremont_California.html"
+      ]
+    },
+    {
+      "name": "Pakwan Restaurant",
+      "category": "restaurant",
+      "address": "41068 Fremont Blvd",
+      "city": "Fremont",
+      "state": "CA",
+      "zip": "94538",
+      "phone": "(510) 226-6234",
+      "website": "https://pakwanrestaurant.com/",
+      "hours": "Closed Mon; Tue-Thu 11:00 AM-3:00 PM & 5:00 PM-10:30 PM; Fri-Sat 11:00 AM-3:00 PM & 5:00 PM-11:00 PM; Sun 11:00 AM-3:00 PM & 5:00 PM-10:30 PM",
+      "rating": 3.7,
+      "review_count": 1244,
+      "maps_url": "https://www.yelp.com/biz/pakwan-restaurant-fremont-2",
+      "photo_reference_url": "https://www.yelp.com/biz/pakwan-restaurant-fremont-2",
+      "sources": [
+        "https://www.yelp.com/biz/pakwan-restaurant-fremont-2",
+        "https://pakwanrestaurant.com/about/",
+        "https://www.tripadvisor.com/Restaurant_Review-g32411-d931426-Reviews-Pakwan_Restaurant-Fremont_California.html"
+      ]
+    },
+    {
+      "name": "Skillet'z Cafe",
+      "category": "cafe",
+      "address": "37378 Niles Blvd",
+      "city": "Fremont",
+      "state": "CA",
+      "zip": "94536",
+      "phone": "(510) 793-8161",
+      "website": "https://skilletz.cafe/",
+      "hours": "Mon-Wed 8:00 AM-2:00 PM; Thu-Fri 8:00 AM-8:00 PM; Sat-Sun 8:00 AM-8:00 PM",
+      "rating": 4.0,
+      "review_count": 2170,
+      "maps_url": "https://www.yelp.com/biz/skilletz-cafe-fremont",
+      "photo_reference_url": "https://www.yelp.com/biz/skilletz-cafe-fremont",
+      "sources": [
+        "https://www.yelp.com/biz/skilletz-cafe-fremont",
+        "https://skilletz.cafe/contact/",
+        "https://www.tripadvisor.com/Restaurant_Review-g32411-d14979469-Reviews-Skillet_z_Cafe-Fremont_California.html"
+      ]
+    },
+    {
+      "name": "Tamper Room Cafe & Gallery",
+      "category": "cafe",
+      "address": "43737 Boscell Rd",
+      "city": "Fremont",
+      "state": "CA",
+      "zip": "94538",
+      "phone": "(510) 573-0070",
+      "website": null,
+      "hours": "Mon-Fri 8:00 AM-6:00 PM; Sat-Sun 9:00 AM-6:00 PM",
+      "rating": null,
+      "review_count": 383,
+      "maps_url": "https://www.yelp.com/biz/tamper-room-cafe-and-gallery-fremont",
+      "photo_reference_url": "https://www.yelp.com/biz/tamper-room-cafe-and-gallery-fremont",
+      "sources": [
+        "https://www.yelp.com/biz/tamper-room-cafe-and-gallery-fremont",
+        "https://www.fremontrestaurantweek.com/tamper-room.html"
+      ]
+    },
+    {
+      "name": "Cutting Edge",
+      "category": "salon",
+      "address": "37120 Maple St, Ste A",
+      "city": "Fremont",
+      "state": "CA",
+      "zip": "94536",
+      "phone": "(510) 648-2952",
+      "website": "https://cuttingedgefremont.com/home",
+      "hours": "Closed Mon; Tue-Sun 10:00 AM-7:00 PM",
+      "rating": 4.5,
+      "review_count": 161,
+      "maps_url": "https://www.yelp.com/biz/cutting-edge-fremont",
+      "photo_reference_url": "https://www.yelp.com/biz/cutting-edge-fremont",
+      "sources": [
+        "https://www.yelp.com/biz/cutting-edge-fremont",
+        "https://cuttingedgefremont.com/home"
+      ]
+    },
+    {
+      "name": "Salon V.I",
+      "category": "salon",
+      "address": "5200 Mowry Ave",
+      "city": "Fremont",
+      "state": "CA",
+      "zip": "94538",
+      "phone": "(510) 983-2300",
+      "website": "https://www.vagaro.com/salonvi",
+      "hours": "Closed Mon; Tue-Fri 9:00 AM-7:00 PM; Sat 9:00 AM-5:00 PM; Closed Sun",
+      "rating": 5.0,
+      "review_count": 48,
+      "maps_url": "https://www.yelp.com/biz/salon-v-i-fremont-2",
+      "photo_reference_url": "https://www.yelp.com/biz/salon-v-i-fremont-2",
+      "sources": [
+        "https://www.yelp.com/biz/salon-v-i-fremont-2",
+        "https://www.chamberofcommerce.com/business-directory/california/fremont/hair-salon/2015326916-salon-v-i",
+        "https://www.fresha.com/lvp/salon-v-i-mowry-avenue-fremont-YK0nv9"
+      ]
+    },
+    {
+      "name": "Fremont Auto Center",
+      "category": "auto_repair",
+      "address": "320 Mowry Ave",
+      "city": "Fremont",
+      "state": "CA",
+      "zip": "94536",
+      "phone": "(510) 962-9925",
+      "website": null,
+      "hours": "Mon-Fri 8:00 AM-5:00 PM; Closed Sat-Sun",
+      "rating": 4.8,
+      "review_count": 183,
+      "maps_url": "https://www.yelp.com/biz/fremont-auto-center-fremont",
+      "photo_reference_url": "https://www.yelp.com/biz/fremont-auto-center-fremont",
+      "sources": [
+        "https://www.yelp.com/biz/fremont-auto-center-fremont",
+        "https://www.autotechiq.com/auto-repair-shop/73211/fremont-auto-center",
+        "https://www.bbb.org/us/ca/fremont/profile/auto-repair/fremont-auto-center-1116-897202"
+      ]
+    },
+    {
+      "name": "Fremont Auto Works",
+      "category": "auto_repair",
+      "address": "43203 Osgood Rd",
+      "city": "Fremont",
+      "state": "CA",
+      "zip": "94539",
+      "phone": "(510) 490-8883",
+      "website": "https://fremontautoworks.net/",
+      "hours": "Mon-Fri 8:00 AM-6:00 PM; Sat 8:00 AM-3:00 PM; Closed Sun",
+      "rating": 4.8,
+      "review_count": 198,
+      "maps_url": "https://www.yelp.com/biz/fremont-auto-works-fremont",
+      "photo_reference_url": "https://www.yelp.com/biz/fremont-auto-works-fremont",
+      "sources": [
+        "https://www.yelp.com/biz/fremont-auto-works-fremont",
+        "https://fremontautoworks.net/",
+        "https://www.bbb.org/us/ca/fremont/profile/truck-repair/fremont-auto-works-1116-45769"
+      ]
+    },
+    {
+      "name": "Sutter Urgent Care - Fremont Center",
+      "category": "hospital",
+      "address": "3200 Kearney St, Level 1, Bldg 1",
+      "city": "Fremont",
+      "state": "CA",
+      "zip": "94538",
+      "phone": "(510) 490-1222",
+      "website": "https://www.sutterhealth.org/find-location/facility/fremont-urgent-care-1043246913",
+      "hours": "Daily 8:00 AM-8:00 PM",
+      "rating": null,
+      "review_count": 53,
+      "maps_url": "https://www.yelp.com/biz/sutter-urgent-care-fremont-fremont-2",
+      "photo_reference_url": "https://www.yelp.com/biz/sutter-urgent-care-fremont-fremont-2",
+      "sources": [
+        "https://www.yelp.com/biz/sutter-urgent-care-fremont-fremont-2",
+        "https://www.sutterhealth.org/find-location/facility/fremont-urgent-care-1043246913",
+        "https://www.chamberofcommerce.com/business-directory/california/fremont/urgent-care-center/2015326990-sutter-urgent-care-fremont-center"
+      ]
+    },
+    {
+      "name": "Washington Hospital (Washington Health)",
+      "category": "hospital",
+      "address": "2000 Mowry Ave",
+      "city": "Fremont",
+      "state": "CA",
+      "zip": "94538",
+      "phone": "(510) 797-1111",
+      "website": "https://www.washingtonhealth.com/",
+      "hours": "Open 24 hours, 7 days a week (Emergency Dept.); administrative/clinic hours vary by department",
+      "rating": null,
+      "review_count": 312,
+      "maps_url": "https://www.yelp.com/biz/washington-health-fremont",
+      "photo_reference_url": "https://www.yelp.com/biz/washington-health-fremont",
+      "sources": [
+        "https://www.washingtonhealth.com/",
+        "https://www.yelp.com/biz/washington-health-fremont",
+        "https://hcai.ca.gov/facility/washington-hospital-fremont/",
+        "https://health.usnews.com/best-hospitals/area/ca/washington-hospital-6932116"
+      ]
+    }
+  ]
+}
