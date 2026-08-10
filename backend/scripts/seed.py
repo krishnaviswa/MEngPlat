@@ -1,6 +1,9 @@
 """Seed the database with sample data for local development."""
 
+from __future__ import annotations
+
 import asyncio
+from typing import Any
 
 from sqlalchemy import select
 
@@ -101,8 +104,8 @@ async def _seed_base(db) -> tuple[Merchant, list[Category]]:
 async def seed() -> None:
     # Tables are created by `alembic upgrade head`, which the start command runs
     # before this script. Seeding no longer creates schema of its own.
-    # Chrompet/Radha Nagar and US real-business data are upserted on every run so
-    # image/review refreshes land on already-seeded databases (not only on empty volumes).
+    # Chrompet/Radha Nagar is committed before US so a US seed failure cannot roll
+    # back Chennai shops (critical on Railway where seed runs before uvicorn).
     async with AsyncSessionLocal() as db:
         admin = await db.execute(select(User).where(User.email == "admin@merchanthub.ai"))
         if not admin.scalar_one_or_none():
@@ -117,8 +120,16 @@ async def seed() -> None:
         categories = await _ensure_categories(db, categories)
 
         counts_chennai = await seed_chennai(db, merchant, categories)
-        counts_us = await seed_us(db, merchant, categories)
         await db.commit()
+
+        counts_us: dict[str, Any] | None = None
+        try:
+            counts_us = await seed_us(db, merchant, categories)
+            await db.commit()
+        except Exception as exc:  # noqa: BLE001 — never block boot / wipe Chennai for US seed
+            await db.rollback()
+            print(f"WARNING: US seed skipped ({type(exc).__name__}: {exc})")
+            print("  Chrompet / Radha Nagar data from this run was already committed.")
 
         print("Seed complete.")
         print("  Admin:    admin@merchanthub.ai / admin12345")
@@ -133,12 +144,15 @@ async def seed() -> None:
             f"(created={counts_chennai.get('created', 0)}, refreshed={counts_chennai.get('refreshed', 0)}), "
             f"new reviews this run={counts_chennai['reviews']}"
         )
-        print(
-            f"  US real businesses: {counts_us['businesses']} businesses across "
-            f"{counts_us.get('cities', 0)} cities "
-            f"(created={counts_us.get('created', 0)}, refreshed={counts_us.get('refreshed', 0)}), "
-            f"new reviews this run={counts_us['reviews']}"
-        )
+        if counts_us is not None:
+            print(
+                f"  US real businesses: {counts_us['businesses']} businesses across "
+                f"{counts_us.get('cities', 0)} cities "
+                f"(created={counts_us.get('created', 0)}, refreshed={counts_us.get('refreshed', 0)}), "
+                f"new reviews this run={counts_us['reviews']}"
+            )
+        else:
+            print("  US real businesses: skipped (see WARNING above)")
 
 
 if __name__ == "__main__":

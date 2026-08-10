@@ -1343,10 +1343,12 @@ The frontend's `Dockerfile` now bakes a real production build into the image (`R
 7. Frontend → Variables:
   ```
    NEXT_PUBLIC_API_URL=https://${{backend.RAILWAY_PUBLIC_DOMAIN}}
+   API_URL_INTERNAL=https://${{backend.RAILWAY_PUBLIC_DOMAIN}}
    NEXT_PUBLIC_GOOGLE_MAPS_KEY=placeholder
    NEXT_PUBLIC_GOOGLE_CLIENT_ID=<same client ID as the backend's GOOGLE_CLIENT_ID>
   ```
-8. Redeploy both services.
+   `NEXT_PUBLIC_API_URL` is baked into the client bundle at **build** time (must be set before a frontend rebuild). `API_URL_INTERNAL` is read at **runtime** by Server Components ([`frontend/src/lib/api.ts`](frontend/src/lib/api.ts)) so SSR does not fall back to `http://localhost:8000` inside the Railway container. Use the backend public HTTPS URL (or Railway private networking URL if you enable it).
+8. Redeploy both services (backend first so seed runs, then frontend so `NEXT_PUBLIC_API_URL` is baked in).
 
 **Caveats:**
 

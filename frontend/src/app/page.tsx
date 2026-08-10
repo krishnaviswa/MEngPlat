@@ -117,7 +117,11 @@ export default async function HomePage() {
             grid.map((b) => <BusinessCard key={b.id} business={b} />)
           ) : (
             <p className="col-span-full rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-gray-600">
-              No businesses yet — check that the API is reachable and seed ran, then refresh this page.
+              No businesses loaded yet. On Railway, confirm the backend deploy log shows{" "}
+              <code className="rounded bg-white px-1">Seed complete</code> with Chrompet counts, that{" "}
+              <code className="rounded bg-white px-1">NEXT_PUBLIC_API_URL</code> and{" "}
+              <code className="rounded bg-white px-1">API_URL_INTERNAL</code> point at the backend HTTPS
+              URL, then redeploy the frontend and refresh.
             </p>
           )}
         </div>
