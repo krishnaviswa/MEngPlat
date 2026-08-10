@@ -1,0 +1,52 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:merchanthub_mobile/core/network/api_client.dart';
+import 'package:merchanthub_mobile/core/models/user.dart';
+import 'package:merchanthub_mobile/features/auth/auth_provider.dart';
+import 'package:merchanthub_mobile/features/auth/auth_repository.dart';
+import 'package:merchanthub_mobile/features/auth/login_screen.dart';
+
+class _FakeAuthRepository extends AuthRepository {
+  _FakeAuthRepository() : super(ApiClient());
+
+  @override
+  Future<bool> hasSession() async => false;
+
+  @override
+  Future<User> login({required String email, required String password}) async {
+    return const User(
+      id: 'fake-id',
+      email: 'test@example.com',
+      fullName: 'Test User',
+      role: UserRole.customer,
+      isActive: true,
+    );
+  }
+}
+
+void main() {
+  testWidgets('LoginScreen submits credentials and updates auth state', (tester) async {
+    final container = ProviderContainer(
+      overrides: [authRepositoryProvider.overrideWithValue(_FakeAuthRepository())],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: LoginScreen()),
+      ),
+    );
+
+    expect(find.text('Sign in'), findsWidgets);
+
+    await tester.enterText(find.byKey(const Key('emailField')), 'test@example.com');
+    await tester.enterText(find.byKey(const Key('passwordField')), 'password123');
+    await tester.tap(find.byKey(const Key('submitButton')));
+    await tester.pumpAndSettle();
+
+    expect(container.read(authControllerProvider).value?.fullName, 'Test User');
+  });
+}
