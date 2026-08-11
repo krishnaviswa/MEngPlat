@@ -119,12 +119,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           working-directory: mobile
-          script: |
-            flutter drive \
-              --driver=test_driver/integration_test.dart \
-              --target=integration_test/app_test.dart \
-              -d emulator-5554 \
-              --dart-define=API_BASE_URL=http://10.0.2.2:8000
+          script: flutter drive --driver=test_driver/integration_test.dart --target=integration_test/app_test.dart -d emulator-5554 --dart-define=API_BASE_URL=http://10.0.2.2:8000
 
       - name: Upload screenshot
         if: always()
