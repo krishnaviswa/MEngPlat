@@ -220,6 +220,16 @@ class ReplyResponse(BaseModel):
     created_at: datetime
 
 
+class BusinessSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    slug: str
+    city: str | None = None
+    status: BusinessStatus
+
+
 class ReviewResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -236,6 +246,7 @@ class ReviewResponse(BaseModel):
     ai_analysis: AIAnalysisResponse | None = None
     reply: ReplyResponse | None = None
     photo_urls: list[str] = []
+    business: BusinessSummary | None = None
 
 
 class ReplyCreate(BaseModel):

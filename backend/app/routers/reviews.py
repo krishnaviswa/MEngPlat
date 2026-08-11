@@ -26,6 +26,7 @@ from app.models import (
     UserRole,
 )
 from app.schemas import (
+    BusinessSummary,
     MessageResponse,
     ReplyCreate,
     ReplyResponse,
@@ -60,6 +61,7 @@ def _review_response(review: Review) -> ReviewResponse:
         ai_analysis=review.ai_analysis,
         reply=ReplyResponse.model_validate(review.reply) if review.reply else None,
         photo_urls=[p.url for p in review.photos],
+        business=BusinessSummary.model_validate(review.business) if review.business else None,
     )
 
 
@@ -75,6 +77,7 @@ async def list_business_reviews(business_id: UUID, db: AsyncSession = Depends(ge
         select(Review)
         .options(
             selectinload(Review.author),
+            selectinload(Review.business),
             selectinload(Review.ai_analysis),
             selectinload(Review.reply),
             selectinload(Review.photos),
@@ -95,6 +98,7 @@ async def list_reported_reviews(
         select(Review)
         .options(
             selectinload(Review.author),
+            selectinload(Review.business),
             selectinload(Review.ai_analysis),
             selectinload(Review.reply),
             selectinload(Review.photos),
@@ -102,6 +106,41 @@ async def list_reported_reviews(
         .where(Review.status == ReviewStatus.REPORTED)
         .order_by(Review.created_at.desc())
     )
+    return [_review_response(r) for r in result.scalars().all()]
+
+
+@router.get("/admin/all", response_model=list[ReviewResponse])
+async def list_admin_reviews(
+    business_id: UUID | None = None,
+    page: int = 1,
+    page_size: int = 20,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+) -> list[ReviewResponse]:
+    """
+    Admin: browse reviews across every business and status, optionally scoped
+    to one business (drives both the "All reviews" browse view and a
+    business drill-down's review history).
+
+    **Query:** business_id (optional scope), page (default 1), page_size (default 20, cap 100)
+    **Response:** Reviews of every status, each carrying its business summary
+    """
+    page_size = min(page_size, 100)
+    query = (
+        select(Review)
+        .options(
+            selectinload(Review.author),
+            selectinload(Review.business),
+            selectinload(Review.ai_analysis),
+            selectinload(Review.reply),
+            selectinload(Review.photos),
+        )
+        .order_by(Review.created_at.desc())
+    )
+    if business_id:
+        query = query.where(Review.business_id == business_id)
+    query = query.offset((page - 1) * page_size).limit(page_size)
+    result = await db.execute(query)
     return [_review_response(r) for r in result.scalars().all()]
 
 
@@ -199,6 +238,7 @@ async def create_review(
         select(Review)
         .options(
             selectinload(Review.author),
+            selectinload(Review.business),
             selectinload(Review.ai_analysis),
             selectinload(Review.reply),
             selectinload(Review.photos),
@@ -241,6 +281,7 @@ async def update_review(
         select(Review)
         .options(
             selectinload(Review.author),
+            selectinload(Review.business),
             selectinload(Review.ai_analysis),
             selectinload(Review.reply),
             selectinload(Review.photos),

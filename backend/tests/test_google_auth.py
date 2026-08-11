@@ -18,6 +18,7 @@ from app.models import User, UserRole
 from app.routers.auth import google_auth, login
 from app.schemas import GoogleAuthRequest, UserLogin
 from app.services.google_auth import GoogleIdentity, InvalidGoogleTokenError, verify_google_id_token
+from tests.auth_helpers import fake_request
 
 
 class FakeScalarResult:
@@ -234,6 +235,6 @@ class TestLoginGuardsGoogleOnlyAccounts:
         db = FakeDB(users=[google_only])
 
         with pytest.raises(HTTPException) as exc_info:
-            await login(UserLogin(email="google.only@example.com", password="whatever123"), db)
+            await login(fake_request(), UserLogin(email="google.only@example.com", password="whatever123"), db)
 
         assert exc_info.value.status_code == 400

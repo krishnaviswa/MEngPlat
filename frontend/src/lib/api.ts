@@ -133,6 +133,7 @@ export interface Review {
   };
   reply?: { id: string; body: string; created_at: string } | null;
   photo_urls?: string[];
+  business?: { id: string; name: string; slug: string; city?: string | null; status: BusinessStatus } | null;
 }
 
 export interface Photo {
@@ -346,6 +347,15 @@ export const businesses = {
   categoriesAll: () => apiFetch<Category[]>("/api/v1/businesses/categories/all"),
   cities: () => apiFetch<string[]>("/api/v1/businesses/cities"),
   stats: () => apiFetch<PublicPlatformStats>("/api/v1/businesses/stats/summary"),
+  /** Admin: browse businesses of every status, newest-registered first. */
+  adminAll: (params?: { page?: number; page_size?: number }) => {
+    const qs = params
+      ? new URLSearchParams(
+          Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]),
+        ).toString()
+      : "";
+    return apiFetch<Business[]>(`/api/v1/businesses/admin/all${qs ? `?${qs}` : ""}`);
+  },
 };
 
 export interface Category {
@@ -384,6 +394,15 @@ export const reviews = {
     apiFetch<{ message: string }>(`/api/v1/reviews/${id}/moderate?action=${action}`, { method: "POST" }),
   /** Admin: list reviews flagged for moderation */
   reported: () => apiFetch<Review[]>("/api/v1/reviews/reported"),
+  /** Admin: browse reviews across every business and status; pass business_id to scope to one business. */
+  adminAll: (params?: { business_id?: string; page?: number; page_size?: number }) => {
+    const qs = params
+      ? new URLSearchParams(
+          Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]),
+        ).toString()
+      : "";
+    return apiFetch<Review[]>(`/api/v1/reviews/admin/all${qs ? `?${qs}` : ""}`);
+  },
 };
 
 export const photos = {

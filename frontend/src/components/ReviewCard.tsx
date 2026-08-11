@@ -12,6 +12,8 @@ interface ReviewCardProps {
   showActions?: boolean;
   canReply?: boolean;
   onReply?: (id: string, body: string) => void;
+  /** Admin-only: render review.business as a link to its admin drill-down. */
+  showBusinessLink?: boolean;
 }
 
 function resolveUrl(url: string): string {
@@ -19,7 +21,15 @@ function resolveUrl(url: string): string {
 }
 
 /** ReviewCard — single review with AI sentiment badge, optional actions, and merchant reply. */
-export function ReviewCard({ review, onLike, onReport, showActions = true, canReply = false, onReply }: ReviewCardProps) {
+export function ReviewCard({
+  review,
+  onLike,
+  onReport,
+  showActions = true,
+  canReply = false,
+  onReply,
+  showBusinessLink = false,
+}: ReviewCardProps) {
   const [reporting, setReporting] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [replying, setReplying] = useState(false);
@@ -56,6 +66,14 @@ export function ReviewCard({ review, onLike, onReport, showActions = true, canRe
     <article className="rounded-xl border bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between">
         <div>
+          {showBusinessLink && review.business && (
+            <a
+              href={`/admin/businesses/${review.business.id}`}
+              className="text-sm font-medium text-brand-600 hover:underline"
+            >
+              {review.business.name}
+            </a>
+          )}
           <p className="font-medium">{review.author?.full_name || "Customer"}</p>
           <RatingWidget value={review.rating} readonly size="sm" />
         </div>

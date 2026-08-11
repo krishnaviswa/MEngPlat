@@ -140,6 +140,32 @@ async def list_my_businesses(
     return [_to_response(b) for b in result.scalars().all()]
 
 
+@router.get("/admin/all", response_model=list[BusinessResponse])
+async def list_all_businesses_admin(
+    page: int = 1,
+    page_size: int = 20,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+) -> list[BusinessResponse]:
+    """
+    Admin: browse businesses of every status (approved, pending, rejected,
+    suspended), newest-registered first.
+
+    **Query:** page (default 1), page_size (default 20, cap 100)
+    **Response:** Businesses of every status — distinct from the public
+    `GET /businesses`, which defaults to approved-only.
+    """
+    page_size = min(page_size, 100)
+    result = await db.execute(
+        select(Business)
+        .options(selectinload(Business.categories).selectinload(BusinessCategory.category))
+        .order_by(Business.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    return [_to_response(b) for b in result.scalars().all()]
+
+
 @router.post("/categories", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
 async def create_category(
     payload: CategoryCreate,

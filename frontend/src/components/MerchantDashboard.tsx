@@ -6,7 +6,6 @@ import { Charts } from "./Charts";
 import { Dashboard } from "./Dashboard";
 import { ReviewCard } from "./ReviewCard";
 import { Select } from "./ui/Select";
-import { StatCard } from "./ui/StatCard";
 import { auth, businesses, dashboard, reviews as reviewsApi } from "@/lib/api";
 import type { Business, BusinessStatus, Review, User } from "@/lib/api";
 
@@ -23,6 +22,10 @@ const STATUS_CLASS: Record<BusinessStatus, string> = {
   rejected: "text-gray-600",
   suspended: "text-red-600",
 };
+
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 /** MerchantDashboard — stats, charts, AI insights, recent reviews for owned businesses. */
 export default function MerchantDashboardPage() {
@@ -162,15 +165,32 @@ export default function MerchantDashboardPage() {
         )}
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <StatCard label="Total reviews" value={String(stats?.total_reviews ?? 0)} />
-          <StatCard label="Average rating" value={Number(stats?.average_rating ?? 0).toFixed(1)} />
-          <StatCard
-            label="Status"
-            value={<span className={STATUS_CLASS[status]}>{STATUS_LABEL[status]}</span>}
-          />
+          <button
+            type="button"
+            onClick={() => scrollToSection("recent-reviews")}
+            className="rounded-xl border bg-white p-4 text-left transition hover:border-brand-300 hover:shadow-sm"
+          >
+            <p className="text-sm text-gray-500">Total reviews</p>
+            <p className="text-2xl font-bold">{String(stats?.total_reviews ?? 0)}</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollToSection("sentiment-breakdown")}
+            className="rounded-xl border bg-white p-4 text-left transition hover:border-brand-300 hover:shadow-sm"
+          >
+            <p className="text-sm text-gray-500">Average rating</p>
+            <p className="text-2xl font-bold">{Number(stats?.average_rating ?? 0).toFixed(1)}</p>
+          </button>
+          <a
+            href={status === "approved" ? `/businesses/${business.slug}` : `/merchant/businesses/${business.id}/edit`}
+            className="rounded-xl border bg-white p-4 transition hover:border-brand-300 hover:shadow-sm"
+          >
+            <p className="text-sm text-gray-500">Status</p>
+            <p className={`text-2xl font-bold ${STATUS_CLASS[status]}`}>{STATUS_LABEL[status]}</p>
+          </a>
         </div>
 
-        <div className="rounded-xl border bg-white p-4">
+        <div id="sentiment-breakdown" className="scroll-mt-20 rounded-xl border bg-white p-4">
           <h3 className="font-semibold">Sentiment breakdown</h3>
           <Charts data={sentimentData} />
         </div>
@@ -192,7 +212,7 @@ export default function MerchantDashboardPage() {
           </div>
         )}
 
-        <div>
+        <div id="recent-reviews" className="scroll-mt-20">
           <h3 className="mb-3 font-semibold">Recent reviews</h3>
           <div className="space-y-3">
             {((stats?.recent_reviews as Review[]) || []).length === 0 ? (

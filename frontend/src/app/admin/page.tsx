@@ -23,9 +23,17 @@ const STAT_LABELS: Record<keyof PlatformStats, string> = {
   reported_reviews: "Reported reviews",
 };
 
+// Same-page scroll targets (existing queue sections further down /admin).
 const STAT_TARGETS: Partial<Record<keyof PlatformStats, string>> = {
   pending_businesses: "pending-businesses",
   reported_reviews: "reported-reviews",
+};
+
+// Navigate-away targets: "Total businesses"/"Total reviews" browse every
+// status, not just the pending/reported subsets covered by STAT_TARGETS.
+const STAT_LINKS: Partial<Record<keyof PlatformStats, string>> = {
+  total_businesses: "/admin/businesses",
+  total_reviews: "/admin/reviews",
 };
 
 function scrollToSection(id: string) {
@@ -66,19 +74,33 @@ export default function AdminPage() {
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {(Object.entries(stats) as [keyof PlatformStats, number][]).map(([key, value]) => {
               const target = STAT_TARGETS[key];
-              return target ? (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => scrollToSection(target)}
-                  className="rounded-xl border bg-white p-4 text-left transition hover:border-brand-300 hover:shadow-sm"
-                >
-                  <p className="text-sm text-gray-500">{STAT_LABELS[key]}</p>
-                  <p className="text-2xl font-bold">{value}</p>
-                </button>
-              ) : (
-                <StatCard key={key} label={STAT_LABELS[key]} value={value} />
-              );
+              const link = STAT_LINKS[key];
+              if (target) {
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => scrollToSection(target)}
+                    className="rounded-xl border bg-white p-4 text-left transition hover:border-brand-300 hover:shadow-sm"
+                  >
+                    <p className="text-sm text-gray-500">{STAT_LABELS[key]}</p>
+                    <p className="text-2xl font-bold">{value}</p>
+                  </button>
+                );
+              }
+              if (link) {
+                return (
+                  <a
+                    key={key}
+                    href={link}
+                    className="rounded-xl border bg-white p-4 transition hover:border-brand-300 hover:shadow-sm"
+                  >
+                    <p className="text-sm text-gray-500">{STAT_LABELS[key]}</p>
+                    <p className="text-2xl font-bold">{value}</p>
+                  </a>
+                );
+              }
+              return <StatCard key={key} label={STAT_LABELS[key]} value={value} />;
             })}
           </div>
         )}

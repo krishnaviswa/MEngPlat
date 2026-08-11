@@ -1,0 +1,19 @@
+"use client";
+
+import { AllBusinessesQueue } from "@/components/admin/AllBusinessesQueue";
+import { RequireAuth } from "@/components/RequireAuth";
+
+/** Admin — browse businesses of every status (approved, pending, rejected, suspended). */
+export default function AdminAllBusinessesPage() {
+  return (
+    <RequireAuth role="admin">
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <h1 className="text-2xl font-bold">All businesses</h1>
+        <p className="text-gray-600">Every business on the platform, regardless of status.</p>
+        <div className="mt-6">
+          <AllBusinessesQueue />
+        </div>
+      </div>
+    </RequireAuth>
+  );
+}

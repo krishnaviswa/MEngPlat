@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-022 |
 | **Phase** | 4 Dashboards |
-| **Status** | Specified |
+| **Status** | Accepted |
 | **Role(s)** | merchant |
 | **Owner** | PM / 2026-08-11 |
 
@@ -56,10 +56,10 @@
 
 ## Definition of done (PM)
 
-- [ ] All AC verified in test report
-- [ ] UX matches notes above
-- [ ] Documented in `README.md` §7 API reference / §8 Frontend guide if new patterns
-- [ ] PM Status set to **Accepted**
+- [x] All AC verified in test report
+- [x] UX matches notes above
+- [x] Documented in `README.md` §7 API reference / §8 Frontend guide if new patterns
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -160,3 +160,5 @@ sequenceDiagram
 |------|-------|--------|
 | 2026-08-11 | PM | Slice created from stakeholder feedback ("merchant screen enrichment... when I click the tiles I don't get to see..."). Grounded in Builder's read of `frontend/src/components/MerchantDashboard.tsx` lines ~163-176 (static, non-interactive tiles; review list and business name already render lower on the same page). Split from admin work (S-021) per README §13 sizing guidance — different role, different (smaller, no-new-API) scope. 7 numbered AC, UX notes, out-of-scope, DoD. Status: Draft. |
 | 2026-08-11 | Architect | Confirmed no new/changed API (existing `GET /dashboard/merchant/{business_id}` already carries everything needed); documented RBAC (no change), data model impact (none), and a frontend-only plan reusing `/admin`'s `scrollToSection` pattern for the two scroll tiles plus an `<a href>` for the Status tile (reusing existing `navItems` href logic). Mermaid flow, risks (deliberate `<button>` vs `<a>` split; no `StatCard` prop-contract change). No ADR — confirmed not warranted. Status: Specified. |
+| 2026-08-11 | Tester | 7/7 AC verified: AC1-6 automated via new `frontend/src/components/__tests__/MerchantDashboard.test.tsx` (7 tests); AC7 (role-gating) verified by code review as a no-op diff plus existing `RequireAuth.test.tsx` re-run. Full suite 12 suites / 48 tests, no regressions. No bugs found, no rework. Recommendation: Ship. See `docs/agents/test-plans/TP-S-022-merchant-dashboard-tile-interactivity.md`, `docs/agents/test-reports/TR-S-022-merchant-dashboard-tile-interactivity.md`. Status: Testing. |
+| 2026-08-11 | PM | Reviewed test report against all 7 AC and the DoD — all pass, spot-checked implementation (`MerchantDashboard.tsx` lines 167-190, 215) matches the tech spec's button/anchor split exactly. DoD "documented in README §7/§8 if new patterns" checked as satisfied-by-inapplicability: this slice reuses the *existing* `/admin` `scrollToSection`/button pattern verbatim (per Architect's spec) rather than introducing a new component or screen pattern, so no README §8 addition was needed or made — the Architect flagged a §8 note as optional ("if judged reusable elsewhere"), and Builder correctly judged it unnecessary since the pattern is already documented via S-021's admin usage. Updated README §13 backlog row to Accepted. Status: **Accepted**. |

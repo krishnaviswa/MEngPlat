@@ -62,31 +62,29 @@ docker compose up --build
 This starts PostgreSQL, Redis, the backend (migrate → version-gated seed → `uvicorn --reload`), and the frontend together. Local Compose sets `SEED_MODE=if_outdated` so the full demo upsert runs once per `SEED_VERSION`, then skips on restart.
 
 
-| Service           | URL                                                          |
-| ----------------- | ------------------------------------------------------------ |
-| App               | [http://localhost:3000](http://localhost:3000)               |
-| API               | [http://localhost:8000](http://localhost:8000)               |
-| Swagger / OpenAPI | [http://localhost:8000/docs](http://localhost:8000/docs)     |
-| ReDoc             | [http://localhost:8000/redoc](http://localhost:8000/redoc)   |
+| Service           | URL                                                                      |
+| ----------------- | ------------------------------------------------------------------------ |
+| App               | [http://localhost:3000](http://localhost:3000)                           |
+| API               | [http://localhost:8000](http://localhost:8000)                           |
+| Swagger / OpenAPI | [http://localhost:8000/docs](http://localhost:8000/docs)                 |
+| ReDoc             | [http://localhost:8000/redoc](http://localhost:8000/redoc)               |
 | OpenAPI JSON      | [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json) |
-| Health check      | [http://localhost:8000/health](http://localhost:8000/health) |
-| PostgreSQL        | localhost:5432                                               |
-| Redis             | localhost:6379                                               |
+| Health check      | [http://localhost:8000/health](http://localhost:8000/health)             |
+| PostgreSQL        | localhost:5432                                                           |
+| Redis             | localhost:6379                                                           |
+
 
 On Railway, the same paths (`/docs`, `/redoc`, `/openapi.json`, `/health`) hang off the **backend** public URL. Full curl recipes and “how the UI loads data” are in [§7 API reference — Trying the API](#where-to-try-every-endpoint-swagger).
-
-
-
 
 ### Demo accounts (seeded on first run)
 
 
-| Role     | Email                  | Password      |
-| -------- | ---------------------- | ------------- |
-| Admin    | `admin@merchanthub.ai` | `admin12345`  |
-| Merchant | `merchant@example.com` | `merchant123` |
-| Customer | `customer@example.com` | `customer123` |
-| Chennai demo (×10) | `demo.customer1@example.com` … `demo.customer10@example.com` | `demo12345` |
+| Role               | Email                                                        | Password      |
+| ------------------ | ------------------------------------------------------------ | ------------- |
+| Admin              | `admin@merchanthub.ai`                                       | `admin12345`  |
+| Merchant           | `merchant@example.com`                                       | `merchant123` |
+| Customer           | `customer@example.com`                                       | `customer123` |
+| Chennai demo (×10) | `demo.customer1@example.com` … `demo.customer10@example.com` | `demo12345`   |
 
 
 **Password login requires an authenticator app.** Seeded demo accounts share TOTP secret `JBSWY3DPEHPK3PXP` (add to Google Authenticator / Authy as a time-based account). Gmail/Google sign-in does not require TOTP.
@@ -356,19 +354,19 @@ The rule that keeps this honest: **business logic and external integrations stay
 ## 4. Why this stack
 
 
-| Choice                                               | Why it was chosen                                                                                                                                                                                                                                                                                                                                                                                | Alternative rejected                                                                                         |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| **FastAPI + Uvicorn**                                | The hot path (submit review) is I/O-bound: one DB write, one or more LLM round-trips, one cache invalidation. Native `async` handles that without threads. OpenAPI/Swagger is generated from the type hints for free — and interactive API docs were a required deliverable.                                                                                                                     | Flask (no native async, no generated schema); Django (ORM + admin are heavyweight for a 10-router API)       |
-| **Async SQLAlchemy 2.0 +** `asyncpg`                 | Keeps the async story end-to-end. A sync ORM inside an async framework blocks the event loop and quietly destroys the concurrency FastAPI was chosen for. `Mapped[]`/`mapped_column` typing gives static checking on the model layer.                                                                                                                                                            | Sync SQLAlchemy; raw SQL (loses relationship mapping)                                                        |
-| **PostgreSQL**                                       | Genuinely relational domain — users → merchants → businesses → reviews → analyses, plus two M:N joins. Also used for what it's uniquely good at: `JSONB` columns hold AI output whose shape evolves (`ai_positives`, `ai_complaints`, `image_insights`) without a migration per change.                                                                                                          | MongoDB (the data is relational, joins would be hand-rolled); SQLite (**incompatible** — see the trap in §1) |
-| **Redis, optional**                                  | Search and business-profile reads are hot and repetitive. Deliberately a *cache*, not a dependency: every helper in `[cache.py](backend/app/services/cache.py)` wraps its call in `try/except` and returns `None` / no-ops on failure, so losing Redis degrades to uncached instead of erroring.                                                                                                 | In-memory cache (dies on restart, wrong across replicas)                                                     |
-| **AI provider as a** `Protocol` **port**             | `AIProvider` in `[services/ai/base.py](backend/app/services/ai/base.py)` is a structural protocol — implementations need no inheritance. `get_ai_provider()` picks `MockAIProvider` or `OpenAICompatibleProvider` from `AI_PROVIDER`. Two payoffs: the app runs fully offline at **$0 with no API key** on `mock`, and swapping OpenAI → DeepSeek is an `AI_BASE_URL` change, not a code change. | Calling the OpenAI SDK inline in routers (welds the app to one vendor, makes tests need network)             |
+| Choice                                               | Why it was chosen                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Alternative rejected                                                                                         |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **FastAPI + Uvicorn**                                | The hot path (submit review) is I/O-bound: one DB write, one or more LLM round-trips, one cache invalidation. Native `async` handles that without threads. OpenAPI/Swagger is generated from the type hints for free — and interactive API docs were a required deliverable.                                                                                                                                                                                              | Flask (no native async, no generated schema); Django (ORM + admin are heavyweight for a 10-router API)       |
+| **Async SQLAlchemy 2.0 +** `asyncpg`                 | Keeps the async story end-to-end. A sync ORM inside an async framework blocks the event loop and quietly destroys the concurrency FastAPI was chosen for. `Mapped[]`/`mapped_column` typing gives static checking on the model layer.                                                                                                                                                                                                                                     | Sync SQLAlchemy; raw SQL (loses relationship mapping)                                                        |
+| **PostgreSQL**                                       | Genuinely relational domain — users → merchants → businesses → reviews → analyses, plus two M:N joins. Also used for what it's uniquely good at: `JSONB` columns hold AI output whose shape evolves (`ai_positives`, `ai_complaints`, `image_insights`) without a migration per change.                                                                                                                                                                                   | MongoDB (the data is relational, joins would be hand-rolled); SQLite (**incompatible** — see the trap in §1) |
+| **Redis, optional**                                  | Search and business-profile reads are hot and repetitive. Deliberately a *cache*, not a dependency: every helper in `[cache.py](backend/app/services/cache.py)` wraps its call in `try/except` and returns `None` / no-ops on failure, so losing Redis degrades to uncached instead of erroring.                                                                                                                                                                          | In-memory cache (dies on restart, wrong across replicas)                                                     |
+| **AI provider as a** `Protocol` **port**             | `AIProvider` in `[services/ai/base.py](backend/app/services/ai/base.py)` is a structural protocol — implementations need no inheritance. `get_ai_provider()` picks `MockAIProvider` or `OpenAICompatibleProvider` from `AI_PROVIDER`. Two payoffs: the app runs fully offline at **$0 with no API key** on `mock`, and swapping OpenAI → DeepSeek is an `AI_BASE_URL` change, not a code change.                                                                          | Calling the OpenAI SDK inline in routers (welds the app to one vendor, makes tests need network)             |
 | **Storage as a** `Protocol` **port**                 | Same shape: `StorageProvider` with `LocalStorageProvider` and `S3StorageProvider` (both implemented; `AzureBlobStorageProvider` still a stub). Local disk is right for dev; ephemeral container disk is wrong for production, and the port means that swap is a `STORAGE_PROVIDER=s3` config change, no code change. S3 credentials aren't a settings field — `boto3`'s own default chain (env vars, IAM role, `~/.aws/credentials`) covers every real deployment target. | Hardcoded local paths                                                                                        |
-| **Pydantic Settings**                                | One typed `Settings` object loaded from env/`.env`. `Literal["mock","openai","deepseek"]` means a typo in `AI_PROVIDER` fails at **startup**, not at the first review submission in production.                                                                                                                                                                                                  | `os.getenv` scattered through modules (untyped, fails late)                                                  |
-| **JWT (**`python-jose`**) + bcrypt (**`passlib`**)** | Stateless auth — no session store, so the backend scales horizontally and works across the split Vercel/Render deployment. bcrypt is the deliberately-slow, salted standard for passwords.                                                                                                                                                                                                       | Server-side sessions (needs sticky sessions or shared store)                                                 |
-| **Next.js 15 App Router + React 19**                 | Hybrid rendering matched to the page: Server Components render public pages (home, search, business profiles) on the server for SEO and fast first paint — these pages must be crawlable. `"use client"` is added only where browser APIs, event handlers, or auth state are needed (login, register, dashboards).                                                                               | SPA (public listings invisible to search engines); full SSR (pointless for authenticated dashboards)         |
-| **TypeScript + Tailwind**                            | Types across the API client boundary catch shape drift at compile time. Tailwind keeps styling colocated with markup — no separate CSS files to keep in sync in a small team.                                                                                                                                                                                                                    | Plain JS; CSS modules                                                                                        |
-| **Docker Compose**                                   | One command reproduces the exact four-service topology on any machine. Also the artifact deployment reuses: Railway builds from the same verified `Dockerfile`s.                                                                                                                                                                                                                                 | Manual local installs (works-on-my-machine)                                                                  |
+| **Pydantic Settings**                                | One typed `Settings` object loaded from env/`.env`. `Literal["mock","openai","deepseek"]` means a typo in `AI_PROVIDER` fails at **startup**, not at the first review submission in production.                                                                                                                                                                                                                                                                           | `os.getenv` scattered through modules (untyped, fails late)                                                  |
+| **JWT (**`python-jose`**) + bcrypt (**`passlib`**)** | Stateless auth — no session store, so the backend scales horizontally and works across the split Vercel/Render deployment. bcrypt is the deliberately-slow, salted standard for passwords.                                                                                                                                                                                                                                                                                | Server-side sessions (needs sticky sessions or shared store)                                                 |
+| **Next.js 15 App Router + React 19**                 | Hybrid rendering matched to the page: Server Components render public pages (home, search, business profiles) on the server for SEO and fast first paint — these pages must be crawlable. `"use client"` is added only where browser APIs, event handlers, or auth state are needed (login, register, dashboards).                                                                                                                                                        | SPA (public listings invisible to search engines); full SSR (pointless for authenticated dashboards)         |
+| **TypeScript + Tailwind**                            | Types across the API client boundary catch shape drift at compile time. Tailwind keeps styling colocated with markup — no separate CSS files to keep in sync in a small team.                                                                                                                                                                                                                                                                                             | Plain JS; CSS modules                                                                                        |
+| **Docker Compose**                                   | One command reproduces the exact four-service topology on any machine. Also the artifact deployment reuses: Railway builds from the same verified `Dockerfile`s.                                                                                                                                                                                                                                                                                                          | Manual local installs (works-on-my-machine)                                                                  |
 
 
 ---
@@ -680,6 +678,10 @@ flowchart TD
     UI --> CH[Charts + AIInsights panel]
 ```
 
+
+
+
+
 ### Merchant business registration
 
 Merchants create listings at `/merchant/businesses/new` (wrapped in `RequireAuth role="merchant"`). The shared `BusinessForm` posts to `POST /businesses`; new rows start with `status=pending`. Country defaults to `IN` in the form (backend model default is `US` if omitted). Optional coordinates can be entered manually or filled once via **Look up address**, which calls `GET /maps/geocode` (Nominatim) on button click only — not per keystroke.
@@ -701,6 +703,10 @@ sequenceDiagram
     API-->>UI: Business status=pending
 ```
 
+
+
+
+
 ### Search with location and map
 
 The search page (`/search`) SSR-fetches via `GET /search/businesses` with optional `lat`, `lng`, and `radius_km`. **Use my location** sets those query params from browser geolocation. Results with coordinates render on a Leaflet map (`BusinessMap`) using OpenStreetMap tiles — not Google Maps. `FilterPanel` loads city chips from `GET /businesses/cities` and categories from `GET /businesses/categories/all`, and preserves existing `q`, `lat`, `lng`, and `radius_km` when applying city/category/rating filters.
@@ -714,6 +720,10 @@ flowchart LR
     U --> F[FilterPanel Apply]
     F --> Q
 ```
+
+
+
+
 
 ### Admin moderation
 
@@ -755,12 +765,14 @@ Base URL (Railway): `https://<your-backend>.up.railway.app/api/v1` — replace w
 
 FastAPI generates interactive docs from the route type hints and docstrings. **You do not need a separate Swagger file in the repo** — it is served live by the running backend:
 
-| Surface | Local | Railway (example) |
-| ------- | ----- | ----------------- |
-| **Swagger UI** (click “Try it out”) | [http://localhost:8000/docs](http://localhost:8000/docs) | `https://<your-backend>.up.railway.app/docs` |
-| **ReDoc** (read-only) | [http://localhost:8000/redoc](http://localhost:8000/redoc) | `https://<your-backend>.up.railway.app/redoc` |
+
+| Surface                             | Local                                                                    | Railway (example)                                    |
+| ----------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------- |
+| **Swagger UI** (click “Try it out”) | [http://localhost:8000/docs](http://localhost:8000/docs)                 | `https://<your-backend>.up.railway.app/docs`         |
+| **ReDoc** (read-only)               | [http://localhost:8000/redoc](http://localhost:8000/redoc)               | `https://<your-backend>.up.railway.app/redoc`        |
 | **OpenAPI JSON** (machine-readable) | [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json) | `https://<your-backend>.up.railway.app/openapi.json` |
-| Health | [http://localhost:8000/health](http://localhost:8000/health) | `https://<your-backend>.up.railway.app/health` |
+| Health                              | [http://localhost:8000/health](http://localhost:8000/health)             | `https://<your-backend>.up.railway.app/health`       |
+
 
 This project’s live backend (when deployed) is typically `https://backend-production-2783.up.railway.app` — open `/docs` on that host to exercise the full catalog.
 
@@ -862,6 +874,8 @@ For every other route (photos upload, notifications, AI refresh, moderate, …),
 curl -s "$API/openapi.json" | python -c "import sys,json; print('\n'.join(sorted(json.load(sys.stdin)['paths'])))"
 ```
 
+
+
 ### How the website extracts this data
 
 ```mermaid
@@ -873,32 +887,36 @@ flowchart LR
   Browser -->|"client fetch + Bearer JWT"| FastAPI
 ```
 
-| UI surface | Calls (via [`frontend/src/lib/api.ts`](frontend/src/lib/api.ts)) |
-| ---------- | --------------------------------------------------------------- |
-| Home `/` | `stats`, `cities`, `categories/all`, then `search?city=<first city>` or `list` |
-| Search `/search` | `search/businesses?...`, `cities`, `categories/all` |
-| Business profile | `businesses/{slug}`, `reviews/business/{id}`, photos |
-| Login / dashboards | Browser `fetch` with `Authorization: Bearer …` from `localStorage` |
+
+
+
+| UI surface         | Calls (via `[frontend/src/lib/api.ts](frontend/src/lib/api.ts)`)               |
+| ------------------ | ------------------------------------------------------------------------------ |
+| Home `/`           | `stats`, `cities`, `categories/all`, then `search?city=<first city>` or `list` |
+| Search `/search`   | `search/businesses?...`, `cities`, `categories/all`                            |
+| Business profile   | `businesses/{slug}`, `reviews/business/{id}`, photos                           |
+| Login / dashboards | Browser `fetch` with `Authorization: Bearer …` from `localStorage`             |
+
 
 SSR prefers `API_URL_INTERNAL` inside the Next container (Railway must set it to the backend HTTPS URL); the browser uses `NEXT_PUBLIC_API_URL` (baked at **frontend build** time).
 
-All ten routers are mounted with the `/api/v1` prefix in [`main.py`](backend/app/main.py). `/health` and `/` sit outside the prefix. Uploaded files are served as static assets from `/uploads`.
+All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/main.py)`. `/health` and `/` sit outside the prefix. Uploaded files are served as static assets from `/uploads`.
 
 ### Authentication — `/auth`
 
 
-| Method | Path                   | Auth   | Description        |
-| ------ | ---------------------- | ------ | ------------------ |
-| POST   | `/auth/register`       | Public | Create account     |
-| POST   | `/auth/login`          | Public | Password check → MFA challenge or enrollment (`LoginResult`) |
-| POST   | `/auth/mfa/totp/setup` | MFA enroll token | Start authenticator enrollment (QR + secret) |
-| POST   | `/auth/mfa/totp/confirm` | MFA enroll token | Confirm first TOTP code → session tokens |
-| POST   | `/auth/mfa/totp/verify` | MFA verify token | Verify TOTP → session tokens |
-| POST   | `/auth/refresh`        | Public | Refresh tokens     |
-| GET    | `/auth/me`             | Bearer | Current user       |
-| PATCH  | `/auth/me`             | Bearer | Update profile (name, avatar, phone, address, national ID) |
-| POST   | `/auth/google`         | Public | Google ID-token sign-in (register-or-login; no TOTP) |
-| POST   | `/auth/logout`         | Bearer | Blocklist caller's access token (+ optional refresh token) |
+| Method | Path                     | Auth             | Description                                                  |
+| ------ | ------------------------ | ---------------- | ------------------------------------------------------------ |
+| POST   | `/auth/register`         | Public           | Create account                                               |
+| POST   | `/auth/login`            | Public           | Password check → MFA challenge or enrollment (`LoginResult`) |
+| POST   | `/auth/mfa/totp/setup`   | MFA enroll token | Start authenticator enrollment (QR + secret)                 |
+| POST   | `/auth/mfa/totp/confirm` | MFA enroll token | Confirm first TOTP code → session tokens                     |
+| POST   | `/auth/mfa/totp/verify`  | MFA verify token | Verify TOTP → session tokens                                 |
+| POST   | `/auth/refresh`          | Public           | Refresh tokens                                               |
+| GET    | `/auth/me`               | Bearer           | Current user                                                 |
+| PATCH  | `/auth/me`               | Bearer           | Update profile (name, avatar, phone, address, national ID)   |
+| POST   | `/auth/google`           | Public           | Google ID-token sign-in (register-or-login; no TOTP)         |
+| POST   | `/auth/logout`           | Bearer           | Blocklist caller's access token (+ optional refresh token)   |
 
 
 ```jsonc
@@ -923,42 +941,42 @@ All ten routers are mounted with the `/api/v1` prefix in [`main.py`](backend/app
 ### Businesses — `/businesses`
 
 
-| Method | Path                         | Auth           | Description                                                        |
-| ------ | ---------------------------- | -------------- | ------------------------------------------------------------------ |
-| GET    | `/businesses`                | Public         | List businesses (default `status_filter=approved`)                 |
-| GET    | `/businesses/mine`           | Merchant       | List businesses owned by current merchant (any status)             |
-| GET    | `/businesses/categories/all` | Public         | List categories                                                    |
-| GET    | `/businesses/cities`         | Public         | Distinct cities from approved businesses (search filter chips)     |
-| GET    | `/businesses/stats/summary`  | Public         | Public counts: businesses, reviews, categories, cities (no admin fields)   |
-| GET    | `/businesses/{slug}`         | Public         | Get by slug                                                        |
-| POST   | `/businesses`                | Merchant       | Create business (status `pending`)                                 |
-| PATCH  | `/businesses/{id}`           | Merchant/Admin | Update business                                                    |
-| POST   | `/businesses/{id}/approve`   | Admin          | Approve listing                                                    |
-| POST   | `/businesses/{id}/suspend`   | Admin          | Suspend listing                                                    |
-| POST   | `/businesses/categories`     | Admin          | Create category                                                    |
+| Method | Path                         | Auth           | Description                                                              |
+| ------ | ---------------------------- | -------------- | ------------------------------------------------------------------------ |
+| GET    | `/businesses`                | Public         | List businesses (default `status_filter=approved`)                       |
+| GET    | `/businesses/mine`           | Merchant       | List businesses owned by current merchant (any status)                   |
+| GET    | `/businesses/admin/all`      | Admin          | Browse businesses of every status, newest-registered first (S-021)       |
+| GET    | `/businesses/categories/all` | Public         | List categories                                                          |
+| GET    | `/businesses/cities`         | Public         | Distinct cities from approved businesses (search filter chips)           |
+| GET    | `/businesses/stats/summary`  | Public         | Public counts: businesses, reviews, categories, cities (no admin fields) |
+| GET    | `/businesses/{slug}`         | Public         | Get by slug                                                              |
+| POST   | `/businesses`                | Merchant       | Create business (status `pending`)                                       |
+| PATCH  | `/businesses/{id}`           | Merchant/Admin | Update business                                                          |
+| POST   | `/businesses/{id}/approve`   | Admin          | Approve listing                                                          |
+| POST   | `/businesses/{id}/suspend`   | Admin          | Suspend listing                                                          |
+| POST   | `/businesses/categories`     | Admin          | Create category                                                          |
+
 
 Query on `GET /businesses`: `city`, `status_filter` (`approved` default). Listing with any non-`approved` `status_filter` (e.g. `pending`) requires an admin Bearer token; anonymous callers receive `403`.
-
-
-
 
 ### Reviews — `/reviews`
 
 
-| Method | Path                              | Auth     | Description                 |
-| ------ | --------------------------------- | -------- | --------------------------- |
-| GET    | `/reviews/business/{business_id}` | Public   | List reviews                |
-| GET    | `/reviews/reported`               | Admin    | List reported reviews       |
-| POST   | `/reviews`                        | User     | Create review (triggers AI) |
+| Method | Path                              | Auth   | Description                 |
+| ------ | --------------------------------- | ------ | --------------------------- |
+| GET    | `/reviews/business/{business_id}` | Public | List reviews                |
+| GET    | `/reviews/reported`               | Admin  | List reported reviews       |
+| GET    | `/reviews/admin/all`              | Admin  | Browse reviews across every business/status; optional `business_id` scope (S-021) |
+| POST   | `/reviews`                        | User   | Create review (triggers AI) |
 
-**POST `/reviews` errors:** `403` if a merchant reviews their own business (`"Cannot review your own business"`); `409` if the author already reviewed that business (`"You have already reviewed this business"`), including concurrent double-submit races caught by `uq_author_business_review`.
+
+**POST** `/reviews` **errors:** `403` if a merchant reviews their own business (`"Cannot review your own business"`); `409` if the author already reviewed that business (`"You have already reviewed this business"`), including concurrent double-submit races caught by `uq_author_business_review`.
 | PATCH  | `/reviews/{id}`                   | Author   | Edit review                 |
 | DELETE | `/reviews/{id}`                   | Author   | Delete review               |
 | POST   | `/reviews/{id}/like`              | User     | Like review                 |
 | POST   | `/reviews/{id}/report`            | User     | Report review               |
 | POST   | `/reviews/{id}/reply`             | Merchant | Reply to review             |
 | POST   | `/reviews/{id}/moderate`          | Admin    | Hide / restore / remove     |
-
 
 ```jsonc
 // POST /reviews  →  Review with ai_analysis { sentiment, summary, suggested_response }
@@ -1010,18 +1028,17 @@ Upload form fields: `file`, `business_id`, `review_id`, `photo_type`, `caption`.
 | GET    | `/search/businesses` | Public | Search + filter (Redis-cached) |
 
 
-Query params: `q`, `city`, `category`, `min_rating`, `sentiment`, `lat`, `lng`, `radius_km`, `page`, `page_size`, `sort` (`rating` \| `name` \| `reviews`).
-
-
+Query params: `q`, `city`, `category`, `min_rating`, `sentiment`, `lat`, `lng`, `radius_km`, `page`, `page_size`, `sort` (`rating`  `name`  `reviews`).
 
 ### Favorites — `/favorites`
 
 
-| Method | Path                       | Auth     | Description                                      |
-| ------ | -------------------------- | -------- | ------------------------------------------------ |
-| GET    | `/favorites`               | Customer | List favorited businesses (newest first)         |
+| Method | Path                       | Auth     | Description                                       |
+| ------ | -------------------------- | -------- | ------------------------------------------------- |
+| GET    | `/favorites`               | Customer | List favorited businesses (newest first)          |
 | POST   | `/favorites`               | Customer | Favorite an approved business (`{ business_id }`) |
-| DELETE | `/favorites/{business_id}` | Customer | Remove favorite (idempotent 204)                 |
+| DELETE | `/favorites/{business_id}` | Customer | Remove favorite (idempotent 204)                  |
+
 
 
 
@@ -1052,16 +1069,15 @@ Query params: `q`, `city`, `category`, `min_rating`, `sentiment`, `lat`, `lng`, 
 
 Uses **Nominatim** for geocoding and **Haversine** bounding-box queries for nearby approved businesses. The frontend map is **Leaflet + OSM tiles** — no Google Maps API key required.
 
-| Method | Path            | Auth   | Description                                      |
-| ------ | --------------- | ------ | ------------------------------------------------ |
+
+| Method | Path            | Auth   | Description                                       |
+| ------ | --------------- | ------ | ------------------------------------------------- |
 | POST   | `/maps/nearby`  | Public | Approved businesses within `radius_km` of a point |
-| GET    | `/maps/geocode` | Public | Forward-geocode an address via Nominatim         |
+| GET    | `/maps/geocode` | Public | Forward-geocode an address via Nominatim          |
 | GET    | `/maps/config`  | Public | Provider config (`provider: osm`, tile URL)       |
 
+
 `GET /maps/geocode` returns `{ message, latitude?, longitude?, display_name? }`. Respect Nominatim usage policy — the merchant form geocodes on button click only, not per keystroke.
-
-
-
 
 ### Health
 
@@ -1135,19 +1151,19 @@ A custom `useAuth` hook could be added later to centralise token + user logic.
 File-based routing under `frontend/src/app/`. A `page.tsx` file defines a route.
 
 
-| URL                   | File                          | Type                   |
-| --------------------- | ----------------------------- | ---------------------- |
-| `/`                   | `page.tsx`                    | Server Component (SSR) |
-| `/search`             | `search/page.tsx`             | Server Component       |
-| `/businesses/[slug]`  | `businesses/[slug]/page.tsx`  | Dynamic SSR            |
-| `/login`              | `login/page.tsx`              | Client form page       |
-| `/register`           | `register/page.tsx`           | Client form page       |
-| `/profile`            | `profile/page.tsx`            | Client                 |
-| `/settings`           | `settings/page.tsx`           | Client                 |
-| `/merchant/dashboard`           | `merchant/dashboard/page.tsx`           | Client dashboard (`RequireAuth`) |
-| `/merchant/businesses/new`      | `merchant/businesses/new/page.tsx`      | Client — create business         |
-| `/merchant/businesses/[id]/edit`| `merchant/businesses/[id]/edit/page.tsx`| Client — edit owned business     |
-| `/admin`                        | `admin/page.tsx`                        | Client (`RequireAuth admin`)     |
+| URL                              | File                                     | Type                             |
+| -------------------------------- | ---------------------------------------- | -------------------------------- |
+| `/`                              | `page.tsx`                               | Server Component (SSR)           |
+| `/search`                        | `search/page.tsx`                        | Server Component                 |
+| `/businesses/[slug]`             | `businesses/[slug]/page.tsx`             | Dynamic SSR                      |
+| `/login`                         | `login/page.tsx`                         | Client form page                 |
+| `/register`                      | `register/page.tsx`                      | Client form page                 |
+| `/profile`                       | `profile/page.tsx`                       | Client                           |
+| `/settings`                      | `settings/page.tsx`                      | Client                           |
+| `/merchant/dashboard`            | `merchant/dashboard/page.tsx`            | Client dashboard (`RequireAuth`) |
+| `/merchant/businesses/new`       | `merchant/businesses/new/page.tsx`       | Client — create business         |
+| `/merchant/businesses/[id]/edit` | `merchant/businesses/[id]/edit/page.tsx` | Client — edit owned business     |
+| `/admin`                         | `admin/page.tsx`                         | Client (`RequireAuth admin`)     |
 
 
 
@@ -1188,39 +1204,39 @@ export default function LoginPage() {
 All in `frontend/src/components/`. Each file carries a JSDoc comment explaining purpose, props, and state.
 
 
-| Component               | Description                                   |
-| ----------------------- | --------------------------------------------- |
-| `Navbar.tsx`            | Global nav, auth state, role-aware links      |
-| `NotificationBell.tsx`  | Navbar notifications dropdown (S-015)         |
-| `Footer.tsx`            | Multi-column site map: Discover, merchants, Account |
-| `home/TrustMetrics.tsx` | Editorial live platform counts on the home page |
-| `home/CityIndex.tsx`    | Neighborhood links with listing counts        |
-| `home/CategoryIndex.tsx`| Category search index with counts             |
-| `home/FeaturedGrid.tsx` | Featured cards + optional AI suggestion blurbs |
-| `home/ReviewVoices.tsx` | Real reviews with AI suggestion callouts      |
-| `BusinessCard.tsx`      | Compact listing card for search results       |
-| `ReviewCard.tsx`        | Review with rating, photos, likes, AI badge   |
-| `RatingWidget.tsx`      | Interactive star rating input/display         |
-| `FavoriteButton.tsx`    | Customer favorite toggle on business detail   |
-| `BusinessHours.tsx`     | Opening-hours list for business detail        |
-| `CategoryBadges.tsx`    | Full category Badge list                      |
-| `SearchBar.tsx`         | Query input with debounce                     |
-| `FilterPanel.tsx`       | City chips from API + category/rating filters (preserves location params) |
-| `UseLocationButton.tsx` | Browser geolocation → `/search?lat=&lng=`     |
-| `BusinessMap.tsx`       | Leaflet map with OSM tiles for search results |
-| `BusinessForm.tsx`      | Merchant create/edit business form + geocode  |
-| `RequireAuth.tsx`       | Client route guard by role (JWT in localStorage) |
-| `PendingBusinessQueue.tsx` | Admin pending-business approval queue      |
-| `ReportedReviewsQueue.tsx` | Admin reported-review moderation queue     |
-| `Dashboard.tsx`         | Layout shell for merchant/admin analytics     |
-| `Charts.tsx`            | Recharts sentiment / volume / rating charts   |
-| `PhotoGallery.tsx`      | Image grid + lightbox                         |
-| `LoginForm.tsx`         | Login form with validation                    |
-| `RegisterForm.tsx`      | Registration form with validation             |
-| `ProfilePage.tsx`       | User account view                             |
-| `SettingsPage.tsx`      | Settings + logout                             |
-| `AIInsights.tsx`        | Merchant-facing AI summary panel              |
-| `MerchantDashboard.tsx` | Reviews + analytics + insights composite      |
+| Component                  | Description                                                               |
+| -------------------------- | ------------------------------------------------------------------------- |
+| `Navbar.tsx`               | Global nav, auth state, role-aware links                                  |
+| `NotificationBell.tsx`     | Navbar notifications dropdown (S-015)                                     |
+| `Footer.tsx`               | Multi-column site map: Discover, merchants, Account                       |
+| `home/TrustMetrics.tsx`    | Editorial live platform counts on the home page                           |
+| `home/CityIndex.tsx`       | Neighborhood links with listing counts                                    |
+| `home/CategoryIndex.tsx`   | Category search index with counts                                         |
+| `home/FeaturedGrid.tsx`    | Featured cards + optional AI suggestion blurbs                            |
+| `home/ReviewVoices.tsx`    | Real reviews with AI suggestion callouts                                  |
+| `BusinessCard.tsx`         | Compact listing card for search results                                   |
+| `ReviewCard.tsx`           | Review with rating, photos, likes, AI badge                               |
+| `RatingWidget.tsx`         | Interactive star rating input/display                                     |
+| `FavoriteButton.tsx`       | Customer favorite toggle on business detail                               |
+| `BusinessHours.tsx`        | Opening-hours list for business detail                                    |
+| `CategoryBadges.tsx`       | Full category Badge list                                                  |
+| `SearchBar.tsx`            | Query input with debounce                                                 |
+| `FilterPanel.tsx`          | City chips from API + category/rating filters (preserves location params) |
+| `UseLocationButton.tsx`    | Browser geolocation → `/search?lat=&lng=`                                 |
+| `BusinessMap.tsx`          | Leaflet map with OSM tiles for search results                             |
+| `BusinessForm.tsx`         | Merchant create/edit business form + geocode                              |
+| `RequireAuth.tsx`          | Client route guard by role (JWT in localStorage)                          |
+| `PendingBusinessQueue.tsx` | Admin pending-business approval queue                                     |
+| `ReportedReviewsQueue.tsx` | Admin reported-review moderation queue                                    |
+| `Dashboard.tsx`            | Layout shell for merchant/admin analytics                                 |
+| `Charts.tsx`               | Recharts sentiment / volume / rating charts                               |
+| `PhotoGallery.tsx`         | Image grid + lightbox                                                     |
+| `LoginForm.tsx`            | Login form with validation                                                |
+| `RegisterForm.tsx`         | Registration form with validation                                         |
+| `ProfilePage.tsx`          | User account view                                                         |
+| `SettingsPage.tsx`         | Settings + logout                                                         |
+| `AIInsights.tsx`           | Merchant-facing AI summary panel                                          |
+| `MerchantDashboard.tsx`    | Reviews + analytics + insights composite                                  |
 
 
 The API client lives in `[frontend/src/lib/api.ts](frontend/src/lib/api.ts)` and calls the backend directly via `NEXT_PUBLIC_API_URL` / `API_URL_INTERNAL` — there is no BFF or rewrite layer.
@@ -1254,15 +1270,15 @@ The brand ramp was completed to 50–900 while building this. `border-brand-400`
 18 components across 69 variants, one page per family:
 
 
-| Figma page | Components                                                    |
-| ---------- | ------------------------------------------------------------- |
+| Figma page | Components                                                                                                  |
+| ---------- | ----------------------------------------------------------------------------------------------------------- |
 | Primitives | `Button`, `Input`, `Select`, `Badge`, `StatCard`, `ui/RatingWidget` (code in `frontend/src/components/ui/`) |
-| Rating     | `RatingWidget` (legacy path + `ui/` copy)                     |
-| Cards      | `BusinessCard`, `ReviewCard`, `StatCard`                      |
-| Navigation | `Navbar` (4 role states), `Footer`, `NavItem`, `DashboardNav` |
-| Search     | `SearchBar`, `FilterPanel`                                    |
-| AI & Data  | `AIInsights`, `Chart`                                         |
-| Media      | `PhotoGallery`, `Lightbox`                                    |
+| Rating     | `RatingWidget` (legacy path + `ui/` copy)                                                                   |
+| Cards      | `BusinessCard`, `ReviewCard`, `StatCard`                                                                    |
+| Navigation | `Navbar` (4 role states), `Footer`, `NavItem`, `DashboardNav`                                               |
+| Search     | `SearchBar`, `FilterPanel`                                                                                  |
+| AI & Data  | `AIInsights`, `Chart`                                                                                       |
+| Media      | `PhotoGallery`, `Lightbox`                                                                                  |
 
 
 All nine routes are assembled as 1440px templates built purely from those instances. There are no detached layers and no hardcoded fills or strokes anywhere in the library — every visual property binds to a variable, so changing a token reflows the system.
@@ -1324,14 +1340,15 @@ flowchart TD
 Implemented in `[core/security.py](backend/app/core/security.py)`, configured in `[config.py](backend/app/config.py)`.
 
 
-| Property          | Value                            | Why                                                                                                                                                                                                                                                                                                                      |
-| ----------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Algorithm         | HS256 (symmetric)                | One service signs and verifies; no key distribution problem                                                                                                                                                                                                                                                              |
-| Access token TTL  | 30 minutes                       | Short enough that a leaked token expires quickly                                                                                                                                                                                                                                                                         |
-| Refresh token TTL | 7 days                           | Keeps users logged in without long-lived access tokens                                                                                                                                                                                                                                                                   |
-| Claims            | `sub` (user UUID), `exp`, `type`, optional `purpose` / `role` | —                                                                                                                                                                                                                                                                                                                        |
-| `type` claim      | `"access"` \| `"refresh"` \| `"mfa"` | **Load-bearing.** `get_current_user` rejects anything where `type != "access"`, so a stolen refresh or MFA pending token cannot be replayed against protected endpoints. MFA tokens only work on `/auth/mfa/totp/*`. Without this claim the token classes would be interchangeable and the short access TTL would be meaningless. |
-| Password MFA      | Mandatory TOTP (authenticator app) for email/password login; Google OAuth exempt | Secrets Fernet-encrypted at rest; never returned on `UserResponse` |
+| Property          | Value                                                                            | Why                                                                                                                                                                                                                                                                                                                               |
+| ----------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Algorithm         | HS256 (symmetric)                                                                | One service signs and verifies; no key distribution problem                                                                                                                                                                                                                                                                       |
+| Access token TTL  | 30 minutes                                                                       | Short enough that a leaked token expires quickly                                                                                                                                                                                                                                                                                  |
+| Refresh token TTL | 7 days                                                                           | Keeps users logged in without long-lived access tokens                                                                                                                                                                                                                                                                            |
+| Claims            | `sub` (user UUID), `exp`, `type`, optional `purpose` / `role`                    | —                                                                                                                                                                                                                                                                                                                                 |
+| `type` claim      | `"access"` | `"refresh"` | `"mfa"`                                               | **Load-bearing.** `get_current_user` rejects anything where `type != "access"`, so a stolen refresh or MFA pending token cannot be replayed against protected endpoints. MFA tokens only work on `/auth/mfa/totp/`*. Without this claim the token classes would be interchangeable and the short access TTL would be meaningless. |
+| Password MFA      | Mandatory TOTP (authenticator app) for email/password login; Google OAuth exempt | Secrets Fernet-encrypted at rest; never returned on `UserResponse`                                                                                                                                                                                                                                                                |
+
 
 
 
@@ -1388,14 +1405,14 @@ Author-scoped actions (edit/delete review) follow the same principle at the rout
 These are real and currently unmitigated. They are acceptable for a local demo, not for a public deployment.
 
 
-| #   | Weakness                                                                                                      | Impact                                                                                 | Fix                                                                                  |
-| --- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| 1   | Tokens stored in `localStorage`                                                                               | Any XSS can exfiltrate both tokens                                                     | Move to `httpOnly` `Secure` `SameSite` cookies — deferred as its own slice; also needs a dual-auth story since the mobile client is Bearer-token-only, not cookie-based |
-| 2   | ✅ Fixed — `secret_key` had a hardcoded fallback in `[config.py](backend/app/config.py)`                       | If unset in prod, anyone could forge a valid admin JWT                                 | Now a required field with no default — startup fails fast if `SECRET_KEY` is unset. Every documented workflow (Compose, `.env.example`, both CI workflows, the Railway guide below) already sets it explicitly |
-| 3   | No rate limiting on `/auth/login` or `/auth/register`                                                         | Unbounded credential stuffing; bcrypt cost also makes it a cheap CPU-exhaustion vector | `slowapi` or a reverse-proxy rate limit                                              |
-| 4   | ✅ Fixed — `debug: bool = True` default, and it wasn't even wired to FastAPI's own debug mode                  | Verbose tracebacks in HTTP responses can leak internals                                | Default is now `False`; `main.py` passes it to `FastAPI(debug=...)` so the setting actually gates traceback responses, not just SQL echo logging. Compose/`.env.example` opt local dev back in explicitly |
-| 5   | No MIME/size validation on upload                                                                             | Arbitrary file content and size accepted into `/uploads`                               | Validate content type and cap size in `LocalStorageProvider.save()`                  |
-| 6   | `/uploads` served as unauthenticated static files                                                             | Any uploaded photo is world-readable to anyone with the URL                            | Acceptable for public gallery photos; use signed URLs if private media is ever added |
+| #   | Weakness                                                                                     | Impact                                                                                 | Fix                                                                                                                                                                                                            |
+| --- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Tokens stored in `localStorage`                                                              | Any XSS can exfiltrate both tokens                                                     | Move to `httpOnly` `Secure` `SameSite` cookies — deferred as its own slice; also needs a dual-auth story since the mobile client is Bearer-token-only, not cookie-based                                        |
+| 2   | ✅ Fixed — `secret_key` had a hardcoded fallback in `[config.py](backend/app/config.py)`      | If unset in prod, anyone could forge a valid admin JWT                                 | Now a required field with no default — startup fails fast if `SECRET_KEY` is unset. Every documented workflow (Compose, `.env.example`, both CI workflows, the Railway guide below) already sets it explicitly |
+| 3   | No rate limiting on `/auth/login` or `/auth/register`                                        | Unbounded credential stuffing; bcrypt cost also makes it a cheap CPU-exhaustion vector | `slowapi` or a reverse-proxy rate limit                                                                                                                                                                        |
+| 4   | ✅ Fixed — `debug: bool = True` default, and it wasn't even wired to FastAPI's own debug mode | Verbose tracebacks in HTTP responses can leak internals                                | Default is now `False`; `main.py` passes it to `FastAPI(debug=...)` so the setting actually gates traceback responses, not just SQL echo logging. Compose/`.env.example` opt local dev back in explicitly      |
+| 5   | No MIME/size validation on upload                                                            | Arbitrary file content and size accepted into `/uploads`                               | Validate content type and cap size in `LocalStorageProvider.save()`                                                                                                                                            |
+| 6   | `/uploads` served as unauthenticated static files                                            | Any uploaded photo is world-readable to anyone with the URL                            | Acceptable for public gallery photos; use signed URLs if private media is ever added                                                                                                                           |
 
 
 
@@ -1490,7 +1507,7 @@ The backend's `railway.json` overrides the container start command to:
 sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
 ```
 
-This keeps deploys fast: migrate + API only. Demo seed is **not** on the boot path (see `SEED_MODE` in §15 and [`SEED_DEPLOY_PLAN.md`](SEED_DEPLOY_PLAN.md)).
+This keeps deploys fast: migrate + API only. Demo seed is **not** on the boot path (see `SEED_MODE` in §15 and `[SEED_DEPLOY_PLAN.md](SEED_DEPLOY_PLAN.md)`).
 
 1. Runs `alembic upgrade head` so schema migrations apply before the API.
 2. The Dockerfile's own `CMD` hardcodes port 8000 in exec form, which cannot expand Railway's injected `$PORT`. The `sh -c` override can.
@@ -1529,7 +1546,7 @@ The frontend's `Dockerfile` now bakes a real production build into the image (`R
    NEXT_PUBLIC_GOOGLE_MAPS_KEY=placeholder
    NEXT_PUBLIC_GOOGLE_CLIENT_ID=<same client ID as the backend's GOOGLE_CLIENT_ID>
   ```
-   `NEXT_PUBLIC_API_URL` is baked into the client bundle at **build** time (must be set before a frontend rebuild). `API_URL_INTERNAL` is read at **runtime** by Server Components ([`frontend/src/lib/api.ts`](frontend/src/lib/api.ts)) so SSR does not fall back to `http://localhost:8000` inside the Railway container. Use the backend public HTTPS URL (or Railway private networking URL if you enable it). If Featured businesses stays empty after seed, open `https://<backend>/api/v1/businesses/cities` in a browser — non-empty JSON means seed is fine and the frontend Variables (then a frontend redeploy) are the fix. A `502` from that URL means the backend service itself is down, not the seed.
+   `NEXT_PUBLIC_API_URL` is baked into the client bundle at **build** time (must be set before a frontend rebuild). `API_URL_INTERNAL` is read at **runtime** by Server Components (`[frontend/src/lib/api.ts](frontend/src/lib/api.ts)`) so SSR does not fall back to `http://localhost:8000` inside the Railway container. Use the backend public HTTPS URL (or Railway private networking URL if you enable it). If Featured businesses stays empty after seed, open `https://<backend>/api/v1/businesses/cities` in a browser — non-empty JSON means seed is fine and the frontend Variables (then a frontend redeploy) are the fix. A `502` from that URL means the backend service itself is down, not the seed.
 8. Redeploy both services (backend first so migrations apply, then frontend so `NEXT_PUBLIC_API_URL` is baked in). On a fresh Postgres, run seed once with `SEED_MODE=force` (see above).
 
 **Caveats:**
@@ -1554,7 +1571,7 @@ ID-token flow via Google Identity Services — no client secret, no redirect rou
 
 ### CI/CD
 
-GitHub Actions runs `pytest` ([`backend-tests.yml`](.github/workflows/backend-tests.yml), throwaway Postgres/Redis service containers, path-filtered to `backend/**`) and `npm test` ([`frontend-tests.yml`](.github/workflows/frontend-tests.yml), path-filtered to `frontend/**`) on every push to `main` and every PR. Auto-deploy of `main` to Railway/Vercel on green CI is still a recommended next step, not yet wired up.
+GitHub Actions runs `pytest` (`[backend-tests.yml](.github/workflows/backend-tests.yml)`, throwaway Postgres/Redis service containers, path-filtered to `backend/**`) and `npm test` (`[frontend-tests.yml](.github/workflows/frontend-tests.yml)`, path-filtered to `frontend/**`) on every push to `main` and every PR. Auto-deploy of `main` to Railway/Vercel on green CI is still a recommended next step, not yet wired up.
 
 ---
 
@@ -1697,12 +1714,12 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 flutter run -d web-server --web-port=5000 --dart-define=API_BASE_URL=http://localhost:8000
 ```
 
-**`API_BASE_URL` flavors** (read via `String.fromEnvironment` in `lib/core/config/app_config.dart`,
+`API_BASE_URL` **flavors** (read via `String.fromEnvironment` in `lib/core/config/app_config.dart`,
 set with `--dart-define`): `http://localhost:8000` for local Compose/local backend; the Railway
 backend URL for staging/prod builds. Same JWT login/refresh flow either way -- only the base URL
 changes.
 
-**OpenAPI codegen (`mobile/packages/merchanthub_api/`):** models and the Dio-based API client
+**OpenAPI codegen (**`mobile/packages/merchanthub_api/`**):** models and the Dio-based API client
 are generated from the backend's live OpenAPI schema via `openapi-generator-cli` (`dart-dio`
 target), not hand-written -- this is what `mobile/openapi.json` and `mobile/scripts/` are for.
 `ApiClient` (`lib/core/network/api_client.dart`) wraps the generated `MerchanthubApi` with two
@@ -1728,7 +1745,7 @@ step, driven by `LoginResult.mfa_required` / `mfa_enrollment_required` from `POS
 `totpConfirm`/`totpVerify` succeeds -- `submitCredentials` alone never yields tokens for a
 password account, matching the backend contract.
 
-**CI emulator check (`.github/workflows/mobile-emulator-check.yml`):** on push/PR touching
+**CI emulator check (**`.github/workflows/mobile-emulator-check.yml`**):** on push/PR touching
 `mobile/**` or `backend/**` (and via manual `workflow_dispatch`), boots a real KVM-accelerated
 Android emulator on GitHub's Linux runners (`reactivecircus/android-emulator-runner`) against a
 throwaway Postgres/Redis + backend stood up in the same job -- never the Railway DB -- and runs
@@ -1740,24 +1757,26 @@ This repo is built with both Cursor and Claude Code, so every convention is defi
 **twice, in each tool's native format** — a session started in either tool should
 understand the whole repo, and what the other tool already did to it.
 
-- **Cursor** reads `.cursor/rules/**` (`.mdc` files, attached via `alwaysApply` or `globs`).
+- **Cursor** reads `.cursor/rules/`** (`.mdc` files, attached via `alwaysApply` or `globs`).
 - **Claude Code** reads `CLAUDE.md` — the root file always, plus one nested in each scoped
-  directory below, loaded automatically the same way `globs` attaches a Cursor rule — and
-  invokes the PM/Architect/Tester roles as subagents from `.claude/agents/`.
+directory below, loaded automatically the same way `globs` attaches a Cursor rule — and
+invokes the PM/Architect/Tester roles as subagents from `.claude/agents/`.
 
-| Layer   | Cursor rule (`.cursor/rules/`)    | Claude Code equivalent                          | Scope                           |
-| ------- | ---------------------------------- | ------------------------------------------------ | -------------------------------- |
-| Builder | `project.mdc`                     | `CLAUDE.md` (root)                                | Always applies                   |
-| Builder | `backend-fastapi.mdc`             | `backend/CLAUDE.md`                               | `backend/**/*`                   |
-| Builder | `frontend-nextjs.mdc`             | `frontend/CLAUDE.md`                              | `frontend/**/*`                  |
-| Builder | `ai-and-integrations.mdc`         | `backend/app/services/CLAUDE.md`                  | `backend/app/services/**/*`      |
-| Builder | `database.mdc`                    | `backend/app/models/CLAUDE.md`                    | `backend/app/models/**/*`        |
-| Builder | `docs-and-api.mdc`                | `docs/CLAUDE.md`                                  | `docs/**/*`, `README.md`         |
-| Builder | `testing.mdc`                     | `backend/tests/CLAUDE.md`, `frontend/CLAUDE.md`   | test files                       |
-| Agent   | `agents/workflow.mdc`             | "Multi-agent workflow" section of `CLAUDE.md`     | Multi-agent orchestration        |
-| Agent   | `agents/role-product-manager.mdc` | `.claude/agents/product-manager.md`               | `docs/agents/slices/**/*`        |
-| Agent   | `agents/role-architect.mdc`       | `.claude/agents/architect.md`                     | slices, ADRs, architecture       |
-| Agent   | `agents/role-tester.mdc`          | `.claude/agents/tester.md`                        | test plans, reports, test code   |
+
+| Layer   | Cursor rule (`.cursor/rules/`)    | Claude Code equivalent                          | Scope                          |
+| ------- | --------------------------------- | ----------------------------------------------- | ------------------------------ |
+| Builder | `project.mdc`                     | `CLAUDE.md` (root)                              | Always applies                 |
+| Builder | `backend-fastapi.mdc`             | `backend/CLAUDE.md`                             | `backend/**/*`                 |
+| Builder | `frontend-nextjs.mdc`             | `frontend/CLAUDE.md`                            | `frontend/**/*`                |
+| Builder | `ai-and-integrations.mdc`         | `backend/app/services/CLAUDE.md`                | `backend/app/services/**/*`    |
+| Builder | `database.mdc`                    | `backend/app/models/CLAUDE.md`                  | `backend/app/models/**/*`      |
+| Builder | `docs-and-api.mdc`                | `docs/CLAUDE.md`                                | `docs/**/*`, `README.md`       |
+| Builder | `testing.mdc`                     | `backend/tests/CLAUDE.md`, `frontend/CLAUDE.md` | test files                     |
+| Agent   | `agents/workflow.mdc`             | "Multi-agent workflow" section of `CLAUDE.md`   | Multi-agent orchestration      |
+| Agent   | `agents/role-product-manager.mdc` | `.claude/agents/product-manager.md`             | `docs/agents/slices/**/*`      |
+| Agent   | `agents/role-architect.mdc`       | `.claude/agents/architect.md`                   | slices, ADRs, architecture     |
+| Agent   | `agents/role-tester.mdc`          | `.claude/agents/tester.md`                      | test plans, reports, test code |
+
 
 Neither side is enabled manually: Cursor auto-attaches by `alwaysApply`/`globs`; Claude
 Code auto-loads `CLAUDE.md` by directory and the subagents by explicit role invocation
@@ -1767,15 +1786,15 @@ Code auto-loads `CLAUDE.md` by directory and the subagents by explicit role invo
 lands in both files. Whoever does the code change — human, Cursor, or Claude Code — is
 expected to update both sides in the same commit, and the repo checks that automatically:
 
-- [`scripts/check_agent_config_sync.py`](scripts/check_agent_config_sync.py) encodes the
-  table above as pairs of files that must change together. Given a set of changed files,
-  it fails if one side of a pair changed without the other.
-- [`.githooks/pre-commit`](.githooks/pre-commit) runs that check against staged files
-  before every local commit. One-time setup per clone: `git config core.hooksPath .githooks`.
-- [`.github/workflows/agent-config-sync.yml`](.github/workflows/agent-config-sync.yml) runs
-  the same check over the full diff on every PR and push to `main`. Add it as a **required
-  status check** in GitHub branch protection to make the sync rule non-bypassable, not just
-  advisory.
+- `[scripts/check_agent_config_sync.py](scripts/check_agent_config_sync.py)` encodes the
+table above as pairs of files that must change together. Given a set of changed files,
+it fails if one side of a pair changed without the other.
+- `[.githooks/pre-commit](.githooks/pre-commit)` runs that check against staged files
+before every local commit. One-time setup per clone: `git config core.hooksPath .githooks`.
+- `[.github/workflows/agent-config-sync.yml](.github/workflows/agent-config-sync.yml)` runs
+the same check over the full diff on every PR and push to `main`. Add it as a **required
+status check** in GitHub branch protection to make the sync rule non-bypassable, not just
+advisory.
 
 ---
 
@@ -1859,30 +1878,34 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 ### Slice backlog
 
 
-| ID    | Title                                 | Phase        | Status          |
-| ----- | ------------------------------------- | ------------ | --------------- |
-| S-001 | Docker + auth + layout                | 1 Foundation | Scaffolded      |
-| S-002 | Business CRUD + admin approval        | 2 Core       | Scaffolded      |
-| S-003 | Review CRUD + photos                  | 2 Core       | Scaffolded      |
-| S-004 | Search + filter                       | 2 Core       | Scaffolded      |
-| S-005 | AI review analysis pipeline           | 3 AI         | Scaffolded      |
-| S-006 | Merchant dashboard + AI insights      | 4 Dashboards | Partial         |
-| S-007 | Admin moderation + platform analytics | 4 Dashboards | Partial         |
-| S-008 | Notifications                         | 4 Dashboards | Accepted (UI wired) |
-| S-009 | OAuth + OpenStreetMap maps              | 5 Polish     | Partial (maps done; OAuth callback stub) |
-| S-010 | Test hardening + deploy verification  | 5 Polish     | Open            |
-| S-011 | Customer favorites                    | 2 Core       | Accepted        |
-| S-012 | Business detail enrichment            | 2 Core       | Accepted        |
-| S-013 | Search pagination / sort / categories | 2 Core       | Accepted        |
-| S-014 | Home page enrichment                  | 5 Polish     | Accepted        |
-| S-015 | Notifications UI                      | 4 Dashboards | Accepted        |
-| S-016 | Profile & settings edit               | 5 Polish     | Accepted        |
-| S-017 | Design system primitives              | 5 Polish     | Accepted (additive; migration deferred) |
-| S-018 | Secure logout / session UX            | 1 Foundation | Accepted        |
-| S-019 | User profile enrichment               | 5 Polish     | Accepted        |
-| S-020 | Mandatory TOTP for password login     | 1 Foundation | Accepted        |
-| S-021 | Admin business & review drill-down    | 4 Dashboards | Draft           |
-| S-022 | Merchant dashboard tile interactivity | 4 Dashboards | Draft           |
+| ID    | Title                                 | Phase        | Status                                   |
+| ----- | ------------------------------------- | ------------ | ---------------------------------------- |
+| S-001 | Docker + auth + layout                | 1 Foundation | Scaffolded                               |
+| S-002 | Business CRUD + admin approval        | 2 Core       | Scaffolded                               |
+| S-003 | Review CRUD + photos                  | 2 Core       | Scaffolded                               |
+| S-004 | Search + filter                       | 2 Core       | Scaffolded                               |
+| S-005 | AI review analysis pipeline           | 3 AI         | Scaffolded                               |
+| S-006 | Merchant dashboard + AI insights      | 4 Dashboards | Partial                                  |
+| S-007 | Admin moderation + platform analytics | 4 Dashboards | Partial                                  |
+| S-008 | Notifications                         | 4 Dashboards | Accepted (UI wired)                      |
+| S-009 | OAuth + OpenStreetMap maps            | 5 Polish     | Partial (maps done; OAuth callback stub) |
+| S-010 | Test hardening + deploy verification  | 5 Polish     | Open                                     |
+| S-011 | Customer favorites                    | 2 Core       | Accepted                                 |
+| S-012 | Business detail enrichment            | 2 Core       | Accepted                                 |
+| S-013 | Search pagination / sort / categories | 2 Core       | Accepted                                 |
+| S-014 | Home page enrichment                  | 5 Polish     | Accepted                                 |
+| S-015 | Notifications UI                      | 4 Dashboards | Accepted                                 |
+| S-016 | Profile & settings edit               | 5 Polish     | Accepted                                 |
+| S-017 | Design system primitives              | 5 Polish     | Accepted (additive; migration deferred)  |
+| S-018 | Secure logout / session UX            | 1 Foundation | Accepted                                 |
+| S-019 | User profile enrichment               | 5 Polish     | Accepted                                 |
+| S-020 | Mandatory TOTP for password login     | 1 Foundation | Accepted                                 |
+| S-021 | Admin business & review drill-down    | 4 Dashboards | Draft                                    |
+| S-022 | Merchant dashboard tile interactivity | 4 Dashboards | Accepted                                 |
+| S-026 | httpOnly cookie auth migration (web) + dual Bearer/cookie backend | 1 Foundation | Draft                       |
+| S-023 | Mobile reviews (Flutter)              | 2 Core       | Draft                                    |
+| S-024 | Mobile favorites (Flutter)            | 2 Core       | Draft                                    |
+| S-025 | Mobile notifications (Flutter)        | 5 Polish     | Draft                                    |
 
 
 
@@ -1919,17 +1942,17 @@ An honest delta between the original specification and what the code actually do
 ### Built and working
 
 
-| Area            | State                                                                                                                    |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Backend routers | 11, all wired into `main.py` (includes favorites)                                                                            |
-| Data models     | 19 SQLAlchemy models                                                                                                     |
-| Auth            | JWT access/refresh, bcrypt, RBAC, Redis logout blocklist, mandatory TOTP for password login, Google OAuth exempt |
-| AI layer        | Pluggable provider — `mock` (canned, no network) or OpenAI-compatible (works for OpenAI *or* DeepSeek via `AI_BASE_URL`) |
-| Storage         | `local` disk and `s3` (boto3) providers implemented; `azure` still a stub                                                |
+| Area            | State                                                                                                                                                                       |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend routers | 11, all wired into `main.py` (includes favorites)                                                                                                                           |
+| Data models     | 19 SQLAlchemy models                                                                                                                                                        |
+| Auth            | JWT access/refresh, bcrypt, RBAC, Redis logout blocklist, mandatory TOTP for password login, Google OAuth exempt                                                            |
+| AI layer        | Pluggable provider — `mock` (canned, no network) or OpenAI-compatible (works for OpenAI *or* DeepSeek via `AI_BASE_URL`)                                                    |
+| Storage         | `local` disk and `s3` (boto3) providers implemented; `azure` still a stub                                                                                                   |
 | Frontend        | Home, search (map + location), business detail, login (MFA steps), register, enriched profile, settings, merchant dashboard + business create/edit, admin moderation queues |
-| Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine |
-| Seeding         | `scripts/seed.py` — Portland + Chennai + US; gated by `SEED_MODE` / `seed_runs` (Railway: not on boot) |
-| Local dev       | `docker compose up --build`                                                                                              |
+| Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine                                                                                               |
+| Seeding         | `scripts/seed.py` — Portland + Chennai + US; gated by `SEED_MODE` / `seed_runs` (Railway: not on boot)                                                                      |
+| Local dev       | `docker compose up --build`                                                                                                                                                 |
 
 
 
@@ -1937,14 +1960,14 @@ An honest delta between the original specification and what the code actually do
 ### Not built
 
 
-| Gap                                       | Detail                                                                                                                                                                                          |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Azure storage is a stub**               | Raises `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). `local` and `s3` both work.                                                                                  |
-| **Thin tests**                            | Expanding, but still no full fixture/DB isolation suite. See §11.                                                                                                                               |
+| Gap                         | Detail                                                                                                                                                                                                                                          |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Azure storage is a stub** | Raises `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). `local` and `s3` both work.                                                                                                                                 |
+| **Thin tests**              | Expanding, but still no full fixture/DB isolation suite. See §11.                                                                                                                                                                               |
 | **Design-system migration** | Complete. `Select` / `StatCard` / `ui/RatingWidget` (S-017) now back every remaining call site — native `<select>`s, inline stat tiles, and the duplicate top-level `RatingWidget` (removed, canonical copy is `ui/RatingWidget`) all migrated. |
-| **Security items 1–6**                    | See [§9 Known weaknesses](#known-weaknesses--read-before-deploying).                                                                                                                            |
-| **No structured logging**                 | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                          |
-| **No CI/CD auto-deploy**                  | `backend-tests.yml` / `frontend-tests.yml` run pytest/Jest on every PR and push to `main`, but there is still no auto-deploy step to Railway/Vercel.                                            |
+| **Security items 1–6**      | See [§9 Known weaknesses](#known-weaknesses--read-before-deploying).                                                                                                                                                                            |
+| **No structured logging**   | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                                                                          |
+| **No CI/CD auto-deploy**    | `backend-tests.yml` / `frontend-tests.yml` run pytest/Jest on every PR and push to `main`, but there is still no auto-deploy step to Railway/Vercel.                                                                                            |
 
 
 
@@ -1973,32 +1996,32 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 ### Backend
 
 
-| Variable                      | Default                                                                  | Purpose                                                         |
-| ----------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------- |
-| `APP_NAME`                    | `MerchantHub AI`                                                         | Shown in Swagger and `/health`                                  |
-| `APP_VERSION`                 | `0.1.0`                                                                  | Shown in Swagger and `/health`                                  |
-| `DEBUG`                       | `true`                                                                   | Verbose errors — set `false` in production                      |
-| `DATABASE_URL`                | `postgresql+asyncpg://merchanthub:merchanthub@postgres:5432/merchanthub` | **Must** use the `+asyncpg` driver; SQLite is not supported     |
-| `REDIS_URL`                   | `redis://redis:6379/0`                                                   | Optional — app degrades to uncached if unreachable              |
-| `SECRET_KEY`                  | `change-me-in-production-use-openssl-rand`                               | JWT signing key — **always override**                           |
-| `ALGORITHM`                   | `HS256`                                                                  | JWT algorithm                                                   |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30`                                                                     | Access token TTL                                                |
-| `REFRESH_TOKEN_EXPIRE_DAYS`   | `7`                                                                      | Refresh token TTL                                               |
-| `AI_PROVIDER`                 | `mock`                                                                   | `mock` | `openai` | `deepseek` — invalid values fail at startup |
-| `AI_API_KEY`                  | *(empty)*                                                                | Required when `AI_PROVIDER` is not `mock`                       |
-| `AI_BASE_URL`                 | `https://api.openai.com/v1`                                              | Point at DeepSeek or any OpenAI-compatible endpoint             |
-| `AI_MODEL`                    | `gpt-4o-mini`                                                            | Model name passed to the provider                               |
-| `STORAGE_PROVIDER`            | `local`                                                                  | `local` | `s3` | `azure` — `azure` is not implemented           |
-| `STORAGE_LOCAL_PATH`          | `./uploads`                                                              | Served as static files at `/uploads`                             |
-| `STORAGE_S3_BUCKET`           | *(empty)*                                                                | Required when `STORAGE_PROVIDER=s3`                              |
-| `STORAGE_S3_REGION`           | `us-east-1`                                                              | AWS region for the bucket                                       |
-| `STORAGE_S3_ENDPOINT_URL`     | *(empty)*                                                                | S3-compatible services only (MinIO, Cloudflare R2, LocalStack)  |
-| `STORAGE_S3_PUBLIC_BASE_URL`  | *(empty)*                                                                | CDN/custom domain fronting the bucket; defaults to the bucket's own virtual-hosted-style URL |
-| `CORS_ORIGINS`                | `http://localhost:3000`                                                  | Comma-separated allowlist                                       |
-| `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap/Nominatim                         |
-| `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
-| `SEED_MODE`                   | `off`                                                                    | `off` \| `if_empty` \| `if_outdated` \| `force` — gates `scripts/seed.py` (Railway boot leaves default `off`; Compose uses `if_outdated`) |
-| `SEED_VERSION`                | `2026-08-11-totp-profile-v1`                                             | Marker written to `seed_runs`; bump when demo seed content changes |
+| Variable                      | Default                                                                  | Purpose                                                                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_NAME`                    | `MerchantHub AI`                                                         | Shown in Swagger and `/health`                                                                                                         |
+| `APP_VERSION`                 | `0.1.0`                                                                  | Shown in Swagger and `/health`                                                                                                         |
+| `DEBUG`                       | `true`                                                                   | Verbose errors — set `false` in production                                                                                             |
+| `DATABASE_URL`                | `postgresql+asyncpg://merchanthub:merchanthub@postgres:5432/merchanthub` | **Must** use the `+asyncpg` driver; SQLite is not supported                                                                            |
+| `REDIS_URL`                   | `redis://redis:6379/0`                                                   | Optional — app degrades to uncached if unreachable                                                                                     |
+| `SECRET_KEY`                  | `change-me-in-production-use-openssl-rand`                               | JWT signing key — **always override**                                                                                                  |
+| `ALGORITHM`                   | `HS256`                                                                  | JWT algorithm                                                                                                                          |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30`                                                                     | Access token TTL                                                                                                                       |
+| `REFRESH_TOKEN_EXPIRE_DAYS`   | `7`                                                                      | Refresh token TTL                                                                                                                      |
+| `AI_PROVIDER`                 | `mock`                                                                   | `mock`                                                                                                                                 |
+| `AI_API_KEY`                  | *(empty)*                                                                | Required when `AI_PROVIDER` is not `mock`                                                                                              |
+| `AI_BASE_URL`                 | `https://api.openai.com/v1`                                              | Point at DeepSeek or any OpenAI-compatible endpoint                                                                                    |
+| `AI_MODEL`                    | `gpt-4o-mini`                                                            | Model name passed to the provider                                                                                                      |
+| `STORAGE_PROVIDER`            | `local`                                                                  | `local`                                                                                                                                |
+| `STORAGE_LOCAL_PATH`          | `./uploads`                                                              | Served as static files at `/uploads`                                                                                                   |
+| `STORAGE_S3_BUCKET`           | *(empty)*                                                                | Required when `STORAGE_PROVIDER=s3`                                                                                                    |
+| `STORAGE_S3_REGION`           | `us-east-1`                                                              | AWS region for the bucket                                                                                                              |
+| `STORAGE_S3_ENDPOINT_URL`     | *(empty)*                                                                | S3-compatible services only (MinIO, Cloudflare R2, LocalStack)                                                                         |
+| `STORAGE_S3_PUBLIC_BASE_URL`  | *(empty)*                                                                | CDN/custom domain fronting the bucket; defaults to the bucket's own virtual-hosted-style URL                                           |
+| `CORS_ORIGINS`                | `http://localhost:3000`                                                  | Comma-separated allowlist                                                                                                              |
+| `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap/Nominatim                                                                                              |
+| `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID`                                          |
+| `SEED_MODE`                   | `off`                                                                    | `off` | `if_empty` | `if_outdated` | `force` — gates `scripts/seed.py` (Railway boot leaves default `off`; Compose uses `if_outdated`) |
+| `SEED_VERSION`                | `2026-08-11-totp-profile-v1`                                             | Marker written to `seed_runs`; bump when demo seed content changes                                                                     |
 
 
 
@@ -2006,12 +2029,12 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 ### Frontend
 
 
-| Variable                      | Default                 | Purpose                                             |
-| ----------------------------- | ----------------------- | --------------------------------------------------- |
-| `NEXT_PUBLIC_API_URL`         | `http://localhost:8000` | Backend base URL, browser-side (baked at **frontend build** time on Railway) |
-| `API_URL_INTERNAL`            | same as above locally   | Backend URL for Server Components inside Docker/Railway — **required** on Railway or home SSR falls back to `localhost:8000` and Featured stays empty |
-| `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | `placeholder`           | Unused — Leaflet uses OSM tiles directly            |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | *(empty)*              | OAuth client ID for Google sign-in                   |
+| Variable                       | Default                 | Purpose                                                                                                                                               |
+| ------------------------------ | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL`          | `http://localhost:8000` | Backend base URL, browser-side (baked at **frontend build** time on Railway)                                                                          |
+| `API_URL_INTERNAL`             | same as above locally   | Backend URL for Server Components inside Docker/Railway — **required** on Railway or home SSR falls back to `localhost:8000` and Featured stays empty |
+| `NEXT_PUBLIC_GOOGLE_MAPS_KEY`  | `placeholder`           | Unused — Leaflet uses OSM tiles directly                                                                                                              |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | *(empty)*               | OAuth client ID for Google sign-in                                                                                                                    |
 
 
 ---

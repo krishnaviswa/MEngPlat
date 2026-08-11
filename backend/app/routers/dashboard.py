@@ -52,6 +52,7 @@ async def merchant_dashboard(
         select(Review)
         .options(
             selectinload(Review.author),
+            selectinload(Review.business),
             selectinload(Review.ai_analysis),
             selectinload(Review.reply),
             selectinload(Review.photos),
