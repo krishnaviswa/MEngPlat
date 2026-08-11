@@ -56,7 +56,7 @@ export function ReportedReviewsQueue({ onChange }: { onChange?: () => void }) {
       ) : (
         items.map((r) => (
           <div key={r.id} className="space-y-2">
-            <ReviewCard review={r} showActions={false} />
+            <ReviewCard review={r} showActions={false} showBusinessLink />
             <div className="flex flex-wrap gap-2 pl-1">
               <button
                 type="button"

@@ -1900,7 +1900,7 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-018 | Secure logout / session UX            | 1 Foundation | Accepted                                 |
 | S-019 | User profile enrichment               | 5 Polish     | Accepted                                 |
 | S-020 | Mandatory TOTP for password login     | 1 Foundation | Accepted                                 |
-| S-021 | Admin business & review drill-down    | 4 Dashboards | Draft                                    |
+| S-021 | Admin business & review drill-down    | 4 Dashboards | Testing (1 Tester-found bug fixed, awaiting PM re-review) |
 | S-022 | Merchant dashboard tile interactivity | 4 Dashboards | Accepted                                 |
 | S-026 | httpOnly cookie auth migration (web) + dual Bearer/cookie backend | 1 Foundation | Draft                       |
 | S-023 | Mobile reviews (Flutter)              | 2 Core       | Draft                                    |
