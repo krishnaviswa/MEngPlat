@@ -1227,7 +1227,9 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | `BusinessForm.tsx`         | Merchant create/edit business form + geocode                              |
 | `RequireAuth.tsx`          | Client route guard by role (JWT in localStorage)                          |
 | `PendingBusinessQueue.tsx` | Admin pending-business approval queue                                     |
-| `ReportedReviewsQueue.tsx` | Admin reported-review moderation queue                                    |
+| `ReportedReviewsQueue.tsx` | Admin reported-review moderation queue (shop-name link via `showBusinessLink`) |
+| `AllBusinessesQueue.tsx`   | Admin browse of businesses in every status (S-021)                        |
+| `AllReviewsQueue.tsx`      | Admin browse of reviews across businesses; business-name drill-down (S-021) |
 | `Dashboard.tsx`            | Layout shell for merchant/admin analytics                                 |
 | `Charts.tsx`               | Recharts sentiment / volume / rating charts                               |
 | `PhotoGallery.tsx`         | Image grid + lightbox                                                     |
@@ -1745,6 +1747,13 @@ step, driven by `LoginResult.mfa_required` / `mfa_enrollment_required` from `POS
 `totpConfirm`/`totpVerify` succeeds -- `submitCredentials` alone never yields tokens for a
 password account, matching the backend contract.
 
+**Public business browsing + reviews / favorites / notifications (S-023–S-025):** ADR-003
+carves `/businesses` and `/businesses/:slug` out of the login redirect so guests can browse
+and read reviews; `LoginScreen` has "Continue without signing in". Detail screen hosts the
+reviews list + `ReviewFormSheet` (optional `image_picker` photos). Favorites and notifications
+are auth-gated app-bar entry points on `BusinessListScreen` (`/favorites`, `/notifications`)
+with shared Riverpod providers (`favoritedIdsProvider`, `unreadCountProvider` 30s poll).
+
 **CI emulator check (**`.github/workflows/mobile-emulator-check.yml`**):** on push/PR touching
 `mobile/**` or `backend/**` (and via manual `workflow_dispatch`), boots a real KVM-accelerated
 Android emulator on GitHub's Linux runners (`reactivecircus/android-emulator-runner`) against a
@@ -1900,12 +1909,12 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-018 | Secure logout / session UX            | 1 Foundation | Accepted                                 |
 | S-019 | User profile enrichment               | 5 Polish     | Accepted                                 |
 | S-020 | Mandatory TOTP for password login     | 1 Foundation | Accepted                                 |
-| S-021 | Admin business & review drill-down    | 4 Dashboards | Testing (1 Tester-found bug fixed, awaiting PM re-review) |
+| S-021 | Admin business & review drill-down    | 4 Dashboards | Accepted                                 |
 | S-022 | Merchant dashboard tile interactivity | 4 Dashboards | Accepted                                 |
 | S-026 | httpOnly cookie auth migration (web) + dual Bearer/cookie backend | 1 Foundation | Draft                       |
-| S-023 | Mobile reviews (Flutter)              | 2 Core       | Draft                                    |
-| S-024 | Mobile favorites (Flutter)            | 2 Core       | Draft                                    |
-| S-025 | Mobile notifications (Flutter)        | 5 Polish     | Draft                                    |
+| S-023 | Mobile reviews (Flutter)              | 2 Core       | Testing                                  |
+| S-024 | Mobile favorites (Flutter)            | 2 Core       | Testing                                  |
+| S-025 | Mobile notifications (Flutter)        | 5 Polish     | Testing                                  |
 
 
 

@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-025 |
 | **Phase** | 5 Polish |
-| **Status** | Specified |
+| **Status** | Testing |
 | **Role(s)** | customer \| merchant \| admin |
 | **Owner** | PM / 2026-08-11 |
 
@@ -188,3 +188,5 @@ sequenceDiagram
 |------|-------|--------|
 | 2026-08-11 | PM | Slice created: user story, AC, UX notes, out-of-scope, dependencies |
 | 2026-08-11 | Architect | Technical specification added (API contract reuses existing notifications endpoints; no backend changes). App-bar bell+badge entry point on `BusinessListScreen`, dedicated pushed `/notifications` route (already auth-gated by default, no router change needed). Status → Specified. |
+| 2026-08-11 | Builder | Implemented `/notifications` screen, unread badge + 30s poll (`unreadCountProvider`), mark-one/mark-all with local list mutations. Relative-time helper + unit tests. Auth-gated app-bar entry per AC8. Status → Testing. |
+| 2026-08-11 | Builder | Finish polish: optimistic badge clear/decrement on mark-all/mark-one; snackbar on mutation failure; `NotificationsScreen` watches `unreadCountProvider` so polling starts without list screen; pull-to-refresh keeps prior list visible. |

@@ -39,6 +39,8 @@ dependencies:
   flutter_riverpod: ^2.6.1
   flutter_svg: ^2.2.2
   go_router: ^17.5.0
+  # S-023 AC9: optional photo attach (gallery/camera) on review submission.
+  image_picker: ^1.1.2
   merchanthub_api:
     path: packages/merchanthub_api
 

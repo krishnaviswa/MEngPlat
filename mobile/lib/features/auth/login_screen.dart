@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
 import 'auth_provider.dart';
@@ -173,6 +174,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       key: const Key('backButton'),
                       onPressed: _backToCredentials,
                       child: const Text('Back'),
+                    ),
+                  // ADR-003: guest browsing entry point -- business listing
+                  // and detail screens are public routes, reachable through
+                  // real navigation rather than only a raw deep link.
+                  if (_step == _Step.credentials)
+                    TextButton(
+                      key: const Key('continueAsGuestButton'),
+                      onPressed: _loading ? null : () => context.push('/businesses'),
+                      child: const Text('Continue without signing in'),
                     ),
                 ],
               ),

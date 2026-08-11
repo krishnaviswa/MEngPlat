@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-024 |
 | **Phase** | 2 Core |
-| **Status** | Specified |
+| **Status** | Testing |
 | **Role(s)** | customer |
 | **Owner** | PM / 2026-08-11 |
 
@@ -188,3 +188,5 @@ sequenceDiagram
 |------|-------|--------|
 | 2026-08-11 | PM | Slice created: user story, AC, UX notes, out-of-scope, dependencies |
 | 2026-08-11 | Architect | Technical specification added (API contract reuses existing favorites endpoints; no backend changes). Introduces shared `favoritedIdsProvider` for cross-screen toggle sync; depends on S-023/ADR-003's router change for AC9/AC10 to be reachable. Status → Specified. |
+| 2026-08-11 | Builder | Implemented favorite toggle + `/favorites` screen with shared `favoritedIdsProvider`, optimistic rollback, customer-only app-bar entry. Gap-check: FavoritesScreen now reuses `BusinessCard`. Unit tests for FavoritedIdsController pass. Status → Testing. |
+| 2026-08-11 | Builder | Finish polish: hide heart toggle when `favoritedIdsProvider` is in error (no silent empty-heart forever). |

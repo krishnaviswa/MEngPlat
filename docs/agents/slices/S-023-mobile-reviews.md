@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-023 |
 | **Phase** | 2 Core |
-| **Status** | Specified |
+| **Status** | Testing |
 | **Role(s)** | customer \| merchant \| admin |
 | **Owner** | PM / 2026-08-11 |
 
@@ -203,3 +203,5 @@ sequenceDiagram
 |------|-------|--------|
 | 2026-08-11 | PM | Slice created: user story, AC, UX notes, out-of-scope, dependencies |
 | 2026-08-11 | Architect | Technical specification added (API contract reuses existing reviews/photos/businesses endpoints; no backend changes). Introduces ADR-003 (mobile router public-route carve-out for `/businesses`, needed for AC13) — S-024/S-025 depend on it. Status → Specified. |
+| 2026-08-11 | Builder | Implemented business detail + reviews list/form (Riverpod, image_picker, public `/businesses` carve-out per ADR-003). Gap-check fixes: AI summary "(suggestion)" on ReviewCard; web-safe photo preview (no `dart:io`). Unit tests for ReviewsController pass. Status → Testing. |
+| 2026-08-11 | Builder | Finish polish: hide "Add review" until reviews/ownership eligibility is ready (AC10/AC12 flash); path-safe photo upload basename for Windows `\`. |

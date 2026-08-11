@@ -11,3 +11,20 @@ final businessRepositoryProvider = Provider<BusinessRepository>(
 final businessListProvider = FutureProvider.autoDispose<List<BusinessResponse>>((ref) {
   return ref.watch(businessRepositoryProvider).searchBusinesses();
 });
+
+/// Backs the S-023 business detail screen (`/businesses/:slug`), a public
+/// route reachable while logged out (see ADR-003).
+final businessDetailProvider = FutureProvider.autoDispose.family<BusinessResponse, String>((ref, slug) {
+  return ref.watch(businessRepositoryProvider).getBySlug(slug);
+});
+
+/// IDs of businesses owned by the current user, empty for non-merchants (or
+/// while logged out). Used client-side to hide "Add review" on a merchant's
+/// own business (S-023 AC12) -- not a new endpoint, just `GET /businesses/mine`
+/// reused for a client-only check.
+final myBusinessIdsProvider = FutureProvider.autoDispose<Set<String>>((ref) async {
+  final user = ref.watch(authControllerProvider).valueOrNull;
+  if (user?.role != UserRole.merchant) return {};
+  final mine = await ref.watch(businessRepositoryProvider).listMine();
+  return mine.map((business) => business.id).toSet();
+});
