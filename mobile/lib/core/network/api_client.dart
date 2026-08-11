@@ -17,11 +17,9 @@ class ApiClient {
     final baseOptions = BaseOptions(
       baseUrl: AppConfig.apiBaseUrl,
       connectTimeout: const Duration(seconds: 10),
-      // Generous receive timeout: today's dev setup runs the backend locally
-      // against a *remote* hosted Postgres (see MOBILE_SETUP_LOG.md), so each
-      // request pays several sequential network round trips instead of the
-      // near-zero latency it'd see against a co-located DB (Docker Compose
-      // locally, or production on Railway's own network).
+      // Generous receive timeout: a local backend talking to remote Postgres
+      // (or a slow network path) pays several round trips per request, unlike
+      // co-located Compose or Railway private networking.
       receiveTimeout: const Duration(seconds: 30),
     );
 

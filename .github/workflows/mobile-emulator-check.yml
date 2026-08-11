@@ -4,8 +4,9 @@ name: Mobile emulator check
 # via reactivecircus/android-emulator-runner) against a throwaway Postgres/Redis
 # + backend stood up in the same job -- never against the hosted Railway DB.
 # Runs the login -> business-list flow from mobile/integration_test/app_test.dart
-# and uploads a screenshot as a build artifact. See ANDROID_APP_STRATEGY.md phase 5
-# and MOBILE_SETUP_LOG.md for why this exists instead of a local Windows emulator.
+# and uploads a screenshot as a build artifact. Day-to-day local iteration uses
+# Flutter Web instead of a Windows emulator; release AAB/Play is still deferred
+# (see ANDROID_APP_STRATEGY.md phase 5).
 
 on:
   workflow_dispatch:

@@ -1509,7 +1509,7 @@ The backend's `railway.json` overrides the container start command to:
 sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
 ```
 
-This keeps deploys fast: migrate + API only. Demo seed is **not** on the boot path (see `SEED_MODE` in §15 and `[SEED_DEPLOY_PLAN.md](SEED_DEPLOY_PLAN.md)`).
+This keeps deploys fast: migrate + API only. Demo seed is **not** on the boot path (see `SEED_MODE` / `SEED_VERSION` in §15).
 
 1. Runs `alembic upgrade head` so schema migrations apply before the API.
 2. The Dockerfile's own `CMD` hardcodes port 8000 in exec form, which cannot expand Railway's injected `$PORT`. The `sh -c` override can.
@@ -1700,13 +1700,13 @@ MEngPlat/
 ### Mobile client (Flutter)
 
 `mobile/` is a Flutter app -- a third REST client of the same `/api/v1` backend, alongside
-the Next.js frontend. No backend changes were needed; see `ANDROID_APP_STRATEGY.md` for the
-original architecture decision and `MOBILE_SETUP_LOG.md` for the environment setup narrative
-(portable Flutter SDK, portable JRE, Railway Postgres for local dev).
+the Next.js frontend. No backend changes were needed; see [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md)
+for architecture, phase status, APK vs AAB, and the Play Store release checklist.
 
 **Dev loop:** Flutter Web (`-d web-server`), not an Android emulator -- avoids Windows
 virtualization setup for day-to-day iteration. Android scaffolding (`mobile/android/`) is kept
-present for when a real APK build is needed (deferred; see `ANDROID_APP_STRATEGY.md` phase 5).
+present for when a real APK/AAB build is needed (Play release pipeline still deferred; see
+`ANDROID_APP_STRATEGY.md` phase 5).
 
 ```bash
 # Backend (from backend/, with PYTHONPATH set to backend/):
@@ -1733,11 +1733,13 @@ python mobile/scripts/generate_api_client.py
 cd mobile && flutter analyze && flutter test
 ```
 
-Needs a JRE and `openapi-generator-cli-7.14.0.jar` on disk (see `MOBILE_SETUP_LOG.md` for the
-portable, no-installer download used originally); override their paths with the `JAVA_BIN` /
-`OPENAPI_GENERATOR_JAR` env vars if yours live elsewhere. The generated package is committed
-(not gitignored) so the app builds without needing Java on every clone -- only regeneration
-needs it.
+Needs a JRE and `openapi-generator-cli-7.14.0.jar` on disk. Portable, no-installer layout used
+on the original Windows setup: Temurin JRE under `C:\src\jre`, generator JAR under
+`C:\src\openapi-generator\`, Flutter SDK under `C:\src\flutter` (add `bin` to `PATH`). Override
+paths with `JAVA_BIN`, `OPENAPI_GENERATOR_JAR`, `FLUTTER_BIN`, and `DART_BIN` if yours live
+elsewhere -- defaults in `mobile/scripts/generate_api_client.py` match that layout. The generated
+package is committed (not gitignored) so the app builds without needing Java on every clone --
+only regeneration needs it.
 
 **Mandatory TOTP MFA (S-020):** `lib/features/auth/login_screen.dart` mirrors
 `frontend/src/components/LoginForm.tsx`'s three-step flow -- credentials, then either
@@ -1977,6 +1979,8 @@ An honest delta between the original specification and what the code actually do
 | **Security items 1–6**      | See [§9 Known weaknesses](#known-weaknesses--read-before-deploying).                                                                                                                                                                            |
 | **No structured logging**   | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                                                                          |
 | **No CI/CD auto-deploy**    | `backend-tests.yml` / `frontend-tests.yml` run pytest/Jest on every PR and push to `main`, but there is still no auto-deploy step to Railway/Vercel.                                                                                            |
+| **Android Play release**    | Flutter customer MVP largely built; signed AAB + Play Console listing / internal-testing track not wired yet (see [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md) phase 5).                                                              |
+| **Optional seed ops**       | Core seed gating is done (`SEED_MODE` / `seed_runs`). Still optional later: a Railway one-shot/cron seed service (never on the web dyno), blue-green app cutover on one DB, or a disposable dual-DB demo reset — not required for normal deploys. |
 
 
 
@@ -1991,7 +1995,7 @@ The MVP is complete when: (1) a customer can register, search, and submit a revi
 
 1. Harden remaining security items in §9 (httpOnly cookies — needs a dual-auth story for mobile; rate limiting on auth endpoints)
 2. Build out the test suite with fixtures and an isolated test database
-3. Migrate existing screens to `ui/Select`, `ui/StatCard`, and `ui/RatingWidget` (post S-017)
+3. Accept mobile slices S-023–S-025, then phase-5 Android release (AAB + Play internal testing) per [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md)
 4. Add auto-deploy to Railway/Vercel on green CI
 
 ---

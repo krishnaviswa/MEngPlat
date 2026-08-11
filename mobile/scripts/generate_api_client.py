@@ -2,10 +2,11 @@
 """Regenerate mobile/openapi.json and mobile/packages/merchanthub_api from the
 live FastAPI schema. Run this after backend routes/schemas change.
 
-Requires a JRE and openapi-generator-cli-7.14.0.jar (see MOBILE_SETUP_LOG.md
-for the portable, no-installer download used when this was first set up).
-Override their locations with the JAVA_BIN / OPENAPI_GENERATOR_JAR env vars if
-yours live somewhere other than the defaults below.
+Requires a JRE and openapi-generator-cli-7.14.0.jar. Portable defaults below match
+the original Windows layout (Temurin JRE under C:/src/jre, generator JAR under
+C:/src/openapi-generator/, Flutter under C:/src/flutter) — see README.md Mobile
+client section. Override with JAVA_BIN / OPENAPI_GENERATOR_JAR / FLUTTER_BIN /
+DART_BIN if yours live elsewhere.
 
 Usage (from repo root or mobile/):
     python mobile/scripts/generate_api_client.py
