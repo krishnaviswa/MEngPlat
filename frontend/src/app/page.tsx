@@ -4,11 +4,25 @@ import { CityIndex } from "@/components/home/CityIndex";
 import { FeaturedGrid } from "@/components/home/FeaturedGrid";
 import { ReviewVoices, type ReviewVoiceItem } from "@/components/home/ReviewVoices";
 import { TrustMetrics } from "@/components/home/TrustMetrics";
-import { businesses, reviews, type Business, type Category, type PublicPlatformStats } from "@/lib/api";
+import {
+  API_URL,
+  businesses,
+  reviews,
+  type Business,
+  type Category,
+  type PublicPlatformStats,
+} from "@/lib/api";
 
 const HERO_PHOTO_CAP = 6;
 const FEATURED_CAP = 6;
 const VOICE_BUSINESS_CAP = 3;
+
+function settledErrorMessage(result: PromiseSettledResult<unknown>, label: string): string | null {
+  if (result.status !== "rejected") return null;
+  const reason = result.reason;
+  const detail = reason instanceof Error ? reason.message : String(reason);
+  return `${label}: ${detail}`;
+}
 
 function countByCity(list: Business[]): Map<string, number> {
   const map = new Map<string, number>();
@@ -38,6 +52,17 @@ export default async function HomePage() {
     businesses.stats(),
   ]);
 
+  const loadErrors = [
+    settledErrorMessage(listResult, "businesses.list"),
+    settledErrorMessage(citiesResult, "businesses.cities"),
+    settledErrorMessage(categoriesResult, "businesses.categoriesAll"),
+    settledErrorMessage(statsResult, "businesses.stats"),
+  ].filter((msg): msg is string => Boolean(msg));
+
+  if (loadErrors.length > 0) {
+    console.error(`[home] SSR API failures (API_URL=${API_URL}):`, loadErrors);
+  }
+
   const listed = listResult.status === "fulfilled" ? listResult.value : [];
   const cities = citiesResult.status === "fulfilled" ? citiesResult.value : [];
   const categories: Category[] = categoriesResult.status === "fulfilled" ? categoriesResult.value : [];
@@ -49,6 +74,11 @@ export default async function HomePage() {
     typeof statsRaw.total_categories === "number" &&
     typeof statsRaw.total_cities === "number"
       ? statsRaw
+      : null;
+
+  const loadError =
+    listed.length === 0 && cities.length === 0 && loadErrors.length > 0
+      ? `API_URL=${API_URL} — ${loadErrors.join("; ")}`
       : null;
 
   const featuredCity = cities[0] ?? null;
@@ -156,6 +186,7 @@ export default async function HomePage() {
         subtitle="Photos, ratings, and optional AI suggestions drawn from live reviews"
         viewAllHref={featuredCity ? `/search?city=${encodeURIComponent(featuredCity)}` : "/search"}
         viewAllLabel={featuredCity ? `View all in ${featuredCity}` : "View all"}
+        loadError={loadError}
       />
 
       <ReviewVoices items={voiceItems} />

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { RatingWidget } from "./RatingWidget";
+import { RatingWidget } from "./ui/RatingWidget";
 import { photos, reviews } from "@/lib/api";
 import type { Business } from "@/lib/api";
 

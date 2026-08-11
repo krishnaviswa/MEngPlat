@@ -4,8 +4,12 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.config import get_settings
+from app.core.rate_limit import limiter
 from app.routers import (
     ai,
     analytics,
@@ -45,6 +49,10 @@ app = FastAPI(
     version=settings.app_version,
     description="Merchant Engagement Platform with AI-powered review analysis",
     lifespan=lifespan,
+    # Starlette's debug mode returns a plaintext traceback in the HTTP
+    # response body on unhandled exceptions -- useful locally, an internals
+    # leak in production. See app/config.py's `debug` field.
+    debug=settings.debug,
 )
 
 app.add_middleware(
@@ -54,6 +62,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 api_prefix = "/api/v1"
 app.include_router(auth.router, prefix=api_prefix)

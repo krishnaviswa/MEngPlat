@@ -363,7 +363,7 @@ The rule that keeps this honest: **business logic and external integrations stay
 | **PostgreSQL**                                       | Genuinely relational domain — users → merchants → businesses → reviews → analyses, plus two M:N joins. Also used for what it's uniquely good at: `JSONB` columns hold AI output whose shape evolves (`ai_positives`, `ai_complaints`, `image_insights`) without a migration per change.                                                                                                          | MongoDB (the data is relational, joins would be hand-rolled); SQLite (**incompatible** — see the trap in §1) |
 | **Redis, optional**                                  | Search and business-profile reads are hot and repetitive. Deliberately a *cache*, not a dependency: every helper in `[cache.py](backend/app/services/cache.py)` wraps its call in `try/except` and returns `None` / no-ops on failure, so losing Redis degrades to uncached instead of erroring.                                                                                                 | In-memory cache (dies on restart, wrong across replicas)                                                     |
 | **AI provider as a** `Protocol` **port**             | `AIProvider` in `[services/ai/base.py](backend/app/services/ai/base.py)` is a structural protocol — implementations need no inheritance. `get_ai_provider()` picks `MockAIProvider` or `OpenAICompatibleProvider` from `AI_PROVIDER`. Two payoffs: the app runs fully offline at **$0 with no API key** on `mock`, and swapping OpenAI → DeepSeek is an `AI_BASE_URL` change, not a code change. | Calling the OpenAI SDK inline in routers (welds the app to one vendor, makes tests need network)             |
-| **Storage as a** `Protocol` **port**                 | Same shape: `StorageProvider` with `LocalStorageProvider` (implemented) plus `S3StorageProvider` / `AzureBlobStorageProvider`. Local disk is right for dev; ephemeral container disk is wrong for production, and the port means that swap is a config change.                                                                                                                                   | Hardcoded local paths                                                                                        |
+| **Storage as a** `Protocol` **port**                 | Same shape: `StorageProvider` with `LocalStorageProvider` and `S3StorageProvider` (both implemented; `AzureBlobStorageProvider` still a stub). Local disk is right for dev; ephemeral container disk is wrong for production, and the port means that swap is a `STORAGE_PROVIDER=s3` config change, no code change. S3 credentials aren't a settings field — `boto3`'s own default chain (env vars, IAM role, `~/.aws/credentials`) covers every real deployment target. | Hardcoded local paths                                                                                        |
 | **Pydantic Settings**                                | One typed `Settings` object loaded from env/`.env`. `Literal["mock","openai","deepseek"]` means a typo in `AI_PROVIDER` fails at **startup**, not at the first review submission in production.                                                                                                                                                                                                  | `os.getenv` scattered through modules (untyped, fails late)                                                  |
 | **JWT (**`python-jose`**) + bcrypt (**`passlib`**)** | Stateless auth — no session store, so the backend scales horizontally and works across the split Vercel/Render deployment. bcrypt is the deliberately-slow, salted standard for passwords.                                                                                                                                                                                                       | Server-side sessions (needs sticky sessions or shared store)                                                 |
 | **Next.js 15 App Router + React 19**                 | Hybrid rendering matched to the page: Server Components render public pages (home, search, business profiles) on the server for SEO and fast first paint — these pages must be crawlable. `"use client"` is added only where browser APIs, event handlers, or auth state are needed (login, register, dashboards).                                                                               | SPA (public listings invisible to search engines); full SSR (pointless for authenticated dashboards)         |
@@ -1390,10 +1390,10 @@ These are real and currently unmitigated. They are acceptable for a local demo, 
 
 | #   | Weakness                                                                                                      | Impact                                                                                 | Fix                                                                                  |
 | --- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| 1   | Tokens stored in `localStorage`                                                                               | Any XSS can exfiltrate both tokens                                                     | Move to `httpOnly` `Secure` `SameSite` cookies                                       |
-| 2   | `secret_key` defaults to `"change-me-in-production-use-openssl-rand"` in `[config.py](backend/app/config.py)` | If unset in prod, anyone can forge a valid admin JWT                                   | Require it from env with no default; `openssl rand -hex 32`                          |
+| 1   | Tokens stored in `localStorage`                                                                               | Any XSS can exfiltrate both tokens                                                     | Move to `httpOnly` `Secure` `SameSite` cookies — deferred as its own slice; also needs a dual-auth story since the mobile client is Bearer-token-only, not cookie-based |
+| 2   | ✅ Fixed — `secret_key` had a hardcoded fallback in `[config.py](backend/app/config.py)`                       | If unset in prod, anyone could forge a valid admin JWT                                 | Now a required field with no default — startup fails fast if `SECRET_KEY` is unset. Every documented workflow (Compose, `.env.example`, both CI workflows, the Railway guide below) already sets it explicitly |
 | 3   | No rate limiting on `/auth/login` or `/auth/register`                                                         | Unbounded credential stuffing; bcrypt cost also makes it a cheap CPU-exhaustion vector | `slowapi` or a reverse-proxy rate limit                                              |
-| 4   | `debug: bool = True` default                                                                                  | Verbose errors can leak internals                                                      | Default to `False`, enable per-environment                                           |
+| 4   | ✅ Fixed — `debug: bool = True` default, and it wasn't even wired to FastAPI's own debug mode                  | Verbose tracebacks in HTTP responses can leak internals                                | Default is now `False`; `main.py` passes it to `FastAPI(debug=...)` so the setting actually gates traceback responses, not just SQL echo logging. Compose/`.env.example` opt local dev back in explicitly |
 | 5   | No MIME/size validation on upload                                                                             | Arbitrary file content and size accepted into `/uploads`                               | Validate content type and cap size in `LocalStorageProvider.save()`                  |
 | 6   | `/uploads` served as unauthenticated static files                                                             | Any uploaded photo is world-readable to anyone with the URL                            | Acceptable for public gallery photos; use signed URLs if private media is ever added |
 
@@ -1402,12 +1402,12 @@ These are real and currently unmitigated. They are acceptable for a local demo, 
 
 ### Production hardening checklist
 
-- [ ] Strong `SECRET_KEY` from env, no default
+- [x] Strong `SECRET_KEY` from env, no default
 - [ ] HTTPS everywhere
 - [ ] `httpOnly` cookies for tokens (upgrade from `localStorage`)
 - [ ] Rate limiting on auth endpoints
 - [ ] Database SSL enabled (Neon does this by default)
-- [ ] `debug=False`
+- [x] `debug=False`
 - [ ] Upload MIME + size validation
 - [ ] `CORS_ORIGINS` set to the real frontend origin only
 
@@ -1529,7 +1529,7 @@ The frontend's `Dockerfile` now bakes a real production build into the image (`R
    NEXT_PUBLIC_GOOGLE_MAPS_KEY=placeholder
    NEXT_PUBLIC_GOOGLE_CLIENT_ID=<same client ID as the backend's GOOGLE_CLIENT_ID>
   ```
-   `NEXT_PUBLIC_API_URL` is baked into the client bundle at **build** time (must be set before a frontend rebuild). `API_URL_INTERNAL` is read at **runtime** by Server Components ([`frontend/src/lib/api.ts`](frontend/src/lib/api.ts)) so SSR does not fall back to `http://localhost:8000` inside the Railway container. Use the backend public HTTPS URL (or Railway private networking URL if you enable it).
+   `NEXT_PUBLIC_API_URL` is baked into the client bundle at **build** time (must be set before a frontend rebuild). `API_URL_INTERNAL` is read at **runtime** by Server Components ([`frontend/src/lib/api.ts`](frontend/src/lib/api.ts)) so SSR does not fall back to `http://localhost:8000` inside the Railway container. Use the backend public HTTPS URL (or Railway private networking URL if you enable it). If Featured businesses stays empty after seed, open `https://<backend>/api/v1/businesses/cities` in a browser — non-empty JSON means seed is fine and the frontend Variables (then a frontend redeploy) are the fix. A `502` from that URL means the backend service itself is down, not the seed.
 8. Redeploy both services (backend first so migrations apply, then frontend so `NEXT_PUBLIC_API_URL` is baked in). On a fresh Postgres, run seed once with `SEED_MODE=force` (see above).
 
 **Caveats:**
@@ -1542,7 +1542,7 @@ The frontend's `Dockerfile` now bakes a real production build into the image (`R
 
 ### File storage in production
 
-On Render/Railway the disk is ephemeral. Options: **AWS S3** (implement `S3StorageProvider` with boto3), **Azure Blob** (`AzureBlobStorageProvider`), or **Cloudinary**. Set `STORAGE_PROVIDER=s3` once implemented.
+On Render/Railway the disk is ephemeral. `S3StorageProvider` (boto3) is implemented — set `STORAGE_PROVIDER=s3`, `STORAGE_S3_BUCKET`, and `STORAGE_S3_REGION`, and supply AWS credentials the way boto3 expects (env vars, IAM role, or `~/.aws/credentials` — not a MerchantHub setting). `STORAGE_S3_ENDPOINT_URL` targets an S3-compatible service (Cloudflare R2, MinIO) instead; `STORAGE_S3_PUBLIC_BASE_URL` fronts the bucket with a CDN/custom domain. **Azure Blob** (`AzureBlobStorageProvider`) remains a stub.
 
 ### Maps (OpenStreetMap)
 
@@ -1552,9 +1552,9 @@ Search and merchant geocoding use **Leaflet + OSM tiles** and **Nominatim** — 
 
 ID-token flow via Google Identity Services — no client secret, no redirect route. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials): create an **OAuth client ID** of type **Web application**, and add both your local (`http://localhost:3000`) and deployed frontend origins under **Authorized JavaScript origins** (no path, no trailing slash — Google matches the origin exactly). Set the resulting client ID as `GOOGLE_CLIENT_ID` on the backend and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` on the frontend — same value, both places. `POST /api/v1/auth/google` verifies the token's signature, audience, and issuer server-side before ever trusting it.
 
-### CI/CD — recommended next step
+### CI/CD
 
-GitHub Actions running `pytest` on the backend and `npm test` on the frontend, with auto-deploy of `main`.
+GitHub Actions runs `pytest` ([`backend-tests.yml`](.github/workflows/backend-tests.yml), throwaway Postgres/Redis service containers, path-filtered to `backend/**`) and `npm test` ([`frontend-tests.yml`](.github/workflows/frontend-tests.yml), path-filtered to `frontend/**`) on every push to `main` and every PR. Auto-deploy of `main` to Railway/Vercel on green CI is still a recommended next step, not yet wired up.
 
 ---
 
@@ -1626,7 +1626,7 @@ MEngPlat/
 │   │   │                        #   dashboard, search, maps, analytics, notifications
 │   │   └── services/
 │   │       ├── ai/              # base.py (port), mock_provider, openai_provider
-│   │       ├── storage/         # Local implemented; S3 / Azure are stubs
+│   │       ├── storage/         # Local + S3 implemented; Azure is a stub
 │   │       ├── cache.py         # Redis helpers (fail-soft)
 │   │       └── business_service.py
 │   ├── scripts/seed.py          # Demo data seeder (Portland + Chennai + US)
@@ -1878,9 +1878,11 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-015 | Notifications UI                      | 4 Dashboards | Accepted        |
 | S-016 | Profile & settings edit               | 5 Polish     | Accepted        |
 | S-017 | Design system primitives              | 5 Polish     | Accepted (additive; migration deferred) |
-| S-018 | Secure logout / session UX            | 1 Foundation | Testing         |
-| S-019 | User profile enrichment               | 5 Polish     | Testing         |
-| S-020 | Mandatory TOTP for password login     | 1 Foundation | Testing         |
+| S-018 | Secure logout / session UX            | 1 Foundation | Accepted        |
+| S-019 | User profile enrichment               | 5 Polish     | Accepted        |
+| S-020 | Mandatory TOTP for password login     | 1 Foundation | Accepted        |
+| S-021 | Admin business & review drill-down    | 4 Dashboards | Draft           |
+| S-022 | Merchant dashboard tile interactivity | 4 Dashboards | Draft           |
 
 
 
@@ -1923,7 +1925,7 @@ An honest delta between the original specification and what the code actually do
 | Data models     | 19 SQLAlchemy models                                                                                                     |
 | Auth            | JWT access/refresh, bcrypt, RBAC, Redis logout blocklist, mandatory TOTP for password login, Google OAuth exempt |
 | AI layer        | Pluggable provider — `mock` (canned, no network) or OpenAI-compatible (works for OpenAI *or* DeepSeek via `AI_BASE_URL`) |
-| Storage         | `local` disk provider implemented                                                                                        |
+| Storage         | `local` disk and `s3` (boto3) providers implemented; `azure` still a stub                                                |
 | Frontend        | Home, search (map + location), business detail, login (MFA steps), register, enriched profile, settings, merchant dashboard + business create/edit, admin moderation queues |
 | Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine |
 | Seeding         | `scripts/seed.py` — Portland + Chennai + US; gated by `SEED_MODE` / `seed_runs` (Railway: not on boot) |
@@ -1937,12 +1939,12 @@ An honest delta between the original specification and what the code actually do
 
 | Gap                                       | Detail                                                                                                                                                                                          |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **S3 / Azure storage are stubs**          | Both raise `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). Only `local` works.                                                                                     |
+| **Azure storage is a stub**               | Raises `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). `local` and `s3` both work.                                                                                  |
 | **Thin tests**                            | Expanding, but still no full fixture/DB isolation suite. See §11.                                                                                                                               |
-| **Design-system migration deferred**      | `Select` / `StatCard` / `ui/RatingWidget` exist (S-017) but ~25 existing call sites still use native controls / inline tiles.                                                                    |
+| **Design-system migration** | Complete. `Select` / `StatCard` / `ui/RatingWidget` (S-017) now back every remaining call site — native `<select>`s, inline stat tiles, and the duplicate top-level `RatingWidget` (removed, canonical copy is `ui/RatingWidget`) all migrated. |
 | **Security items 1–6**                    | See [§9 Known weaknesses](#known-weaknesses--read-before-deploying).                                                                                                                            |
 | **No structured logging**                 | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                          |
-| **No CI/CD for app tests**                | Agent-config sync workflow exists; full pytest/Jest CI still open.                                                                                                                              |
+| **No CI/CD auto-deploy**                  | `backend-tests.yml` / `frontend-tests.yml` run pytest/Jest on every PR and push to `main`, but there is still no auto-deploy step to Railway/Vercel.                                            |
 
 
 
@@ -1955,11 +1957,10 @@ The MVP is complete when: (1) a customer can register, search, and submit a revi
 
 ### Suggested next steps, in order
 
-1. Harden security items 1–4 in §9 (secret key, cookies, rate limiting, debug default)
+1. Harden remaining security items in §9 (httpOnly cookies — needs a dual-auth story for mobile; rate limiting on auth endpoints)
 2. Build out the test suite with fixtures and an isolated test database
 3. Migrate existing screens to `ui/Select`, `ui/StatCard`, and `ui/RatingWidget` (post S-017)
-4. Implement `S3StorageProvider` so uploads survive redeploys
-5. Expand GitHub Actions CI beyond agent-config sync
+4. Add auto-deploy to Railway/Vercel on green CI
 
 ---
 
@@ -1987,8 +1988,12 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `AI_API_KEY`                  | *(empty)*                                                                | Required when `AI_PROVIDER` is not `mock`                       |
 | `AI_BASE_URL`                 | `https://api.openai.com/v1`                                              | Point at DeepSeek or any OpenAI-compatible endpoint             |
 | `AI_MODEL`                    | `gpt-4o-mini`                                                            | Model name passed to the provider                               |
-| `STORAGE_PROVIDER`            | `local`                                                                  | `local` | `s3` | `azure` — only `local` is implemented          |
-| `STORAGE_LOCAL_PATH`          | `/app/uploads`                                                           | Served as static files at `/uploads`                            |
+| `STORAGE_PROVIDER`            | `local`                                                                  | `local` | `s3` | `azure` — `azure` is not implemented           |
+| `STORAGE_LOCAL_PATH`          | `./uploads`                                                              | Served as static files at `/uploads`                             |
+| `STORAGE_S3_BUCKET`           | *(empty)*                                                                | Required when `STORAGE_PROVIDER=s3`                              |
+| `STORAGE_S3_REGION`           | `us-east-1`                                                              | AWS region for the bucket                                       |
+| `STORAGE_S3_ENDPOINT_URL`     | *(empty)*                                                                | S3-compatible services only (MinIO, Cloudflare R2, LocalStack)  |
+| `STORAGE_S3_PUBLIC_BASE_URL`  | *(empty)*                                                                | CDN/custom domain fronting the bucket; defaults to the bucket's own virtual-hosted-style URL |
 | `CORS_ORIGINS`                | `http://localhost:3000`                                                  | Comma-separated allowlist                                       |
 | `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap/Nominatim                         |
 | `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
@@ -2003,8 +2008,8 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 
 | Variable                      | Default                 | Purpose                                             |
 | ----------------------------- | ----------------------- | --------------------------------------------------- |
-| `NEXT_PUBLIC_API_URL`         | `http://localhost:8000` | Backend base URL, browser-side                      |
-| `API_URL_INTERNAL`            | —                       | Backend URL for server-side rendering inside Docker |
+| `NEXT_PUBLIC_API_URL`         | `http://localhost:8000` | Backend base URL, browser-side (baked at **frontend build** time on Railway) |
+| `API_URL_INTERNAL`            | same as above locally   | Backend URL for Server Components inside Docker/Railway — **required** on Railway or home SSR falls back to `localhost:8000` and Featured stays empty |
 | `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | `placeholder`           | Unused — Leaflet uses OSM tiles directly            |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | *(empty)*              | OAuth client ID for Google sign-in                   |
 

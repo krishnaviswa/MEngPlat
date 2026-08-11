@@ -33,6 +33,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://merchanthub:merchanthub@postgres:5432/merchanthub
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: dev-secret-key-change-in-production
+      DEBUG: "true"
       AI_PROVIDER: mock
       STORAGE_PROVIDER: local
       STORAGE_LOCAL_PATH: /app/uploads

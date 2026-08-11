@@ -5,6 +5,8 @@ import { AIInsights } from "./AIInsights";
 import { Charts } from "./Charts";
 import { Dashboard } from "./Dashboard";
 import { ReviewCard } from "./ReviewCard";
+import { Select } from "./ui/Select";
+import { StatCard } from "./ui/StatCard";
 import { auth, businesses, dashboard, reviews as reviewsApi } from "@/lib/api";
 import type { Business, BusinessStatus, Review, User } from "@/lib/api";
 
@@ -137,10 +139,10 @@ export default function MerchantDashboardPage() {
         {owned.length > 1 && (
           <label className="block rounded-xl border bg-white p-4">
             <span className="text-sm font-medium text-gray-700">Your businesses</span>
-            <select
+            <Select
               value={selectedId}
               onChange={(e) => setSelectedId(e.target.value)}
-              className="mt-2 w-full rounded border px-3 py-2 sm:max-w-md"
+              className="mt-2 sm:max-w-md"
             >
               {owned.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -148,7 +150,7 @@ export default function MerchantDashboardPage() {
                   {b.status === "pending" ? " (pending)" : ""}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
 
@@ -160,18 +162,12 @@ export default function MerchantDashboardPage() {
         )}
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border bg-white p-4">
-            <p className="text-sm text-gray-500">Total reviews</p>
-            <p className="text-2xl font-bold">{String(stats?.total_reviews ?? 0)}</p>
-          </div>
-          <div className="rounded-xl border bg-white p-4">
-            <p className="text-sm text-gray-500">Average rating</p>
-            <p className="text-2xl font-bold">{Number(stats?.average_rating ?? 0).toFixed(1)}</p>
-          </div>
-          <div className="rounded-xl border bg-white p-4">
-            <p className="text-sm text-gray-500">Status</p>
-            <p className={`text-2xl font-bold ${STATUS_CLASS[status]}`}>{STATUS_LABEL[status]}</p>
-          </div>
+          <StatCard label="Total reviews" value={String(stats?.total_reviews ?? 0)} />
+          <StatCard label="Average rating" value={Number(stats?.average_rating ?? 0).toFixed(1)} />
+          <StatCard
+            label="Status"
+            value={<span className={STATUS_CLASS[status]}>{STATUS_LABEL[status]}</span>}
+          />
         </div>
 
         <div className="rounded-xl border bg-white p-4">

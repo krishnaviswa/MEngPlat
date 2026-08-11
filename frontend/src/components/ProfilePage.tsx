@@ -8,6 +8,7 @@ import { BusinessCard } from "@/components/BusinessCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 
 /**
  * Profile — editable identity/contact fields, read-only email/role/TOTP status,
@@ -193,15 +194,14 @@ export default function ProfilePage() {
 
           <fieldset className="space-y-3 border-t pt-4">
             <legend className="text-sm font-medium text-gray-800">National ID</legend>
-            <select
+            <Select
               value={nationalIdType}
               onChange={(e) => setNationalIdType(e.target.value as NationalIdType | "")}
-              className="w-full rounded border px-3 py-2 text-sm"
             >
               <option value="">Select type</option>
               <option value="pan">PAN (India)</option>
               <option value="other">Other national ID</option>
-            </select>
+            </Select>
             <Input
               value={nationalIdNumber}
               onChange={(e) => setNationalIdNumber(e.target.value)}

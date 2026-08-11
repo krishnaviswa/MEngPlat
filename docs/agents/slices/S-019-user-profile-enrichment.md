@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-019 |
 | **Phase** | 5 Polish |
-| **Status** | Testing |
+| **Status** | Accepted |
 | **Role(s)** | customer \| merchant \| admin |
 | **Owner** | Builder / 2026-08-11 |
 
@@ -43,9 +43,9 @@
 
 ## Definition of done (PM)
 
-- [ ] All AC verified
-- [ ] README §5 / §7 updated
-- [ ] PM Status set to **Accepted**
+- [x] All AC verified
+- [x] README §5 / §7 updated
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -83,3 +83,5 @@
 | Date | Agent | Change |
 |------|-------|--------|
 | 2026-08-11 | PM+Architect+Builder | Implemented |
+| 2026-08-11 | Tester | TR-S-019 filed — 3/3 AC pass (frontend fully automated; backend persistence verified by code review + a written-but-unexecuted integration test). Recommendation: Ship. |
+| 2026-08-11 | PM | Accepted. All 3 AC verified per TR-S-019. README §5 (ERD `users` table already lists `phone`, `address_line1`, `national_id_type`, `national_id_number`) and §7 (`PATCH /auth/me` already documented as "Update profile (name, avatar, phone, address, national ID)") already accurately reflect this slice — no changes needed. Same production-DB test-isolation caveat as S-018/S-020 applies to this slice's backend integration evidence (mocked/code-reviewed, not live end-to-end) — tracked as a follow-up infra item per Tester's recommendation, not a slice blocker. |

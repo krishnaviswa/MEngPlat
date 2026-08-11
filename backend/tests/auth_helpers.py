@@ -4,6 +4,25 @@ from __future__ import annotations
 
 import pyotp
 from httpx import AsyncClient
+from starlette.requests import Request
+
+
+def fake_request(headers: dict[str, str] | None = None) -> Request:
+    """Minimal Request for calling rate-limited router functions (register,
+    login) directly, bypassing HTTP -- slowapi's decorator requires a real
+    Request instance to read the client IP from, even in a unit test."""
+    raw_headers = [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()]
+    return Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/",
+            "query_string": b"",
+            "headers": raw_headers,
+            "client": ("127.0.0.1", 0),
+            "app": None,
+        }
+    )
 
 
 async def complete_password_login(

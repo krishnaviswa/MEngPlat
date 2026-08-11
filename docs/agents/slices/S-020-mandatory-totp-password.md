@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-020 |
 | **Phase** | 1 Foundation |
-| **Status** | Testing |
+| **Status** | Accepted |
 | **Role(s)** | customer \| merchant \| admin |
 | **Owner** | Builder / 2026-08-11 |
 
@@ -45,9 +45,9 @@
 
 ## Definition of done (PM)
 
-- [ ] All AC verified in tests
-- [ ] README §6/§7/§9 updated
-- [ ] PM Status set to **Accepted**
+- [x] All AC verified in tests
+- [x] README §6/§7/§9 updated
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -95,3 +95,5 @@
 | Date | Agent | Change |
 |------|-------|--------|
 | 2026-08-11 | PM+Architect+Builder | Implemented |
+| 2026-08-11 | Tester | TR-S-020 filed — 4/4 AC pass (28 executed mocked backend unit tests + 6 executed frontend RTL tests; AC3/Google-bypass additionally has real Android-emulator CI evidence via `mobile-emulator-check.yml`). Recommendation: Ship. |
+| 2026-08-11 | PM | Accepted. All 4 AC verified per TR-S-020, including independent mobile E2E CI evidence for the Google-bypasses-TOTP path. README §6 (auth sequence diagram already shows the enroll-vs-verify branch), §7 (`/auth/mfa/totp/setup`, `/confirm`, `/verify`, `/auth/google` already documented in the Authentication table + example payloads), and §9 (Token design `type: "mfa"` row, "Password MFA" row, "TOTP MFA" control row all already present) already accurately reflect this slice — no changes needed. Flagging the production-DB test-isolation gap as a real infra risk: this session's only reachable Postgres was live production Railway (no Docker, no isolated test DB), so the new `test_s018_s020_login_profile.py` integration file was written but deliberately not executed live, and an earlier baseline `pytest` run before the constraint was identified persisted real rows to production. Per Tester's recommendation ("Ship, with the DB-infra gap tracked as a follow-up, not a slice blocker") this does not block acceptance here; it's already reflected in README §11/§14 ("no test-database isolation yet" / "Build out the test suite with fixtures and an isolated test database") and has task-tracking elsewhere in this session — no new tracking created by this acceptance. |

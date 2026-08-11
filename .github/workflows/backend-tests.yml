@@ -1,0 +1,76 @@
+name: Backend tests
+
+# Runs the pytest suite against a throwaway Postgres/Redis service container --
+# never against the hosted Railway DB. Mirrors the DB setup already proven in
+# mobile-emulator-check.yml. See README.md #14 "No CI/CD for app tests".
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+  pull_request:
+    paths:
+      - "backend/**"
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: merchanthub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/merchanthub
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: ci-only-secret
+      AI_PROVIDER: mock
+      SEED_MODE: "off"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend deps
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Migrate schema
+        working-directory: backend
+        run: PYTHONPATH=. alembic upgrade head
+
+      - name: Run pytest
+        working-directory: backend
+        run: |
+          set -o pipefail
+          PYTHONPATH=. pytest -v 2>&1 | tee pytest.log
+
+      - name: Surface pytest failures in job summary
+        if: failure()
+        run: |
+          {
+            echo "### Backend pytest failed"
+            echo '```'
+            tail -n 200 backend/pytest.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

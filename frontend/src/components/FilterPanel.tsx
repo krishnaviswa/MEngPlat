@@ -1,4 +1,5 @@
 import type { Category } from "@/lib/api";
+import { Select } from "@/components/ui/Select";
 
 export type SearchFilterParams = {
   q?: string;
@@ -74,39 +75,31 @@ export function FilterPanel({ params, categories = [], cities = [] }: FilterPane
         </div>
         <div>
           <label className="text-sm text-gray-600">Category</label>
-          <select
-            name="category"
-            defaultValue={params?.category ?? ""}
-            className="mt-1 w-full rounded border px-3 py-2 text-sm"
-          >
+          <Select name="category" defaultValue={params?.category ?? ""} className="mt-1">
             <option value="">All</option>
             {categories.map((c) => (
               <option key={c.id} value={c.slug}>
                 {c.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
           <label className="text-sm text-gray-600">Sort by</label>
-          <select name="sort" defaultValue={params?.sort ?? "rating"} className="mt-1 w-full rounded border px-3 py-2 text-sm">
+          <Select name="sort" defaultValue={params?.sort ?? "rating"} className="mt-1">
             <option value="rating">Highest rated</option>
             <option value="reviews">Most reviews</option>
             <option value="name">Name A–Z</option>
-          </select>
+          </Select>
         </div>
         <div>
           <label className="text-sm text-gray-600">Min rating</label>
-          <select
-            name="min_rating"
-            defaultValue={params?.min_rating ?? ""}
-            className="mt-1 w-full rounded border px-3 py-2 text-sm"
-          >
+          <Select name="min_rating" defaultValue={params?.min_rating ?? ""} className="mt-1">
             <option value="">Any</option>
             <option value="3">3+ stars</option>
             <option value="4">4+ stars</option>
             <option value="4.5">4.5+ stars</option>
-          </select>
+          </Select>
         </div>
         <button type="submit" className="w-full rounded bg-brand-600 py-2 text-sm text-white hover:bg-brand-700">
           Apply filters

@@ -3,7 +3,7 @@ import { BusinessMap } from "@/components/BusinessMapClient";
 import { CategoryBadges } from "@/components/CategoryBadges";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { PhotoGallery } from "@/components/PhotoGallery";
-import { RatingWidget } from "@/components/RatingWidget";
+import { RatingWidget } from "@/components/ui/RatingWidget";
 import { ReviewsList } from "@/components/ReviewsList";
 import { Card } from "@/components/ui/Card";
 import { API_URL, businesses, photos as photosApi, reviews } from "@/lib/api";

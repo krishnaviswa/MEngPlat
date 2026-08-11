@@ -1,5 +1,5 @@
 import type { Business } from "@/lib/api";
-import { RatingWidget } from "./RatingWidget";
+import { RatingWidget } from "./ui/RatingWidget";
 
 interface BusinessCardProps {
   business: Business;

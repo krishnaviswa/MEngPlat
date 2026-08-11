@@ -32,12 +32,19 @@ class Settings(BaseSettings):
 
     app_name: str = "MerchantHub AI"
     app_version: str = "0.1.0"
-    debug: bool = True
+    # Safe-by-default: SQL echo logging and FastAPI's traceback-in-response
+    # debug mode (main.py) are both off unless an environment opts in.
+    # docker-compose.yml and .env.example opt local dev back in explicitly.
+    debug: bool = False
 
     database_url: str = "postgresql+asyncpg://merchanthub:merchanthub@postgres:5432/merchanthub"
     redis_url: str = "redis://redis:6379/0"
 
-    secret_key: str = "change-me-in-production-use-openssl-rand"
+    # No insecure default -- every documented workflow (docker-compose.yml,
+    # .env.example, both CI workflows) already sets this explicitly. Missing
+    # it now fails at startup instead of silently forging JWTs with a
+    # publicly-known key. README §9 known weakness #2.
+    secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
@@ -84,6 +91,16 @@ class Settings(BaseSettings):
 
     storage_provider: Literal["local", "s3", "azure"] = "local"
     storage_local_path: str = "./uploads"
+    # S3 credentials are NOT settings fields on purpose -- boto3's default
+    # chain (env vars, IAM role, ~/.aws/credentials) already covers every real
+    # deployment target without us inventing a parallel secret store.
+    storage_s3_bucket: str = ""
+    storage_s3_region: str = "us-east-1"
+    # Override for S3-compatible services (MinIO, Cloudflare R2, LocalStack).
+    storage_s3_endpoint_url: str = ""
+    # Override for a CDN/custom domain fronting the bucket; defaults to the
+    # bucket's virtual-hosted-style URL when blank.
+    storage_s3_public_base_url: str = ""
 
     cors_origins: str = "http://localhost:3000"
 

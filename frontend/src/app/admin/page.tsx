@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { PendingBusinessQueue } from "@/components/admin/PendingBusinessQueue";
 import { ReportedReviewsQueue } from "@/components/admin/ReportedReviewsQueue";
 import { RequireAuth } from "@/components/RequireAuth";
+import { StatCard } from "@/components/ui/StatCard";
 import { apiFetch } from "@/lib/api";
 
 interface PlatformStats {
@@ -65,12 +66,6 @@ export default function AdminPage() {
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {(Object.entries(stats) as [keyof PlatformStats, number][]).map(([key, value]) => {
               const target = STAT_TARGETS[key];
-              const content = (
-                <>
-                  <p className="text-sm text-gray-500">{STAT_LABELS[key]}</p>
-                  <p className="text-2xl font-bold">{value}</p>
-                </>
-              );
               return target ? (
                 <button
                   key={key}
@@ -78,12 +73,11 @@ export default function AdminPage() {
                   onClick={() => scrollToSection(target)}
                   className="rounded-xl border bg-white p-4 text-left transition hover:border-brand-300 hover:shadow-sm"
                 >
-                  {content}
+                  <p className="text-sm text-gray-500">{STAT_LABELS[key]}</p>
+                  <p className="text-2xl font-bold">{value}</p>
                 </button>
               ) : (
-                <div key={key} className="rounded-xl border bg-white p-4">
-                  {content}
-                </div>
+                <StatCard key={key} label={STAT_LABELS[key]} value={value} />
               );
             })}
           </div>

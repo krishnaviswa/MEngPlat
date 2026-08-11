@@ -15,7 +15,8 @@
 
 ## API URLs
 - Browser: `NEXT_PUBLIC_API_URL`
-- Server in Docker: `API_URL_INTERNAL` (see `src/lib/api.ts`)
+- Server in Docker/Railway: `API_URL_INTERNAL` (see `src/lib/api.ts`) — required on Railway or SSR falls back to `localhost:8000` and Featured stays empty
+- Home SSR uses `cache: "no-store"` for GETs and surfaces fetch failures via `FeaturedGrid` `loadError`
 
 ## UI
 - Tailwind + `brand-*` colors

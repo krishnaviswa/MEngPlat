@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { RatingWidget } from "./RatingWidget";
+import { RatingWidget } from "./ui/RatingWidget";
 import { API_URL } from "@/lib/api";
 import type { Review } from "@/lib/api";
 

@@ -1,5 +1,5 @@
 import type { Business, Review } from "@/lib/api";
-import { RatingWidget } from "@/components/RatingWidget";
+import { RatingWidget } from "@/components/ui/RatingWidget";
 
 export interface ReviewVoiceItem {
   business: Business;

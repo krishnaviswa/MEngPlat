@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { Select } from "@/components/ui/Select";
 import { auth, storeTokens } from "@/lib/api";
 
 /** RegisterForm — account creation with role selection. State: form fields, error, loading. */
@@ -73,14 +74,13 @@ export function RegisterForm() {
         placeholder="Password (min 8 chars)"
         className="w-full rounded border px-3 py-2"
       />
-      <select
+      <Select
         value={form.role}
         onChange={(e) => setForm({ ...form, role: e.target.value })}
-        className="w-full rounded border px-3 py-2"
       >
         <option value="customer">Customer — discover & review</option>
         <option value="merchant">Merchant — list my business</option>
-      </select>
+      </Select>
       <p className="text-xs text-gray-500">
         After sign-up you will set up an authenticator app (required for email/password sign-in).
         Gmail sign-in below skips that step.

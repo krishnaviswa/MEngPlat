@@ -1,5 +1,5 @@
 import figma from "@figma/code-connect";
-import { RatingWidget } from "./RatingWidget";
+import { RatingWidget } from "./ui/RatingWidget";
 
 // Figma: RatingWidget (Components / Rating)
 // The Value variant axis (0-5) maps to the `value` prop; Size maps to sm | md | lg.

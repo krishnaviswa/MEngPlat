@@ -1,7 +1,9 @@
+import asyncio
 import uuid
 from pathlib import Path
 from typing import Protocol
 
+import boto3
 from fastapi import UploadFile
 
 from app.config import get_settings
@@ -38,13 +40,41 @@ class LocalStorageProvider:
 
 
 class S3StorageProvider:
-    """Placeholder for Amazon S3 — implement with boto3 in production."""
+    """Amazon S3, via boto3's default credential chain (env vars, IAM role, ~/.aws/credentials)."""
+
+    def __init__(self) -> None:
+        if not settings.storage_s3_bucket:
+            raise RuntimeError("STORAGE_S3_BUCKET must be set when STORAGE_PROVIDER=s3")
+        self.bucket = settings.storage_s3_bucket
+        endpoint = settings.storage_s3_endpoint_url.rstrip("/")
+        self.public_base_url = settings.storage_s3_public_base_url.rstrip("/") or (
+            f"{endpoint}/{self.bucket}"
+            if endpoint
+            else f"https://{self.bucket}.s3.{settings.storage_s3_region}.amazonaws.com"
+        )
+        self._client = boto3.client(
+            "s3",
+            region_name=settings.storage_s3_region,
+            endpoint_url=endpoint or None,
+        )
 
     async def save(self, file: UploadFile, folder: str) -> str:
-        raise NotImplementedError("S3 storage not configured. Set STORAGE_PROVIDER=local for development.")
+        ext = Path(file.filename or "file.jpg").suffix or ".jpg"
+        key = f"{folder}/{uuid.uuid4()}{ext}"
+        content = await file.read()
+        # boto3 is sync; offload so it doesn't block the event loop.
+        await asyncio.to_thread(
+            self._client.put_object,
+            Bucket=self.bucket,
+            Key=key,
+            Body=content,
+            ContentType=file.content_type or "application/octet-stream",
+        )
+        return f"{self.public_base_url}/{key}"
 
     async def delete(self, url: str) -> None:
-        raise NotImplementedError("S3 storage not configured.")
+        key = url.removeprefix(f"{self.public_base_url}/")
+        await asyncio.to_thread(self._client.delete_object, Bucket=self.bucket, Key=key)
 
 
 class AzureBlobStorageProvider:

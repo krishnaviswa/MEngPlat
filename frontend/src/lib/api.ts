@@ -3,6 +3,16 @@ const API_URL =
     ? process.env.API_URL_INTERNAL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
     : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+if (
+  typeof window === "undefined" &&
+  process.env.NODE_ENV === "production" &&
+  /localhost|127\.0\.0\.1/.test(API_URL)
+) {
+  console.error(
+    `[api] SSR is calling ${API_URL}. Set API_URL_INTERNAL (and NEXT_PUBLIC_API_URL) to the backend HTTPS URL on Railway, then redeploy the frontend.`,
+  );
+}
+
 export type NationalIdType = "pan" | "other";
 
 export interface User {
@@ -226,7 +236,15 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}, _retr
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  const method = (options.method || "GET").toUpperCase();
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers,
+    // Home/search SSR must not serve a stale empty list after seed or deploy.
+    ...(typeof window === "undefined" && method === "GET" && options.cache === undefined
+      ? { cache: "no-store" as RequestCache }
+      : {}),
+  });
 
   const canRetry = !_retried && getRefreshToken() && !NO_REFRESH_RETRY_PREFIXES.some((p) => path.startsWith(p));
   if (res.status === 401 && canRetry) {

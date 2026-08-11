@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-018 |
 | **Phase** | 1 Foundation |
-| **Status** | Testing |
+| **Status** | Accepted |
 | **Role(s)** | customer \| merchant \| admin |
 | **Owner** | Builder / 2026-08-11 |
 
@@ -47,9 +47,9 @@
 
 ## Definition of done (PM)
 
-- [ ] All AC verified
-- [ ] Documented in README §6 / §9
-- [ ] PM Status set to **Accepted**
+- [x] All AC verified
+- [x] Documented in README §6 / §9
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -101,3 +101,5 @@ Client-only guards cannot prevent a flash of cached HTML; hard navigation + page
 | Date | Agent | Change |
 |------|-------|--------|
 | 2026-08-11 | PM+Architect+Builder | Implemented with S-019/S-020 |
+| 2026-08-11 | Tester | TR-S-018 filed — 3/3 AC pass (2 fully automated, 1 automated + code review for browser-only bfcache). Recommendation: Ship. |
+| 2026-08-11 | PM | Accepted. All 3 AC verified per TR-S-018. README §6 (auth flow diagram + "Logout clears tokens, blocklists JTIs, hard-navigates" note) and §9 ("Logout UX" control row) already accurately reflect this slice — no changes needed. Noting the environment-wide risk (see TR-S-018/S-020): this session's `backend/.env` `DATABASE_URL` pointed at live production Railway Postgres with no isolated test DB, so the new cross-slice integration test was written but not executed live, and backend AC evidence here rests on mocked unit tests + code review rather than full HTTP+DB integration. Per Tester's recommendation this is tracked as a follow-up infra item (§14 "Suggested next steps" / §11 already flags no test-DB isolation), not a blocker — it does not gate this slice's acceptance. |

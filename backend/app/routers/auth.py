@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.rate_limit import limiter
 from app.core.security import (
     create_access_token,
     create_mfa_token,
@@ -84,13 +85,14 @@ async def _consume_mfa_token(mfa_token: str) -> None:
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(payload: UserRegister, db: AsyncSession = Depends(get_db)) -> User:
+@limiter.limit("5/minute")
+async def register(request: Request, payload: UserRegister, db: AsyncSession = Depends(get_db)) -> User:
     """
     Register a new user account.
 
     **Request:** email, full_name, password (min 8 chars), role (customer|merchant|admin blocked for public)
     **Response:** Created user profile (no tokens — login separately; password login requires TOTP enrollment)
-    **Errors:** 409 if email exists
+    **Errors:** 409 if email exists, 429 if rate-limited (5/minute per IP)
     """
     if payload.role == UserRole.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot self-register as admin")
@@ -116,14 +118,17 @@ async def register(payload: UserRegister, db: AsyncSession = Depends(get_db)) ->
 
 
 @router.post("/login", response_model=LoginResult)
-async def login(payload: UserLogin, db: AsyncSession = Depends(get_db)) -> LoginResult:
+@limiter.limit("10/minute")
+async def login(request: Request, payload: UserLogin, db: AsyncSession = Depends(get_db)) -> LoginResult:
     """
     Authenticate with email and password.
 
     **Request:** email, password
     **Response:** Either JWT tokens (should not happen for password accounts without TOTP),
     or `{ mfa_required, mfa_token }` / `{ mfa_enrollment_required, mfa_token }` for TOTP.
-    **Errors:** 400 account is Google-only (no password set), 401 invalid credentials, 403 inactive
+    **Errors:** 400 account is Google-only (no password set), 401 invalid credentials, 403 inactive,
+    429 if rate-limited (10/minute per IP) -- bcrypt makes each attempt expensive, so this also
+    caps CPU spent on credential stuffing, not just attempt count
     """
     result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()

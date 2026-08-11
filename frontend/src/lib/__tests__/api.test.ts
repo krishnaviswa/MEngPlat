@@ -1,4 +1,4 @@
-import { apiFetch, auth } from "@/lib/api";
+import { apiFetch, auth, performLogout } from "@/lib/api";
 
 function mockFetchOnce(response: { ok: boolean; status: number; json: () => Promise<unknown> }) {
   return jest.fn().mockResolvedValueOnce(response);
@@ -87,6 +87,63 @@ describe("apiFetch", () => {
 
     await expect(apiFetch("/api/v1/protected")).rejects.toThrow("unauthorized");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("performLogout", () => {
+  const originalLocation = window.location;
+
+  beforeEach(() => {
+    localStorage.clear();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: { ...originalLocation, replace: jest.fn() },
+    });
+  });
+
+  afterAll(() => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: originalLocation,
+    });
+  });
+
+  // S-018 AC1: logging out must revoke the token server-side, clear local
+  // storage, and hard-navigate so ClientLayout remounts signed-out.
+  it("revokes the session server-side, clears local tokens, and hard-navigates to the given path", async () => {
+    localStorage.setItem("access_token", "tok-1");
+    localStorage.setItem("refresh_token", "ref-1");
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue({ ok: true, status: 200, json: async () => ({ message: "Logged out successfully." }) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await performLogout("/login");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/auth/logout",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ refresh_token: "ref-1" }) }),
+    );
+    expect(localStorage.getItem("access_token")).toBeNull();
+    expect(localStorage.getItem("refresh_token")).toBeNull();
+    expect(window.location.replace).toHaveBeenCalledWith("/login");
+  });
+
+  // S-018 AC1: local logout must proceed (tokens cleared, hard navigation)
+  // even when the best-effort server revoke call fails.
+  it("still clears local tokens and navigates when the server revoke call fails", async () => {
+    localStorage.setItem("access_token", "tok-1");
+    localStorage.setItem("refresh_token", "ref-1");
+    const fetchMock = jest.fn().mockRejectedValue(new Error("network down"));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await performLogout();
+
+    expect(localStorage.getItem("access_token")).toBeNull();
+    expect(localStorage.getItem("refresh_token")).toBeNull();
+    expect(window.location.replace).toHaveBeenCalledWith("/login");
   });
 });
 
