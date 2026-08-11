@@ -3,28 +3,39 @@
 import { useEffect, useState } from "react";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
-import { auth, type User } from "@/lib/api";
+import { auth, clearTokens, performLogout, type User } from "@/lib/api";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      auth.me().then(setUser).catch(() => setUser(null));
+    function loadUser() {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        setUser(null);
+        return;
+      }
+      auth
+        .me()
+        .then(setUser)
+        .catch(() => {
+          clearTokens();
+          setUser(null);
+        });
     }
+
+    loadUser();
+
+    // bfcache restore after logout can bring back a signed-in shell — re-check.
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) loadUser();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
 
   async function handleLogout() {
-    try {
-      await auth.logout();
-    } catch {
-      // best-effort server-side revoke; local logout proceeds regardless
-    }
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    setUser(null);
-    window.location.href = "/";
+    await performLogout("/");
   }
 
   return (

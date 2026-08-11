@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
-import { auth } from "@/lib/api";
+import { auth, storeTokens } from "@/lib/api";
 
 /** RegisterForm — account creation with role selection. State: form fields, error, loading. */
 export function RegisterForm() {
@@ -21,11 +21,9 @@ export function RegisterForm() {
     setError("");
     try {
       await auth.register(form);
-      const tokens = await auth.login({ email: form.email, password: form.password });
-      localStorage.setItem("access_token", tokens.access_token);
-      localStorage.setItem("refresh_token", tokens.refresh_token);
-      // Hard reload, not router.push -- see LoginForm for why.
-      window.location.href = form.role === "merchant" ? "/merchant/dashboard" : "/";
+      // Password accounts must enroll an authenticator on first login — send
+      // them to /login rather than storing a half-finished session.
+      window.location.href = `/login?registered=1&email=${encodeURIComponent(form.email)}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -40,8 +38,7 @@ export function RegisterForm() {
       // way to convey a merchant-role choice through the ID-token exchange,
       // matching how the backend's /auth/google new-account path decides role.
       const tokens = await auth.google({ credential });
-      localStorage.setItem("access_token", tokens.access_token);
-      localStorage.setItem("refresh_token", tokens.refresh_token);
+      storeTokens(tokens);
       window.location.href = "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Google sign-in failed");
@@ -84,6 +81,10 @@ export function RegisterForm() {
         <option value="customer">Customer — discover & review</option>
         <option value="merchant">Merchant — list my business</option>
       </select>
+      <p className="text-xs text-gray-500">
+        After sign-up you will set up an authenticator app (required for email/password sign-in).
+        Gmail sign-in below skips that step.
+      </p>
       <button
         type="submit"
         disabled={loading}

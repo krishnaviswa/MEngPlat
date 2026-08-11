@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { auth } from "@/lib/api";
+import { auth, clearTokens, performLogout } from "@/lib/api";
 import type { User } from "@/lib/api";
 
 /**
@@ -14,27 +14,33 @@ export function AlreadySignedIn({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (!token) {
-      setChecked(true);
-      return;
+    function check() {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        setUser(null);
+        setChecked(true);
+        return;
+      }
+      auth
+        .me()
+        .then(setUser)
+        .catch(() => {
+          clearTokens();
+          setUser(null);
+        })
+        .finally(() => setChecked(true));
     }
-    auth
-      .me()
-      .then(setUser)
-      .catch(() => setUser(null))
-      .finally(() => setChecked(true));
+
+    check();
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) check();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
 
   async function handleLogout() {
-    try {
-      await auth.logout();
-    } catch {
-      // best-effort server-side revoke; local logout proceeds regardless
-    }
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    window.location.href = "/login";
+    await performLogout("/login");
   }
 
   if (!checked) return null;

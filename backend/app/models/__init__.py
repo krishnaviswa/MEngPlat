@@ -54,6 +54,11 @@ class NotificationType(str, enum.Enum):
     SYSTEM = "system"
 
 
+class NationalIdType(str, enum.Enum):
+    PAN = "pan"
+    OTHER = "other"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -73,6 +78,19 @@ class User(Base):
     # linking so a Google sign-in can't silently take over an unrelated
     # password account that happens to share an unverified email.
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+    # Profile contact / identity (self-service; not KYC-verified).
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    address_line1: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    address_line2: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    state: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    postal_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    national_id_type: Mapped[NationalIdType | None] = mapped_column(Enum(NationalIdType), nullable=True)
+    national_id_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Fernet-encrypted TOTP secret; never expose via API. Mandatory for password login.
+    totp_secret: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

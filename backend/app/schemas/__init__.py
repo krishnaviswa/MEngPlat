@@ -4,13 +4,39 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.models import BusinessStatus, ReviewStatus, Sentiment, UserRole
+from app.models import BusinessStatus, NationalIdType, ReviewStatus, Sentiment, UserRole
 
 
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+class LoginResult(BaseModel):
+    """Password login: either full tokens, or an MFA challenge / enrollment gate."""
+
+    access_token: str | None = None
+    refresh_token: str | None = None
+    token_type: str = "bearer"
+    mfa_required: bool = False
+    mfa_enrollment_required: bool = False
+    mfa_token: str | None = None
+
+
+class MfaTokenRequest(BaseModel):
+    mfa_token: str
+
+
+class MfaTotpCodeRequest(BaseModel):
+    mfa_token: str
+    code: str = Field(min_length=6, max_length=8)
+
+
+class TotpSetupResponse(BaseModel):
+    otpauth_uri: str
+    secret: str
+    qr_svg: str
 
 
 class LogoutRequest(BaseModel):
@@ -39,15 +65,34 @@ class UserResponse(UserBase):
     role: UserRole
     is_active: bool
     avatar_url: str | None = None
+    phone: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    city: str | None = None
+    state: str | None = None
+    postal_code: str | None = None
+    country: str | None = None
+    national_id_type: NationalIdType | None = None
+    national_id_number: str | None = None
+    auth_provider: str = "password"
+    totp_enabled: bool = False
     created_at: datetime
 
 
 class UserProfileUpdate(BaseModel):
-    """Self-service PATCH /auth/me payload. Only full_name / avatar_url are editable;
-    email, role, and is_active are omitted so extra body keys are silently dropped."""
+    """Self-service PATCH /auth/me. email, role, is_active, and TOTP secrets are omitted."""
 
     full_name: str | None = Field(default=None, min_length=1, max_length=255)
     avatar_url: str | None = None
+    phone: str | None = Field(default=None, max_length=50)
+    address_line1: str | None = Field(default=None, max_length=255)
+    address_line2: str | None = Field(default=None, max_length=255)
+    city: str | None = Field(default=None, max_length=100)
+    state: str | None = Field(default=None, max_length=100)
+    postal_code: str | None = Field(default=None, max_length=20)
+    country: str | None = Field(default=None, max_length=100)
+    national_id_type: NationalIdType | None = None
+    national_id_number: str | None = Field(default=None, max_length=64)
 
 
 class PublicPlatformStats(BaseModel):

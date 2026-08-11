@@ -31,13 +31,11 @@ async def test_register_and_login(client):
     )
     assert register.status_code == 201
 
-    login = await client.post(
-        "/api/v1/auth/login",
-        json={"email": "testuser@example.com", "password": "testpass123"},
-    )
-    assert login.status_code == 200
-    assert "access_token" in login.json()
+    from tests.auth_helpers import complete_password_login
 
+    tokens = await complete_password_login(client, "testuser@example.com", "testpass123")
+    assert "access_token" in tokens
+    assert "refresh_token" in tokens
 
 @pytest.mark.asyncio
 async def test_list_businesses(client):

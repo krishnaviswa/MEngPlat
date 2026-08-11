@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.core.security import (
     create_access_token,
+    create_mfa_token,
     create_refresh_token,
     decode_token,
     get_password_hash,
@@ -16,9 +17,13 @@ from app.dependencies import get_current_user, security
 from app.models import Merchant, User, UserRole
 from app.schemas import (
     GoogleAuthRequest,
+    LoginResult,
     LogoutRequest,
     MessageResponse,
+    MfaTokenRequest,
+    MfaTotpCodeRequest,
     TokenResponse,
+    TotpSetupResponse,
     UserLogin,
     UserProfileUpdate,
     UserRegister,
@@ -26,8 +31,56 @@ from app.schemas import (
 )
 from app.services.cache import blocklist_token, is_token_blocklisted
 from app.services.google_auth import InvalidGoogleTokenError, verify_google_id_token
+from app.services.mfa import (
+    build_otpauth_uri,
+    decrypt_totp_secret,
+    encrypt_totp_secret,
+    generate_totp_secret,
+    qr_svg_for_uri,
+    verify_totp_code,
+)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+def _issue_session_tokens(user: User) -> TokenResponse:
+    return TokenResponse(
+        access_token=create_access_token(str(user.id), {"role": user.role.value}),
+        refresh_token=create_refresh_token(str(user.id)),
+    )
+
+
+async def _user_from_mfa_token(
+    mfa_token: str,
+    *,
+    purpose: str,
+    db: AsyncSession,
+) -> User:
+    try:
+        payload = decode_token(mfa_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid MFA token") from exc
+    if payload.get("type") != "mfa" or payload.get("purpose") != purpose:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid MFA token")
+    jti = payload.get("jti")
+    if jti and await is_token_blocklisted(jti):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="MFA token has been revoked")
+    result = await db.execute(select(User).where(User.id == payload["sub"]))
+    user = result.scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    return user
+
+
+async def _consume_mfa_token(mfa_token: str) -> None:
+    """Blocklist MFA jti after successful use so it cannot be replayed."""
+    try:
+        payload = decode_token(mfa_token)
+    except ValueError:
+        return
+    jti, exp = payload.get("jti"), payload.get("exp")
+    if jti and exp:
+        await blocklist_token(jti, exp)
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -36,7 +89,7 @@ async def register(payload: UserRegister, db: AsyncSession = Depends(get_db)) ->
     Register a new user account.
 
     **Request:** email, full_name, password (min 8 chars), role (customer|merchant|admin blocked for public)
-    **Response:** Created user profile (no tokens — login separately)
+    **Response:** Created user profile (no tokens — login separately; password login requires TOTP enrollment)
     **Errors:** 409 if email exists
     """
     if payload.role == UserRole.ADMIN:
@@ -62,15 +115,15 @@ async def register(payload: UserRegister, db: AsyncSession = Depends(get_db)) ->
     return user
 
 
-@router.post("/login", response_model=TokenResponse)
-async def login(payload: UserLogin, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+@router.post("/login", response_model=LoginResult)
+async def login(payload: UserLogin, db: AsyncSession = Depends(get_db)) -> LoginResult:
     """
     Authenticate with email and password.
 
     **Request:** email, password
-    **Response:** JWT access_token + refresh_token
-    **Errors:** 400 account is Google-only (no password set), 401 invalid
-    credentials, 403 inactive account
+    **Response:** Either JWT tokens (should not happen for password accounts without TOTP),
+    or `{ mfa_required, mfa_token }` / `{ mfa_enrollment_required, mfa_token }` for TOTP.
+    **Errors:** 400 account is Google-only (no password set), 401 invalid credentials, 403 inactive
     """
     result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
@@ -84,10 +137,77 @@ async def login(payload: UserLogin, db: AsyncSession = Depends(get_db)) -> Token
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
 
-    return TokenResponse(
-        access_token=create_access_token(str(user.id), {"role": user.role.value}),
-        refresh_token=create_refresh_token(str(user.id)),
+    # Password accounts must complete authenticator MFA before receiving session tokens.
+    if user.totp_enabled:
+        return LoginResult(
+            mfa_required=True,
+            mfa_token=create_mfa_token(str(user.id), "verify"),
+        )
+    return LoginResult(
+        mfa_enrollment_required=True,
+        mfa_token=create_mfa_token(str(user.id), "enroll"),
     )
+
+
+@router.post("/mfa/totp/setup", response_model=TotpSetupResponse)
+async def totp_setup(payload: MfaTokenRequest, db: AsyncSession = Depends(get_db)) -> TotpSetupResponse:
+    """
+    Start TOTP enrollment after password login (mfa_enrollment_required).
+    Returns otpauth URI, manual secret, and QR SVG for the authenticator app.
+    """
+    user = await _user_from_mfa_token(payload.mfa_token, purpose="enroll", db=db)
+    if user.totp_enabled:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Authenticator already enabled")
+
+    secret = generate_totp_secret()
+    user.totp_secret = encrypt_totp_secret(secret)
+    user.totp_enabled = False
+    await db.flush()
+
+    uri = build_otpauth_uri(secret, user.email)
+    return TotpSetupResponse(otpauth_uri=uri, secret=secret, qr_svg=qr_svg_for_uri(uri))
+
+
+@router.post("/mfa/totp/confirm", response_model=TokenResponse)
+async def totp_confirm(payload: MfaTotpCodeRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+    """Confirm TOTP enrollment with a first code from the authenticator app; issues session tokens."""
+    user = await _user_from_mfa_token(payload.mfa_token, purpose="enroll", db=db)
+    if not user.totp_secret:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Call /mfa/totp/setup first")
+    if user.totp_enabled:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Authenticator already enabled")
+
+    try:
+        secret = decrypt_totp_secret(user.totp_secret)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid TOTP secret") from exc
+
+    if not verify_totp_code(secret, payload.code):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authenticator code")
+
+    user.totp_enabled = True
+    await db.flush()
+    await _consume_mfa_token(payload.mfa_token)
+    return _issue_session_tokens(user)
+
+
+@router.post("/mfa/totp/verify", response_model=TokenResponse)
+async def totp_verify(payload: MfaTotpCodeRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+    """Complete password login by verifying the authenticator code; issues session tokens."""
+    user = await _user_from_mfa_token(payload.mfa_token, purpose="verify", db=db)
+    if not user.totp_enabled or not user.totp_secret:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Authenticator not enabled")
+
+    try:
+        secret = decrypt_totp_secret(user.totp_secret)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid TOTP secret") from exc
+
+    if not verify_totp_code(secret, payload.code):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authenticator code")
+
+    await _consume_mfa_token(payload.mfa_token)
+    return _issue_session_tokens(user)
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -115,10 +235,7 @@ async def refresh_token(refresh_token: str, db: AsyncSession = Depends(get_db)) 
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    return TokenResponse(
-        access_token=create_access_token(str(user.id), {"role": user.role.value}),
-        refresh_token=create_refresh_token(str(user.id)),
-    )
+    return _issue_session_tokens(user)
 
 
 @router.get("/me", response_model=UserResponse)
@@ -134,8 +251,8 @@ async def update_me(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """
-    Update the caller's own profile (full_name and/or avatar_url).
-    email, role, and is_active are not on the schema and are silently ignored if sent.
+    Update the caller's own profile (name, avatar, phone, address, national ID).
+    email, role, is_active, and TOTP fields are not on the schema and are silently ignored if sent.
     """
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(current_user, field, value)
@@ -151,6 +268,8 @@ async def google_auth(payload: GoogleAuthRequest, db: AsyncSession = Depends(get
     signed credential from Google Identity Services client-side and sends it
     here for verification -- no authorization code, no redirect_uri, no
     client secret on this side.
+
+    Google path does **not** require TOTP (Gmail identity is the alternate factor).
 
     **Request:** credential — the ID token JWT from Google's sign-in button
     **Response:** JWT access_token + refresh_token
@@ -200,10 +319,7 @@ async def google_auth(payload: GoogleAuthRequest, db: AsyncSession = Depends(get
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
 
-    return TokenResponse(
-        access_token=create_access_token(str(user.id), {"role": user.role.value}),
-        refresh_token=create_refresh_token(str(user.id)),
-    )
+    return _issue_session_tokens(user)
 
 
 @router.post("/logout", response_model=MessageResponse)

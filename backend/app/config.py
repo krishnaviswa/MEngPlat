@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
+    # Short-lived JWT between password check and TOTP verify/enroll.
+    mfa_token_expire_minutes: int = 10
 
     # Was Literal["mock", "openai", "deepseek"]. A closed Literal meant adding a
     # provider required editing this file; now any registered name works, and
@@ -94,7 +96,7 @@ class Settings(BaseSettings):
     # Demo seed gate (scripts/seed.py). Default `off` so production boots never
     # re-upsert; Compose sets `if_outdated`. Manual refresh: SEED_MODE=force.
     seed_mode: Literal["off", "if_empty", "if_outdated", "force"] = "off"
-    seed_version: str = "2026-08-10-chennai-us-v1"
+    seed_version: str = "2026-08-11-totp-profile-v1"
 
     @property
     def cors_origin_list(self) -> list[str]:

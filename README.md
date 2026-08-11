@@ -89,6 +89,8 @@ On Railway, the same paths (`/docs`, `/redoc`, `/openapi.json`, `/health`) hang 
 | Chennai demo (×10) | `demo.customer1@example.com` … `demo.customer10@example.com` | `demo12345` |
 
 
+**Password login requires an authenticator app.** Seeded demo accounts share TOTP secret `JBSWY3DPEHPK3PXP` (add to Google Authenticator / Authy as a time-based account). Gmail/Google sign-in does not require TOTP.
+
 `backend/scripts/seed.py` creates the three core demo users, one Portland sample business, then upserts ~20 Chrompet / Radha Nagar businesses (`seed_chennai.py`) and 40 US listings (`seed_us.py`: Fremont, Union City, Brandon, Dallas). US JSON lives in `backend/data/real-businesses/` so the backend Docker image (Railway) includes it; a mirror under `data/real-businesses/` plus a Compose mount at `/data/real-businesses` are fallbacks. Both regional seeds use synthetic hand-authored reviews, Unsplash stock photos by category (not hotlinked listing photos), and mock AI analysis rows. Display ratings come from seeded reviews via `update_business_rating()` — JSON `rating` / `review_count` fields are ignored. Extra demo customers `demo.customer1@example.com` … `demo.customer10@example.com` share password `demo12345`. Categories include `auto_repair` and `hospital` (ensured on re-run).
 
 **Seed is version-gated** via `SEED_MODE` / `SEED_VERSION` and the `seed_runs` table (see §15). Compose uses `if_outdated` (skip when the current version marker exists). Railway production **does not** run seed on boot — migrate + API only. To refresh demo data on Railway (shell / one-shot):
@@ -403,6 +405,11 @@ erDiagram
         string full_name
         enum role
         bool is_active
+        string phone
+        string address_line1
+        enum national_id_type
+        string national_id_number
+        bool totp_enabled
     }
     merchants {
         uuid id PK
@@ -546,6 +553,12 @@ sequenceDiagram
         User->>Frontend: Register or login
         Frontend->>API: POST /auth/register or /auth/login
         API->>DB: Create / verify user (bcrypt)
+        API-->>Frontend: mfa_token (enroll or verify)
+        alt First password login
+            Frontend->>API: POST /auth/mfa/totp/setup + confirm
+        else Already enrolled
+            Frontend->>API: POST /auth/mfa/totp/verify
+        end
         API-->>Frontend: access_token + refresh_token
         Frontend->>Frontend: Store tokens (localStorage today)
         Frontend->>API: GET /auth/me (Bearer)
@@ -561,6 +574,7 @@ sequenceDiagram
     end
 
     Note over Frontend,API: All protected routes send Authorization: Bearer {token}
+    Note over Frontend: Logout clears tokens, blocklists JTIs, hard-navigates; guards re-check on bfcache
 ```
 
 
@@ -809,10 +823,16 @@ curl -s --get --data-urlencode "address=Chrompet, Chennai" "$API/api/v1/maps/geo
 **Auth + Bearer calls**
 
 ```bash
-# Login → JWT
+# Password login → MFA challenge (demo accounts already have TOTP enrolled)
 curl -s -X POST "$API/api/v1/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"email":"customer@example.com","password":"customer123"}'
+# → { "mfa_required": true, "mfa_token": "..." }
+
+# Verify with current authenticator code (demo secret JBSWY3DPEHPK3PXP)
+curl -s -X POST "$API/api/v1/auth/mfa/totp/verify" \
+  -H "Content-Type: application/json" \
+  -d '{"mfa_token":"<mfa_token>","code":"<6-digit>"}'
 
 # Save token (bash). On PowerShell, copy access_token from the JSON manually.
 export TOKEN='eyJ...'   # paste access_token
@@ -870,11 +890,14 @@ All ten routers are mounted with the `/api/v1` prefix in [`main.py`](backend/app
 | Method | Path                   | Auth   | Description        |
 | ------ | ---------------------- | ------ | ------------------ |
 | POST   | `/auth/register`       | Public | Create account     |
-| POST   | `/auth/login`          | Public | Get JWT tokens     |
+| POST   | `/auth/login`          | Public | Password check → MFA challenge or enrollment (`LoginResult`) |
+| POST   | `/auth/mfa/totp/setup` | MFA enroll token | Start authenticator enrollment (QR + secret) |
+| POST   | `/auth/mfa/totp/confirm` | MFA enroll token | Confirm first TOTP code → session tokens |
+| POST   | `/auth/mfa/totp/verify` | MFA verify token | Verify TOTP → session tokens |
 | POST   | `/auth/refresh`        | Public | Refresh tokens     |
 | GET    | `/auth/me`             | Bearer | Current user       |
-| PATCH  | `/auth/me`             | Bearer | Update own `full_name` / `avatar_url` (email & role immutable) |
-| POST   | `/auth/google`         | Public | Google ID-token sign-in (register-or-login) |
+| PATCH  | `/auth/me`             | Bearer | Update profile (name, avatar, phone, address, national ID) |
+| POST   | `/auth/google`         | Public | Google ID-token sign-in (register-or-login; no TOTP) |
 | POST   | `/auth/logout`         | Bearer | Blocklist caller's access token (+ optional refresh token) |
 
 
@@ -882,8 +905,15 @@ All ten routers are mounted with the `/api/v1` prefix in [`main.py`](backend/app
 // POST /auth/register  →  201 User object
 { "email": "user@example.com", "full_name": "Jane Doe", "password": "securepass123", "role": "customer" }
 
-// POST /auth/login
+// POST /auth/login  (password accounts never get session tokens here)
 { "email": "user@example.com", "password": "securepass123" }
+// → first time:
+{ "mfa_enrollment_required": true, "mfa_token": "eyJ..." }
+// → later:
+{ "mfa_required": true, "mfa_token": "eyJ..." }
+
+// POST /auth/mfa/totp/verify (or /confirm after setup)
+{ "mfa_token": "eyJ...", "code": "123456" }
 // →
 { "access_token": "eyJ...", "refresh_token": "eyJ...", "token_type": "bearer" }
 ```
@@ -1299,9 +1329,9 @@ Implemented in `[core/security.py](backend/app/core/security.py)`, configured in
 | Algorithm         | HS256 (symmetric)                | One service signs and verifies; no key distribution problem                                                                                                                                                                                                                                                              |
 | Access token TTL  | 30 minutes                       | Short enough that a leaked token expires quickly                                                                                                                                                                                                                                                                         |
 | Refresh token TTL | 7 days                           | Keeps users logged in without long-lived access tokens                                                                                                                                                                                                                                                                   |
-| Claims            | `sub` (user UUID), `exp`, `type` | —                                                                                                                                                                                                                                                                                                                        |
-| `type` claim      | `"access"` | `"refresh"`         | **Load-bearing.** `get_current_user` rejects anything where `type != "access"`, so a stolen refresh token cannot be replayed against protected endpoints — it can only be exchanged at `/auth/refresh`. Without this claim the two token classes would be interchangeable and the short access TTL would be meaningless. |
-
+| Claims            | `sub` (user UUID), `exp`, `type`, optional `purpose` / `role` | —                                                                                                                                                                                                                                                                                                                        |
+| `type` claim      | `"access"` \| `"refresh"` \| `"mfa"` | **Load-bearing.** `get_current_user` rejects anything where `type != "access"`, so a stolen refresh or MFA pending token cannot be replayed against protected endpoints. MFA tokens only work on `/auth/mfa/totp/*`. Without this claim the token classes would be interchangeable and the short access TTL would be meaningless. |
+| Password MFA      | Mandatory TOTP (authenticator app) for email/password login; Google OAuth exempt | Secrets Fernet-encrypted at rest; never returned on `UserResponse` |
 
 
 
@@ -1347,6 +1377,8 @@ Author-scoped actions (edit/delete review) follow the same principle at the rout
 | Slug generation  | `slugify()` strips non-word characters and appends 8 random hex chars — prevents slug collision and enumeration by name                                                                                                   |
 | Upload paths     | Filenames are replaced with a server-generated `uuid4()`; the client-supplied name is used only for its extension, so path traversal via `filename` is not possible ([storage](backend/app/services/storage/__init__.py)) |
 | Audit trail      | Admin approve/suspend/moderate actions write `audit_logs` rows                                                                                                                                                            |
+| Logout UX        | Client `performLogout` clears tokens, hard-navigates; `RequireAuth` / profile / settings re-check on bfcache `pageshow`                                                                                                   |
+| TOTP MFA         | Password login requires authenticator app; Google/Gmail path does not                                                                                                                                                     |
 
 
 
@@ -1834,6 +1866,9 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-015 | Notifications UI                      | 4 Dashboards | Accepted        |
 | S-016 | Profile & settings edit               | 5 Polish     | Accepted        |
 | S-017 | Design system primitives              | 5 Polish     | Accepted (additive; migration deferred) |
+| S-018 | Secure logout / session UX            | 1 Foundation | Testing         |
+| S-019 | User profile enrichment               | 5 Polish     | Testing         |
+| S-020 | Mandatory TOTP for password login     | 1 Foundation | Testing         |
 
 
 
@@ -1874,10 +1909,10 @@ An honest delta between the original specification and what the code actually do
 | --------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Backend routers | 11, all wired into `main.py` (includes favorites)                                                                            |
 | Data models     | 19 SQLAlchemy models                                                                                                     |
-| Auth            | JWT access/refresh via `python-jose`, bcrypt hashing, `require_roles()` RBAC, token revocation via Redis `jti` blocklist on logout |
+| Auth            | JWT access/refresh, bcrypt, RBAC, Redis logout blocklist, mandatory TOTP for password login, Google OAuth exempt |
 | AI layer        | Pluggable provider — `mock` (canned, no network) or OpenAI-compatible (works for OpenAI *or* DeepSeek via `AI_BASE_URL`) |
 | Storage         | `local` disk provider implemented                                                                                        |
-| Frontend        | Home, search (map + location), business detail, login, register, profile, settings, merchant dashboard + business create/edit, admin moderation queues |
+| Frontend        | Home, search (map + location), business detail, login (MFA steps), register, enriched profile, settings, merchant dashboard + business create/edit, admin moderation queues |
 | Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine |
 | Seeding         | `scripts/seed.py` — Portland + Chennai + US; gated by `SEED_MODE` / `seed_runs` (Railway: not on boot) |
 | Local dev       | `docker compose up --build`                                                                                              |
@@ -1946,7 +1981,7 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap/Nominatim                         |
 | `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
 | `SEED_MODE`                   | `off`                                                                    | `off` \| `if_empty` \| `if_outdated` \| `force` — gates `scripts/seed.py` (Railway boot leaves default `off`; Compose uses `if_outdated`) |
-| `SEED_VERSION`                | `2026-08-10-chennai-us-v1`                                               | Marker written to `seed_runs`; bump when demo seed content changes |
+| `SEED_VERSION`                | `2026-08-11-totp-profile-v1`                                             | Marker written to `seed_runs`; bump when demo seed content changes |
 
 
 

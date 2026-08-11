@@ -21,6 +21,7 @@ from app.models import (
     UserRole,
 )
 from app.services.business_service import update_business_rating
+from app.services.mfa import enable_demo_totp
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -453,8 +454,12 @@ async def seed_chennai(
             hashed_password=get_password_hash(CHENNAI_CUSTOMER_PASSWORD),
             role=UserRole.CUSTOMER,
         )
+        enable_demo_totp(customer)
         db.add(customer)
         customers.append(customer)
+    for customer in customers:
+        if not customer.totp_enabled:
+            enable_demo_totp(customer)
     await db.flush()
 
     existing_by_slug = {

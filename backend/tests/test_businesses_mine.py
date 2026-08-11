@@ -4,6 +4,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
+from tests.auth_helpers import register_and_get_token
 
 
 @pytest.fixture
@@ -15,43 +16,20 @@ async def client():
 
 async def _register_merchant(client: AsyncClient, email: str | None = None) -> dict:
     email = email or f"merchant-{uuid.uuid4().hex[:8]}@example.com"
-    res = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": email,
-            "full_name": "Test Merchant",
-            "password": "testpass123",
-            "role": "merchant",
-        },
+    token = await register_and_get_token(
+        client,
+        email,
+        role="merchant",
+        full_name="Test Merchant",
     )
-    assert res.status_code == 201
-    login = await client.post(
-        "/api/v1/auth/login",
-        json={"email": email, "password": "testpass123"},
-    )
-    assert login.status_code == 200
-    token = login.json()["access_token"]
     return {"email": email, "headers": {"Authorization": f"Bearer {token}"}}
 
 
 @pytest.mark.asyncio
 async def test_mine_requires_merchant_role(client):
     email = f"customer-{uuid.uuid4().hex[:8]}@example.com"
-    register = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": email,
-            "full_name": "Customer",
-            "password": "testpass123",
-            "role": "customer",
-        },
-    )
-    assert register.status_code == 201
-    login = await client.post(
-        "/api/v1/auth/login",
-        json={"email": email, "password": "testpass123"},
-    )
-    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    token = await register_and_get_token(client, email, role="customer", full_name="Customer")
+    headers = {"Authorization": f"Bearer {token}"}
 
     response = await client.get("/api/v1/businesses/mine", headers=headers)
     assert response.status_code == 403

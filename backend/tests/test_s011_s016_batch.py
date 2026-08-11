@@ -2,6 +2,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
+from tests.auth_helpers import register_and_get_token
 
 
 @pytest.fixture
@@ -12,14 +13,7 @@ async def client():
 
 
 async def _register_login(client: AsyncClient, email: str, role: str = "customer") -> str:
-    await client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "full_name": "Test User", "password": "testpass123", "role": role},
-    )
-    login = await client.post("/api/v1/auth/login", json={"email": email, "password": "testpass123"})
-    assert login.status_code == 200
-    return login.json()["access_token"]
-
+    return await register_and_get_token(client, email, role=role)
 
 @pytest.mark.asyncio
 async def test_patch_me_updates_name_and_ignores_role(client):

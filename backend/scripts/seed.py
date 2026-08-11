@@ -28,6 +28,7 @@ from app.models import (
     User,
     UserRole,
 )
+from app.services.mfa import enable_demo_totp
 from scripts.seed_chennai import CHENNAI_CUSTOMER_PASSWORD, seed_chennai
 from scripts.seed_us import seed_us
 
@@ -107,6 +108,8 @@ async def _seed_base(db) -> tuple[Merchant, list[Category]]:
         hashed_password=get_password_hash("customer123"),
         role=UserRole.CUSTOMER,
     )
+    for u in (admin_user, merchant_user, customer_user):
+        enable_demo_totp(u)
     db.add_all([admin_user, merchant_user, customer_user])
     await db.flush()
 
@@ -192,6 +195,17 @@ async def seed() -> None:
         if not admin.scalar_one_or_none():
             merchant, categories = await _seed_base(db)
         else:
+            # Keep demo password accounts on the shared authenticator secret when re-seeding.
+            for email in (
+                "admin@merchanthub.ai",
+                "merchant@example.com",
+                "customer@example.com",
+            ):
+                existing = (
+                    await db.execute(select(User).where(User.email == email))
+                ).scalar_one_or_none()
+                if existing and not existing.totp_enabled:
+                    enable_demo_totp(existing)
             merchant_result = await db.execute(
                 select(Merchant).join(User, Merchant.user_id == User.id).where(User.email == "merchant@example.com")
             )
@@ -226,6 +240,7 @@ async def seed() -> None:
         print("  Admin:    admin@merchanthub.ai / admin12345")
         print("  Merchant: merchant@example.com / merchant123")
         print("  Customer: customer@example.com / customer123")
+        print("  Demo TOTP secret (authenticator): JBSWY3DPEHPK3PXP")
         print(
             f"  Chennai demo customers: demo.customer1@example.com … "
             f"demo.customer{counts_chennai['customers']}@example.com / {CHENNAI_CUSTOMER_PASSWORD}"

@@ -3,13 +3,26 @@ const API_URL =
     ? process.env.API_URL_INTERNAL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
     : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+export type NationalIdType = "pan" | "other";
+
 export interface User {
   id: string;
   email: string;
   full_name: string;
   role: "customer" | "merchant" | "admin";
   is_active: boolean;
-  avatar_url?: string;
+  avatar_url?: string | null;
+  phone?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+  national_id_type?: NationalIdType | null;
+  national_id_number?: string | null;
+  auth_provider?: string;
+  totp_enabled?: boolean;
 }
 
 export type BusinessStatus = "pending" | "approved" | "rejected" | "suspended";
@@ -122,6 +135,23 @@ export interface Photo {
 export interface TokenResponse {
   access_token: string;
   refresh_token: string;
+  token_type?: string;
+}
+
+/** Password login may return full tokens or an MFA challenge / enrollment gate. */
+export interface LoginResult {
+  access_token?: string | null;
+  refresh_token?: string | null;
+  token_type?: string;
+  mfa_required?: boolean;
+  mfa_enrollment_required?: boolean;
+  mfa_token?: string | null;
+}
+
+export interface TotpSetupResponse {
+  otpauth_uri: string;
+  secret: string;
+  qr_svg: string;
 }
 
 function getToken(): string | null {
@@ -134,19 +164,39 @@ function getRefreshToken(): string | null {
   return localStorage.getItem("refresh_token");
 }
 
-function storeTokens(tokens: TokenResponse): void {
+export function storeTokens(tokens: TokenResponse): void {
   localStorage.setItem("access_token", tokens.access_token);
   localStorage.setItem("refresh_token", tokens.refresh_token);
 }
 
-function clearTokens(): void {
+export function clearTokens(): void {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
 }
 
+/**
+ * Revoke tokens server-side (best-effort), clear localStorage, hard-navigate
+ * so ClientLayout remounts and bfcache cannot restore a signed-in shell.
+ */
+export async function performLogout(redirectTo = "/login"): Promise<void> {
+  try {
+    await auth.logout();
+  } catch {
+    // best-effort server revoke; local logout proceeds regardless
+  }
+  clearTokens();
+  window.location.replace(redirectTo);
+}
+
 // Auth endpoints 401 on bad credentials, not an expired session -- retrying
 // those through the refresh flow would just loop a login failure forever.
-const NO_REFRESH_RETRY_PREFIXES = ["/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/refresh", "/api/v1/auth/google"];
+const NO_REFRESH_RETRY_PREFIXES = [
+  "/api/v1/auth/login",
+  "/api/v1/auth/register",
+  "/api/v1/auth/refresh",
+  "/api/v1/auth/google",
+  "/api/v1/auth/mfa/",
+];
 
 // Concurrent 401s (a page firing several requests at once after the access
 // token expires) must share one refresh call, not one each -- the second
@@ -206,12 +256,27 @@ export const auth = {
   register: (data: { email: string; full_name: string; password: string; role: string }) =>
     apiFetch<User>("/api/v1/auth/register", { method: "POST", body: JSON.stringify(data) }),
   login: (data: { email: string; password: string }) =>
-    apiFetch<TokenResponse>("/api/v1/auth/login", { method: "POST", body: JSON.stringify(data) }),
+    apiFetch<LoginResult>("/api/v1/auth/login", { method: "POST", body: JSON.stringify(data) }),
   google: (data: { credential: string }) =>
     apiFetch<TokenResponse>("/api/v1/auth/google", { method: "POST", body: JSON.stringify(data) }),
   me: () => apiFetch<User>("/api/v1/auth/me"),
   updateMe: (data: UserProfileUpdateInput) =>
     apiFetch<User>("/api/v1/auth/me", { method: "PATCH", body: JSON.stringify(data) }),
+  totpSetup: (mfaToken: string) =>
+    apiFetch<TotpSetupResponse>("/api/v1/auth/mfa/totp/setup", {
+      method: "POST",
+      body: JSON.stringify({ mfa_token: mfaToken }),
+    }),
+  totpConfirm: (mfaToken: string, code: string) =>
+    apiFetch<TokenResponse>("/api/v1/auth/mfa/totp/confirm", {
+      method: "POST",
+      body: JSON.stringify({ mfa_token: mfaToken, code }),
+    }),
+  totpVerify: (mfaToken: string, code: string) =>
+    apiFetch<TokenResponse>("/api/v1/auth/mfa/totp/verify", {
+      method: "POST",
+      body: JSON.stringify({ mfa_token: mfaToken, code }),
+    }),
   logout: () => {
     const refreshToken = getRefreshToken();
     return apiFetch<{ message: string }>("/api/v1/auth/logout", {
@@ -223,7 +288,16 @@ export const auth = {
 
 export interface UserProfileUpdateInput {
   full_name?: string;
-  avatar_url?: string;
+  avatar_url?: string | null;
+  phone?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+  national_id_type?: NationalIdType | null;
+  national_id_number?: string | null;
 }
 
 export interface PublicPlatformStats {

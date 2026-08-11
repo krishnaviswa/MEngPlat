@@ -33,6 +33,19 @@ def create_refresh_token(subject: str) -> str:
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
+def create_mfa_token(subject: str, purpose: str) -> str:
+    """Issue a short-lived token for TOTP verify (`verify`) or enrollment (`enroll`)."""
+    expire = datetime.now(UTC) + timedelta(minutes=settings.mfa_token_expire_minutes)
+    payload = {
+        "sub": subject,
+        "exp": expire,
+        "type": "mfa",
+        "purpose": purpose,
+        "jti": uuid4().hex,
+    }
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+
 def decode_token(token: str) -> dict[str, Any]:
     try:
         return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])

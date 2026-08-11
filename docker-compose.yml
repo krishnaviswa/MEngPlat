@@ -39,7 +39,7 @@ services:
       CORS_ORIGINS: http://localhost:3000,http://localhost:5000
       # Skip full upsert when seed_runs already has SEED_VERSION (Phase 2).
       SEED_MODE: if_outdated
-      SEED_VERSION: 2026-08-10-chennai-us-v1
+      SEED_VERSION: 2026-08-11-totp-profile-v1
     volumes:
       - ./backend:/app
       - ./data/real-businesses:/data/real-businesses:ro

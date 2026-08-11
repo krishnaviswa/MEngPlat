@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { auth } from "@/lib/api";
+import { useCallback, useEffect, useState } from "react";
+import { auth, clearTokens, performLogout } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
@@ -11,19 +11,33 @@ export default function SettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    auth.me().catch(() => router.push("/login")).finally(() => setLoading(false));
+  const verify = useCallback(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      setLoading(false);
+      router.replace("/login");
+      return;
+    }
+    auth
+      .me()
+      .catch(() => {
+        clearTokens();
+        router.replace("/login");
+      })
+      .finally(() => setLoading(false));
   }, [router]);
 
+  useEffect(() => {
+    verify();
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) verify();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, [verify]);
+
   async function logout() {
-    try {
-      await auth.logout();
-    } catch {
-      // best-effort server-side revoke; local logout proceeds regardless
-    }
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    router.push("/");
+    await performLogout("/");
   }
 
   if (loading) return <p className="p-8 text-center">Loading...</p>;
