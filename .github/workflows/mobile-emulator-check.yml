@@ -81,6 +81,12 @@ jobs:
             sleep 2
           done
           echo "=== backend.log ===" && cat backend.log
+          {
+            echo "### Backend failed to start"
+            echo '```'
+            cat backend.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
           exit 1
 
       - name: Upload backend log
