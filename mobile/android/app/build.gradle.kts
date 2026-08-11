@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "com.merchanthub.merchanthub_mobile"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_secure_storage requires compileSdk 37; flutter.compileSdkVersion (36) is too low.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
