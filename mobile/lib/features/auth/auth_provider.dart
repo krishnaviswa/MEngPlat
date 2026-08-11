@@ -26,11 +26,24 @@ class AuthController extends AsyncNotifier<UserResponse?> {
     }
   }
 
-  Future<void> login({required String email, required String password}) async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(
-      () => ref.read(authRepositoryProvider).login(email: email, password: password),
-    );
+  /// Returns the MFA challenge/enrollment gate; does not change [state] since
+  /// a password account has no session yet at this point (see S-020).
+  Future<LoginResult> submitCredentials({required String email, required String password}) {
+    return ref.read(authRepositoryProvider).login(email: email, password: password);
+  }
+
+  Future<TotpSetupResponse> startTotpEnrollment({required String mfaToken}) {
+    return ref.read(authRepositoryProvider).totpSetup(mfaToken: mfaToken);
+  }
+
+  Future<void> confirmTotpEnrollment({required String mfaToken, required String code}) async {
+    final user = await ref.read(authRepositoryProvider).totpConfirm(mfaToken: mfaToken, code: code);
+    state = AsyncValue.data(user);
+  }
+
+  Future<void> verifyTotp({required String mfaToken, required String code}) async {
+    final user = await ref.read(authRepositoryProvider).totpVerify(mfaToken: mfaToken, code: code);
+    state = AsyncValue.data(user);
   }
 
   Future<void> logout() async {

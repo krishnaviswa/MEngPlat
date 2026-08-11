@@ -10,6 +10,15 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **fullName** | **String** |  | [optional] 
 **avatarUrl** | **String** |  | [optional] 
+**phone** | **String** |  | [optional] 
+**addressLine1** | **String** |  | [optional] 
+**addressLine2** | **String** |  | [optional] 
+**city** | **String** |  | [optional] 
+**state** | **String** |  | [optional] 
+**postalCode** | **String** |  | [optional] 
+**country** | **String** |  | [optional] 
+**nationalIdType** | [**NationalIdType**](NationalIdType.md) |  | [optional] 
+**nationalIdNumber** | **String** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

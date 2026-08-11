@@ -253,8 +253,72 @@ documented in `README.md` under "Mobile client (Flutter)".
 - Provision a **separate, dedicated dev Postgres** (not this production one) before any write-path testing (reviews, favorites, registration) — flagged above, still applies.
 - Keep stopping the local backend and Flutter dev server between sessions when not actively using them, since both connect through to production data while running.
 
+## Phase 3 — GitHub Actions emulator CI + mandatory TOTP MFA (2026-08-11)
+
+No local Windows Android emulator (needs Hyper-V/WHPX: admin rights + reboot, declined).
+Instead: `.github/workflows/mobile-emulator-check.yml`, a free/open-source/non-interactive
+alternative — `reactivecircus/android-emulator-runner` boots a real KVM-accelerated emulator on
+GitHub's own Linux runners, against a throwaway Postgres/Redis + backend stood up in the same
+job (never the Railway DB), running `mobile/integration_test/app_test.dart` (login →
+business-list) and uploading a screenshot artifact. Raw Actions job logs and artifact downloads
+both need repo-admin auth this environment doesn't have (`403` on both, even for a public repo,
+even in the signed-out web UI) — diagnosis leaned on local reproduction and on writing
+`backend.log` to `$GITHUB_STEP_SUMMARY` on failure, which *does* render on the public run
+overview page.
+
+Three real bugs found and fixed via that loop, each confirmed by the run progressing further
+than the last:
+
+1. **Backend crashed on every bare-runner boot** (`backend/app/config.py`): `storage_local_path`
+   defaulted to the absolute `/app/uploads`, correct only because `docker-compose.yml` sets
+   `WORKDIR /app` in the container (and overrides the env var explicitly anyway). Outside Docker,
+   `main.py`'s module-level `uploads_path.mkdir()` tried to create `/app` at the filesystem root
+   and hit `PermissionError` before uvicorn could bind — the actual cause of both early "Start
+   backend" failures, unrelated to the emulator. Fixed by changing the default to the relative
+   `./uploads`, matching what `.env.example` already documented; Docker is unaffected since it
+   sets the env var explicitly.
+2. **`flutter drive` invocation mangled**: `reactivecircus/android-emulator-runner`'s `script:`
+   input didn't survive a multi-line YAML block scalar with `\` line continuations — it invoked
+   `flutter drive` with a literal `\` as the `--target` value. Fixed by single-lining the command.
+3. **Gradle build failure**: `flutter_secure_storage` requires `compileSdk 37`; the project's
+   `compileSdk = flutter.compileSdkVersion` resolved to `36` on the current stable Flutter
+   channel. Fixed with a pinned `compileSdk = 37` in `mobile/android/app/build.gradle.kts`.
+
+After all three, the emulator run reached the actual test — which then failed for a real reason:
+`backend/scripts/seed.py` (from an unrelated, concurrently-landed slice, S-020) now enables TOTP
+for every demo account, and `POST /auth/login` no longer returns tokens directly for a TOTP
+account (`LoginResult.mfa_required` + `mfa_token` instead). The mobile client, built before S-020
+landed, had zero MFA handling — meaning it couldn't complete login at all against current `main`,
+in CI or for real. Closed the gap rather than bypassing it:
+
+- Regenerated `mobile/packages/merchanthub_api/` (`mobile/scripts/generate_api_client.py`)
+  against the current backend schema — pulls in `LoginResult`, `MfaTokenRequest`,
+  `MfaTotpCodeRequest`, `TotpSetupResponse`, and the `totpSetup`/`totpConfirm`/`totpVerify`
+  `AuthenticationApi` methods.
+- `lib/features/auth/login_screen.dart` now mirrors `frontend/src/components/LoginForm.tsx`'s
+  three-step flow (credentials → enroll-with-QR-or-verify-code); `auth_repository.dart` /
+  `auth_provider.dart` reworked so `submitCredentials` returns the raw `LoginResult` and only
+  `totpConfirm`/`totpVerify` resolve `AuthController`'s state to a session. Added `flutter_svg`
+  to render the enrollment QR.
+- `mobile/integration_test/app_test.dart` now completes the real verify step, computing a live
+  TOTP code from the seeded demo secret (`backend/app/services/mfa.py`'s
+  `DEMO_TOTP_SECRET = "JBSWY3DPEHPK3PXP"`) via the `otp` package (SHA1/30s/6-digit, `isGoogle:
+  true` for standard base32 decode — matches `pyotp`'s defaults).
+
+**Local verification:** `flutter analyze` clean, `flutter test` passes (widget test drives the
+real `LoginScreen` → `AuthController` → fake-repository path through both the credentials step
+and the TOTP-verify step), and `flutter build web --release` compiles cleanly. Did *not* get a
+live browser-driven walkthrough this round — the Flutter-web debug (DDC) dev loop stalled
+mid-boot in the Browser pane tooling (unrelated flakiness: navigation intermittently denied,
+DDC's ~850-module load never reached `_flutter.loader.load()`), and a `--release` static-server
+attempt hit the same navigation flakiness. Given the target platform is Android, not web, and the
+emulator CI is the environment that actually caught all three infra bugs above, deferred to that
+as the real verification rather than continuing to fight unrelated web-tooling issues.
+
 ## Deferred (not part of this pass)
 
-- Android Studio + SDK + emulator/physical-device setup for a real APK build.
-- Reviews/favorites screens, merchant screens, CI/Play Store pipeline (strategy doc phases 3-5).
+- Android Studio + SDK + emulator/physical-device setup for a real *local* APK build (the CI
+  emulator now covers automated verification; this would be for interactive manual testing).
+- Reviews/favorites screens, merchant screens, Play Store release pipeline (strategy doc phases
+  4-5).
 - `mobile/CLAUDE.md` + matching `.cursor/rules/mobile-flutter.mdc`, and registration in `scripts/check_agent_config_sync.py` — per the repo's enforced doc-sync convention. Not yet done; the sync checker doesn't currently require it (`scripts/check_agent_config_sync.py --range` confirmed no failure), so it's not blocking, but should land before mobile work gets deep enough that a dedicated builder rule pays for itself.

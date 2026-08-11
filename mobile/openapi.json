@@ -12,7 +12,7 @@
           "Authentication"
         ],
         "summary": "Register",
-        "description": "Register a new user account.\n\n**Request:** email, full_name, password (min 8 chars), role (customer|merchant|admin blocked for public)\n**Response:** Created user profile (no tokens \u2014 login separately)\n**Errors:** 409 if email exists",
+        "description": "Register a new user account.\n\n**Request:** email, full_name, password (min 8 chars), role (customer|merchant|admin blocked for public)\n**Response:** Created user profile (no tokens \u2014 login separately; password login requires TOTP enrollment)\n**Errors:** 409 if email exists",
         "operationId": "register_api_v1_auth_register_post",
         "requestBody": {
           "content": {
@@ -54,13 +54,139 @@
           "Authentication"
         ],
         "summary": "Login",
-        "description": "Authenticate with email and password.\n\n**Request:** email, password\n**Response:** JWT access_token + refresh_token\n**Errors:** 400 account is Google-only (no password set), 401 invalid\ncredentials, 403 inactive account",
+        "description": "Authenticate with email and password.\n\n**Request:** email, password\n**Response:** Either JWT tokens (should not happen for password accounts without TOTP),\nor `{ mfa_required, mfa_token }` / `{ mfa_enrollment_required, mfa_token }` for TOTP.\n**Errors:** 400 account is Google-only (no password set), 401 invalid credentials, 403 inactive",
         "operationId": "login_api_v1_auth_login_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/UserLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/mfa/totp/setup": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Totp Setup",
+        "description": "Start TOTP enrollment after password login (mfa_enrollment_required).\nReturns otpauth URI, manual secret, and QR SVG for the authenticator app.",
+        "operationId": "totp_setup_api_v1_auth_mfa_totp_setup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpSetupResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/mfa/totp/confirm": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Totp Confirm",
+        "description": "Confirm TOTP enrollment with a first code from the authenticator app; issues session tokens.",
+        "operationId": "totp_confirm_api_v1_auth_mfa_totp_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaTotpCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/mfa/totp/verify": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Totp Verify",
+        "description": "Complete password login by verifying the authenticator code; issues session tokens.",
+        "operationId": "totp_verify_api_v1_auth_mfa_totp_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaTotpCodeRequest"
               }
             }
           },
@@ -164,7 +290,7 @@
           "Authentication"
         ],
         "summary": "Update Me",
-        "description": "Update the caller's own profile (full_name and/or avatar_url).\nemail, role, and is_active are not on the schema and are silently ignored if sent.",
+        "description": "Update the caller's own profile (name, avatar, phone, address, national ID).\nemail, role, is_active, and TOTP fields are not on the schema and are silently ignored if sent.",
         "operationId": "update_me_api_v1_auth_me_patch",
         "requestBody": {
           "content": {
@@ -211,7 +337,7 @@
           "Authentication"
         ],
         "summary": "Google Auth",
-        "description": "Sign in (or register) with Google. ID-token flow: the frontend obtains a\nsigned credential from Google Identity Services client-side and sends it\nhere for verification -- no authorization code, no redirect_uri, no\nclient secret on this side.\n\n**Request:** credential \u2014 the ID token JWT from Google's sign-in button\n**Response:** JWT access_token + refresh_token\n**Errors:** 401 invalid/expired Google token, 403 email already registered\nand not Google-verified (link rejected \u2014 take over risk), inactive account",
+        "description": "Sign in (or register) with Google. ID-token flow: the frontend obtains a\nsigned credential from Google Identity Services client-side and sends it\nhere for verification -- no authorization code, no redirect_uri, no\nclient secret on this side.\n\nGoogle path does **not** require TOTP (Gmail identity is the alternate factor).\n\n**Request:** credential \u2014 the ID token JWT from Google's sign-in button\n**Response:** JWT access_token + refresh_token\n**Errors:** 401 invalid/expired Google token, 403 email already registered\nand not Google-verified (link rejected \u2014 take over risk), inactive account",
         "operationId": "google_auth_api_v1_auth_google_post",
         "requestBody": {
           "content": {
@@ -2792,6 +2918,43 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "LoginResult": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "nullable": true,
+            "title": "Access Token"
+          },
+          "refresh_token": {
+            "type": "string",
+            "nullable": true,
+            "title": "Refresh Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "mfa_required": {
+            "type": "boolean",
+            "title": "Mfa Required",
+            "default": false
+          },
+          "mfa_enrollment_required": {
+            "type": "boolean",
+            "title": "Mfa Enrollment Required",
+            "default": false
+          },
+          "mfa_token": {
+            "type": "string",
+            "nullable": true,
+            "title": "Mfa Token"
+          }
+        },
+        "type": "object",
+        "title": "LoginResult",
+        "description": "Password login: either full tokens, or an MFA challenge / enrollment gate."
+      },
       "LogoutRequest": {
         "properties": {
           "refresh_token": {
@@ -2880,6 +3043,47 @@
           "message"
         ],
         "title": "MessageResponse"
+      },
+      "MfaTokenRequest": {
+        "properties": {
+          "mfa_token": {
+            "type": "string",
+            "title": "Mfa Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mfa_token"
+        ],
+        "title": "MfaTokenRequest"
+      },
+      "MfaTotpCodeRequest": {
+        "properties": {
+          "mfa_token": {
+            "type": "string",
+            "title": "Mfa Token"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 8,
+            "minLength": 6,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mfa_token",
+          "code"
+        ],
+        "title": "MfaTotpCodeRequest"
+      },
+      "NationalIdType": {
+        "type": "string",
+        "enum": [
+          "pan",
+          "other"
+        ],
+        "title": "NationalIdType"
       },
       "NearbyBusinessRequest": {
         "properties": {
@@ -3271,6 +3475,29 @@
         ],
         "title": "TokenResponse"
       },
+      "TotpSetupResponse": {
+        "properties": {
+          "otpauth_uri": {
+            "type": "string",
+            "title": "Otpauth Uri"
+          },
+          "secret": {
+            "type": "string",
+            "title": "Secret"
+          },
+          "qr_svg": {
+            "type": "string",
+            "title": "Qr Svg"
+          }
+        },
+        "type": "object",
+        "required": [
+          "otpauth_uri",
+          "secret",
+          "qr_svg"
+        ],
+        "title": "TotpSetupResponse"
+      },
       "UserLogin": {
         "properties": {
           "email": {
@@ -3303,11 +3530,63 @@
             "type": "string",
             "nullable": true,
             "title": "Avatar Url"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 50,
+            "nullable": true,
+            "title": "Phone"
+          },
+          "address_line1": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true,
+            "title": "Address Line1"
+          },
+          "address_line2": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true,
+            "title": "Address Line2"
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 100,
+            "nullable": true,
+            "title": "City"
+          },
+          "state": {
+            "type": "string",
+            "maxLength": 100,
+            "nullable": true,
+            "title": "State"
+          },
+          "postal_code": {
+            "type": "string",
+            "maxLength": 20,
+            "nullable": true,
+            "title": "Postal Code"
+          },
+          "country": {
+            "type": "string",
+            "maxLength": 100,
+            "nullable": true,
+            "title": "Country"
+          },
+          "national_id_type": {
+            "$ref": "#/components/schemas/NationalIdType",
+            "nullable": true
+          },
+          "national_id_number": {
+            "type": "string",
+            "maxLength": 64,
+            "nullable": true,
+            "title": "National Id Number"
           }
         },
         "type": "object",
         "title": "UserProfileUpdate",
-        "description": "Self-service PATCH /auth/me payload. Only full_name / avatar_url are editable;\nemail, role, and is_active are omitted so extra body keys are silently dropped."
+        "description": "Self-service PATCH /auth/me. email, role, is_active, and TOTP secrets are omitted."
       },
       "UserRegister": {
         "properties": {
@@ -3365,6 +3644,60 @@
             "type": "string",
             "nullable": true,
             "title": "Avatar Url"
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true,
+            "title": "Phone"
+          },
+          "address_line1": {
+            "type": "string",
+            "nullable": true,
+            "title": "Address Line1"
+          },
+          "address_line2": {
+            "type": "string",
+            "nullable": true,
+            "title": "Address Line2"
+          },
+          "city": {
+            "type": "string",
+            "nullable": true,
+            "title": "City"
+          },
+          "state": {
+            "type": "string",
+            "nullable": true,
+            "title": "State"
+          },
+          "postal_code": {
+            "type": "string",
+            "nullable": true,
+            "title": "Postal Code"
+          },
+          "country": {
+            "type": "string",
+            "nullable": true,
+            "title": "Country"
+          },
+          "national_id_type": {
+            "$ref": "#/components/schemas/NationalIdType",
+            "nullable": true
+          },
+          "national_id_number": {
+            "type": "string",
+            "nullable": true,
+            "title": "National Id Number"
+          },
+          "auth_provider": {
+            "type": "string",
+            "title": "Auth Provider",
+            "default": "password"
+          },
+          "totp_enabled": {
+            "type": "boolean",
+            "title": "Totp Enabled",
+            "default": false
           },
           "created_at": {
             "type": "string",

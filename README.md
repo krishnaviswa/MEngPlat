@@ -1720,9 +1720,21 @@ portable, no-installer download used originally); override their paths with the 
 (not gitignored) so the app builds without needing Java on every clone -- only regeneration
 needs it.
 
+**Mandatory TOTP MFA (S-020):** `lib/features/auth/login_screen.dart` mirrors
+`frontend/src/components/LoginForm.tsx`'s three-step flow -- credentials, then either
+first-time enrollment (QR via `flutter_svg` + secret text) or a returning-user code-verify
+step, driven by `LoginResult.mfa_required` / `mfa_enrollment_required` from `POST /auth/login`.
+`AuthController` (`lib/features/auth/auth_provider.dart`) only resolves to a session after
+`totpConfirm`/`totpVerify` succeeds -- `submitCredentials` alone never yields tokens for a
+password account, matching the backend contract.
 
-
-### AI coding tool configuration (Cursor + Claude Code)
+**CI emulator check (`.github/workflows/mobile-emulator-check.yml`):** on push/PR touching
+`mobile/**` or `backend/**` (and via manual `workflow_dispatch`), boots a real KVM-accelerated
+Android emulator on GitHub's Linux runners (`reactivecircus/android-emulator-runner`) against a
+throwaway Postgres/Redis + backend stood up in the same job -- never the Railway DB -- and runs
+`mobile/integration_test/app_test.dart`, which signs in as the seeded demo customer, completes
+the TOTP verify step using the fixed demo secret (`otp` package, RFC 6238), and asserts the
+business list renders. Screenshot and backend log are uploaded as build artifacts either way.
 
 This repo is built with both Cursor and Claude Code, so every convention is defined
 **twice, in each tool's native format** — a session started in either tool should

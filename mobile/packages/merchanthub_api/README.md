@@ -74,6 +74,9 @@ Class | Method | HTTP request | Description
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**logoutApiV1AuthLogoutPost**](doc/AuthenticationApi.md#logoutapiv1authlogoutpost) | **POST** /api/v1/auth/logout | Logout
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**refreshTokenApiV1AuthRefreshPost**](doc/AuthenticationApi.md#refreshtokenapiv1authrefreshpost) | **POST** /api/v1/auth/refresh | Refresh Token
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**registerApiV1AuthRegisterPost**](doc/AuthenticationApi.md#registerapiv1authregisterpost) | **POST** /api/v1/auth/register | Register
+[*AuthenticationApi*](doc/AuthenticationApi.md) | [**totpConfirmApiV1AuthMfaTotpConfirmPost**](doc/AuthenticationApi.md#totpconfirmapiv1authmfatotpconfirmpost) | **POST** /api/v1/auth/mfa/totp/confirm | Totp Confirm
+[*AuthenticationApi*](doc/AuthenticationApi.md) | [**totpSetupApiV1AuthMfaTotpSetupPost**](doc/AuthenticationApi.md#totpsetupapiv1authmfatotpsetuppost) | **POST** /api/v1/auth/mfa/totp/setup | Totp Setup
+[*AuthenticationApi*](doc/AuthenticationApi.md) | [**totpVerifyApiV1AuthMfaTotpVerifyPost**](doc/AuthenticationApi.md#totpverifyapiv1authmfatotpverifypost) | **POST** /api/v1/auth/mfa/totp/verify | Totp Verify
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**updateMeApiV1AuthMePatch**](doc/AuthenticationApi.md#updatemeapiv1authmepatch) | **PATCH** /api/v1/auth/me | Update Me
 [*BusinessesApi*](doc/BusinessesApi.md) | [**approveBusinessApiV1BusinessesBusinessIdApprovePost**](doc/BusinessesApi.md#approvebusinessapiv1businessesbusinessidapprovepost) | **POST** /api/v1/businesses/{business_id}/approve | Approve Business
 [*BusinessesApi*](doc/BusinessesApi.md) | [**createBusinessApiV1BusinessesPost**](doc/BusinessesApi.md#createbusinessapiv1businessespost) | **POST** /api/v1/businesses | Create Business
@@ -132,9 +135,13 @@ Class | Method | HTTP request | Description
  - [GoogleAuthRequest](doc/GoogleAuthRequest.md)
  - [HTTPValidationError](doc/HTTPValidationError.md)
  - [LocationInner](doc/LocationInner.md)
+ - [LoginResult](doc/LoginResult.md)
  - [LogoutRequest](doc/LogoutRequest.md)
  - [MerchantInsightsResponse](doc/MerchantInsightsResponse.md)
  - [MessageResponse](doc/MessageResponse.md)
+ - [MfaTokenRequest](doc/MfaTokenRequest.md)
+ - [MfaTotpCodeRequest](doc/MfaTotpCodeRequest.md)
+ - [NationalIdType](doc/NationalIdType.md)
  - [NearbyBusinessRequest](doc/NearbyBusinessRequest.md)
  - [NotificationResponse](doc/NotificationResponse.md)
  - [PhotoResponse](doc/PhotoResponse.md)
@@ -149,6 +156,7 @@ Class | Method | HTTP request | Description
  - [ReviewUpdate](doc/ReviewUpdate.md)
  - [Sentiment](doc/Sentiment.md)
  - [TokenResponse](doc/TokenResponse.md)
+ - [TotpSetupResponse](doc/TotpSetupResponse.md)
  - [UserLogin](doc/UserLogin.md)
  - [UserProfileUpdate](doc/UserProfileUpdate.md)
  - [UserRegister](doc/UserRegister.md)

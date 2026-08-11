@@ -11,9 +11,13 @@ import 'package:dio/dio.dart';
 import 'package:merchanthub_api/src/api_util.dart';
 import 'package:merchanthub_api/src/model/google_auth_request.dart';
 import 'package:merchanthub_api/src/model/http_validation_error.dart';
+import 'package:merchanthub_api/src/model/login_result.dart';
 import 'package:merchanthub_api/src/model/logout_request.dart';
 import 'package:merchanthub_api/src/model/message_response.dart';
+import 'package:merchanthub_api/src/model/mfa_token_request.dart';
+import 'package:merchanthub_api/src/model/mfa_totp_code_request.dart';
 import 'package:merchanthub_api/src/model/token_response.dart';
+import 'package:merchanthub_api/src/model/totp_setup_response.dart';
 import 'package:merchanthub_api/src/model/user_login.dart';
 import 'package:merchanthub_api/src/model/user_profile_update.dart';
 import 'package:merchanthub_api/src/model/user_register.dart';
@@ -107,7 +111,7 @@ class AuthenticationApi {
   }
 
   /// Google Auth
-  /// Sign in (or register) with Google. ID-token flow: the frontend obtains a signed credential from Google Identity Services client-side and sends it here for verification -- no authorization code, no redirect_uri, no client secret on this side.  **Request:** credential — the ID token JWT from Google&#39;s sign-in button **Response:** JWT access_token + refresh_token **Errors:** 401 invalid/expired Google token, 403 email already registered and not Google-verified (link rejected — take over risk), inactive account
+  /// Sign in (or register) with Google. ID-token flow: the frontend obtains a signed credential from Google Identity Services client-side and sends it here for verification -- no authorization code, no redirect_uri, no client secret on this side.  Google path does **not** require TOTP (Gmail identity is the alternate factor).  **Request:** credential — the ID token JWT from Google&#39;s sign-in button **Response:** JWT access_token + refresh_token **Errors:** 401 invalid/expired Google token, 403 email already registered and not Google-verified (link rejected — take over risk), inactive account
   ///
   /// Parameters:
   /// * [googleAuthRequest] 
@@ -202,7 +206,7 @@ class AuthenticationApi {
   }
 
   /// Login
-  /// Authenticate with email and password.  **Request:** email, password **Response:** JWT access_token + refresh_token **Errors:** 400 account is Google-only (no password set), 401 invalid credentials, 403 inactive account
+  /// Authenticate with email and password.  **Request:** email, password **Response:** Either JWT tokens (should not happen for password accounts without TOTP), or &#x60;{ mfa_required, mfa_token }&#x60; / &#x60;{ mfa_enrollment_required, mfa_token }&#x60; for TOTP. **Errors:** 400 account is Google-only (no password set), 401 invalid credentials, 403 inactive
   ///
   /// Parameters:
   /// * [userLogin] 
@@ -213,9 +217,9 @@ class AuthenticationApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [TokenResponse] as data
+  /// Returns a [Future] containing a [Response] with a [LoginResult] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<TokenResponse>> loginApiV1AuthLoginPost({ 
+  Future<Response<LoginResult>> loginApiV1AuthLoginPost({ 
     required UserLogin userLogin,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -265,14 +269,14 @@ class AuthenticationApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    TokenResponse? _responseData;
+    LoginResult? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(TokenResponse),
-      ) as TokenResponse;
+        specifiedType: const FullType(LoginResult),
+      ) as LoginResult;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -284,7 +288,7 @@ class AuthenticationApi {
       );
     }
 
-    return Response<TokenResponse>(
+    return Response<LoginResult>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -478,7 +482,7 @@ class AuthenticationApi {
   }
 
   /// Register
-  /// Register a new user account.  **Request:** email, full_name, password (min 8 chars), role (customer|merchant|admin blocked for public) **Response:** Created user profile (no tokens — login separately) **Errors:** 409 if email exists
+  /// Register a new user account.  **Request:** email, full_name, password (min 8 chars), role (customer|merchant|admin blocked for public) **Response:** Created user profile (no tokens — login separately; password login requires TOTP enrollment) **Errors:** 409 if email exists
   ///
   /// Parameters:
   /// * [userRegister] 
@@ -572,8 +576,293 @@ class AuthenticationApi {
     );
   }
 
+  /// Totp Confirm
+  /// Confirm TOTP enrollment with a first code from the authenticator app; issues session tokens.
+  ///
+  /// Parameters:
+  /// * [mfaTotpCodeRequest] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [TokenResponse] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<TokenResponse>> totpConfirmApiV1AuthMfaTotpConfirmPost({ 
+    required MfaTotpCodeRequest mfaTotpCodeRequest,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/v1/auth/mfa/totp/confirm';
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[],
+        ...?extra,
+      },
+      contentType: 'application/json',
+      validateStatus: validateStatus,
+    );
+
+    dynamic _bodyData;
+
+    try {
+      const _type = FullType(MfaTotpCodeRequest);
+      _bodyData = _serializers.serialize(mfaTotpCodeRequest, specifiedType: _type);
+
+    } catch(error, stackTrace) {
+      throw DioException(
+         requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final _response = await _dio.request<Object>(
+      _path,
+      data: _bodyData,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    TokenResponse? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(TokenResponse),
+      ) as TokenResponse;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<TokenResponse>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// Totp Setup
+  /// Start TOTP enrollment after password login (mfa_enrollment_required). Returns otpauth URI, manual secret, and QR SVG for the authenticator app.
+  ///
+  /// Parameters:
+  /// * [mfaTokenRequest] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [TotpSetupResponse] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<TotpSetupResponse>> totpSetupApiV1AuthMfaTotpSetupPost({ 
+    required MfaTokenRequest mfaTokenRequest,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/v1/auth/mfa/totp/setup';
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[],
+        ...?extra,
+      },
+      contentType: 'application/json',
+      validateStatus: validateStatus,
+    );
+
+    dynamic _bodyData;
+
+    try {
+      const _type = FullType(MfaTokenRequest);
+      _bodyData = _serializers.serialize(mfaTokenRequest, specifiedType: _type);
+
+    } catch(error, stackTrace) {
+      throw DioException(
+         requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final _response = await _dio.request<Object>(
+      _path,
+      data: _bodyData,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    TotpSetupResponse? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(TotpSetupResponse),
+      ) as TotpSetupResponse;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<TotpSetupResponse>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// Totp Verify
+  /// Complete password login by verifying the authenticator code; issues session tokens.
+  ///
+  /// Parameters:
+  /// * [mfaTotpCodeRequest] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [TokenResponse] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<TokenResponse>> totpVerifyApiV1AuthMfaTotpVerifyPost({ 
+    required MfaTotpCodeRequest mfaTotpCodeRequest,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/v1/auth/mfa/totp/verify';
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[],
+        ...?extra,
+      },
+      contentType: 'application/json',
+      validateStatus: validateStatus,
+    );
+
+    dynamic _bodyData;
+
+    try {
+      const _type = FullType(MfaTotpCodeRequest);
+      _bodyData = _serializers.serialize(mfaTotpCodeRequest, specifiedType: _type);
+
+    } catch(error, stackTrace) {
+      throw DioException(
+         requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final _response = await _dio.request<Object>(
+      _path,
+      data: _bodyData,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    TokenResponse? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(TokenResponse),
+      ) as TokenResponse;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<TokenResponse>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
   /// Update Me
-  /// Update the caller&#39;s own profile (full_name and/or avatar_url). email, role, and is_active are not on the schema and are silently ignored if sent.
+  /// Update the caller&#39;s own profile (name, avatar, phone, address, national ID). email, role, is_active, and TOTP fields are not on the schema and are silently ignored if sent.
   ///
   /// Parameters:
   /// * [userProfileUpdate] 

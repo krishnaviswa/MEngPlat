@@ -15,6 +15,9 @@ Method | HTTP request | Description
 [**logoutApiV1AuthLogoutPost**](AuthenticationApi.md#logoutapiv1authlogoutpost) | **POST** /api/v1/auth/logout | Logout
 [**refreshTokenApiV1AuthRefreshPost**](AuthenticationApi.md#refreshtokenapiv1authrefreshpost) | **POST** /api/v1/auth/refresh | Refresh Token
 [**registerApiV1AuthRegisterPost**](AuthenticationApi.md#registerapiv1authregisterpost) | **POST** /api/v1/auth/register | Register
+[**totpConfirmApiV1AuthMfaTotpConfirmPost**](AuthenticationApi.md#totpconfirmapiv1authmfatotpconfirmpost) | **POST** /api/v1/auth/mfa/totp/confirm | Totp Confirm
+[**totpSetupApiV1AuthMfaTotpSetupPost**](AuthenticationApi.md#totpsetupapiv1authmfatotpsetuppost) | **POST** /api/v1/auth/mfa/totp/setup | Totp Setup
+[**totpVerifyApiV1AuthMfaTotpVerifyPost**](AuthenticationApi.md#totpverifyapiv1authmfatotpverifypost) | **POST** /api/v1/auth/mfa/totp/verify | Totp Verify
 [**updateMeApiV1AuthMePatch**](AuthenticationApi.md#updatemeapiv1authmepatch) | **PATCH** /api/v1/auth/me | Update Me
 
 
@@ -62,7 +65,7 @@ This endpoint does not need any parameter.
 
 Google Auth
 
-Sign in (or register) with Google. ID-token flow: the frontend obtains a signed credential from Google Identity Services client-side and sends it here for verification -- no authorization code, no redirect_uri, no client secret on this side.  **Request:** credential — the ID token JWT from Google's sign-in button **Response:** JWT access_token + refresh_token **Errors:** 401 invalid/expired Google token, 403 email already registered and not Google-verified (link rejected — take over risk), inactive account
+Sign in (or register) with Google. ID-token flow: the frontend obtains a signed credential from Google Identity Services client-side and sends it here for verification -- no authorization code, no redirect_uri, no client secret on this side.  Google path does **not** require TOTP (Gmail identity is the alternate factor).  **Request:** credential — the ID token JWT from Google's sign-in button **Response:** JWT access_token + refresh_token **Errors:** 401 invalid/expired Google token, 403 email already registered and not Google-verified (link rejected — take over risk), inactive account
 
 ### Example
 ```dart
@@ -101,11 +104,11 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **loginApiV1AuthLoginPost**
-> TokenResponse loginApiV1AuthLoginPost(userLogin)
+> LoginResult loginApiV1AuthLoginPost(userLogin)
 
 Login
 
-Authenticate with email and password.  **Request:** email, password **Response:** JWT access_token + refresh_token **Errors:** 400 account is Google-only (no password set), 401 invalid credentials, 403 inactive account
+Authenticate with email and password.  **Request:** email, password **Response:** Either JWT tokens (should not happen for password accounts without TOTP), or `{ mfa_required, mfa_token }` / `{ mfa_enrollment_required, mfa_token }` for TOTP. **Errors:** 400 account is Google-only (no password set), 401 invalid credentials, 403 inactive
 
 ### Example
 ```dart
@@ -130,7 +133,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**TokenResponse**](TokenResponse.md)
+[**LoginResult**](LoginResult.md)
 
 ### Authorization
 
@@ -234,7 +237,7 @@ No authorization required
 
 Register
 
-Register a new user account.  **Request:** email, full_name, password (min 8 chars), role (customer|merchant|admin blocked for public) **Response:** Created user profile (no tokens — login separately) **Errors:** 409 if email exists
+Register a new user account.  **Request:** email, full_name, password (min 8 chars), role (customer|merchant|admin blocked for public) **Response:** Created user profile (no tokens — login separately; password login requires TOTP enrollment) **Errors:** 409 if email exists
 
 ### Example
 ```dart
@@ -272,12 +275,141 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **totpConfirmApiV1AuthMfaTotpConfirmPost**
+> TokenResponse totpConfirmApiV1AuthMfaTotpConfirmPost(mfaTotpCodeRequest)
+
+Totp Confirm
+
+Confirm TOTP enrollment with a first code from the authenticator app; issues session tokens.
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAuthenticationApi();
+final MfaTotpCodeRequest mfaTotpCodeRequest = ; // MfaTotpCodeRequest | 
+
+try {
+    final response = api.totpConfirmApiV1AuthMfaTotpConfirmPost(mfaTotpCodeRequest);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AuthenticationApi->totpConfirmApiV1AuthMfaTotpConfirmPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **mfaTotpCodeRequest** | [**MfaTotpCodeRequest**](MfaTotpCodeRequest.md)|  | 
+
+### Return type
+
+[**TokenResponse**](TokenResponse.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **totpSetupApiV1AuthMfaTotpSetupPost**
+> TotpSetupResponse totpSetupApiV1AuthMfaTotpSetupPost(mfaTokenRequest)
+
+Totp Setup
+
+Start TOTP enrollment after password login (mfa_enrollment_required). Returns otpauth URI, manual secret, and QR SVG for the authenticator app.
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAuthenticationApi();
+final MfaTokenRequest mfaTokenRequest = ; // MfaTokenRequest | 
+
+try {
+    final response = api.totpSetupApiV1AuthMfaTotpSetupPost(mfaTokenRequest);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AuthenticationApi->totpSetupApiV1AuthMfaTotpSetupPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **mfaTokenRequest** | [**MfaTokenRequest**](MfaTokenRequest.md)|  | 
+
+### Return type
+
+[**TotpSetupResponse**](TotpSetupResponse.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **totpVerifyApiV1AuthMfaTotpVerifyPost**
+> TokenResponse totpVerifyApiV1AuthMfaTotpVerifyPost(mfaTotpCodeRequest)
+
+Totp Verify
+
+Complete password login by verifying the authenticator code; issues session tokens.
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAuthenticationApi();
+final MfaTotpCodeRequest mfaTotpCodeRequest = ; // MfaTotpCodeRequest | 
+
+try {
+    final response = api.totpVerifyApiV1AuthMfaTotpVerifyPost(mfaTotpCodeRequest);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AuthenticationApi->totpVerifyApiV1AuthMfaTotpVerifyPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **mfaTotpCodeRequest** | [**MfaTotpCodeRequest**](MfaTotpCodeRequest.md)|  | 
+
+### Return type
+
+[**TokenResponse**](TokenResponse.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **updateMeApiV1AuthMePatch**
 > UserResponse updateMeApiV1AuthMePatch(userProfileUpdate)
 
 Update Me
 
-Update the caller's own profile (full_name and/or avatar_url). email, role, and is_active are not on the schema and are silently ignored if sent.
+Update the caller's own profile (name, avatar, phone, address, national ID). email, role, is_active, and TOTP fields are not on the schema and are silently ignored if sent.
 
 ### Example
 ```dart

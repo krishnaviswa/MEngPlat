@@ -4,6 +4,7 @@
 
 // ignore_for_file: unused_element
 import 'package:merchanthub_api/src/model/user_role.dart';
+import 'package:merchanthub_api/src/model/national_id_type.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -18,6 +19,17 @@ part 'user_response.g.dart';
 /// * [role] 
 /// * [isActive] 
 /// * [avatarUrl] 
+/// * [phone] 
+/// * [addressLine1] 
+/// * [addressLine2] 
+/// * [city] 
+/// * [state] 
+/// * [postalCode] 
+/// * [country] 
+/// * [nationalIdType] 
+/// * [nationalIdNumber] 
+/// * [authProvider] 
+/// * [totpEnabled] 
 /// * [createdAt] 
 @BuiltValue()
 abstract class UserResponse implements Built<UserResponse, UserResponseBuilder> {
@@ -40,6 +52,40 @@ abstract class UserResponse implements Built<UserResponse, UserResponseBuilder> 
   @BuiltValueField(wireName: r'avatar_url')
   String? get avatarUrl;
 
+  @BuiltValueField(wireName: r'phone')
+  String? get phone;
+
+  @BuiltValueField(wireName: r'address_line1')
+  String? get addressLine1;
+
+  @BuiltValueField(wireName: r'address_line2')
+  String? get addressLine2;
+
+  @BuiltValueField(wireName: r'city')
+  String? get city;
+
+  @BuiltValueField(wireName: r'state')
+  String? get state;
+
+  @BuiltValueField(wireName: r'postal_code')
+  String? get postalCode;
+
+  @BuiltValueField(wireName: r'country')
+  String? get country;
+
+  @BuiltValueField(wireName: r'national_id_type')
+  NationalIdType? get nationalIdType;
+  // enum nationalIdTypeEnum {  pan,  other,  };
+
+  @BuiltValueField(wireName: r'national_id_number')
+  String? get nationalIdNumber;
+
+  @BuiltValueField(wireName: r'auth_provider')
+  String? get authProvider;
+
+  @BuiltValueField(wireName: r'totp_enabled')
+  bool? get totpEnabled;
+
   @BuiltValueField(wireName: r'created_at')
   DateTime get createdAt;
 
@@ -48,7 +94,9 @@ abstract class UserResponse implements Built<UserResponse, UserResponseBuilder> 
   factory UserResponse([void updates(UserResponseBuilder b)]) = _$UserResponse;
 
   @BuiltValueHook(initializeBuilder: true)
-  static void _defaults(UserResponseBuilder b) => b;
+  static void _defaults(UserResponseBuilder b) => b
+      ..authProvider = 'password'
+      ..totpEnabled = false;
 
   @BuiltValueSerializer(custom: true)
   static Serializer<UserResponse> get serializer => _$UserResponseSerializer();
@@ -96,6 +144,83 @@ class _$UserResponseSerializer implements PrimitiveSerializer<UserResponse> {
       yield serializers.serialize(
         object.avatarUrl,
         specifiedType: const FullType.nullable(String),
+      );
+    }
+    if (object.phone != null) {
+      yield r'phone';
+      yield serializers.serialize(
+        object.phone,
+        specifiedType: const FullType.nullable(String),
+      );
+    }
+    if (object.addressLine1 != null) {
+      yield r'address_line1';
+      yield serializers.serialize(
+        object.addressLine1,
+        specifiedType: const FullType.nullable(String),
+      );
+    }
+    if (object.addressLine2 != null) {
+      yield r'address_line2';
+      yield serializers.serialize(
+        object.addressLine2,
+        specifiedType: const FullType.nullable(String),
+      );
+    }
+    if (object.city != null) {
+      yield r'city';
+      yield serializers.serialize(
+        object.city,
+        specifiedType: const FullType.nullable(String),
+      );
+    }
+    if (object.state != null) {
+      yield r'state';
+      yield serializers.serialize(
+        object.state,
+        specifiedType: const FullType.nullable(String),
+      );
+    }
+    if (object.postalCode != null) {
+      yield r'postal_code';
+      yield serializers.serialize(
+        object.postalCode,
+        specifiedType: const FullType.nullable(String),
+      );
+    }
+    if (object.country != null) {
+      yield r'country';
+      yield serializers.serialize(
+        object.country,
+        specifiedType: const FullType.nullable(String),
+      );
+    }
+    if (object.nationalIdType != null) {
+      yield r'national_id_type';
+      yield serializers.serialize(
+        object.nationalIdType,
+        specifiedType: const FullType(NationalIdType),
+      );
+    }
+    if (object.nationalIdNumber != null) {
+      yield r'national_id_number';
+      yield serializers.serialize(
+        object.nationalIdNumber,
+        specifiedType: const FullType.nullable(String),
+      );
+    }
+    if (object.authProvider != null) {
+      yield r'auth_provider';
+      yield serializers.serialize(
+        object.authProvider,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.totpEnabled != null) {
+      yield r'totp_enabled';
+      yield serializers.serialize(
+        object.totpEnabled,
+        specifiedType: const FullType(bool),
       );
     }
     yield r'created_at';
@@ -168,6 +293,91 @@ class _$UserResponseSerializer implements PrimitiveSerializer<UserResponse> {
           ) as String?;
           if (valueDes == null) continue;
           result.avatarUrl = valueDes;
+          break;
+        case r'phone':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.phone = valueDes;
+          break;
+        case r'address_line1':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.addressLine1 = valueDes;
+          break;
+        case r'address_line2':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.addressLine2 = valueDes;
+          break;
+        case r'city':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.city = valueDes;
+          break;
+        case r'state':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.state = valueDes;
+          break;
+        case r'postal_code':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.postalCode = valueDes;
+          break;
+        case r'country':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.country = valueDes;
+          break;
+        case r'national_id_type':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(NationalIdType),
+          ) as NationalIdType;
+          result.nationalIdType = valueDes;
+          break;
+        case r'national_id_number':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.nationalIdNumber = valueDes;
+          break;
+        case r'auth_provider':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.authProvider = valueDes;
+          break;
+        case r'totp_enabled':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.totpEnabled = valueDes;
           break;
         case r'created_at':
           final valueDes = serializers.deserialize(

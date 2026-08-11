@@ -15,7 +15,14 @@ class _FakeAuthRepository extends AuthRepository {
   Future<bool> hasSession() async => false;
 
   @override
-  Future<UserResponse> login({required String email, required String password}) async {
+  Future<LoginResult> login({required String email, required String password}) async {
+    return LoginResult((b) => b
+      ..mfaRequired = true
+      ..mfaToken = 'fake-mfa-token');
+  }
+
+  @override
+  Future<UserResponse> totpVerify({required String mfaToken, required String code}) async {
     return UserResponse((b) => b
       ..id = 'fake-id'
       ..email = 'test@example.com'
@@ -44,6 +51,11 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('emailField')), 'test@example.com');
     await tester.enterText(find.byKey(const Key('passwordField')), 'password123');
+    await tester.tap(find.byKey(const Key('submitButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('mfaCodeField')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('mfaCodeField')), '123456');
     await tester.tap(find.byKey(const Key('submitButton')));
     await tester.pumpAndSettle();
 

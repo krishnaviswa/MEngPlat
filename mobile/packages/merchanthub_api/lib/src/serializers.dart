@@ -28,9 +28,13 @@ import 'package:merchanthub_api/src/model/geocode_response.dart';
 import 'package:merchanthub_api/src/model/google_auth_request.dart';
 import 'package:merchanthub_api/src/model/http_validation_error.dart';
 import 'package:merchanthub_api/src/model/location_inner.dart';
+import 'package:merchanthub_api/src/model/login_result.dart';
 import 'package:merchanthub_api/src/model/logout_request.dart';
 import 'package:merchanthub_api/src/model/merchant_insights_response.dart';
 import 'package:merchanthub_api/src/model/message_response.dart';
+import 'package:merchanthub_api/src/model/mfa_token_request.dart';
+import 'package:merchanthub_api/src/model/mfa_totp_code_request.dart';
+import 'package:merchanthub_api/src/model/national_id_type.dart';
 import 'package:merchanthub_api/src/model/nearby_business_request.dart';
 import 'package:merchanthub_api/src/model/notification_response.dart';
 import 'package:merchanthub_api/src/model/photo_response.dart';
@@ -45,6 +49,7 @@ import 'package:merchanthub_api/src/model/review_status.dart';
 import 'package:merchanthub_api/src/model/review_update.dart';
 import 'package:merchanthub_api/src/model/sentiment.dart';
 import 'package:merchanthub_api/src/model/token_response.dart';
+import 'package:merchanthub_api/src/model/totp_setup_response.dart';
 import 'package:merchanthub_api/src/model/user_login.dart';
 import 'package:merchanthub_api/src/model/user_profile_update.dart';
 import 'package:merchanthub_api/src/model/user_register.dart';
@@ -69,9 +74,13 @@ part 'serializers.g.dart';
   GoogleAuthRequest,
   HTTPValidationError,
   LocationInner,
+  LoginResult,
   LogoutRequest,
   MerchantInsightsResponse,
   MessageResponse,
+  MfaTokenRequest,
+  MfaTotpCodeRequest,
+  NationalIdType,
   NearbyBusinessRequest,
   NotificationResponse,
   PhotoResponse,
@@ -86,6 +95,7 @@ part 'serializers.g.dart';
   ReviewUpdate,
   Sentiment,
   TokenResponse,
+  TotpSetupResponse,
   UserLogin,
   UserProfileUpdate,
   UserRegister,

@@ -9,14 +9,57 @@ class AuthRepository {
 
   final ApiClient _client;
 
-  Future<UserResponse> login({required String email, required String password}) async {
+  /// Password login is a two-step MFA gate (see S-020): this returns the raw
+  /// [LoginResult] rather than a session, since a password account never gets
+  /// tokens without also completing [totpVerify] or [totpConfirm].
+  Future<LoginResult> login({required String email, required String password}) async {
     try {
-      final tokenResponse = await _client.authFreeApi.getAuthenticationApi().loginApiV1AuthLoginPost(
+      final response = await _client.authFreeApi.getAuthenticationApi().loginApiV1AuthLoginPost(
             userLogin: UserLogin((b) => b
               ..email = email
               ..password = password),
           );
-      await _client.tokenStorage.save(tokenResponse.data!);
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<TotpSetupResponse> totpSetup({required String mfaToken}) async {
+    try {
+      final response = await _client.authFreeApi.getAuthenticationApi().totpSetupApiV1AuthMfaTotpSetupPost(
+            mfaTokenRequest: MfaTokenRequest((b) => b..mfaToken = mfaToken),
+          );
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// First code from a freshly enrolled authenticator; issues session tokens.
+  Future<UserResponse> totpConfirm({required String mfaToken, required String code}) {
+    return _completeMfa(mfaToken: mfaToken, code: code, confirm: true);
+  }
+
+  /// Code from an already-enrolled authenticator; issues session tokens.
+  Future<UserResponse> totpVerify({required String mfaToken, required String code}) {
+    return _completeMfa(mfaToken: mfaToken, code: code, confirm: false);
+  }
+
+  Future<UserResponse> _completeMfa({
+    required String mfaToken,
+    required String code,
+    required bool confirm,
+  }) async {
+    try {
+      final request = MfaTotpCodeRequest((b) => b
+        ..mfaToken = mfaToken
+        ..code = code);
+      final authApi = _client.authFreeApi.getAuthenticationApi();
+      final response = confirm
+          ? await authApi.totpConfirmApiV1AuthMfaTotpConfirmPost(mfaTotpCodeRequest: request)
+          : await authApi.totpVerifyApiV1AuthMfaTotpVerifyPost(mfaTotpCodeRequest: request);
+      await _client.tokenStorage.save(response.data!);
       return me();
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
