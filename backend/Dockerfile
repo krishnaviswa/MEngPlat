@@ -1,4 +1,5 @@
 FROM python:3.12-slim
+# Coordinated stack redeploy marker (Railway GitHub auto-deploy).
 
 WORKDIR /app
 

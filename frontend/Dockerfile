@@ -1,4 +1,5 @@
 FROM node:20-alpine
+# Coordinated stack redeploy marker (Railway GitHub auto-deploy).
 
 WORKDIR /app
 
