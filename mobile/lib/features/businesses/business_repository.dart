@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:merchanthub_api/merchanthub_api.dart';
 
-import '../../core/models/business.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
 
@@ -9,13 +9,13 @@ class BusinessRepository {
 
   final ApiClient _client;
 
-  Future<List<Business>> searchBusinesses({int page = 1, int pageSize = 20}) async {
+  Future<List<BusinessResponse>> searchBusinesses({int page = 1, int pageSize = 20}) async {
     try {
-      final response = await _client.apiDio.get<List<dynamic>>(
-        '/search/businesses',
-        queryParameters: {'page': page, 'page_size': pageSize},
-      );
-      return response.data!.map((json) => Business.fromJson(json as Map<String, dynamic>)).toList();
+      final response = await _client.api.getSearchApi().searchBusinessesApiV1SearchBusinessesGet(
+            page: page,
+            pageSize: pageSize,
+          );
+      return response.data!.toList();
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }

@@ -1603,19 +1603,35 @@ MEngPlat/
 │   ├── data/real-businesses/    # US seed JSON (packaged in backend image)
 │   └── tests/test_api.py
 │
-└── frontend/
-    ├── Dockerfile
-    ├── railway.json
-    ├── package.json
-    ├── figma.config.json        # Code Connect config (see §8)
-    └── src/
-        ├── app/                 # Next.js App Router pages
-        │   ├── layout.tsx, ClientLayout.tsx, page.tsx, globals.css
-        │   ├── search/, businesses/[slug]/, login/, register/
-        │   ├── profile/, settings/, merchant/dashboard/, admin/
-        ├── components/          # 16 reusable React components + __tests__/
-        │   └── *.figma.tsx      # Code Connect mappings, one per mapped component
-        └── lib/api.ts           # API client
+├── frontend/
+│   ├── Dockerfile
+│   ├── railway.json
+│   ├── package.json
+│   ├── figma.config.json        # Code Connect config (see §8)
+│   └── src/
+│       ├── app/                 # Next.js App Router pages
+│       │   ├── layout.tsx, ClientLayout.tsx, page.tsx, globals.css
+│       │   ├── search/, businesses/[slug]/, login/, register/
+│       │   ├── profile/, settings/, merchant/dashboard/, admin/
+│       ├── components/          # 16 reusable React components + __tests__/
+│       │   └── *.figma.tsx      # Code Connect mappings, one per mapped component
+│       └── lib/api.ts           # API client
+│
+└── mobile/                      # Flutter client, third consumer of /api/v1 (see below)
+    ├── openapi.json             # Snapshot of the backend's OpenAPI schema (regenerable)
+    ├── scripts/generate_api_client.py  # Re-runs the OpenAPI → Dart codegen below
+    ├── packages/merchanthub_api/       # Generated Dio client + models -- do not hand-edit
+    ├── android/                        # Kept present; not the active dev loop yet (see below)
+    └── lib/
+        ├── main.dart, app.dart, router.dart
+        ├── core/
+        │   ├── config/app_config.dart      # API_BASE_URL via --dart-define
+        │   ├── network/api_client.dart     # Wraps merchanthub_api's generated MerchanthubApi
+        │   ├── network/auth_interceptor.dart
+        │   └── storage/token_storage.dart  # flutter_secure_storage
+        └── features/
+            ├── auth/                # login_screen, auth_repository, auth_provider
+            └── businesses/          # business_list_screen, business_repository
 ```
 
 
@@ -1627,6 +1643,50 @@ MEngPlat/
 - **Frontend App Router** — `page.tsx` defines a route; `"use client"` only where interactivity requires it
 - **Ports** — new external integrations get a `Protocol` + factory, matching `services/ai/` and `services/storage/`
 - **Docs** — this README is the only prose doc; update the relevant section rather than adding a new file
+
+
+
+### Mobile client (Flutter)
+
+`mobile/` is a Flutter app -- a third REST client of the same `/api/v1` backend, alongside
+the Next.js frontend. No backend changes were needed; see `ANDROID_APP_STRATEGY.md` for the
+original architecture decision and `MOBILE_SETUP_LOG.md` for the environment setup narrative
+(portable Flutter SDK, portable JRE, Railway Postgres for local dev).
+
+**Dev loop:** Flutter Web (`-d web-server`), not an Android emulator -- avoids Windows
+virtualization setup for day-to-day iteration. Android scaffolding (`mobile/android/`) is kept
+present for when a real APK build is needed (deferred; see `ANDROID_APP_STRATEGY.md` phase 5).
+
+```bash
+# Backend (from backend/, with PYTHONPATH set to backend/):
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# Mobile (from mobile/):
+flutter run -d web-server --web-port=5000 --dart-define=API_BASE_URL=http://localhost:8000
+```
+
+**`API_BASE_URL` flavors** (read via `String.fromEnvironment` in `lib/core/config/app_config.dart`,
+set with `--dart-define`): `http://localhost:8000` for local Compose/local backend; the Railway
+backend URL for staging/prod builds. Same JWT login/refresh flow either way -- only the base URL
+changes.
+
+**OpenAPI codegen (`mobile/packages/merchanthub_api/`):** models and the Dio-based API client
+are generated from the backend's live OpenAPI schema via `openapi-generator-cli` (`dart-dio`
+target), not hand-written -- this is what `mobile/openapi.json` and `mobile/scripts/` are for.
+`ApiClient` (`lib/core/network/api_client.dart`) wraps the generated `MerchanthubApi` with two
+Dio instances (one carrying `AuthInterceptor`, one auth-free for login/refresh) so the generated
+code's own auth interceptors are never used. **Regenerate after backend route/schema changes:**
+
+```bash
+python mobile/scripts/generate_api_client.py
+cd mobile && flutter analyze && flutter test
+```
+
+Needs a JRE and `openapi-generator-cli-7.14.0.jar` on disk (see `MOBILE_SETUP_LOG.md` for the
+portable, no-installer download used originally); override their paths with the `JAVA_BIN` /
+`OPENAPI_GENERATOR_JAR` env vars if yours live elsewhere. The generated package is committed
+(not gitignored) so the app builds without needing Java on every clone -- only regeneration
+needs it.
 
 
 

@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:merchanthub_api/merchanthub_api.dart';
 
-import '../../core/models/user.dart';
 import '../../core/network/api_client.dart';
 import 'auth_repository.dart';
 
@@ -12,9 +12,9 @@ final authRepositoryProvider = Provider<AuthRepository>(
   (ref) => AuthRepository(ref.watch(apiClientProvider)),
 );
 
-class AuthController extends AsyncNotifier<User?> {
+class AuthController extends AsyncNotifier<UserResponse?> {
   @override
-  FutureOr<User?> build() async {
+  FutureOr<UserResponse?> build() async {
     final repository = ref.watch(authRepositoryProvider);
     if (!await repository.hasSession()) return null;
     try {
@@ -39,4 +39,4 @@ class AuthController extends AsyncNotifier<User?> {
   }
 }
 
-final authControllerProvider = AsyncNotifierProvider<AuthController, User?>(AuthController.new);
+final authControllerProvider = AsyncNotifierProvider<AuthController, UserResponse?>(AuthController.new);

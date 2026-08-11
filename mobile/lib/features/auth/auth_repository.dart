@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:merchanthub_api/merchanthub_api.dart';
 
-import '../../core/models/token_response.dart';
-import '../../core/models/user.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
 
@@ -10,24 +9,24 @@ class AuthRepository {
 
   final ApiClient _client;
 
-  Future<User> login({required String email, required String password}) async {
+  Future<UserResponse> login({required String email, required String password}) async {
     try {
-      final tokenResponse = await _client.authFreeDio.post<Map<String, dynamic>>(
-        '/auth/login',
-        data: {'email': email, 'password': password},
-      );
-      final tokens = TokenResponse.fromJson(tokenResponse.data!);
-      await _client.tokenStorage.save(tokens);
+      final tokenResponse = await _client.authFreeApi.getAuthenticationApi().loginApiV1AuthLoginPost(
+            userLogin: UserLogin((b) => b
+              ..email = email
+              ..password = password),
+          );
+      await _client.tokenStorage.save(tokenResponse.data!);
       return me();
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
   }
 
-  Future<User> me() async {
+  Future<UserResponse> me() async {
     try {
-      final response = await _client.apiDio.get<Map<String, dynamic>>('/auth/me');
-      return User.fromJson(response.data!);
+      final response = await _client.api.getAuthenticationApi().getMeApiV1AuthMeGet();
+      return response.data!;
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }
@@ -36,7 +35,9 @@ class AuthRepository {
   Future<void> logout() async {
     final refreshToken = await _client.tokenStorage.readRefreshToken();
     try {
-      await _client.apiDio.post<void>('/auth/logout', data: {'refresh_token': refreshToken});
+      await _client.api.getAuthenticationApi().logoutApiV1AuthLogoutPost(
+            logoutRequest: LogoutRequest((b) => b..refreshToken = refreshToken),
+          );
     } on DioException {
       // Best-effort server-side revocation; local session ends regardless.
     } finally {

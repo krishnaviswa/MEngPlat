@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:merchanthub_mobile/core/network/api_client.dart';
-import 'package:merchanthub_mobile/core/models/user.dart';
 import 'package:merchanthub_mobile/features/auth/auth_provider.dart';
 import 'package:merchanthub_mobile/features/auth/auth_repository.dart';
 import 'package:merchanthub_mobile/features/auth/login_screen.dart';
@@ -15,14 +15,14 @@ class _FakeAuthRepository extends AuthRepository {
   Future<bool> hasSession() async => false;
 
   @override
-  Future<User> login({required String email, required String password}) async {
-    return const User(
-      id: 'fake-id',
-      email: 'test@example.com',
-      fullName: 'Test User',
-      role: UserRole.customer,
-      isActive: true,
-    );
+  Future<UserResponse> login({required String email, required String password}) async {
+    return UserResponse((b) => b
+      ..id = 'fake-id'
+      ..email = 'test@example.com'
+      ..fullName = 'Test User'
+      ..role = UserRole.customer
+      ..isActive = true
+      ..createdAt = DateTime(2026));
   }
 }
 

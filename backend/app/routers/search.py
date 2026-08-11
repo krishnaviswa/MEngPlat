@@ -1,4 +1,7 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query
+from pydantic import BeforeValidator
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -12,15 +15,31 @@ from app.services.geo import bounding_box, haversine_km
 router = APIRouter(prefix="/search", tags=["Search"])
 
 
+def _blank_to_none(value: object) -> object:
+    """Treat an empty-string query param as absent.
+
+    The generated OpenAPI Dart client (mobile/packages/merchanthub_api) always
+    serializes unset optional query params as `''` rather than omitting them
+    (openapi-generator dart-dio quirk), which 422s for non-string types before
+    reaching this handler. String params don't need this -- `''` already
+    parses fine and the filters below already treat it as "no filter".
+    """
+    return None if value == "" else value
+
+
+OptionalFloatQuery = Annotated[float | None, BeforeValidator(_blank_to_none)]
+OptionalSentimentQuery = Annotated[Sentiment | None, BeforeValidator(_blank_to_none)]
+
+
 @router.get("/businesses", response_model=list[BusinessResponse])
 async def search_businesses(
     q: str | None = Query(default=None, description="Search query"),
     city: str | None = None,
     category: str | None = None,
-    min_rating: float | None = None,
-    sentiment: Sentiment | None = None,
-    lat: float | None = None,
-    lng: float | None = None,
+    min_rating: OptionalFloatQuery = None,
+    sentiment: OptionalSentimentQuery = None,
+    lat: OptionalFloatQuery = None,
+    lng: OptionalFloatQuery = None,
     radius_km: float = 10.0,
     page: int = 1,
     page_size: int = 20,

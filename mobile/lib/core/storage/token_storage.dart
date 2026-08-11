@@ -1,6 +1,5 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
-import '../models/token_response.dart';
+import 'package:merchanthub_api/merchanthub_api.dart';
 
 class TokenStorage {
   TokenStorage({FlutterSecureStorage? storage}) : _storage = storage ?? const FlutterSecureStorage();

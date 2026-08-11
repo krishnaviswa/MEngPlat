@@ -1,21 +1,29 @@
 import 'package:dio/dio.dart';
+import 'package:merchanthub_api/merchanthub_api.dart';
 
-import '../models/token_response.dart';
 import '../storage/token_storage.dart';
 
 /// Mirrors the web frontend's refresh-on-401 contract (frontend/src/lib/api.ts):
 /// exactly one refresh-and-retry per request, auth endpoints never trigger a
 /// refresh loop, and concurrent 401s share a single in-flight refresh call.
 class AuthInterceptor extends Interceptor {
-  AuthInterceptor({required Dio apiDio, required Dio authFreeDio, required TokenStorage tokenStorage})
-      : _apiDio = apiDio,
-        _authFreeDio = authFreeDio,
+  AuthInterceptor({
+    required Dio apiDio,
+    required AuthenticationApi authenticationApi,
+    required TokenStorage tokenStorage,
+  })  : _apiDio = apiDio,
+        _authenticationApi = authenticationApi,
         _tokenStorage = tokenStorage;
 
-  static const _noRefreshRetryPrefixes = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/google'];
+  static const _noRefreshRetryPrefixes = [
+    '/api/v1/auth/login',
+    '/api/v1/auth/register',
+    '/api/v1/auth/refresh',
+    '/api/v1/auth/google',
+  ];
 
   final Dio _apiDio;
-  final Dio _authFreeDio;
+  final AuthenticationApi _authenticationApi;
   final TokenStorage _tokenStorage;
   Future<TokenResponse>? _refreshInFlight;
 
@@ -60,10 +68,7 @@ class AuthInterceptor extends Interceptor {
   }
 
   Future<TokenResponse> _refreshTokens(String refreshToken) async {
-    final response = await _authFreeDio.post<Map<String, dynamic>>(
-      '/auth/refresh',
-      queryParameters: {'refresh_token': refreshToken},
-    );
-    return TokenResponse.fromJson(response.data!);
+    final response = await _authenticationApi.refreshTokenApiV1AuthRefreshPost(refreshToken: refreshToken);
+    return response.data!;
   }
 }

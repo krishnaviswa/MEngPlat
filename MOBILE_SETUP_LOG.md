@@ -133,6 +133,121 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000`), start the Flutter app (`flu
 log in as `customer@example.com` / `customer123` at `http://localhost:5000` — confirm the
 business list now renders without the earlier timeout error.
 
+## Resumed session — timeout fix verified server-side, UI check handed to user (2026-08-11)
+
+Restarted both processes to complete the deferred re-verification:
+- Backend: `uvicorn app.main:app --host 127.0.0.1 --port 8000` — up, connected to the
+  Railway DB via `backend/.env`.
+- Flutter: `flutter run -d web-server --web-port=5000 --dart-define=API_BASE_URL=http://localhost:8000`
+  — served at `http://localhost:5000`.
+
+**Network-level confirmation the fix works:** timed the two calls the login→list flow
+makes, straight against the backend with `curl`:
+- `POST /api/v1/auth/login` → `200` in ~10.6s
+- `GET /api/v1/search/businesses?page=1&page_size=20` (the exact endpoint that previously
+  tripped the old 10s timeout) → `200` in ~12.1s
+
+Both are comfortably under the new 30s `receiveTimeout` in `api_client.dart`, and both
+returned real data from the live DB. This confirms the fix at the layer that actually
+matters (request duration vs. configured timeout) without depending on the UI.
+
+**UI-level check not completed by me:** the Browser pane could not render the app to
+verify visually — same limitation as the first pass (`ANDROID_APP_STRATEGY.md`-era
+spike verification). `computer{screenshot}` fails with "the Browser pane is not
+displayed, so the page is not compositing frames," and without a painted frame Flutter
+never builds its semantics tree, so `read_page`/`get_page_text` see an empty DOM even
+though network traffic (module loads, fonts) shows the app booted fine. Tried: fronting
+the tab, resizing the viewport, clicking the `flt-semantics-placeholder` via dispatched
+`MouseEvent`, waiting after each step — got as far as the placeholder responding (a lone
+`textbox` ref appeared, likely the engine's hidden text-measurement input) but the real
+login form never surfaced in the accessibility tree.
+
+**Handed to user:** asked them to open `http://localhost:5000` themselves, log in as
+`customer@example.com` / `customer123`, and confirm the business list renders without
+the old timeout error — both servers were left running for this.
+
+**Confirmed by user:** "yes i see busines loades" — login → business list round trip
+works end-to-end with the 30s timeout fix. **Task #12 closed; the spike is fully
+verified, both server-side and UI-side.**
+
+Both local processes (`uvicorn` PID 14816, Flutter `dartvm` PID 13088) stopped
+immediately after, per the standing note below — neither is holding a connection to the
+production Railway DB anymore.
+
+## Phase 2 — OpenAPI-generated Dart client (2026-08-11)
+
+Replaced the hand-written DTOs (`token_response.dart`, `user.dart`, `business.dart`) and
+raw Dio calls in the repositories with a generated client, per `ANDROID_APP_STRATEGY.md`
+phase 2 ("Wire OpenAPI codegen; document API_BASE_URL flavors in README").
+
+**Tooling decision:** the best-supported Dart target is `openapi-generator-cli`'s `dart-dio`
+generator, but it needs Java, which wasn't installed. Rather than fight Windows admin/UAC
+again (see the Postgres saga above), used **portable, no-installer** downloads — same
+pattern as the Flutter SDK itself:
+- Eclipse Temurin JRE 21 (`.zip`, ~49MB) from `github.com/adoptium/temurin21-binaries`,
+  extracted to `C:\src\jre`.
+- `openapi-generator-cli-7.14.0.jar` (~29MB) from Maven Central, saved to
+  `C:\src\openapi-generator\`.
+
+Both downloads were confirmed with the user first (filename/source/size) before fetching.
+The alternative considered was `swagger_dart_code_generator` (pure Dart, no Java, 55k
+weekly downloads) — rejected because it only targets Chopper, not Dio, which would have
+meant rewriting the already-verified `AuthInterceptor` refresh logic onto a different HTTP
+stack for no functional gain.
+
+**Generation:**
+```
+python -c "... fastapi.openapi.utils.get_openapi(..., openapi_version='3.0.3') ..." > mobile/openapi.json
+java -jar openapi-generator-cli-7.14.0.jar generate -i mobile/openapi.json -g dart-dio \
+  -o mobile/packages/merchanthub_api --additional-properties=... serializationLibrary=built_value
+```
+The generator output is a standalone pub package (own `pubspec.yaml`), so it was moved to
+`mobile/packages/merchanthub_api/` (sibling package) rather than left under `lib/generated/`
+(which would nest one package's `lib/` inside another's), and wired into `mobile/pubspec.yaml`
+via `path: packages/merchanthub_api`. It's **committed, not gitignored** — regenerating
+needs Java, but building the app shouldn't.
+
+**Bug found and fixed — blank optional query params:** `mobile/openapi.json`'s per-field
+schemas came out as Pydantic v2's 3.1-style `anyOf: [type, null]` even after forcing
+`openapi_version="3.0.3"` (that setting only stamps the top-level version string, it doesn't
+rewrite nested schemas). `openapi-generator`'s `dart-dio` null-guard logic only skips a query
+param when it has a literal default value (`page: int = 1` → guarded); params typed
+`Optional[X] = None` (`min_rating`, `sentiment`, `lat`, `lng`) got no guard at all, so the
+generated client always sent them as `''` when unset — which 422'd for the non-string types
+before the request even reached the search handler. Fixed both layers:
+1. `mobile/scripts/generate_api_client.py` (and the one-off generation above) now rewrites
+   `anyOf: [type, null]` → `{type, nullable: true}` before generating — proper OAS 3.0, not
+   a 3.1 shape wearing a 3.0 label. Didn't change the generator's behavior on its own, but is
+   correct hygiene for `mobile/openapi.json` as a shared contract regardless.
+2. `backend/app/routers/search.py`: added `OptionalFloatQuery`/`OptionalSentimentQuery`
+   (`Annotated[X | None, BeforeValidator(_blank_to_none)]`) for `min_rating`, `sentiment`,
+   `lat`, `lng` — treats `''` as absent, matching what the existing `if min_rating:` /
+   `if sentiment:` filters below already assumed. `q`/`city`/`category` didn't need this —
+   they're `str | None`, and `''` is already a valid string there.
+
+Backend `tests/` search suite (4 tests) still passes after the change.
+
+**Verified live**, end-to-end, via the Browser pane (semantics tree loaded this time — see
+below on why it worked here but not for the earlier timeout re-check): filled the real login
+form (`customer@example.com` / `customer123`) with `computer{type}` (had to switch from
+`form_input` — it sets the DOM `<input>` value directly, which doesn't reach Flutter's
+`TextEditingController` in web-canvas mode; real synthetic keystrokes via `computer{type}` do),
+submitted, and confirmed via `read_network_requests`:
+- `POST /api/v1/auth/login` → `200`
+- `GET /api/v1/auth/me` → `200`
+- `GET /api/v1/search/businesses?...` → `200` (was `422` before the fix above)
+
+`read_page` then showed 10 real businesses rendered (names, cities, ratings, review counts) —
+confirms the generated `built_value` deserialization round-trips correctly against live data,
+not just that the request succeeded.
+
+`flutter analyze` (3 pre-existing intentional infos only, generated package excluded via
+`analysis_options.yaml`) and `flutter test` (1/1 passing, fake repo updated to build a
+generated `UserResponse` via its builder) both clean.
+
+Regeneration workflow for future backend changes is `mobile/scripts/generate_api_client.py`,
+documented in `README.md` under "Mobile client (Flutter)".
+
 ## Before continuing to phase 3 (real feature screens)
 
 - Provision a **separate, dedicated dev Postgres** (not this production one) before any write-path testing (reviews, favorites, registration) — flagged above, still applies.
@@ -141,6 +256,5 @@ business list now renders without the earlier timeout error.
 ## Deferred (not part of this pass)
 
 - Android Studio + SDK + emulator/physical-device setup for a real APK build.
-- OpenAPI-generated Dart models/client (strategy doc phase 2).
 - Reviews/favorites screens, merchant screens, CI/Play Store pipeline (strategy doc phases 3-5).
-- `mobile/CLAUDE.md` + matching `.cursor/rules/mobile-flutter.mdc`, registration in `scripts/check_agent_config_sync.py`, and a `README.md` mention — per the repo's enforced doc-sync convention, worth doing once the spike is committed, not blocking the spike itself.
+- `mobile/CLAUDE.md` + matching `.cursor/rules/mobile-flutter.mdc`, and registration in `scripts/check_agent_config_sync.py` — per the repo's enforced doc-sync convention. Not yet done; the sync checker doesn't currently require it (`scripts/check_agent_config_sync.py --range` confirmed no failure), so it's not blocking, but should land before mobile work gets deep enough that a dedicated builder rule pays for itself.
