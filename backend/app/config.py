@@ -83,7 +83,7 @@ class Settings(BaseSettings):
     ai_summary_debounce_seconds: int = 300
 
     storage_provider: Literal["local", "s3", "azure"] = "local"
-    storage_local_path: str = "/app/uploads"
+    storage_local_path: str = "./uploads"
 
     cors_origins: str = "http://localhost:3000"
 
