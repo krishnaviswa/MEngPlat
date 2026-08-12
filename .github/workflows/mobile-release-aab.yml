@@ -1,0 +1,57 @@
+name: Mobile release AAB
+
+# Builds a signed Android App Bundle for Play upload when a `mobile-v*` tag is
+# pushed (e.g. `mobile-v1.0.0`). Separate from mobile-emulator-check.yml, which
+# gates PRs. See ANDROID_APP_STRATEGY.md "Step-by-step: signing keystore, CI
+# secrets, and the release-AAB job" for how to create the required secrets.
+
+on:
+  push:
+    tags:
+      - "mobile-v*"
+
+jobs:
+  build-aab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter pub get
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Decode keystore
+        working-directory: mobile/android
+        run: echo "${{ secrets.MOBILE_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
+
+      - name: Write key.properties
+        working-directory: mobile/android
+        run: |
+          cat > key.properties <<EOF
+          storeFile=release.keystore
+          storePassword=${{ secrets.MOBILE_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.MOBILE_KEY_ALIAS }}
+          keyPassword=${{ secrets.MOBILE_KEY_PASSWORD }}
+          EOF
+
+      - name: Build release AAB
+        working-directory: mobile
+        run: |
+          flutter build appbundle --release \
+            --dart-define=API_BASE_URL=${{ vars.MOBILE_PROD_API_BASE_URL }}
+
+      - name: Clean up signing material
+        if: always()
+        working-directory: mobile/android
+        run: rm -f release.keystore key.properties
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: mobile/build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
