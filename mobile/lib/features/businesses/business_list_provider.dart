@@ -23,7 +23,10 @@ final businessDetailProvider = FutureProvider.autoDispose.family<BusinessRespons
 /// own business (S-023 AC12) -- not a new endpoint, just `GET /businesses/mine`
 /// reused for a client-only check.
 final myBusinessIdsProvider = FutureProvider.autoDispose<Set<String>>((ref) async {
-  final user = ref.watch(authControllerProvider).valueOrNull;
+  // Await the *future* (not `.valueOrNull`) so this suspends until auth
+  // actually settles instead of racing a still-loading authControllerProvider
+  // -- same fix as FavoritedIdsController.build() in favorites_providers.dart.
+  final user = await ref.watch(authControllerProvider.future);
   if (user?.role != UserRole.merchant) return {};
   final mine = await ref.watch(businessRepositoryProvider).listMine();
   return mine.map((business) => business.id).toSet();

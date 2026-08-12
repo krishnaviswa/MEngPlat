@@ -166,7 +166,7 @@ Alternatives considered and rejected for now: Kotlin-only (no iOS path), React N
 | **2. Contract** | OpenAPI codegen + `API_BASE_URL` flavors | **Done** — `mobile/packages/merchanthub_api/`, README |
 | **3. Customer MVP** | Discover, reviews, favorites, notifications | **Mostly done** — code in place; slices S-023 / S-024 / S-025 still **Testing** (not Accepted) |
 | **4. Merchant later** | Insights (suggestion-only, same non-negotiable as web) | **Not started** |
-| **5. Ship Android** | Signed AAB + Play internal → production | **Not done** — `mobile/android/` scaffolding present; day-to-day is Flutter Web; CI runs emulator smoke only (not release AAB) |
+| **5. Ship Android** | Signed AAB + Play internal → production | **Not done** — `mobile/android/` scaffolding present; day-to-day is Flutter Web; CI now gates PRs on `flutter analyze` + `flutter test` before the emulator job (2026-08-12), still no release-AAB workflow |
 
 Also landed beyond the original five phases: mandatory TOTP (S-020), ADR-003 public business browsing, and [`.github/workflows/mobile-emulator-check.yml`](.github/workflows/mobile-emulator-check.yml).
 
@@ -195,7 +195,11 @@ Do these in order. Each step has a reason.
    Why: modern Play upload format.
 
 6. **Add CI: analyze/test on PR; AAB on tag**  
-   Why: Railway will never compile mobile; GitHub Actions/Codemagic is the mobile deploy equivalent.
+   Why: Railway will never compile mobile; GitHub Actions/Codemagic is the mobile deploy equivalent.  
+   **Partly done (2026-08-12):** [`.github/workflows/mobile-emulator-check.yml`](.github/workflows/mobile-emulator-check.yml)
+   now runs an `analyze-test` job (`flutter analyze` + `flutter test`) as a fast gate before the
+   slow emulator job (`emulator-test` now has `needs: analyze-test`). **Still missing:** a
+   release-AAB-on-tag job — needs a signing keystore (step 4) first, so it's blocked on that.
 
 7. **Create Play Console app + privacy policy + content rating**  
    Why: Play policy for accounts, reviews, photos. Upload stays blocked without listing metadata.
@@ -230,6 +234,47 @@ Do these in order. Each step has a reason.
 4. **CI boundaries** — Railway: backend + frontend Docker. Mobile: emulator check today; release AAB workflow still to add.
 5. **Env / flavors** — `dev` → local API (`10.0.2.2:8000` on emulator, or LAN IP on device); `staging`/`prod` → Railway URL.
 6. **Secrets stay out of the monorepo** — signing keystores, Play service-account JSON, production `.env`.
+
+---
+
+## Session log (2026-08-12) — what changed, and how to resume if it breaks
+
+**Done this session:**
+- Confirmed S-023/S-024/S-025 mobile code (reviews, favorites, notifications) is committed
+  (`76fa356`) and `flutter analyze` / `flutter test` are both clean (10/10 tests pass).
+- Fixed an async-dependency race in `myBusinessIdsProvider`
+  ([`mobile/lib/features/businesses/business_list_provider.dart`](mobile/lib/features/businesses/business_list_provider.dart)):
+  it read `authControllerProvider` via `.valueOrNull` instead of awaiting `.future`, so on cold
+  start it could resolve to `{}` before auth settled and briefly show "Add review" on a
+  merchant's own business. Same fix pattern as `FavoritedIdsController.build()` in
+  `favorites_providers.dart`.
+- Added an `analyze-test` job to
+  [`.github/workflows/mobile-emulator-check.yml`](.github/workflows/mobile-emulator-check.yml)
+  that runs `flutter analyze` + `flutter test` on every PR touching `mobile/**`, gating the
+  slower emulator job behind it (`needs: analyze-test`).
+
+**Known local limitation (not a code bug):** this dev machine has Flutter but **no Android SDK**
+(`flutter build apk` fails with "No Android SDK found"). Release APK/AAB builds only work in CI
+(once the AAB-on-tag job from checklist item 6 is added) or on a machine with Android Studio
+installed. Don't waste time debugging this as if it were a project defect.
+
+**If this work needs to be picked up cold in a new session/agent, paste this:**
+
+> Continue MerchantHub AI mobile work. Read `ANDROID_APP_STRATEGY.md` in full first — it's the
+> single source of truth for Android/Play strategy and has a "Session log" section with current
+> state. S-023/S-024/S-025 (mobile reviews/favorites/notifications) are code-complete and tested
+> (`flutter test` in `mobile/`) but still `Status: Testing` in their slice files under
+> `docs/agents/slices/` — they need a formal Tester pass (test plan + AC coverage matrix +
+> `docs/agents/test-reports/`) then a Product Manager review to move to `Accepted`, per the
+> PM → Architect → Builder → Tester → PM workflow in `README.md` §13. Do not implement ahead of
+> a slice's `Status: Specified` gate. This machine has no Android SDK — don't attempt
+> `flutter build apk`/`appbundle` locally; that only runs in CI or on a machine with Android
+> Studio.
+
+**Scope-creep guardrail for whoever picks this up:** stay inside the numbered AC in each
+slice file. If you find a bug or gap outside a slice's AC (like the `myBusinessIdsProvider` race
+above), fix it, note it in the slice's Changelog, but don't expand the slice's AC list — draft
+a new slice via the Product Manager agent instead.
 
 ---
 

@@ -21,7 +21,31 @@ on:
       - "backend/**"
 
 jobs:
+  analyze-test:
+    # Fast, no-emulator gate: catches lint/type/unit-test breaks in seconds
+    # instead of waiting on the slow KVM emulator job below.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter pub get
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Flutter analyze
+        working-directory: mobile
+        run: flutter analyze
+
+      - name: Flutter test
+        working-directory: mobile
+        run: flutter test
+
   emulator-test:
+    needs: analyze-test
     runs-on: ubuntu-latest
     services:
       postgres:
