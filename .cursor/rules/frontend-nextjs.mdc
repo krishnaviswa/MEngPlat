@@ -28,3 +28,7 @@ alwaysApply: false
 
 ## Auth
 Tokens in localStorage (MVP); attach via `apiFetch` Authorization header.
+
+## Local commits
+Do not commit on `main` — use a feature branch + PR. `.githooks/pre-commit` enforces this
+(and runs mobile analyze/test when `mobile/` is staged). See `.cursor/rules/testing.mdc`.

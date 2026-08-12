@@ -1617,7 +1617,7 @@ MEngPlat/
 │
 ├── .cursor/rules/              # Cursor AI rules (builder + agent layers)
 ├── .claude/agents/             # Claude Code subagents — mirror .cursor/rules/agents/
-├── .githooks/pre-commit        # Blocks a commit if Cursor/Claude config falls out of sync
+├── .githooks/pre-commit        # Blocks commits on main; mobile analyze/test; Cursor/Claude sync
 ├── .github/workflows/          # CI, incl. the same config-sync check on every PR
 ├── scripts/check_agent_config_sync.py  # Enforces the Cursor ↔ Claude Code sync rule
 │
@@ -1800,12 +1800,15 @@ expected to update both sides in the same commit, and the repo checks that autom
 - `[scripts/check_agent_config_sync.py](scripts/check_agent_config_sync.py)` encodes the
 table above as pairs of files that must change together. Given a set of changed files,
 it fails if one side of a pair changed without the other.
-- `[.githooks/pre-commit](.githooks/pre-commit)` runs that check against staged files
-before every local commit. One-time setup per clone: `git config core.hooksPath .githooks`.
+- `[.githooks/pre-commit](.githooks/pre-commit)` runs before every local commit (CLI or IDE):
+  refuses commits on `main`/`master` (use a feature branch + PR); runs the Cursor/Claude sync
+  check on staged files; if any `mobile/` path is staged, runs `flutter analyze && flutter test`.
+  One-time setup per clone: `git config core.hooksPath .githooks`.
 - `[.github/workflows/agent-config-sync.yml](.github/workflows/agent-config-sync.yml)` runs
-the same check over the full diff on every PR and push to `main`. Add it as a **required
-status check** in GitHub branch protection to make the sync rule non-bypassable, not just
-advisory.
+the same sync check over the full diff on every PR and push to `main`. Add it (and the mobile
+`analyze-test` / ideally `emulator-test` jobs) as **required status checks** in GitHub branch
+protection so the rules are non-bypassable, not just advisory. See
+`ANDROID_APP_STRATEGY.md` § Testing & CI flow.
 
 ---
 

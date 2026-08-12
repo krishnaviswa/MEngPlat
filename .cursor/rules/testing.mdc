@@ -16,7 +16,8 @@ alwaysApply: false
 - Test behavior, not implementation
 
 ## Mobile (Flutter)
-- `flutter analyze` + `flutter test` (unit/widget, `mobile/test/`) — no device needed, run before every commit
+- `flutter analyze` + `flutter test` (unit/widget, `mobile/test/`) — no device needed; enforced by
+  `.githooks/pre-commit` when any `mobile/` path is staged
 - `flutter drive` (real Android emulator, `mobile/integration_test/`) — CI only; this machine has no Android SDK, don't attempt it locally
 - Full when-what-runs table with if/else reasoning: `ANDROID_APP_STRATEGY.md` § "Testing & CI flow"
 
@@ -25,8 +26,14 @@ alwaysApply: false
 - `cd frontend && npm test`
 - `cd mobile && flutter analyze && flutter test`
 
+## Local git hooks (every commit, IDE included)
+- One-time: `git config core.hooksPath .githooks`
+- Hook refuses commits on `main`/`master` — use `git checkout -b feature/…` then PR
+- Hook runs Cursor↔Claude sync check; if `mobile/` staged, runs `flutter analyze && flutter test`
+- Emulator stays CI-only; do not add it to the local hook
+
 ## CI/CD — speed optimizations never skip a check, they only change *when* it runs
 - Cheap checks (lint/unit) run on every push, never cancelled.
 - Expensive checks (emulator integration) cancel a *stale* run when a newer commit supersedes it on the same PR — the check still always validates the latest commit, never skips it.
 - Manual `workflow_dispatch` exists as an on-demand full-validation override for critical fixes.
-- **Known gap:** `main` has no branch-protection rule requiring CI to pass, and Railway's deploy is not gated on CI status — a failing check does not yet block a merge or a production deploy. Fixing this (GitHub Settings → Branches → required status checks) is the top open item; see `ANDROID_APP_STRATEGY.md`.
+- **Known gap:** `main` has no branch-protection rule requiring CI to pass, and Railway's deploy is not gated on CI status — a failing check does not yet block a merge or a production deploy. Fixing this (GitHub Settings → Branches → required status checks; block direct pushes) is the top open item; see `ANDROID_APP_STRATEGY.md`.

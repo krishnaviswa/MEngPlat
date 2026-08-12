@@ -1,9 +1,43 @@
 #!/bin/sh
-# Blocks a commit that edits .cursor/rules/** without the matching CLAUDE.md /
-# .claude/agents/** update, or vice versa. See scripts/check_agent_config_sync.py
-# and the parity table in the root CLAUDE.md.
+# Local commit gate for MerchantHub AI.
+#
+# 1. Block commits on main/master — use a feature branch + PR instead.
+# 2. Keep Cursor ↔ Claude Code config pairs in sync.
+# 3. If any mobile/ file is staged, run flutter analyze + flutter test
+#    (cheap checks; emulator integration stays CI-only).
 #
 # One-time setup per clone: git config core.hooksPath .githooks
+# IDE Source Control commits still invoke this hook (same as CLI git commit).
+# Bypass is possible with --no-verify; GitHub branch protection is the remote lock.
+
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+  echo "pre-commit: refusing commit on '$branch'."
+  echo "  Create a feature branch first, e.g.:"
+  echo "    git checkout -b feature/S-XXX-short-name"
+  echo "  Then commit, push, and open a PR. See ANDROID_APP_STRATEGY.md § Testing & CI flow."
+  exit 1
+fi
 
 python scripts/check_agent_config_sync.py --staged
-exit $?
+sync_status=$?
+if [ "$sync_status" -ne 0 ]; then
+  exit "$sync_status"
+fi
+
+staged="$(git diff --cached --name-only)"
+if echo "$staged" | grep -q '^mobile/'; then
+  if ! command -v flutter >/dev/null 2>&1; then
+    echo "pre-commit: mobile/ files are staged but flutter is not on PATH."
+    echo "  Install Flutter or add it to PATH, then retry the commit."
+    exit 1
+  fi
+  echo "pre-commit: mobile/ changes detected — running flutter analyze && flutter test..."
+  (
+    cd mobile || exit 1
+    flutter analyze || exit 1
+    flutter test || exit 1
+  ) || exit 1
+fi
+
+exit 0
