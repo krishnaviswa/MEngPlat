@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-024 |
 | **Phase** | 2 Core |
-| **Status** | Testing |
+| **Status** | Accepted |
 | **Role(s)** | customer |
 | **Owner** | PM / 2026-08-11 |
 
@@ -65,10 +65,10 @@
 
 ## Definition of done (PM)
 
-- [ ] All AC verified in test report
-- [ ] Favorite toggle and Favorites list work for the customer role on mobile (Flutter), with logged-out and error/rollback edge cases per AC 3, 9, 10, 11
-- [ ] Documented in `README.md` §8 Frontend guide (or the Mobile client section) if new component/screen patterns are introduced
-- [ ] PM Status set to **Accepted**
+- [x] All AC verified in test report
+- [x] Favorite toggle and Favorites list work for the customer role on mobile (Flutter), with logged-out and error/rollback edge cases per AC 3, 9, 10, 11
+- [x] Documented in `README.md` §8 Frontend guide (or the Mobile client section) if new component/screen patterns are introduced
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -190,3 +190,5 @@ sequenceDiagram
 | 2026-08-11 | Architect | Technical specification added (API contract reuses existing favorites endpoints; no backend changes). Introduces shared `favoritedIdsProvider` for cross-screen toggle sync; depends on S-023/ADR-003's router change for AC9/AC10 to be reachable. Status → Specified. |
 | 2026-08-11 | Builder | Implemented favorite toggle + `/favorites` screen with shared `favoritedIdsProvider`, optimistic rollback, customer-only app-bar entry. Gap-check: FavoritesScreen now reuses `BusinessCard`. Unit tests for FavoritedIdsController pass. Status → Testing. |
 | 2026-08-11 | Builder | Finish polish: hide heart toggle when `favoritedIdsProvider` is in error (no silent empty-heart forever). |
+| 2026-08-12 | Tester | TR-S-024 filed — 11/11 AC pass. Added new automated coverage: `favorite_toggle_button_test.dart` (4 tests: AC1/2/3/9/11), `favorites_screen_test.dart` (5 tests: AC4/5/6/7/8), `business_list_screen_test.dart` (3 tests: AC10, entry-point role gating — shared with S-025's AC8). Verified the AC10 "hidden, not disabled" convention and the customer-only RBAC gate at the actual `BusinessListScreen` widget level, not just the provider. No product bugs found. `flutter test`: 60/60 pass (full mobile suite); `flutter analyze`: clean (3 pre-existing, unrelated infos). Manual-checklist items (pull-to-refresh spinner animation, cross-screen sync smoke check) remain environment-constrained (no Android SDK/emulator), flagged for PM/Builder. Recommendation: **Ship**. See `docs/agents/test-plans/TP-S-024-mobile-favorites.md`, `docs/agents/test-reports/TR-S-024-mobile-favorites.md`. Status stays **Testing** pending PM review. |
+| 2026-08-12 | PM | Reviewed TR-S-024 against all 11 AC individually — every numbered AC maps to an automated test in the coverage matrix, including AC10's entry-point-hidden-when-logged-out check verified at the actual `BusinessListScreen` widget level. No gaps, no bugs found. AC6's refetch trigger is automated (`RefreshIndicator.onRefresh` invoked directly); the visible spinner animation (M-001) and a cross-screen favorite-sync smoke check (M-002) remain unrun due to the documented no-Android-SDK/emulator constraint — M-002 is not itself a numbered AC (cross-screen sync is an architecture goal noted in the tech spec's shared, non-`.autoDispose` `favoritedIdsProvider`, strongly implied correct by code review since the same `FavoriteToggleButton` widget type backs both the list row and detail screen) and M-001 rests on a standard Flutter widget's built-in behavior. Neither judged load-bearing enough to withhold acceptance. All 11 AC satisfied; DoD checked. Status: **Accepted**. |

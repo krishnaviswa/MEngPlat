@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-025 |
 | **Phase** | 5 Polish |
-| **Status** | Testing |
+| **Status** | Accepted |
 | **Role(s)** | customer \| merchant \| admin |
 | **Owner** | PM / 2026-08-11 |
 
@@ -65,10 +65,10 @@
 
 ## Definition of done (PM)
 
-- [ ] All AC verified in test report
-- [ ] Notifications entry point, badge, and screen work for every authenticated role on mobile (Flutter) and are unreachable when logged out (AC 8)
-- [ ] Documented in `README.md` §8 Frontend guide (or the Mobile client section) if new component/screen patterns are introduced
-- [ ] PM Status set to **Accepted**
+- [x] All AC verified in test report
+- [x] Notifications entry point, badge, and screen work for every authenticated role on mobile (Flutter) and are unreachable when logged out (AC 8)
+- [x] Documented in `README.md` §8 Frontend guide (or the Mobile client section) if new component/screen patterns are introduced
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -190,3 +190,5 @@ sequenceDiagram
 | 2026-08-11 | Architect | Technical specification added (API contract reuses existing notifications endpoints; no backend changes). App-bar bell+badge entry point on `BusinessListScreen`, dedicated pushed `/notifications` route (already auth-gated by default, no router change needed). Status → Specified. |
 | 2026-08-11 | Builder | Implemented `/notifications` screen, unread badge + 30s poll (`unreadCountProvider`), mark-one/mark-all with local list mutations. Relative-time helper + unit tests. Auth-gated app-bar entry per AC8. Status → Testing. |
 | 2026-08-11 | Builder | Finish polish: optimistic badge clear/decrement on mark-all/mark-one; snackbar on mutation failure; `NotificationsScreen` watches `unreadCountProvider` so polling starts without list screen; pull-to-refresh keeps prior list visible. |
+| 2026-08-12 | Tester | TR-S-025 filed — 10/10 AC pass. Added new automated coverage: `notification_badge_test.dart` (4 tests: AC1), `notifications_screen_test.dart` (7 tests: AC2/3/4/5/6/7, including direct assertions that `unreadCountProvider` decrements/zeroes on mark-one/mark-all, not just the local list styling), `unread_count_provider_test.dart` (3 tests: AC8/9, using `flutter_test`'s fake-clock `pump(Duration(seconds: 30))` to deterministically exercise the real 30s `Timer.periodic` without a wall-clock wait), `business_list_screen_test.dart` (3 tests, shared with S-024: AC8 entry-point gating). Confirmed AC10's "no AI-suggestion framing" by code review — no AI-related text/logic anywhere in this feature. No product bugs found. `flutter test`: 60/60 pass (full mobile suite); `flutter analyze`: clean (3 pre-existing, unrelated infos). Manual-checklist items (pull-to-refresh spinner animation, real-wall-clock 30s poll sanity check) remain environment-constrained (no Android SDK/emulator), flagged for PM/Builder. Recommendation: **Ship**. See `docs/agents/test-plans/TP-S-025-mobile-notifications.md`, `docs/agents/test-reports/TR-S-025-mobile-notifications.md`. Status stays **Testing** pending PM review. |
+| 2026-08-12 | PM | Reviewed TR-S-025 against all 10 AC individually — every numbered AC maps to an automated test in the coverage matrix, including AC9's 30s background poll (verified via fake-clock advance of the real `Timer.periodic`, stronger coverage than originally planned) and AC8's logged-out gating (verified at both the icon-visibility and zero-API-calls levels). No gaps, no bugs found. AC6's refetch trigger is automated; the visible spinner animation (M-001) and a real-wall-clock 30s sanity check (M-002) remain unrun due to the documented no-Android-SDK/live-backend constraint — both are confirmatory/cosmetic on top of already-automated core logic, not load-bearing enough to withhold acceptance. AC10's "no AI-suggestion framing" independently spot-checked against `notifications_screen.dart`/`notification_badge.dart` — confirmed plain, no AI language, consistent with the root `CLAUDE.md` rule scoping to AI-generated content only. All 10 AC satisfied; DoD checked. Status: **Accepted**. |

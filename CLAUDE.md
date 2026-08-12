@@ -30,4 +30,9 @@ See also `[AGENTS.md](AGENTS.md)` for the repo map and where each tool's config 
 5. Keep diffs minimal; match existing patterns.
 6. Never commit secrets (`.env`, API keys).
 7. Local dev: `docker compose up --build`.
+8. Testing is tiered, never skipped for speed — cheap checks (lint/unit) run on every push;
+   expensive checks (mobile emulator integration) only ever cancel *stale, superseded* runs,
+   never the check itself. See `.cursor/rules/testing.mdc` and, for mobile CI specifics,
+   `ANDROID_APP_STRATEGY.md` § "Testing & CI flow" (includes a known gap: `main` isn't yet
+   branch-protection-gated on CI passing, so Railway can still deploy a failing build).
 

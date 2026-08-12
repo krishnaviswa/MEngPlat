@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-023 |
 | **Phase** | 2 Core |
-| **Status** | Testing |
+| **Status** | Accepted |
 | **Role(s)** | customer \| merchant \| admin |
 | **Owner** | PM / 2026-08-11 |
 
@@ -69,10 +69,10 @@
 
 ## Definition of done (PM)
 
-- [ ] All AC verified in test report
-- [ ] Business detail screen and review submission work for the customer role on mobile (Flutter), with merchant/admin/logged-out edge cases per AC 6, 10, 12, 13
-- [ ] Documented in `README.md` §8 Frontend guide (or the Mobile client section) if new component/screen patterns are introduced
-- [ ] PM Status set to **Accepted**
+- [x] All AC verified in test report
+- [x] Business detail screen and review submission work for the customer role on mobile (Flutter), with merchant/admin/logged-out edge cases per AC 6, 10, 12, 13
+- [x] Documented in `README.md` §8 Frontend guide (or the Mobile client section) if new component/screen patterns are introduced
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -205,3 +205,5 @@ sequenceDiagram
 | 2026-08-11 | Architect | Technical specification added (API contract reuses existing reviews/photos/businesses endpoints; no backend changes). Introduces ADR-003 (mobile router public-route carve-out for `/businesses`, needed for AC13) — S-024/S-025 depend on it. Status → Specified. |
 | 2026-08-11 | Builder | Implemented business detail + reviews list/form (Riverpod, image_picker, public `/businesses` carve-out per ADR-003). Gap-check fixes: AI summary "(suggestion)" on ReviewCard; web-safe photo preview (no `dart:io`). Unit tests for ReviewsController pass. Status → Testing. |
 | 2026-08-11 | Builder | Finish polish: hide "Add review" until reviews/ownership eligibility is ready (AC10/AC12 flash); path-safe photo upload basename for Windows `\`. |
+| 2026-08-12 | Tester | TR-S-023 filed — 13/13 AC pass. Reviewed and confirmed sound the `myBusinessIdsProvider` async-dependency race fix (commit `207abb7`, backs AC12); added a dedicated regression test (`mobile/test/my_business_ids_provider_test.dart`, 3 tests) since none existed for that provider specifically. Added new automated coverage: `business_detail_screen_test.dart` (9 tests: AC1/3/4/5/6/10/12/13), `review_form_sheet_test.dart` (4 tests: AC7/8/10/11), extended `reviews_controller_test.dart` (+2 tests: AC9 photo-upload success/failure). Verified `review_form_sheet.dart`'s photo cap (5) matches `frontend/src/components/ReviewForm.tsx`'s `MAX_PHOTOS` exactly. Found and fixed one test-authoring deadlock (not a product bug) in the new AC5 pull-to-refresh test — see TR for details. No product bugs found. `flutter test`: 60/60 pass (full mobile suite); `flutter analyze`: clean (3 pre-existing, unrelated infos). AC9's device-picker UI and 2 other manual-checklist items remain environment-constrained (no Android SDK/emulator), flagged for PM/Builder. Recommendation: **Ship**. See `docs/agents/test-plans/TP-S-023-mobile-reviews.md`, `docs/agents/test-reports/TR-S-023-mobile-reviews.md`. Status stays **Testing** pending PM review. |
+| 2026-08-12 | PM | Reviewed TR-S-023 against all 13 AC individually — every numbered AC has a corresponding test (or automated-logic-plus-code-review pairing) in the coverage matrix; no gaps found, no bugs found. Independently reviewed the `myBusinessIdsProvider` race fix (commit `207abb7`) and its new regression test (`mobile/test/my_business_ids_provider_test.dart`) — sound, correctly backs AC12. AC5 (pull-to-refresh) and AC9 (photo attach) are automated at the refetch/business-logic level with the remaining piece (visible spinner animation; OS picker/permission-dialog chrome) resting on standard Flutter widgets (`RefreshIndicator`, `image_picker`) plus confirmed-present platform permission entries — judged not load-bearing enough to withhold acceptance, consistent with this project's documented no-Android-SDK/emulator constraint (`ANDROID_APP_STRATEGY.md`). Residual manual checklist M-001–M-003 (spinner animation, full ADR-003 router flow, `image_picker` OS dialogs) remain unrun for the same reason and do not block — flagged for Builder/PM to run in a real Android SDK/emulator or Docker environment before a production mobile release, mirroring how S-021/S-022 were accepted with residual manual items outstanding. All 13 AC satisfied; DoD checked. Status: **Accepted**. |

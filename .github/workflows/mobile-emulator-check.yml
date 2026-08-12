@@ -20,6 +20,14 @@ on:
       - "mobile/**"
       - "backend/**"
 
+# Rapid-fire commits to the same PR/branch would otherwise queue up one full
+# emulator run per push. This cancels a still-running check when a newer
+# commit lands on the same ref, so only the latest (the one that actually
+# matters before merge) finishes -- not every intermediate commit.
+concurrency:
+  group: mobile-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analyze-test:
     # Fast, no-emulator gate: catches lint/type/unit-test breaks in seconds

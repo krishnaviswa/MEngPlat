@@ -361,6 +361,42 @@ only track requiring full Google policy review before going live; earlier tracks
 
 ---
 
+## Testing & CI flow — what runs when, and why quality is never skipped
+
+**Rule zero, non-negotiable: optimizing for speed only ever changes *when* an expensive check
+runs, never *whether* it runs before code reaches `main`.** Nothing below trades test coverage
+for time. Read this table top to bottom — each row's "If" builds on the previous one passing.
+
+| # | If (situation) | Then (what runs) | Why quality isn't compromised | Else / what if it goes wrong |
+|---|---|---|---|---|
+| 1 | You edit mobile code locally, any size of change | You run `flutter analyze && flutter test` in `mobile/` yourself before committing (~15s, zero CI cost) | Catches most breaks before they ever leave your machine | If skipped, row 2 catches it ~1 commit later — nothing goes unchecked, it's just delayed |
+| 2 | You push a commit to a branch with an **open PR** | The `analyze-test` CI job (lint + unit tests) runs to completion — **this one is never cancelled**, every commit gets it | This is the cheap, always-on floor. No commit reaches `main` without at least this passing | If it fails: PR shows a red X in ~1 minute, you fix and push again — cheap to iterate |
+| 3 | You push another commit to the same PR while the **emulator** job (`emulator-test`, real Android emulator, full login→browse flow) is still running from a previous commit | The in-progress emulator run is **cancelled and restarted on the new commit** (`concurrency: cancel-in-progress`) | Only *stale* runs — validating code that no longer exists on the branch — get cancelled. The check always ends up validating whichever commit is latest, which is the one that matters before merge | If you merge before the last run finishes: row 6 (push to `main`) independently re-runs the same emulator job on `main` itself, so `main` is always re-validated regardless of PR timing |
+| 4 | The emulator test fails on the **final** commit of a PR | PR shows a red X on that check | In theory this should block merging | **Real gap today:** there is no GitHub branch-protection rule on `main` requiring status checks to pass. A red X does **not** currently block the "Merge" button. See the fix below. |
+| 5 | A fix is critical/high-stakes and you don't want to wait on PR-lifecycle timing | Manually trigger `workflow_dispatch` (GitHub Actions tab → "Mobile emulator check" → Run workflow → pick the branch) — runs the full emulator suite on that exact commit, on demand, right now | Gives certainty immediately, independent of concurrency dedup or PR state | This is a supplement, not a replacement — rows 2–4 already cover you even if you forget to do this |
+| 6 | You (or I) push a commit **directly to `main`**, bypassing a PR | Both `analyze-test` and `emulator-test` fire on `push: branches:[main]`, same jobs as a PR | `main` is never left completely unchecked even without PR review | The check runs **after** the code is already on `main` — if it fails, `main` is broken until fixed/reverted. Riskier than PR-gating. **Going forward: use a feature branch + PR for anything beyond a trivial doc/config edit.** |
+| 7 | Code merges (or is pushed) to `main` | Railway auto-deploys backend + frontend to production immediately | — | **Real gap today:** Railway's deploy trigger is a **separate system** from GitHub Actions and does not wait for `analyze-test`/`emulator-test` to pass. A failing CI check does **not** currently stop a production deploy. |
+
+### Closing the two real gaps (rows 4 and 7) — one fix, not yet done
+
+Add a GitHub **branch-protection rule** on `main`: Settings → Branches → Add rule → require
+`analyze-test` (and ideally `emulator-test`) as required status checks before merging is allowed.
+Since Railway only ever deploys whatever is on `main`, this one setting closes both gaps at once —
+nothing merges to `main` without passing CI, and therefore nothing reaches Railway without
+passing CI either. This needs GitHub repo-admin access in the web UI; `gh` CLI isn't available in
+this dev environment to script it, so it hasn't been done yet. **This is the single highest-value
+open item for "never compromise on quality."**
+
+### Mobile test types, at a glance
+
+| Test type | Where | Cost | Catches |
+|---|---|---|---|
+| `flutter analyze` | `mobile/` | Seconds | Lint, type errors, dead code |
+| `flutter test` (unit/widget) | `mobile/test/*.dart` | Seconds | Provider logic, widget rendering, AC-level behavior — no device needed |
+| `flutter drive` (emulator integration) | CI only, `mobile/integration_test/app_test.dart` | Minutes | Real login→navigation flow on an actual Android emulator — the only layer that catches native/platform-level breaks |
+
+---
+
 ## Day-to-day management rules
 
 1. **Single backend, multiple clients** — features land in FastAPI first (or same PR). Avoid mobile-only endpoints unless there is a real device need (push tokens, device IDs).

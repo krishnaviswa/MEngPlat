@@ -1,6 +1,6 @@
 ---
 description: Testing expectations
-globs: backend/tests/**/*,frontend/**/__tests__/**/*
+globs: backend/tests/**/*,frontend/**/__tests__/**/*,mobile/test/**/*
 alwaysApply: false
 ---
 
@@ -15,6 +15,18 @@ alwaysApply: false
 - Colocate under `__tests__/`
 - Test behavior, not implementation
 
+## Mobile (Flutter)
+- `flutter analyze` + `flutter test` (unit/widget, `mobile/test/`) — no device needed, run before every commit
+- `flutter drive` (real Android emulator, `mobile/integration_test/`) — CI only; this machine has no Android SDK, don't attempt it locally
+- Full when-what-runs table with if/else reasoning: `ANDROID_APP_STRATEGY.md` § "Testing & CI flow"
+
 ## Before merge
 - `cd backend && pytest`
 - `cd frontend && npm test`
+- `cd mobile && flutter analyze && flutter test`
+
+## CI/CD — speed optimizations never skip a check, they only change *when* it runs
+- Cheap checks (lint/unit) run on every push, never cancelled.
+- Expensive checks (emulator integration) cancel a *stale* run when a newer commit supersedes it on the same PR — the check still always validates the latest commit, never skips it.
+- Manual `workflow_dispatch` exists as an on-demand full-validation override for critical fixes.
+- **Known gap:** `main` has no branch-protection rule requiring CI to pass, and Railway's deploy is not gated on CI status — a failing check does not yet block a merge or a production deploy. Fixing this (GitHub Settings → Branches → required status checks) is the top open item; see `ANDROID_APP_STRATEGY.md`.

@@ -1914,9 +1914,9 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-021 | Admin business & review drill-down    | 4 Dashboards | Accepted                                 |
 | S-022 | Merchant dashboard tile interactivity | 4 Dashboards | Accepted                                 |
 | S-026 | httpOnly cookie auth migration (web) + dual Bearer/cookie backend | 1 Foundation | Draft                       |
-| S-023 | Mobile reviews (Flutter)              | 2 Core       | Testing                                  |
-| S-024 | Mobile favorites (Flutter)            | 2 Core       | Testing                                  |
-| S-025 | Mobile notifications (Flutter)        | 5 Polish     | Testing                                  |
+| S-023 | Mobile reviews (Flutter)              | 2 Core       | Accepted                                 |
+| S-024 | Mobile favorites (Flutter)            | 2 Core       | Accepted                                 |
+| S-025 | Mobile notifications (Flutter)        | 5 Polish     | Accepted                                 |
 
 
 
@@ -1995,7 +1995,7 @@ The MVP is complete when: (1) a customer can register, search, and submit a revi
 
 1. Harden remaining security items in §9 (httpOnly cookies — needs a dual-auth story for mobile; rate limiting on auth endpoints)
 2. Build out the test suite with fixtures and an isolated test database
-3. Accept mobile slices S-023–S-025, then phase-5 Android release (AAB + Play internal testing) per [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md)
+3. Mobile slices S-023–S-025 are Accepted; remaining work is phase-5 Android release (signing keystore, Play Console, store listing — step-by-step in [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md))
 4. Add auto-deploy to Railway/Vercel on green CI
 
 ---
