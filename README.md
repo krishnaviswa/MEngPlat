@@ -1749,12 +1749,14 @@ step, driven by `LoginResult.mfa_required` / `mfa_enrollment_required` from `POS
 `totpConfirm`/`totpVerify` succeeds -- `submitCredentials` alone never yields tokens for a
 password account, matching the backend contract.
 
-**Public business browsing + reviews / favorites / notifications (S-023–S-025):** ADR-003
-carves `/businesses` and `/businesses/:slug` out of the login redirect so guests can browse
+**Public business browsing + reviews / favorites / notifications (S-023–S-025) and P0 chrome (S-027):**
+ADR-003 carves `/businesses` and `/businesses/:slug` out of the login redirect so guests can browse
 and read reviews; `LoginScreen` has "Continue without signing in". Detail screen hosts the
-reviews list + `ReviewFormSheet` (optional `image_picker` photos). Favorites and notifications
-are auth-gated app-bar entry points on `BusinessListScreen` (`/favorites`, `/notifications`)
-with shared Riverpod providers (`favoritedIdsProvider`, `unreadCountProvider` 30s poll).
+reviews list + `ReviewFormSheet` (optional `image_picker` photos). Primary chrome is `AppShell`
+(`ShellRoute` + `NavigationBar`): Explore / Favorites (customer) / Notifications / Account,
+with merchant and admin **Home** placeholders (`/merchant`, `/admin`) — full dashboards stay
+P4 `future`. Logout lives on Account. `unreadCountProvider` still polls every 30s while the
+shell is mounted for a logged-in session.
 
 **CI emulator check (**`.github/workflows/mobile-emulator-check.yml`**):** on push/PR touching
 `mobile/**` or `backend/**` (and via manual `workflow_dispatch`), boots a real KVM-accelerated
@@ -1782,9 +1784,10 @@ phase 5, not here.
 | `n/a` | Not on web either (shared gap — not mobile-only debt) |
 | `future` | Intentionally deferred (e.g. merchant Phase 4, FCM) |
 
-**Later build waves (when greenlit — not started here):** P0 chrome (nav, account, logout) →
-P1 discovery (search, filters, location, photos, rich detail) → P2 auth/account (register,
-Google, profile/settings) → P3 engagement (like/report, show replies) → P4 merchant/admin
+**Later build waves (when greenlit — not started here):** P0 chrome shipped in S-027
+(bottom nav, role-aware landing, Account + logout). Remaining: P1 discovery (search,
+filters, location, photos, rich detail) → P2 auth/account (register, Google,
+profile/settings edit) → P3 engagement (like/report, show replies) → P4 merchant/admin
 (or keep web-only as `future`).
 
 **Last reviewed:** 2026-08-13
@@ -1797,13 +1800,13 @@ Google, profile/settings) → P3 engagement (like/report, show replies) → P4 m
 | M-03 | Auth | MFA verify (TOTP code) | `/login` verify step | `/login` verify step | `implemented` | S-020 |
 | M-04 | Auth | Google / Gmail sign-in | `/login`, `/register` (`GoogleSignInButton`) | — | `unimplemented` | Web skips MFA for Google |
 | M-05 | Auth | Register (customer / merchant) | `/register` | — | `unimplemented` | P2 |
-| M-06 | Auth | Logout | Navbar, `/settings`, already-signed-in gate | App-bar on `/businesses` only | `partial` | Easy to miss; no account screen |
+| M-06 | Auth | Logout | Navbar, `/settings`, already-signed-in gate | Account screen (`/account`) | `implemented` | S-027; was list app-bar only |
 | M-07 | Auth | Session restore + refresh | `ClientLayout` / `auth.me` | `AuthInterceptor` + secure storage | `implemented` | |
 | M-08 | Auth | Role switching (customer ↔ merchant) | — | — | `n/a` | Role fixed at register / Google |
-| M-09 | Auth | Role-aware post-login home | Merchant → dashboard; admin → `/admin` | All roles → `/businesses` | `unimplemented` | P0 |
-| M-10 | Chrome | Global navbar + footer | `ClientLayout` | — | `unimplemented` | P0 |
-| M-11 | Chrome | Bottom nav / primary shell | — (web uses top nav) | App-bar icons only | `unimplemented` | P0 — mobile should add tabs |
-| M-12 | Chrome | Brand / home link | Navbar → `/` | — | `unimplemented` | |
+| M-09 | Auth | Role-aware post-login home | Merchant → dashboard; admin → `/admin` | Customer → Explore; merchant → `/merchant` stub; admin → `/admin` stub | `partial` | S-027; full dashboards remain P4 `future` |
+| M-10 | Chrome | Global navbar + footer | `ClientLayout` | Bottom `NavigationBar` + Account brand control | `partial` | S-027; mobile chrome, not a cloned web navbar/footer |
+| M-11 | Chrome | Bottom nav / primary shell | — (web uses top nav) | `AppShell` `NavigationBar` | `implemented` | S-027 / ADR-005 |
+| M-12 | Chrome | Brand / home link | Navbar → `/` | Account `MerchantHub AI` → Explore | `implemented` | S-027 |
 | M-13 | Discovery | Home hero + marketing sections | `/` | — | `unimplemented` | P1 |
 | M-14 | Discovery | Trust metrics | `/` (`TrustMetrics`) | — | `unimplemented` | |
 | M-15 | Discovery | City index | `/` (`CityIndex`) | — | `unimplemented` | |
@@ -1834,13 +1837,13 @@ Google, profile/settings) → P3 engagement (like/report, show replies) → P4 m
 | M-40 | Reviews | Edit own review | — | — | `n/a` | No UI on either client |
 | M-41 | Reviews | Delete own review | — | — | `n/a` | No UI on either client |
 | M-42 | Favorites | Favorite toggle (list + detail) | `FavoriteButton` | Heart + `FavoriteToggleButton` | `implemented` | S-024; customer only |
-| M-43 | Favorites | Favorites list | `/profile` section | `/favorites` | `partial` | Exists; no profile hub |
-| M-44 | Notifications | Unread bell + poll | Navbar `NotificationBell` | App-bar bell + badge | `partial` | S-025; list-only entry |
+| M-43 | Favorites | Favorites list | `/profile` section | `/favorites` (Explore shell tab) | `implemented` | S-024 + S-027 tab |
+| M-44 | Notifications | Unread bell + poll | Navbar `NotificationBell` | Notifications tab + badge | `implemented` | S-025 + S-027 shell |
 | M-45 | Notifications | Full list + mark one / mark all | Bell dropdown | `/notifications` | `implemented` | S-025 |
 | M-46 | Notifications | Deep-link to business/review | Weak / none | None | `n/a` | Shared gap |
 | M-47 | Notifications | Push (FCM) | — | — | `future` | Phase 4+; polling today |
 | M-48 | Account | Profile edit | `/profile` | — | `unimplemented` | P2 |
-| M-49 | Account | Settings (profile link + logout) | `/settings` | — | `unimplemented` | P2 / P0 logout |
+| M-49 | Account | Settings (profile link + logout) | `/settings` | `/account` + read-only `/account/profile` + logout | `implemented` | S-027; profile **edit** is M-48 / P2 |
 | M-50 | Merchant | Dashboard shell + multi-business | `/merchant/dashboard` | — | `future` | Strategy phase 4 |
 | M-51 | Merchant | Stats tiles + sentiment chart | Dashboard | — | `future` | Phase 4 |
 | M-52 | Merchant | AI insights + refresh | `AIInsights` | — | `future` | Suggestion-only |
@@ -1854,7 +1857,7 @@ Google, profile/settings) → P3 engagement (like/report, show replies) → P4 m
 | M-60 | Admin | All businesses / all reviews browse | `/admin/businesses`, `/admin/reviews` | — | `future` | |
 
 
-**Rollup (2026-08-13):** `implemented` 11 · `partial` 5 · `unimplemented` 28 · `n/a` 6 · `future` 10 · **total 60**.
+**Rollup (2026-08-13):** `implemented` 17 · `partial` 4 · `unimplemented` 23 · `n/a` 6 · `future` 10 · **total 60**.
 
 This repo is built with both Cursor and Claude Code, so every convention is defined
 **twice, in each tool's native format** — a session started in either tool should
@@ -2012,6 +2015,7 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-023 | Mobile reviews (Flutter)              | 2 Core       | Accepted                                 |
 | S-024 | Mobile favorites (Flutter)            | 2 Core       | Accepted                                 |
 | S-025 | Mobile notifications (Flutter)        | 5 Polish     | Accepted                                 |
+| S-027 | Mobile P0 chrome (shell, role home, account/logout) | 1 Foundation | Accepted |
 
 
 
@@ -2075,7 +2079,7 @@ An honest delta between the original specification and what the code actually do
 | **No structured logging**   | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                                                                          |
 | **No CI/CD auto-deploy**    | `backend-tests.yml` / `frontend-tests.yml` run pytest/Jest on every PR and push to `main`, but there is still no auto-deploy step to Railway/Vercel.                                                                                            |
 | **Android Play release**    | Signed AAB + Play Console listing / internal-testing track not wired yet (see [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md) phase 5). Feature-level web↔mobile gaps live in the [§12 parity tracker](#web--mobile-feature-parity-tracker) — not duplicated here. |
-| **Mobile web parity**       | Customer MVP slices S-023–S-025 are Accepted, but most web surfaces (home, search/map/filters, rich business detail, Google auth, register, merchant, admin) are still `unimplemented` / `future` on Flutter. Living checklist: [§12 Web ↔ mobile feature parity tracker](#web--mobile-feature-parity-tracker). |
+| **Mobile web parity**       | Customer MVP slices S-023–S-025 are Accepted and P0 chrome (S-027) adds the primary shell, role-aware landing, and Account logout. Most other web surfaces (home marketing, search/map/filters, rich business detail, Google auth, register, merchant/admin dashboards) are still `unimplemented` / `future` on Flutter. Living checklist: [§12 Web ↔ mobile feature parity tracker](#web--mobile-feature-parity-tracker). |
 | **Optional seed ops**       | Core seed gating is done (`SEED_MODE` / `seed_runs`). Still optional later: a Railway one-shot/cron seed service (never on the web dyno), blue-green app cutover on one DB, or a disposable dual-DB demo reset — not required for normal deploys. |
 
 

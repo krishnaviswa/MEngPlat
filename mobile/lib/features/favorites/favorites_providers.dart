@@ -67,6 +67,8 @@ final favoritedIdsProvider = AsyncNotifierProvider<FavoritedIdsController, Set<S
 /// The Favorites screen's list *content* (name/city/rating, not just
 /// membership) -- separate from [favoritedIdsProvider] per the Architect
 /// spec.
-final favoritesListProvider = FutureProvider.autoDispose<List<BusinessResponse>>((ref) {
+final favoritesListProvider = FutureProvider.autoDispose<List<BusinessResponse>>((ref) async {
+  final user = await ref.watch(authControllerProvider.future);
+  if (user?.role != UserRole.customer) return const [];
   return ref.watch(favoritesRepositoryProvider).listFavorites();
 });

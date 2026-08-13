@@ -1,0 +1,374 @@
+MerchantHub AI — checklist gap file
+Scored 13 Aug 2026 against the generic modern-web technical/security checklist.
+Source of truth for product docs remains README.md. This file is a working gap list, not a second prose doc.
+Scoring: Have | Partial | Missing | N/A | Exceeds (Have, and stricter than the list)
+
+Legend for later columns (effort / who):
+  In-house  = this repo, existing stack
+  SaaS      = vendor account + a few days of wiring
+  Specialist = lawyer, pentester, auditor — not a “web agency”
+
+
+================================================================================
+1. FULL CHECKLIST (every item)
+================================================================================
+
+--- Authentication & Authorization ---
+[Partial]  Managed identity provider (Auth0, Clerk, WorkOS, Cognito, NextAuth)
+           Have: custom FastAPI JWT + Google Identity Services (OIDC ID-token, verified server-side).
+           Not: Auth0/Clerk/Cognito. You own session bugs; you avoid vendor lock-in.
+[Partial]  Enforce MFA for all users (especially admins)
+           Exceeds on password accounts: TOTP is mandatory. Google OAuth is exempt. No extra admin-only step.
+[Missing]  Password policy: minimum 12 characters + complexity
+           Have: min 8 (Pydantic UserRegister). No complexity rules.
+[Have]     Argon2 or bcrypt for password hashing
+           bcrypt via passlib CryptContext(schemes=["bcrypt"], deprecated="auto").
+[Missing]  Account lockout after 5–10 failed login attempts
+           Have instead: IP rate limit on /auth/login (10/min) and /auth/register (5/min). Not per-account lockout.
+[Partial]  SSO (SAML or OIDC) for enterprise customers
+           Consumer Google OIDC only. No SAML / WorkOS / multi-tenant IdP.
+[Partial]  Short-lived access tokens (15 min) with refresh token rotation
+           Access TTL is 30 min. Refresh issues a new pair but does NOT blocklist the old refresh jti.
+[Missing]  Store tokens in HttpOnly, Secure, SameSite cookies (never localStorage)
+           Web: localStorage. Mobile: flutter_secure_storage (better). S-026 / ADR-004 specified, not built.
+[Missing]  Session idle timeout 15–60 minutes
+           JWTs are absolute TTL, not idle.
+[Partial]  Session absolute timeout 8–24 hours
+           Access 30 min is fine. Refresh TTL is 7 days (longer than 8–24 h).
+[Partial]  Invalidate sessions on logout, password change, account suspension
+           Logout blocklists access jti (+ optional refresh) in Redis. Inactive users 401. No password-change endpoint.
+[Missing]  Rotate session IDs after privilege escalation
+           No role-change flow that mints a new jti.
+[Have]     RBAC or ABAC
+           require_roles() + ownership checks (get_owned_business).
+[Have]     Principle of least privilege
+           Cannot self-register as admin. Cross-merchant resources return 404, not 403.
+[Have]     Server-side authorization on every API call
+           FastAPI Depends on protected routers.
+[Partial]  Audit logging: who accessed what, when, from where
+           audit_logs for admin approve/suspend/moderate. No IP. No login/failed-login events.
+
+--- Rendering Strategy (React/Next.js) ---
+[Have]     SSR for landing pages and SEO-critical content
+[Have]     CSR for dashboards and user-specific pages
+[Missing]  SSG for rarely-changing content (no generateStaticParams / ISR)
+[Partial]  Next.js hybrid rendering, image optimization, API routes
+           Hybrid yes. next/image configured but unused. API is FastAPI, not Next API routes (intentional).
+[Have]     Code splitting per page (App Router)
+[Have]     Tree shaking (Next production build)
+[Partial]  Defer non-critical JavaScript (Next defaults only)
+
+--- API Design & Data Fetching ---
+[Have]     REST consistently
+[Have]     Version APIs (/api/v1)
+[Partial]  Rate limiting (~100 req/min per user)
+           Auth endpoints only; in-memory slowapi, not Redis, not per-user global.
+           NOTE: README §9 still says rate limiting is missing — that paragraph is stale.
+[Have]     Input validation on server
+           Pydantic (equivalent to Zod/Joi on the server). No Zod on the frontend.
+[Missing]  Consistent error format { error: { code, message } }
+           FastAPI default { detail: ... }.
+[Missing]  React Query (TanStack Query) or SWR
+           Hand-rolled apiFetch.
+[Have]     Server-side data fetching for SSR pages
+[Have]     Client-side fetching for CSR pages
+
+--- Image Loading & Optimization ---
+[Partial]  Modern formats WebP/AVIF (uploads allow webp; no transcode)
+[Missing]  Responsive images with srcSet
+[Missing]  Lazy loading for off-screen images
+[Missing]  Prioritize critical images (eager / fetchPriority)
+[Missing]  Next.js Image component (configured, never used)
+[Missing]  Compress images to 80–85% quality
+[Partial]  CDN for global image delivery
+           S3 + STORAGE_S3_PUBLIC_BASE_URL exist. Production still uses local ephemeral disk on Railway.
+
+--- Caching Strategy ---
+[Partial]  Browser Cache-Control max-age=31536000 for static assets
+           Next hashed /_next/static yes. No custom headers on API or /uploads.
+[Have]     Content hashes in filenames (Next bundles; uploads use uuid4)
+[Missing]  CDN cache for static assets and API responses
+[Missing]  stale-while-revalidate for dynamic content (home uses cache: no-store)
+[Missing]  React Query / SWR client cache
+[Have]     Redis for server-side caching (search/profiles, TTL, optional)
+[Partial]  Database query caching and indexing
+           Indexes on email, city, name, FKs. No Postgres result cache. Nearby search is Haversine in Python.
+[Have]     Time-based cache expiration (Redis ttl=300)
+[Have]     Event-based cache invalidation (cache_delete_pattern on writes)
+
+--- Payment Processing ---
+[N/A]      Payment processor (Stripe / PayPal / Razorpay) — no checkout in the product
+[N/A]      PCI DSS through processor
+[N/A]      Tokenization — never store raw card data
+[N/A]      HTTPS everywhere for payment pages
+[N/A]      Verify payment webhooks using signatures
+[N/A]      Hosted checkout pages
+[N/A]      Save payment methods with consent
+[N/A]      Handle payment failures gracefully
+           Adding payments is a product decision, not a missing control on current flows.
+
+--- Data Processing & Background Jobs ---
+[Partial]  Offload heavy processing to background jobs
+           FastAPI BackgroundTasks (in-process) for AI summary + image analysis.
+[Missing]  Message queues (RabbitMQ, SQS, Kafka)
+[Missing]  Job processors (Bull, Celery, Lambda)
+[Partial]  Examples: reports, bulk emails, file processing (AI only; no email/reports)
+[Missing]  WebSockets or SSE (NotificationBell polls)
+[Missing]  Serverless functions for event-driven processing
+
+--- Security Hardening (OWASP Top 10) ---
+[Have]     Input validation / parameterized SQL (Pydantic + SQLAlchemy)
+[Have]     Output encoding (React default escaping)
+[Missing]  Content Security Policy
+[Have]     CORS origin allowlist (methods/headers still *)
+[Partial]  CSRF protection
+           Bearer-in-header is CSRF-resistant today. Cookie auth (S-026) will need double-submit CSRF (ADR-004).
+[Partial]  XSS prevention: HttpOnly cookies + escape user content
+           Escape yes. Tokens in localStorage: XSS can steal the session. Highest remaining web auth risk.
+[Missing]  HTTPS everywhere with HSTS (platform TLS possible; not enforced in app)
+[Missing]  Security headers (nosniff, X-Frame-Options, HSTS)
+[Missing]  Dependency scanning (Snyk / GitHub Dependabot) — no dependabot.yml
+[Partial]  Secrets management (env via Pydantic Settings; SECRET_KEY required, no default. Not AWS Secrets Manager)
+[Partial]  Log security events (admin audit_logs; failed logins not persisted)
+[Partial]  Never log secrets (convention; no structured logger / redaction filter yet)
+[Have]     Cryptographically secure session tokens (JWT HS256 + uuid4 jti; TOTP secrets Fernet-encrypted)
+
+--- Performance Optimization ---
+[Have]     Frontend code splitting / tree shaking / default script loading
+[Partial]  Optimize React renders (some useCallback; no systematic memo)
+[Have]     Avoid deep component trees (small App Router app)
+[Missing]  Measure Lighthouse / Web Vitals in CI
+[Partial]  Database indexing on hot columns (some indexes; no EXPLAIN review / geo index)
+[Have]     Connection pooling (SQLAlchemy async engine)
+[Missing]  CDN for static assets
+[Partial]  HTTP/2 or HTTP/3 (host-dependent, not configured in-app)
+
+--- Scalability & Architecture ---
+[Partial]  Horizontal scaling behind a load balancer
+           JWT is stateless. Rate limiter is in-process memory. Local disk uploads do not share. railway.json = 1 replica.
+[Have]     Stateless services (JWT; Redis optional for cache/blocklist)
+[N/A]      Microservices — not needed at this size
+[Missing]  Serverless auto-scaling functions
+[Partial]  Managed database with backups (Compose local; Railway/Neon documented, backups not verified in-repo)
+[Missing]  Read replicas — not needed at current scale
+[N/A]      Sharding — premature
+[Partial]  CI/CD (pytest + Jest + mobile + config-sync on PR; no auto-deploy; main not branch-protection-gated)
+[Missing]  Canary deployments
+[Missing]  Blue-green deployments
+[Missing]  Feature flags
+
+--- Logging, Monitoring & Observability ---
+[Missing]  Structured JSON logging (README §14 gap)
+[Partial]  Log levels (a few logging.getLogger calls; no app-wide config / request ID)
+[Partial]  Log sensitive events (admin audit only)
+[Partial]  Never log secrets
+[Missing]  Uptime monitoring (/health exists for probes only)
+[Missing]  Error tracking (Sentry / similar)
+[Missing]  Performance monitoring
+[Missing]  Alerting
+[Missing]  Distributed tracing
+[Missing]  Metrics (Prometheus / Grafana)
+
+--- Design & UX ---
+[Partial]  Semantic HTML
+[Partial]  ARIA labels (some widgets only)
+[Partial]  Keyboard navigation
+[Partial]  WCAG color contrast (tokens exist; no axe CI)
+[Partial]  Mobile-first (Tailwind; Flutter parity still incomplete — see README §12)
+[Have]     CSS media queries / Tailwind breakpoints
+[Missing]  Test on real devices as a process
+[Missing]  Skeleton screens
+[Partial]  Progressive loading (SSR home; dashboards wait on fetch)
+[Missing]  Error boundaries (no app/error.tsx)
+
+--- Development Workflow ---
+[Have]     TypeScript (frontend) + typed Python
+[Partial]  ESLint + Prettier (ESLint yes; no Prettier config)
+[Have]     Unit tests (pytest + Jest/RTL; README §11 “thin coverage” paragraph is stale)
+[Missing]  E2E tests (Playwright / Cypress)
+[Have]     Feature branches (.githooks/pre-commit blocks commits on main)
+[Partial]  Pull requests require code reviews (process yes; GitHub required reviewers not enabled)
+[Partial]  Conventional commits (not enforced)
+[Have]     README: how to run locally (exceeds typical README)
+[Have]     API docs: Swagger/OpenAPI (Flutter client generated from snapshot)
+[Have]     Architecture docs / ADRs
+
+--- Compliance & Legal ---
+[Missing]  GDPR/CCPA (no export / right-to-delete API). Profile collects national ID with no legal wrapper.
+[Missing]  Cookie consent (becomes required when S-026 cookie auth ships)
+[Missing]  Terms of Service & Privacy Policy
+[Missing]  Data retention policy
+
+
+================================================================================
+2. SCORE (do not treat N/A as failure)
+================================================================================
+
+Have:     30
+Partial:  40
+Missing:  47
+N/A:      10  (8 payment items + microservices + sharding)
+Total:   127
+
+Applicable items fully met: 30 / 117 ≈ 26%
+Applicable Have+Partial:    70 / 117 ≈ 60%
+
+This is a strong student/portfolio MVP with real RBAC, MFA, and API hygiene.
+It is not yet a public-internet production SaaS on this checklist.
+
+
+================================================================================
+3. WHERE WE ALREADY MEET OR BEAT THE LIST
+================================================================================
+
+- Mandatory TOTP for password login (most lists only ask for optional MFA).
+- JWT type claim so refresh/MFA tokens cannot be used as access tokens.
+- Redis jti blocklist on logout; inactive users rejected.
+- Two-layer authz: role + ownership (404 not 403).
+- Admin cannot self-register.
+- Google ID tokens verified server-side (audience + issuer).
+- bcrypt; SECRET_KEY has no insecure default.
+- Auth rate limits and upload MIME/size caps ARE in code (README §9 is stale).
+- REST /api/v1, Pydantic, parameterized SQL, CORS allowlist.
+- Hybrid Next.js SSR/CSR matching the page type.
+- Redis cache with TTL + write invalidation; Redis optional (fail-open except AI lock).
+- OpenAPI/Swagger; Flutter client generated from it; secure storage on mobile.
+- Feature-branch hook, CI tests, ADRs (including ADR-004 for cookie auth).
+
+
+================================================================================
+4. KEY FEATURES MISSING (product / security capabilities that do not exist)
+================================================================================
+
+P0 — blocking for real public users
+  - HttpOnly cookie session for web (S-026) while keeping Bearer for mobile
+  - HTTPS + HSTS + security headers + CSP
+  - True refresh-token rotation (revoke old refresh jti on each refresh)
+  - Dependabot (or equivalent) on GitHub
+  - Structured request logs + Sentry (or similar) + uptime check on /health
+  - Privacy Policy, Terms, GDPR export/delete if any real person in EU/US uses the app
+  - Stop collecting national ID until a legal basis and retention story exist
+
+P1 — should land before calling it “production”
+  - Password min 12 + complexity
+  - Per-account lockout (not only IP rate limit)
+  - Shorten refresh absolute lifetime (hours, not 7 days) or add idle timeout
+  - S3 (or R2) + CDN for uploads; stop using container disk
+  - Global API rate limit (Redis-backed) so replicas share buckets
+  - GitHub branch protection: required CI + review on main
+  - Auto-deploy on green CI
+  - next/image + lazy/srcSet for galleries
+  - Cookie consent when cookies are introduced
+
+P2 — quality, not survival
+  - TanStack Query or SWR
+  - Consistent API error envelope
+  - Playwright E2E for login / MFA / merchant / admin happy paths
+  - app/error.tsx + skeletons
+  - Lighthouse / Web Vitals in CI
+  - Prettier + commitlint if you want the workflow items strictly checked
+  - SSG/ISR for city/category indexes
+  - Notification SSE/WebSocket instead of polling
+  - Job queue (ARQ/Celery) if AI volume grows
+
+Do not build unless the product needs them
+  - Stripe / PCI (no payments today)
+  - Microservices, Kafka, read replicas, sharding
+  - Canary / blue-green / feature-flag platform
+  - Datadog APM / Jaeger (Sentry + /health uptime is enough at this size)
+  - Auth0/Clerk (optional replacement for custom JWT, not required to “pass” authz)
+
+
+================================================================================
+5. KEY ENHANCEMENTS (we have a weaker version of a right practice)
+================================================================================
+
+  Auth TTL / rotation     Access 30 min → 15 min; blocklist old refresh jti on /auth/refresh.
+  MFA coverage            Optional TOTP (or step-up) for Google and for admin-sensitive actions.
+  Rate limit              Move slowapi storage to Redis; add per-user caps on write APIs.
+  Audit                   Log login success/failure, logout, role changes, with IP (hashed if needed).
+  CORS                    Tighten allow_methods / allow_headers off "*".
+  Images                  Switch PhotoGallery/ReviewCard to next/image; transcode on upload.
+  Cache                   Cache-Control on /uploads; consider SWR for dashboards only (not home).
+  CI                      Enable required status checks; add Dependabot weekly.
+  README                  Fix stale §9 (rate limit, upload validation) and §11 (test count).
+  Observability           JSON logs with request_id; never log Authorization / tokens / TOTP secrets.
+
+
+================================================================================
+6. WHAT IS REALLY REQUIRED TO REACH “CHECKLIST QUALITY”
+================================================================================
+
+Two bars. Pick one. Cost differs by ~10x.
+
+BAR A — Public internet MVP (honest production for a small audience)
+  1. Finish S-026 cookie auth + CSRF (already designed).
+  2. Security headers + CSP + HSTS at the reverse proxy or FastAPI middleware.
+  3. Refresh rotation + password policy + account lockout.
+  4. S3/R2 for photos.
+  5. Dependabot + Sentry + UptimeRobot (or Railway health) + structured logs.
+  6. Legal pages + do-not-collect national ID (or lawyer-approved purpose).
+  7. Branch protection + auto-deploy.
+  Time: roughly 2–4 weeks of focused engineering, one person who already knows this repo.
+  Cash: ~$0–50/mo SaaS (Sentry, uptime, object storage) + domain/TLS (Railway).
+  People: you. Optional: 1–2 day pentest later.
+
+BAR B — Enterprise / SOC 2 shaped (every checkbox including SSO, queues, APM, canary)
+  1. Everything in Bar A.
+  2. Managed IdP or WorkOS SAML for enterprise SSO.
+  3. Worker queue, feature flags, CDN in front of API, read-replica plan.
+  4. Formal GDPR program, DPA, retention jobs, cookie CMP.
+  5. Pentest + (if selling to enterprises) SOC 2 Type I/II over months.
+  Time: months, not weeks.
+  Cash: tens of thousands (audit + lawyer + pentest + vendors).
+  People: engineer + privacy counsel + pentester + (later) auditor. Not a generic web agency.
+
+Recommendation: Bar A. Bar B is theatre until you have paying customers and a data-processing reason.
+
+
+================================================================================
+7. EFFORT AND THIRD PARTIES
+================================================================================
+
+Work                         Who                         Effort (order of magnitude)
+---------------------------  --------------------------  ---------------------------
+S-026 cookies + CSRF         In-house (slice exists)     3–7 days
+Headers / CSP / HSTS         In-house                    0.5–1 day
+Refresh rotation + lockout   In-house                    1–2 days
+   + password policy
+S3/R2 + CDN                  AWS or Cloudflare           1 day + usage fees
+Dependabot                   GitHub (free)               1 hour
+Sentry                       Sentry.io                   0.5 day + ~$0–26/mo
+Uptime check                 UptimeRobot / Better Stack  1 hour + free/$
+Structured JSON logs         In-house                    1–2 days
+next/image + lazy            In-house                    0.5–1 day
+TanStack Query               In-house                    2–4 days
+Playwright smoke             In-house                    2–4 days
+Legal pages (ToS/Privacy)    Privacy lawyer to review    Templates $0; review typically a few thousand USD
+GDPR export/delete APIs      In-house + lawyer           3–7 days once policy exists
+Pentest                      CREST/OSCP-style firm       Often $8k–25k for a small app
+Managed IdP (optional)       Clerk / Auth0 / Cognito     Rewrite auth; monthly MAU/seat cost
+Stripe (only if you charge)  Stripe                      Days + PCI is Stripe’s problem
+SOC 2 / ISO 27001            Auditor + months of ops     Tens of thousands; skip until enterprise sales need it
+
+You do not need an external “web application agency” to tick this list.
+You need: this repo’s builder, cheap SaaS, a lawyer if real users’ PII is in play, a pentester before you call it secure.
+
+
+================================================================================
+8. SUGGESTED ORDER (if we implement from this file)
+================================================================================
+
+  1. Update README §9 and §11 so docs match code (rate limit, uploads, tests).
+  2. Stop or gate national-ID collection until legal text exists.
+  3. Implement S-026 (httpOnly cookies, dual Bearer for mobile).
+  4. Security headers + CSP + HSTS; Dependabot.
+  5. Refresh jti rotation; password policy; account lockout.
+  6. S3/R2 for uploads.
+  7. Structured logs + Sentry + uptime.
+  8. Branch protection + auto-deploy.
+  9. Images (next/image) and client cache (Query/SWR) as polish.
+ 10. Legal pages + GDPR endpoints when going beyond demo accounts.
+
+Confirm: this file is CHECKLIST_GAPS.txt at the repository root.
+)

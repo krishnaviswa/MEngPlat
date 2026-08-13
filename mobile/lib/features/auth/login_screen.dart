@@ -181,7 +181,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   if (_step == _Step.credentials)
                     TextButton(
                       key: const Key('continueAsGuestButton'),
-                      onPressed: _loading ? null : () => context.push('/businesses'),
+                      onPressed: _loading ? null : () => context.go('/businesses'),
                       child: const Text('Continue without signing in'),
                     ),
                 ],
