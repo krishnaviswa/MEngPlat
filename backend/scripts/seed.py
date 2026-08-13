@@ -93,19 +93,19 @@ async def _seed_base(db) -> tuple[Merchant, list[Category]]:
     admin_user = User(
         email="admin@merchanthub.ai",
         full_name="Platform Admin",
-        hashed_password=get_password_hash("admin12345"),
+        hashed_password=get_password_hash("admin12345ok"),
         role=UserRole.ADMIN,
     )
     merchant_user = User(
         email="merchant@example.com",
         full_name="Maria Santos",
-        hashed_password=get_password_hash("merchant123"),
+        hashed_password=get_password_hash("merchant1234"),
         role=UserRole.MERCHANT,
     )
     customer_user = User(
         email="customer@example.com",
         full_name="Alex Johnson",
-        hashed_password=get_password_hash("customer123"),
+        hashed_password=get_password_hash("customer1234"),
         role=UserRole.CUSTOMER,
     )
     for u in (admin_user, merchant_user, customer_user):
@@ -196,16 +196,19 @@ async def seed() -> None:
             merchant, categories = await _seed_base(db)
         else:
             # Keep demo password accounts on the shared authenticator secret when re-seeding.
-            for email in (
-                "admin@merchanthub.ai",
-                "merchant@example.com",
-                "customer@example.com",
-            ):
+            demo_passwords = {
+                "admin@merchanthub.ai": "admin12345ok",
+                "merchant@example.com": "merchant1234",
+                "customer@example.com": "customer1234",
+            }
+            for email, password in demo_passwords.items():
                 existing = (
                     await db.execute(select(User).where(User.email == email))
                 ).scalar_one_or_none()
-                if existing and not existing.totp_enabled:
-                    enable_demo_totp(existing)
+                if existing:
+                    existing.hashed_password = get_password_hash(password)
+                    if not existing.totp_enabled:
+                        enable_demo_totp(existing)
             merchant_result = await db.execute(
                 select(Merchant).join(User, Merchant.user_id == User.id).where(User.email == "merchant@example.com")
             )
@@ -237,9 +240,9 @@ async def seed() -> None:
 
         print("Seed complete.")
         print(f"  SEED_VERSION marker: {version}")
-        print("  Admin:    admin@merchanthub.ai / admin12345")
-        print("  Merchant: merchant@example.com / merchant123")
-        print("  Customer: customer@example.com / customer123")
+        print("  Admin:    admin@merchanthub.ai / admin12345ok")
+        print("  Merchant: merchant@example.com / merchant1234")
+        print("  Customer: customer@example.com / customer1234")
         print("  Demo TOTP secret (authenticator): JBSWY3DPEHPK3PXP")
         print(
             f"  Chennai demo customers: demo.customer1@example.com … "

@@ -65,6 +65,50 @@ async def try_acquire_lock(key: str, ttl: int) -> bool:
         return False
 
 
+LOGIN_FAIL_LIMIT = 5
+LOGIN_LOCK_SECONDS = 15 * 60
+
+
+def _login_email_key(email: str) -> str:
+    return email.strip().lower()
+
+
+async def is_login_locked(email: str) -> bool:
+    """True if this email is in a 15-minute lockout window. Fail-open: Redis
+    unreachable -> not locked, so local/dev without Redis is not bricked.
+    """
+    try:
+        client = await get_redis()
+        return bool(await client.exists(f"auth:lock:{_login_email_key(email)}"))
+    except Exception:
+        return False
+
+
+async def record_login_failure(email: str) -> bool:
+    """Increment the per-email fail counter. Returns True if now locked."""
+    key_email = _login_email_key(email)
+    try:
+        client = await get_redis()
+        count = int(await client.incr(f"auth:fail:{key_email}"))
+        if count == 1:
+            await client.expire(f"auth:fail:{key_email}", LOGIN_LOCK_SECONDS)
+        if count >= LOGIN_FAIL_LIMIT:
+            await client.set(f"auth:lock:{key_email}", "1", ex=LOGIN_LOCK_SECONDS)
+            return True
+        return False
+    except Exception:
+        return False
+
+
+async def clear_login_failures(email: str) -> None:
+    try:
+        client = await get_redis()
+        key_email = _login_email_key(email)
+        await client.delete(f"auth:fail:{key_email}", f"auth:lock:{key_email}")
+    except Exception:
+        pass
+
+
 async def blocklist_token(jti: str, exp: float) -> None:
     """Revoke a token by jti until it would have expired anyway.
 

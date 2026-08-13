@@ -39,7 +39,7 @@ async def client():
 @pytest.mark.asyncio
 async def test_password_login_totp_and_profile_enrichment_flow(client):
     email = f"totp-{uuid.uuid4().hex[:8]}@example.com"
-    password = "testpass123"
+    password = "testpass1234"
 
     # --- register: no tokens issued at registration time ---
     register = await client.post(

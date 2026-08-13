@@ -1,6 +1,7 @@
 MerchantHub AI — checklist gap file
 Scored 13 Aug 2026 against the generic modern-web technical/security checklist.
 Source of truth for product docs remains README.md. This file is a working gap list, not a second prose doc.
+Human-facing hold list (SaaS / legal / enterprise): README.md §14 “Deferred for commercial / enterprise”.
 Scoring: Have | Partial | Missing | N/A | Exceeds (Have, and stricter than the list)
 
 Legend for later columns (effort / who):
@@ -19,16 +20,17 @@ Legend for later columns (effort / who):
            Not: Auth0/Clerk/Cognito. You own session bugs; you avoid vendor lock-in.
 [Partial]  Enforce MFA for all users (especially admins)
            Exceeds on password accounts: TOTP is mandatory. Google OAuth is exempt. No extra admin-only step.
-[Missing]  Password policy: minimum 12 characters + complexity
-           Have: min 8 (Pydantic UserRegister). No complexity rules.
+[Have]     Password policy: minimum 12 characters + complexity
+           UserRegister: min 12 + at least one letter and one digit. Login of existing hashes unchanged.
 [Have]     Argon2 or bcrypt for password hashing
            bcrypt via passlib CryptContext(schemes=["bcrypt"], deprecated="auto").
-[Missing]  Account lockout after 5–10 failed login attempts
-           Have instead: IP rate limit on /auth/login (10/min) and /auth/register (5/min). Not per-account lockout.
+[Have]     Account lockout after 5–10 failed login attempts
+           Redis auth:fail / auth:lock after 5 failed password logins, 15 min. Fail-open if Redis is down.
+           Also: IP rate limit on /auth/login (10/min) and /auth/register (5/min). Google path not lockout-counted.
 [Partial]  SSO (SAML or OIDC) for enterprise customers
            Consumer Google OIDC only. No SAML / WorkOS / multi-tenant IdP.
 [Partial]  Short-lived access tokens (15 min) with refresh token rotation
-           Access TTL is 30 min. Refresh issues a new pair but does NOT blocklist the old refresh jti.
+           Access TTL is 30 min (not 15). Refresh now blocklists the presented refresh jti before issuing a new pair.
 [Missing]  Store tokens in HttpOnly, Secure, SameSite cookies (never localStorage)
            Web: localStorage. Mobile: flutter_secure_storage (better). S-026 / ADR-004 specified, not built.
 [Missing]  Session idle timeout 15–60 minutes

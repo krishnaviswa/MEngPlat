@@ -28,7 +28,7 @@ def fake_request(headers: dict[str, str] | None = None) -> Request:
 async def complete_password_login(
     client: AsyncClient,
     email: str,
-    password: str = "testpass123",
+    password: str = "testpass1234",
 ) -> dict:
     """Password login then enroll/verify TOTP; returns TokenResponse JSON."""
     login = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
@@ -70,7 +70,7 @@ async def register_and_get_token(
     client: AsyncClient,
     email: str,
     *,
-    password: str = "testpass123",
+    password: str = "testpass1234",
     role: str = "customer",
     full_name: str = "Test User",
 ) -> str:

@@ -39,7 +39,7 @@ async def _register_admin(client: AsyncClient) -> dict:
     seed the row directly via a real session and log in normally -- there's
     no API path to mint an admin account."""
     email = f"admin-{uuid.uuid4().hex[:8]}@example.com"
-    password = "testpass123"
+    password = "testpass1234"
     async with AsyncSessionLocal() as db:
         db.add(
             User(

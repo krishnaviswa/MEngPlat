@@ -68,10 +68,10 @@ export function RegisterForm() {
       <input
         type="password"
         required
-        minLength={8}
+        minLength={12}
         value={form.password}
         onChange={(e) => setForm({ ...form, password: e.target.value })}
-        placeholder="Password (min 8 chars)"
+        placeholder="Password (min 12 chars, include a letter and a digit)"
         className="w-full rounded border px-3 py-2"
       />
       <Select

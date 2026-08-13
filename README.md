@@ -81,15 +81,15 @@ On Railway, the same paths (`/docs`, `/redoc`, `/openapi.json`, `/health`) hang 
 
 | Role               | Email                                                        | Password      |
 | ------------------ | ------------------------------------------------------------ | ------------- |
-| Admin              | `admin@merchanthub.ai`                                       | `admin12345`  |
-| Merchant           | `merchant@example.com`                                       | `merchant123` |
-| Customer           | `customer@example.com`                                       | `customer123` |
-| Chennai demo (×10) | `demo.customer1@example.com` … `demo.customer10@example.com` | `demo12345`   |
+| Admin              | `admin@merchanthub.ai`                                       | `admin12345ok` |
+| Merchant           | `merchant@example.com`                                       | `merchant1234` |
+| Customer           | `customer@example.com`                                       | `customer1234` |
+| Chennai demo (×10) | `demo.customer1@example.com` … `demo.customer10@example.com` | `demo12345abc` |
 
 
 **Password login requires an authenticator app.** Seeded demo accounts share TOTP secret `JBSWY3DPEHPK3PXP` (add to Google Authenticator / Authy as a time-based account). Gmail/Google sign-in does not require TOTP.
 
-`backend/scripts/seed.py` creates the three core demo users, one Portland sample business, then upserts ~20 Chrompet / Radha Nagar businesses (`seed_chennai.py`) and 40 US listings (`seed_us.py`: Fremont, Union City, Brandon, Dallas). US JSON lives in `backend/data/real-businesses/` so the backend Docker image (Railway) includes it; a mirror under `data/real-businesses/` plus a Compose mount at `/data/real-businesses` are fallbacks. Both regional seeds use synthetic hand-authored reviews, Unsplash stock photos by category (not hotlinked listing photos), and mock AI analysis rows. Display ratings come from seeded reviews via `update_business_rating()` — JSON `rating` / `review_count` fields are ignored. Extra demo customers `demo.customer1@example.com` … `demo.customer10@example.com` share password `demo12345`. Categories include `auto_repair` and `hospital` (ensured on re-run).
+`backend/scripts/seed.py` creates the three core demo users, one Portland sample business, then upserts ~20 Chrompet / Radha Nagar businesses (`seed_chennai.py`) and 40 US listings (`seed_us.py`: Fremont, Union City, Brandon, Dallas). US JSON lives in `backend/data/real-businesses/` so the backend Docker image (Railway) includes it; a mirror under `data/real-businesses/` plus a Compose mount at `/data/real-businesses` are fallbacks. Both regional seeds use synthetic hand-authored reviews, Unsplash stock photos by category (not hotlinked listing photos), and mock AI analysis rows. Display ratings come from seeded reviews via `update_business_rating()` — JSON `rating` / `review_count` fields are ignored. Extra demo customers `demo.customer1@example.com` … `demo.customer10@example.com` share password `demo12345abc`. New registrations must be at least 12 characters with a letter and a digit; existing login hashes are unchanged until you re-seed (`SEED_VERSION` bump). Categories include `auto_repair` and `hospital` (ensured on re-run).
 
 **Seed is version-gated** via `SEED_MODE` / `SEED_VERSION` and the `seed_runs` table (see §15). Compose uses `if_outdated` (skip when the current version marker exists). Railway production **does not** run seed on boot — migrate + API only. To refresh demo data on Railway (shell / one-shot):
 
@@ -781,7 +781,7 @@ This project’s live backend (when deployed) is typically `https://backend-prod
 1. Open `/docs`.
 2. Expand any route → **Try it out** → **Execute**.
 3. For protected routes: call `POST /api/v1/auth/login` first, copy `access_token`, click **Authorize**, enter `Bearer <token>` (or just the token if the UI prepends `Bearer`).
-4. Demo accounts are in [§1 Quick start](#1-quick-start) (`customer@example.com` / `customer123`, etc.).
+4. Demo accounts are in [§1 Quick start](#1-quick-start) (`customer@example.com` / `customer1234`, etc.).
 
 The tables below are the human-readable contract; Swagger is always the up-to-date executable list (including request/response schemas).
 
@@ -838,7 +838,7 @@ curl -s --get --data-urlencode "address=Chrompet, Chennai" "$API/api/v1/maps/geo
 # Password login → MFA challenge (demo accounts already have TOTP enrolled)
 curl -s -X POST "$API/api/v1/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"customer@example.com","password":"customer123"}'
+  -d '{"email":"customer@example.com","password":"customer1234"}'
 # → { "mfa_required": true, "mfa_token": "..." }
 
 # Verify with current authenticator code (demo secret JBSWY3DPEHPK3PXP)
@@ -854,7 +854,7 @@ curl -s "$API/api/v1/auth/me" -H "Authorization: Bearer $TOKEN"
 # Favorites (customer role)
 curl -s "$API/api/v1/favorites" -H "Authorization: Bearer $TOKEN"
 
-# Merchant / admin: login as merchant@example.com / merchant123 or admin@merchanthub.ai / admin12345
+# Merchant / admin: login as merchant@example.com / merchant1234 or admin@merchanthub.ai / admin12345ok
 curl -s "$API/api/v1/businesses/mine" -H "Authorization: Bearer $TOKEN"
 curl -s "$API/api/v1/dashboard/admin/platform" -H "Authorization: Bearer $TOKEN"
 ```
@@ -1391,10 +1391,16 @@ Author-scoped actions (edit/delete review) follow the same principle at the rout
 | Control          | Implementation                                                                                                                                                                                                            |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | CORS             | `CORSMiddleware` with an explicit origin allowlist from `cors_origin_list`, `allow_credentials=True` ([main.py](backend/app/main.py))                                                                                     |
+| Security headers | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` on FastAPI and Next; `Strict-Transport-Security` only when the request is HTTPS / `X-Forwarded-Proto: https` (local Compose HTTP is unchanged). CSP is deferred so Leaflet / Google GIS keep working. |
 | Input validation | Pydantic request schemas on every endpoint — malformed bodies are rejected with 422 before any handler runs                                                                                                               |
+| Password policy  | Register: min 12 characters, at least one letter and one digit (`UserRegister`). Login does not re-validate complexity.                                                                                                  |
+| Rate limiting    | `slowapi`: `/auth/login` 10/minute per IP, `/auth/register` 5/minute per IP                                                                                                                                               |
+| Account lockout  | After 5 failed **password** logins for an email, Redis lock 15 minutes (`auth:fail:` / `auth:lock:`). Fail-open if Redis is down (same idea as the token blocklist). Google sign-in is not counted.                         |
+| Refresh rotation | `POST /auth/refresh` blocklists the presented refresh `jti` before issuing a new pair                                                                                                                                     |
 | SQL injection    | SQLAlchemy parameterised queries throughout; no string-built SQL                                                                                                                                                          |
 | Slug generation  | `slugify()` strips non-word characters and appends 8 random hex chars — prevents slug collision and enumeration by name                                                                                                   |
 | Upload paths     | Filenames are replaced with a server-generated `uuid4()`; the client-supplied name is used only for its extension, so path traversal via `filename` is not possible ([storage](backend/app/services/storage/__init__.py)) |
+| Upload MIME/size | Photo upload allows image JPEG/PNG/WebP/GIF only and caps at 5 MB ([photos.py](backend/app/routers/photos.py))                                                                                                            |
 | Audit trail      | Admin approve/suspend/moderate actions write `audit_logs` rows                                                                                                                                                            |
 | Logout UX        | Client `performLogout` clears tokens, hard-navigates; `RequireAuth` / profile / settings re-check on bfcache `pageshow`                                                                                                   |
 | TOTP MFA         | Password login requires authenticator app; Google/Gmail path does not                                                                                                                                                     |
@@ -1409,11 +1415,11 @@ These are real and currently unmitigated. They are acceptable for a local demo, 
 
 | #   | Weakness                                                                                     | Impact                                                                                 | Fix                                                                                                                                                                                                            |
 | --- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Tokens stored in `localStorage`                                                              | Any XSS can exfiltrate both tokens                                                     | Move to `httpOnly` `Secure` `SameSite` cookies — deferred as its own slice; also needs a dual-auth story since the mobile client is Bearer-token-only, not cookie-based                                        |
+| 1   | Tokens stored in `localStorage`                                                              | Any XSS can exfiltrate both tokens                                                     | Move to `httpOnly` `Secure` `SameSite` cookies — **S-026 / ADR-004**, not this hardening batch (needs a dual-auth story; mobile stays Bearer)                                                                  |
 | 2   | ✅ Fixed — `secret_key` had a hardcoded fallback in `[config.py](backend/app/config.py)`      | If unset in prod, anyone could forge a valid admin JWT                                 | Now a required field with no default — startup fails fast if `SECRET_KEY` is unset. Every documented workflow (Compose, `.env.example`, both CI workflows, the Railway guide below) already sets it explicitly |
-| 3   | No rate limiting on `/auth/login` or `/auth/register`                                        | Unbounded credential stuffing; bcrypt cost also makes it a cheap CPU-exhaustion vector | `slowapi` or a reverse-proxy rate limit                                                                                                                                                                        |
+| 3   | ✅ Fixed — rate limiting on `/auth/login` and `/auth/register`                                | Credential stuffing / bcrypt CPU exhaustion                                            | `slowapi` 10/min login, 5/min register per IP; plus per-email lockout (5 failures / 15 min) when Redis is up                                                                                                    |
 | 4   | ✅ Fixed — `debug: bool = True` default, and it wasn't even wired to FastAPI's own debug mode | Verbose tracebacks in HTTP responses can leak internals                                | Default is now `False`; `main.py` passes it to `FastAPI(debug=...)` so the setting actually gates traceback responses, not just SQL echo logging. Compose/`.env.example` opt local dev back in explicitly      |
-| 5   | No MIME/size validation on upload                                                            | Arbitrary file content and size accepted into `/uploads`                               | Validate content type and cap size in `LocalStorageProvider.save()`                                                                                                                                            |
+| 5   | ✅ Fixed — MIME/size validation on photo upload                                               | Arbitrary file content and size accepted into `/uploads`                               | Image content types only; 5 MB cap in `[photos.py](backend/app/routers/photos.py)`                                                                                                                              |
 | 6   | `/uploads` served as unauthenticated static files                                            | Any uploaded photo is world-readable to anyone with the URL                            | Acceptable for public gallery photos; use signed URLs if private media is ever added                                                                                                                           |
 
 
@@ -1423,11 +1429,16 @@ These are real and currently unmitigated. They are acceptable for a local demo, 
 
 - [x] Strong `SECRET_KEY` from env, no default
 - [ ] HTTPS everywhere
-- [ ] `httpOnly` cookies for tokens (upgrade from `localStorage`)
-- [ ] Rate limiting on auth endpoints
+- [ ] `httpOnly` cookies for tokens (upgrade from `localStorage`) — **S-026**, not started
+- [x] Rate limiting on auth endpoints
+- [x] Per-email lockout on failed password login (Redis, fail-open)
+- [x] Refresh-token `jti` rotation
+- [x] Register password policy (min 12 + letter + digit)
+- [x] Baseline security headers (no CSP yet — maps / GIS)
+- [x] Dependabot for `backend/` pip, `frontend/` npm, and GitHub Actions
 - [ ] Database SSL enabled (Neon does this by default)
 - [x] `debug=False`
-- [ ] Upload MIME + size validation
+- [x] Upload MIME + size validation
 - [ ] `CORS_ORIGINS` set to the real frontend origin only
 
 ---
@@ -1594,11 +1605,12 @@ cd backend && pip install -r requirements.txt && pytest
 cd frontend && npm install && npm test
 ```
 
-**Current coverage is thin — this is the biggest quality gap in the repo.**
+**Current coverage grew past the original three pytest cases / one Jest file, but it is still not a full product suite.**
 
-- Backend: 3 tests in `[backend/tests/test_api.py](backend/tests/test_api.py)` — health check, register+login, list businesses. No `conftest.py`, no fixtures, no DB isolation between runs.
-- Frontend: 1 test — `RatingWidget` in `frontend/src/components/__tests__/`.
-- Backend tests need a reachable PostgreSQL (see §1); there is no test-database isolation yet.
+- Backend: pytest modules under `[backend/tests/](backend/tests/)` cover health, auth (MFA, Google, logout, lockout, refresh rotation), RBAC, reviews, favorites, AI providers, cache, rate limits, and more. There is still **no isolated test database** — many tests call handlers with fakes because PostgreSQL is not assumed in every environment.
+- Frontend: React Testing Library specs under `frontend/src/**/__tests__/` (auth forms, admin queues, dashboard pieces, `api.ts`, etc.), not a single `RatingWidget` file.
+- No Playwright (or equivalent) browser e2e in CI.
+- Backend tests that hit the real app still need a reachable PostgreSQL for the ASGI/DB cases (see §1).
 
 Run tests with `AI_PROVIDER=mock` so no network calls or API costs are incurred.
 
@@ -1619,6 +1631,7 @@ MEngPlat/
 ├── .claude/agents/             # Claude Code subagents — mirror .cursor/rules/agents/
 ├── .githooks/pre-commit        # Blocks commits on main; mobile analyze/test; Cursor/Claude sync
 ├── .github/workflows/          # CI, incl. the same config-sync check on every PR
+├── .github/dependabot.yml      # Weekly pip / npm / Actions updates
 ├── scripts/check_agent_config_sync.py  # Enforces the Cursor ↔ Claude Code sync rule
 │
 ├── docs/agents/                # Live multi-agent artifacts (see §13)
@@ -1749,14 +1762,19 @@ step, driven by `LoginResult.mfa_required` / `mfa_enrollment_required` from `POS
 `totpConfirm`/`totpVerify` succeeds -- `submitCredentials` alone never yields tokens for a
 password account, matching the backend contract.
 
-**Public business browsing + reviews / favorites / notifications (S-023–S-025) and P0 chrome (S-027):**
+**Public browsing, P0–P4 (S-023–S-025, S-027–S-031):**
 ADR-003 carves `/businesses` and `/businesses/:slug` out of the login redirect so guests can browse
-and read reviews; `LoginScreen` has "Continue without signing in". Detail screen hosts the
-reviews list + `ReviewFormSheet` (optional `image_picker` photos). Primary chrome is `AppShell`
-(`ShellRoute` + `NavigationBar`): Explore / Favorites (customer) / Notifications / Account,
-with merchant and admin **Home** placeholders (`/merchant`, `/admin`) — full dashboards stay
-P4 `future`. Logout lives on Account. `unreadCountProvider` still polls every 30s while the
-shell is mounted for a logged-in session.
+and read reviews; `LoginScreen` has "Continue without signing in". Explore hosts search chrome
+(`q`, city/category/rating/sort filters, Use my location, OSM results map via `flutter_map`,
+infinite scroll, photo cards). Detail is a rich profile (contact, hours, gallery, map pin, AI
+overview labeled as a **suggestion**) plus reviews, like/report, and merchant replies on `ReviewCard`.
+Primary chrome is `AppShell` (`ShellRoute` + `NavigationBar`): Explore / Favorites (customer) /
+Notifications / Account, with merchant and admin **Home** dashboards (`/merchant`, `/admin`) —
+stats, AI insights (suggestion-only), reply composer, business create/edit, and admin queues.
+Logout lives on Account. `/register` (customer|merchant) plus
+Google sign-in (skips MFA; hidden if `GOOGLE_CLIENT_ID` is unset) and editable `/account/profile`.
+`unreadCountProvider` still polls every 30s while the shell is mounted for a logged-in session.
+Home marketing bands (M-13–M-18) remain unimplemented on mobile. FCM (M-47) remains `future`.
 
 **CI emulator check (**`.github/workflows/mobile-emulator-check.yml`**):** on push/PR touching
 `mobile/**` or `backend/**` (and via manual `workflow_dispatch`), boots a real KVM-accelerated
@@ -1784,13 +1802,12 @@ phase 5, not here.
 | `n/a` | Not on web either (shared gap — not mobile-only debt) |
 | `future` | Intentionally deferred (e.g. merchant Phase 4, FCM) |
 
-**Later build waves (when greenlit — not started here):** P0 chrome shipped in S-027
-(bottom nav, role-aware landing, Account + logout). Remaining: P1 discovery (search,
-filters, location, photos, rich detail) → P2 auth/account (register, Google,
-profile/settings edit) → P3 engagement (like/report, show replies) → P4 merchant/admin
-(or keep web-only as `future`).
+**Later build waves:** P0–P4 are on this branch (S-027 chrome, S-028 discovery, S-029
+register/Google/profile edit, S-030 like/report/replies, S-031 merchant/admin dashboards).
+Home marketing (M-13–M-18) is still `unimplemented`. FCM (M-47) remains `future`.
+Combined `flutter analyze` / `flutter test` is deferred until you ask.
 
-**Last reviewed:** 2026-08-13
+**Last reviewed:** 2026-08-14
 
 
 | ID | Area | Feature | Web surface | Mobile surface | Status | Notes / slice |
@@ -1798,42 +1815,42 @@ profile/settings edit) → P3 engagement (like/report, show replies) → P4 merc
 | M-01 | Auth | Email/password login | `/login` (`LoginForm`) | `/login` (`LoginScreen`) | `implemented` | S-020 |
 | M-02 | Auth | MFA enroll (TOTP QR + secret) | `/login` enroll step | `/login` enroll step | `implemented` | S-020 |
 | M-03 | Auth | MFA verify (TOTP code) | `/login` verify step | `/login` verify step | `implemented` | S-020 |
-| M-04 | Auth | Google / Gmail sign-in | `/login`, `/register` (`GoogleSignInButton`) | — | `unimplemented` | Web skips MFA for Google |
-| M-05 | Auth | Register (customer / merchant) | `/register` | — | `unimplemented` | P2 |
+| M-04 | Auth | Google / Gmail sign-in | `/login`, `/register` (`GoogleSignInButton`) | `/login`, `/register` (`GoogleSignInButton`) | `implemented` | S-029; skips MFA; hidden if `GOOGLE_CLIENT_ID` unset |
+| M-05 | Auth | Register (customer / merchant) | `/register` | `/register` | `implemented` | S-029; then TOTP on first password login |
 | M-06 | Auth | Logout | Navbar, `/settings`, already-signed-in gate | Account screen (`/account`) | `implemented` | S-027; was list app-bar only |
 | M-07 | Auth | Session restore + refresh | `ClientLayout` / `auth.me` | `AuthInterceptor` + secure storage | `implemented` | |
 | M-08 | Auth | Role switching (customer ↔ merchant) | — | — | `n/a` | Role fixed at register / Google |
-| M-09 | Auth | Role-aware post-login home | Merchant → dashboard; admin → `/admin` | Customer → Explore; merchant → `/merchant` stub; admin → `/admin` stub | `partial` | S-027; full dashboards remain P4 `future` |
+| M-09 | Auth | Role-aware post-login home | Merchant → dashboard; admin → `/admin` | Customer → Explore; merchant → `/merchant` dashboard; admin → `/admin` | `implemented` | S-027 landing + S-031 dashboards |
 | M-10 | Chrome | Global navbar + footer | `ClientLayout` | Bottom `NavigationBar` + Account brand control | `partial` | S-027; mobile chrome, not a cloned web navbar/footer |
 | M-11 | Chrome | Bottom nav / primary shell | — (web uses top nav) | `AppShell` `NavigationBar` | `implemented` | S-027 / ADR-005 |
 | M-12 | Chrome | Brand / home link | Navbar → `/` | Account `MerchantHub AI` → Explore | `implemented` | S-027 |
-| M-13 | Discovery | Home hero + marketing sections | `/` | — | `unimplemented` | P1 |
+| M-13 | Discovery | Home hero + marketing sections | `/` | — | `unimplemented` | P1 leftover; Explore is the mobile discovery surface (S-028) |
 | M-14 | Discovery | Trust metrics | `/` (`TrustMetrics`) | — | `unimplemented` | |
-| M-15 | Discovery | City index | `/` (`CityIndex`) | — | `unimplemented` | |
-| M-16 | Discovery | Category index | `/` (`CategoryIndex`) | — | `unimplemented` | |
+| M-15 | Discovery | City index | `/` (`CityIndex`) | — | `unimplemented` | City **filter** is on Explore (M-20); home index is not |
+| M-16 | Discovery | Category index | `/` (`CategoryIndex`) | — | `unimplemented` | Category **filter** is on Explore (M-20); home index is not |
 | M-17 | Discovery | Featured businesses + photos | `/` (`FeaturedGrid`) | — | `unimplemented` | |
 | M-18 | Discovery | Review voices / how-it-works / merchant CTA | `/` | — | `unimplemented` | |
-| M-19 | Discovery | Search page + query `q` | `/search` | Default unfiltered list only | `unimplemented` | P1 |
-| M-20 | Discovery | Filters (city, category, min rating, sort) | `/search` (`FilterPanel`) | — | `unimplemented` | P1 |
-| M-21 | Discovery | Use my location + radius | `/search` (`UseLocationButton`) | — | `unimplemented` | P1 |
-| M-22 | Discovery | Results map (OSM) | `/search` Leaflet map | — | `unimplemented` | P1 |
-| M-23 | Discovery | Pagination / infinite scroll UI | `/search` | Fixed `page=1` | `unimplemented` | |
-| M-24 | Discovery | Business cards with photos | `BusinessCard` | Text-only `BusinessCard` | `partial` | P1 |
-| M-25 | Business | Public list browse (guest) | `/`, `/search` | `/businesses` (ADR-003) | `partial` | Guest OK; no search chrome |
+| M-19 | Discovery | Search page + query `q` | `/search` | Explore search field (`/businesses`) | `implemented` | S-028 |
+| M-20 | Discovery | Filters (city, category, min rating, sort) | `/search` (`FilterPanel`) | Explore Filters sheet | `implemented` | S-028 |
+| M-21 | Discovery | Use my location + radius | `/search` (`UseLocationButton`) | Explore + Filters radius | `implemented` | S-028 |
+| M-22 | Discovery | Results map (OSM) | `/search` Leaflet map | `flutter_map` OSM tiles | `implemented` | S-028 / ADR-006 |
+| M-23 | Discovery | Pagination / infinite scroll UI | `/search` | Infinite scroll on Explore | `implemented` | S-028 |
+| M-24 | Discovery | Business cards with photos | `BusinessCard` | Photo `BusinessCard` | `implemented` | S-028 |
+| M-25 | Business | Public list browse (guest) | `/`, `/search` | `/businesses` + search chrome (ADR-003) | `implemented` | S-028 |
 | M-26 | Business | Detail: name, city/state, rating, count | `/businesses/[slug]` | `/businesses/:slug` | `implemented` | S-023 |
-| M-27 | Business | Detail: description, address, phone, website | Business profile | — | `unimplemented` | P1 |
-| M-28 | Business | Detail: categories | `CategoryBadges` | — | `unimplemented` | |
-| M-29 | Business | Detail: hours | `BusinessHours` | — | `unimplemented` | Display-only on web |
-| M-30 | Business | Detail: photo gallery / lightbox | `PhotoGallery` | — | `unimplemented` | P1 |
-| M-31 | Business | Detail: map pin | Leaflet on profile | — | `unimplemented` | P1 |
-| M-32 | Business | Detail: AI overview (suggestion) | Profile AI blurb | — | `unimplemented` | Suggestion language required |
+| M-27 | Business | Detail: description, address, phone, website | Business profile | `/businesses/:slug` | `implemented` | S-028 |
+| M-28 | Business | Detail: categories | `CategoryBadges` | Category chips | `implemented` | S-028 |
+| M-29 | Business | Detail: hours | `BusinessHours` | Hours block | `implemented` | S-028 |
+| M-30 | Business | Detail: photo gallery / lightbox | `PhotoGallery` | Gallery + lightbox | `implemented` | S-028 |
+| M-31 | Business | Detail: map pin | Leaflet on profile | OSM pin (`flutter_map`) | `implemented` | S-028 / ADR-006 |
+| M-32 | Business | Detail: AI overview (suggestion) | Profile AI blurb | Labeled suggestion-only | `implemented` | S-028 |
 | M-33 | Reviews | List reviews + AI suggestion labels | `ReviewsList` / `ReviewCard` | `ReviewCard` | `implemented` | S-023 |
 | M-34 | Reviews | Create review (stars, title, body) | `/businesses/[slug]/review` | `ReviewFormSheet` | `implemented` | S-023 |
 | M-35 | Reviews | Attach review photos (≤5) | `ReviewForm` | `image_picker` in sheet | `implemented` | S-023 |
 | M-36 | Reviews | Show review photo strip | `ReviewCard` | `ReviewCard` | `implemented` | |
-| M-37 | Reviews | Like review | Business page | — | `unimplemented` | P3 |
-| M-38 | Reviews | Report review | Business page | — | `unimplemented` | P3 |
-| M-39 | Reviews | Show merchant reply on card | `ReviewCard` | — | `unimplemented` | P3 |
+| M-37 | Reviews | Like review | Business page | `ReviewCard` | `implemented` | S-030 |
+| M-38 | Reviews | Report review | Business page | `ReviewCard` | `implemented` | S-030 |
+| M-39 | Reviews | Show merchant reply on card | `ReviewCard` | `ReviewCard` | `implemented` | S-030 |
 | M-40 | Reviews | Edit own review | — | — | `n/a` | No UI on either client |
 | M-41 | Reviews | Delete own review | — | — | `n/a` | No UI on either client |
 | M-42 | Favorites | Favorite toggle (list + detail) | `FavoriteButton` | Heart + `FavoriteToggleButton` | `implemented` | S-024; customer only |
@@ -1842,22 +1859,22 @@ profile/settings edit) → P3 engagement (like/report, show replies) → P4 merc
 | M-45 | Notifications | Full list + mark one / mark all | Bell dropdown | `/notifications` | `implemented` | S-025 |
 | M-46 | Notifications | Deep-link to business/review | Weak / none | None | `n/a` | Shared gap |
 | M-47 | Notifications | Push (FCM) | — | — | `future` | Phase 4+; polling today |
-| M-48 | Account | Profile edit | `/profile` | — | `unimplemented` | P2 |
-| M-49 | Account | Settings (profile link + logout) | `/settings` | `/account` + read-only `/account/profile` + logout | `implemented` | S-027; profile **edit** is M-48 / P2 |
-| M-50 | Merchant | Dashboard shell + multi-business | `/merchant/dashboard` | — | `future` | Strategy phase 4 |
-| M-51 | Merchant | Stats tiles + sentiment chart | Dashboard | — | `future` | Phase 4 |
-| M-52 | Merchant | AI insights + refresh | `AIInsights` | — | `future` | Suggestion-only |
-| M-53 | Merchant | Reply to reviews | Dashboard `ReviewCard` | — | `future` | Phase 4 |
-| M-54 | Merchant | Create / edit business | `/merchant/businesses/…` | — | `future` | Phase 4 |
+| M-48 | Account | Profile edit | `/profile` | `/account/profile` | `implemented` | S-029; email/role read-only; favorites stay M-43 |
+| M-49 | Account | Settings (profile link + logout) | `/settings` | `/account` + `/account/profile` + logout | `implemented` | S-027; profile edit is M-48 |
+| M-50 | Merchant | Dashboard shell + multi-business | `/merchant/dashboard` | `/merchant` | `implemented` | S-031 |
+| M-51 | Merchant | Stats tiles + sentiment chart | Dashboard | Dashboard tiles + bars | `implemented` | S-031 |
+| M-52 | Merchant | AI insights + refresh | `AIInsights` | `AiInsightsPanel` | `implemented` | S-031; suggestion-only |
+| M-53 | Merchant | Reply to reviews | Dashboard `ReviewCard` | Dashboard `ReviewCard` | `implemented` | S-031 |
+| M-54 | Merchant | Create / edit business | `/merchant/businesses/…` | `/merchant/businesses/new` + `…/:id/edit` | `implemented` | S-031; no hours/gallery UI (M-55/M-56) |
 | M-55 | Merchant | Storefront / logo / gallery upload UI | — | — | `n/a` | API exists; no web form yet |
 | M-56 | Merchant | Business hours editor | — | — | `n/a` | Display-only on web |
-| M-57 | Admin | Admin home + platform stats | `/admin` | — | `future` | Web-first unless sliced |
-| M-58 | Admin | Pending business approve / suspend | `/admin` queue | — | `future` | |
-| M-59 | Admin | Reported reviews moderate | `/admin` queue | — | `future` | |
-| M-60 | Admin | All businesses / all reviews browse | `/admin/businesses`, `/admin/reviews` | — | `future` | |
+| M-57 | Admin | Admin home + platform stats | `/admin` | `/admin` | `implemented` | S-031 |
+| M-58 | Admin | Pending business approve / suspend | `/admin` queue | `/admin` queue | `implemented` | S-031 |
+| M-59 | Admin | Reported reviews moderate | `/admin` queue | `/admin` queue | `implemented` | S-031 |
+| M-60 | Admin | All businesses / all reviews browse | `/admin/businesses`, `/admin/reviews` | `/admin/businesses`, `/admin/reviews` | `implemented` | S-031 |
 
 
-**Rollup (2026-08-13):** `implemented` 17 · `partial` 4 · `unimplemented` 23 · `n/a` 6 · `future` 10 · **total 60**.
+**Rollup (2026-08-14):** `implemented` 46 · `partial` 1 · `unimplemented` 6 · `n/a` 6 · `future` 1 · **total 60**.
 
 This repo is built with both Cursor and Claude Code, so every convention is defined
 **twice, in each tool's native format** — a session started in either tool should
@@ -2016,6 +2033,8 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-024 | Mobile favorites (Flutter)            | 2 Core       | Accepted                                 |
 | S-025 | Mobile notifications (Flutter)        | 5 Polish     | Accepted                                 |
 | S-027 | Mobile P0 chrome (shell, role home, account/logout) | 1 Foundation | Accepted |
+| S-028 | Mobile P1 discovery + rich business detail | 2 Core | In Progress |
+| S-029 | Mobile P2 register, Google sign-in, profile edit | 1 Foundation | In Progress |
 
 
 
@@ -2056,7 +2075,7 @@ An honest delta between the original specification and what the code actually do
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Backend routers | 11, all wired into `main.py` (includes favorites)                                                                                                                           |
 | Data models     | 19 SQLAlchemy models                                                                                                                                                        |
-| Auth            | JWT access/refresh, bcrypt, RBAC, Redis logout blocklist, mandatory TOTP for password login, Google OAuth exempt                                                            |
+| Auth            | JWT access/refresh with refresh `jti` rotation, bcrypt, RBAC, Redis logout blocklist + best-effort login lockout, mandatory TOTP for password login, Google OAuth exempt |
 | AI layer        | Pluggable provider — `mock` (canned, no network) or OpenAI-compatible (works for OpenAI *or* DeepSeek via `AI_BASE_URL`)                                                    |
 | Storage         | `local` disk and `s3` (boto3) providers implemented; `azure` still a stub                                                                                                   |
 | Frontend        | Home, search (map + location), business detail, login (MFA steps), register, enriched profile, settings, merchant dashboard + business create/edit, admin moderation queues |
@@ -2075,11 +2094,11 @@ An honest delta between the original specification and what the code actually do
 | **Azure storage is a stub** | Raises `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). `local` and `s3` both work.                                                                                                                                 |
 | **Thin tests**              | Expanding, but still no full fixture/DB isolation suite. See §11.                                                                                                                                                                               |
 | **Design-system migration** | Complete. `Select` / `StatCard` / `ui/RatingWidget` (S-017) now back every remaining call site — native `<select>`s, inline stat tiles, and the duplicate top-level `RatingWidget` (removed, canonical copy is `ui/RatingWidget`) all migrated. |
-| **Security items 1–6**      | See [§9 Known weaknesses](#known-weaknesses--read-before-deploying).                                                                                                                                                                            |
+| **Security items 1–6**      | §9: rate limit, upload MIME/size, lockout, refresh rotation, headers, password policy are in. Remaining: `localStorage` tokens (S-026) and world-readable `/uploads`. Commercial SaaS/legal items: [Deferred](#deferred-for-commercial--enterprise). |
 | **No structured logging**   | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                                                                          |
 | **No CI/CD auto-deploy**    | `backend-tests.yml` / `frontend-tests.yml` run pytest/Jest on every PR and push to `main`, but there is still no auto-deploy step to Railway/Vercel.                                                                                            |
 | **Android Play release**    | Signed AAB + Play Console listing / internal-testing track not wired yet (see [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md) phase 5). Feature-level web↔mobile gaps live in the [§12 parity tracker](#web--mobile-feature-parity-tracker) — not duplicated here. |
-| **Mobile web parity**       | Customer MVP slices S-023–S-025 are Accepted and P0 chrome (S-027) adds the primary shell, role-aware landing, and Account logout. Most other web surfaces (home marketing, search/map/filters, rich business detail, Google auth, register, merchant/admin dashboards) are still `unimplemented` / `future` on Flutter. Living checklist: [§12 Web ↔ mobile feature parity tracker](#web--mobile-feature-parity-tracker). |
+| **Mobile web parity**       | P0–P4 (S-023–S-025, S-027–S-031) are on Flutter (analyze/test not run yet). Remaining gaps: home marketing (M-13–M-18), FCM (M-47 `future`), storefront/hours editors (`n/a`). Living checklist: [§12 Web ↔ mobile feature parity tracker](#web--mobile-feature-parity-tracker). |
 | **Optional seed ops**       | Core seed gating is done (`SEED_MODE` / `seed_runs`). Still optional later: a Railway one-shot/cron seed service (never on the web dyno), blue-green app cutover on one DB, or a disposable dual-DB demo reset — not required for normal deploys. |
 
 
@@ -2091,13 +2110,29 @@ The MVP is complete when: (1) a customer can register, search, and submit a revi
 
 **1–6 are met. 7 is met for Railway (Option D, repo-side config done) and documented-but-unbuilt for Option C.**
 
+### Deferred for commercial / enterprise
+
+These are **held off** until product needs them. They are not in-house leftovers of this repo’s MVP bar. The scored checklist lives in [`CHECKLIST_GAPS.txt`](CHECKLIST_GAPS.txt).
+
+| Held item | Why it waits |
+| --------- | ------------ |
+| **S-026 httpOnly cookies** (ADR-004) | Dedicated slice: dual web cookie + mobile Bearer. Not in the in-house hardening batch so Flutter auth stays untouched. |
+| Managed IdP / enterprise SAML SSO (Auth0, Clerk, WorkOS, Cognito) | Rented identity; rewrite of session ownership |
+| Payments / PCI (Stripe etc.) | No product payments |
+| Error/APM SaaS (Sentry, Datadog, New Relic) | Rented integration |
+| Uptime SaaS (UptimeRobot etc.) | Optional free-tier wiring; not required for local/Compose |
+| CDN / object-storage **accounts** and paid edge (Cloudflare, Cloudinary) | S3 provider **code** exists; a real bucket is ops |
+| Message queues / Celery workers / serverless job platforms | Scale theatre until volume exists |
+| Feature-flag vendors, canary / blue-green platforms | Ops product, not an API gap |
+| Legal: ToS, Privacy, cookie CMP, GDPR program, lawyer-reviewed retention (incl. national ID) | Lawyers, not a PR |
+| Third-party pentest and SOC 2 / ISO audits | External agency |
+| GitHub branch protection / Railway auto-deploy | Settings in GitHub/Railway UI you own, not only code |
+
 ### Suggested next steps, in order
 
-1. Harden remaining security items in §9 (httpOnly cookies — needs a dual-auth story for mobile; rate limiting on auth endpoints)
-2. Build out the test suite with fixtures and an isolated test database
-3. Keep the [§12 Web ↔ mobile parity tracker](#web--mobile-feature-parity-tracker) current whenever web ships a user-facing capability; when ready, one-shot mobile work walks `unimplemented` / `partial` rows (P0→P4 waves in that section)
-4. Phase-5 Android release (signing keystore, Play Console, store listing — step-by-step in [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md))
-5. Add auto-deploy to Railway/Vercel on green CI
+1. In-house leftovers that are still open: structured logs, isolated test DB, CSP (without breaking maps/GIS), S-026 when you are ready to dual-stack web cookies and mobile Bearer
+2. Keep the [§12 Web ↔ mobile parity tracker](#web--mobile-feature-parity-tracker) current; remaining mobile waves are P3 (like/report/replies) then P4 (merchant/admin) and Play (phase 5)
+3. Enterprise / SaaS / legal items stay on the [hold list](#deferred-for-commercial--enterprise) until a paying product needs them — they are not implied by this hardening batch
 
 ---
 
@@ -2135,7 +2170,7 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap/Nominatim                                                                                              |
 | `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID`                                          |
 | `SEED_MODE`                   | `off`                                                                    | `off` | `if_empty` | `if_outdated` | `force` — gates `scripts/seed.py` (Railway boot leaves default `off`; Compose uses `if_outdated`) |
-| `SEED_VERSION`                | `2026-08-11-totp-profile-v1`                                             | Marker written to `seed_runs`; bump when demo seed content changes                                                                     |
+| `SEED_VERSION`                | `2026-08-13-password-policy-v1`                                          | Marker written to `seed_runs`; bump when demo seed content changes                                                                     |
 
 
 

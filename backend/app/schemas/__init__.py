@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.models import BusinessStatus, NationalIdType, ReviewStatus, Sentiment, UserRole
 
@@ -49,8 +49,15 @@ class UserBase(BaseModel):
 
 
 class UserRegister(UserBase):
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=12)
     role: UserRole = UserRole.CUSTOMER
+
+    @field_validator("password")
+    @classmethod
+    def password_complexity(cls, value: str) -> str:
+        if not any(c.isalpha() for c in value) or not any(c.isdigit() for c in value):
+            raise ValueError("Password must contain at least one letter and one digit")
+        return value
 
 
 class UserLogin(BaseModel):

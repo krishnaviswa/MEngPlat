@@ -10,6 +10,7 @@ User.<column> == value lookups, which is all these handlers issue.
 """
 
 import uuid
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import HTTPException
@@ -221,7 +222,10 @@ class TestVerifyGoogleIdTokenBoundary:
 
 
 class TestLoginGuardsGoogleOnlyAccounts:
-    async def test_password_login_on_google_only_account_returns_400(self):
+    async def test_password_login_on_google_only_account_returns_400(self, monkeypatch):
+        import app.routers.auth as auth_module
+
+        monkeypatch.setattr(auth_module, "is_login_locked", AsyncMock(return_value=False))
         google_only = User(
             id=uuid.uuid4(),
             email="google.only@example.com",
