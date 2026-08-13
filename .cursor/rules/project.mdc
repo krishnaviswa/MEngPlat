@@ -16,7 +16,8 @@ Monorepo: local-business review platform with AI insights.
 ## Source of truth
 `README.md` is the single project document. Sections: §2 logical design, §3 architecture,
 §4 stack rationale, §5 domain model, §6 flows, §7 API, §8 frontend, §9 security,
-§13 multi-agent workflow, §14 known gaps.
+§12 repo layout (incl. Web ↔ mobile feature parity tracker), §13 multi-agent workflow,
+§14 known gaps.
 
 ## Non-negotiables
 1. AI output is **suggestions**, never definitive judgments.

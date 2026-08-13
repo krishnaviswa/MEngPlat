@@ -16,8 +16,8 @@ Built as a portfolio-grade full-stack MVP demonstrating Forward Deployed Enginee
 | You are a…           | Read                                                                                                                                            | Why                                                              |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | **Architect**        | [§2 Logical design](#2-logical-design), [§3 Architecture](#3-architecture), [§4 Why this stack](#4-why-this-stack), [§9 Security](#9-security)  | Shape of the system, the pattern behind it, the trade-offs taken |
-| **Senior developer** | §3, [§5 Domain model](#5-domain-model), [§6 Flows](#6-feature-flows), §9, [§14 Known gaps](#14-known-gaps--roadmap)                             | Where the seams are and what is not finished                     |
-| **Developer**        | [§1 Quick start](#1-quick-start), [§7 API](#7-api-reference), [§8 Frontend](#8-frontend-guide), [§12 Repo layout](#12-repo-layout--conventions) | Get running, then find the file you need to change               |
+| **Senior developer** | §3, [§5 Domain model](#5-domain-model), [§6 Flows](#6-feature-flows), §9, [§14 Known gaps](#14-known-gaps--roadmap), [web↔mobile parity](#web--mobile-feature-parity-tracker) | Where the seams are, what is not finished, and mobile gap status |
+| **Developer**        | [§1 Quick start](#1-quick-start), [§7 API](#7-api-reference), [§8 Frontend](#8-frontend-guide), [§12 Repo layout](#12-repo-layout--conventions) (incl. [web↔mobile parity](#web--mobile-feature-parity-tracker)) | Get running, then find the file — and the mobile status of each web feature |
 | **Tester**           | §6, §7, §9, [§11 Testing](#11-testing), [§13 Workflow](#13-multi-agent-workflow)                                                                | Behaviour to verify, RBAC surface, artifact templates            |
 
 
@@ -43,7 +43,7 @@ Built as a portfolio-grade full-stack MVP demonstrating Forward Deployed Enginee
 | 9   | [Security](#9-security)                                   |
 | 10  | [Deployment](#10-deployment)                              |
 | 11  | [Testing](#11-testing)                                    |
-| 12  | [Repo layout & conventions](#12-repo-layout--conventions) |
+| 12  | [Repo layout & conventions](#12-repo-layout--conventions) (incl. [Web ↔ mobile parity tracker](#web--mobile-feature-parity-tracker)) |
 | 13  | [Multi-agent workflow](#13-multi-agent-workflow)          |
 | 14  | [Known gaps & roadmap](#14-known-gaps--roadmap)           |
 | 15  | [Environment variables](#15-environment-variables)        |
@@ -1764,6 +1764,98 @@ throwaway Postgres/Redis + backend stood up in the same job -- never the Railway
 the TOTP verify step using the fixed demo secret (`otp` package, RFC 6238), and asserts the
 business list renders. Screenshot and backend log are uploaded as build artifacts either way.
 
+#### Web ↔ mobile feature parity tracker
+
+Mobile is a **separate Flutter client** of `/api/v1`, not a WebView of the Next.js UI. Every
+user-facing web capability must have **exactly one row** below. When web ships a new route,
+nav item, or major interaction — or when mobile closes a gap — **update this table in the
+same change** (see docs sync in `.cursor/rules/docs-and-api.mdc`). Use it later for one-shot
+consolidation: walk `unimplemented` / `partial` rows into slices (PM → Architect → Builder →
+Tester). Play Store packaging is tracked separately in [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md)
+phase 5, not here.
+
+| Status | Meaning |
+| ------ | ------- |
+| `implemented` | On mobile at roughly web capability |
+| `partial` | On mobile but thinner / different chrome |
+| `unimplemented` | On web, not on mobile yet |
+| `n/a` | Not on web either (shared gap — not mobile-only debt) |
+| `future` | Intentionally deferred (e.g. merchant Phase 4, FCM) |
+
+**Later build waves (when greenlit — not started here):** P0 chrome (nav, account, logout) →
+P1 discovery (search, filters, location, photos, rich detail) → P2 auth/account (register,
+Google, profile/settings) → P3 engagement (like/report, show replies) → P4 merchant/admin
+(or keep web-only as `future`).
+
+**Last reviewed:** 2026-08-13
+
+
+| ID | Area | Feature | Web surface | Mobile surface | Status | Notes / slice |
+| -- | ---- | ------- | ----------- | -------------- | ------ | ------------- |
+| M-01 | Auth | Email/password login | `/login` (`LoginForm`) | `/login` (`LoginScreen`) | `implemented` | S-020 |
+| M-02 | Auth | MFA enroll (TOTP QR + secret) | `/login` enroll step | `/login` enroll step | `implemented` | S-020 |
+| M-03 | Auth | MFA verify (TOTP code) | `/login` verify step | `/login` verify step | `implemented` | S-020 |
+| M-04 | Auth | Google / Gmail sign-in | `/login`, `/register` (`GoogleSignInButton`) | — | `unimplemented` | Web skips MFA for Google |
+| M-05 | Auth | Register (customer / merchant) | `/register` | — | `unimplemented` | P2 |
+| M-06 | Auth | Logout | Navbar, `/settings`, already-signed-in gate | App-bar on `/businesses` only | `partial` | Easy to miss; no account screen |
+| M-07 | Auth | Session restore + refresh | `ClientLayout` / `auth.me` | `AuthInterceptor` + secure storage | `implemented` | |
+| M-08 | Auth | Role switching (customer ↔ merchant) | — | — | `n/a` | Role fixed at register / Google |
+| M-09 | Auth | Role-aware post-login home | Merchant → dashboard; admin → `/admin` | All roles → `/businesses` | `unimplemented` | P0 |
+| M-10 | Chrome | Global navbar + footer | `ClientLayout` | — | `unimplemented` | P0 |
+| M-11 | Chrome | Bottom nav / primary shell | — (web uses top nav) | App-bar icons only | `unimplemented` | P0 — mobile should add tabs |
+| M-12 | Chrome | Brand / home link | Navbar → `/` | — | `unimplemented` | |
+| M-13 | Discovery | Home hero + marketing sections | `/` | — | `unimplemented` | P1 |
+| M-14 | Discovery | Trust metrics | `/` (`TrustMetrics`) | — | `unimplemented` | |
+| M-15 | Discovery | City index | `/` (`CityIndex`) | — | `unimplemented` | |
+| M-16 | Discovery | Category index | `/` (`CategoryIndex`) | — | `unimplemented` | |
+| M-17 | Discovery | Featured businesses + photos | `/` (`FeaturedGrid`) | — | `unimplemented` | |
+| M-18 | Discovery | Review voices / how-it-works / merchant CTA | `/` | — | `unimplemented` | |
+| M-19 | Discovery | Search page + query `q` | `/search` | Default unfiltered list only | `unimplemented` | P1 |
+| M-20 | Discovery | Filters (city, category, min rating, sort) | `/search` (`FilterPanel`) | — | `unimplemented` | P1 |
+| M-21 | Discovery | Use my location + radius | `/search` (`UseLocationButton`) | — | `unimplemented` | P1 |
+| M-22 | Discovery | Results map (OSM) | `/search` Leaflet map | — | `unimplemented` | P1 |
+| M-23 | Discovery | Pagination / infinite scroll UI | `/search` | Fixed `page=1` | `unimplemented` | |
+| M-24 | Discovery | Business cards with photos | `BusinessCard` | Text-only `BusinessCard` | `partial` | P1 |
+| M-25 | Business | Public list browse (guest) | `/`, `/search` | `/businesses` (ADR-003) | `partial` | Guest OK; no search chrome |
+| M-26 | Business | Detail: name, city/state, rating, count | `/businesses/[slug]` | `/businesses/:slug` | `implemented` | S-023 |
+| M-27 | Business | Detail: description, address, phone, website | Business profile | — | `unimplemented` | P1 |
+| M-28 | Business | Detail: categories | `CategoryBadges` | — | `unimplemented` | |
+| M-29 | Business | Detail: hours | `BusinessHours` | — | `unimplemented` | Display-only on web |
+| M-30 | Business | Detail: photo gallery / lightbox | `PhotoGallery` | — | `unimplemented` | P1 |
+| M-31 | Business | Detail: map pin | Leaflet on profile | — | `unimplemented` | P1 |
+| M-32 | Business | Detail: AI overview (suggestion) | Profile AI blurb | — | `unimplemented` | Suggestion language required |
+| M-33 | Reviews | List reviews + AI suggestion labels | `ReviewsList` / `ReviewCard` | `ReviewCard` | `implemented` | S-023 |
+| M-34 | Reviews | Create review (stars, title, body) | `/businesses/[slug]/review` | `ReviewFormSheet` | `implemented` | S-023 |
+| M-35 | Reviews | Attach review photos (≤5) | `ReviewForm` | `image_picker` in sheet | `implemented` | S-023 |
+| M-36 | Reviews | Show review photo strip | `ReviewCard` | `ReviewCard` | `implemented` | |
+| M-37 | Reviews | Like review | Business page | — | `unimplemented` | P3 |
+| M-38 | Reviews | Report review | Business page | — | `unimplemented` | P3 |
+| M-39 | Reviews | Show merchant reply on card | `ReviewCard` | — | `unimplemented` | P3 |
+| M-40 | Reviews | Edit own review | — | — | `n/a` | No UI on either client |
+| M-41 | Reviews | Delete own review | — | — | `n/a` | No UI on either client |
+| M-42 | Favorites | Favorite toggle (list + detail) | `FavoriteButton` | Heart + `FavoriteToggleButton` | `implemented` | S-024; customer only |
+| M-43 | Favorites | Favorites list | `/profile` section | `/favorites` | `partial` | Exists; no profile hub |
+| M-44 | Notifications | Unread bell + poll | Navbar `NotificationBell` | App-bar bell + badge | `partial` | S-025; list-only entry |
+| M-45 | Notifications | Full list + mark one / mark all | Bell dropdown | `/notifications` | `implemented` | S-025 |
+| M-46 | Notifications | Deep-link to business/review | Weak / none | None | `n/a` | Shared gap |
+| M-47 | Notifications | Push (FCM) | — | — | `future` | Phase 4+; polling today |
+| M-48 | Account | Profile edit | `/profile` | — | `unimplemented` | P2 |
+| M-49 | Account | Settings (profile link + logout) | `/settings` | — | `unimplemented` | P2 / P0 logout |
+| M-50 | Merchant | Dashboard shell + multi-business | `/merchant/dashboard` | — | `future` | Strategy phase 4 |
+| M-51 | Merchant | Stats tiles + sentiment chart | Dashboard | — | `future` | Phase 4 |
+| M-52 | Merchant | AI insights + refresh | `AIInsights` | — | `future` | Suggestion-only |
+| M-53 | Merchant | Reply to reviews | Dashboard `ReviewCard` | — | `future` | Phase 4 |
+| M-54 | Merchant | Create / edit business | `/merchant/businesses/…` | — | `future` | Phase 4 |
+| M-55 | Merchant | Storefront / logo / gallery upload UI | — | — | `n/a` | API exists; no web form yet |
+| M-56 | Merchant | Business hours editor | — | — | `n/a` | Display-only on web |
+| M-57 | Admin | Admin home + platform stats | `/admin` | — | `future` | Web-first unless sliced |
+| M-58 | Admin | Pending business approve / suspend | `/admin` queue | — | `future` | |
+| M-59 | Admin | Reported reviews moderate | `/admin` queue | — | `future` | |
+| M-60 | Admin | All businesses / all reviews browse | `/admin/businesses`, `/admin/reviews` | — | `future` | |
+
+
+**Rollup (2026-08-13):** `implemented` 11 · `partial` 5 · `unimplemented` 28 · `n/a` 6 · `future` 10 · **total 60**.
+
 This repo is built with both Cursor and Claude Code, so every convention is defined
 **twice, in each tool's native format** — a session started in either tool should
 understand the whole repo, and what the other tool already did to it.
@@ -1982,7 +2074,8 @@ An honest delta between the original specification and what the code actually do
 | **Security items 1–6**      | See [§9 Known weaknesses](#known-weaknesses--read-before-deploying).                                                                                                                                                                            |
 | **No structured logging**   | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                                                                          |
 | **No CI/CD auto-deploy**    | `backend-tests.yml` / `frontend-tests.yml` run pytest/Jest on every PR and push to `main`, but there is still no auto-deploy step to Railway/Vercel.                                                                                            |
-| **Android Play release**    | Flutter customer MVP largely built; signed AAB + Play Console listing / internal-testing track not wired yet (see [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md) phase 5).                                                              |
+| **Android Play release**    | Signed AAB + Play Console listing / internal-testing track not wired yet (see [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md) phase 5). Feature-level web↔mobile gaps live in the [§12 parity tracker](#web--mobile-feature-parity-tracker) — not duplicated here. |
+| **Mobile web parity**       | Customer MVP slices S-023–S-025 are Accepted, but most web surfaces (home, search/map/filters, rich business detail, Google auth, register, merchant, admin) are still `unimplemented` / `future` on Flutter. Living checklist: [§12 Web ↔ mobile feature parity tracker](#web--mobile-feature-parity-tracker). |
 | **Optional seed ops**       | Core seed gating is done (`SEED_MODE` / `seed_runs`). Still optional later: a Railway one-shot/cron seed service (never on the web dyno), blue-green app cutover on one DB, or a disposable dual-DB demo reset — not required for normal deploys. |
 
 
@@ -1998,8 +2091,9 @@ The MVP is complete when: (1) a customer can register, search, and submit a revi
 
 1. Harden remaining security items in §9 (httpOnly cookies — needs a dual-auth story for mobile; rate limiting on auth endpoints)
 2. Build out the test suite with fixtures and an isolated test database
-3. Mobile slices S-023–S-025 are Accepted; remaining work is phase-5 Android release (signing keystore, Play Console, store listing — step-by-step in [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md))
-4. Add auto-deploy to Railway/Vercel on green CI
+3. Keep the [§12 Web ↔ mobile parity tracker](#web--mobile-feature-parity-tracker) current whenever web ships a user-facing capability; when ready, one-shot mobile work walks `unimplemented` / `partial` rows (P0→P4 waves in that section)
+4. Phase-5 Android release (signing keystore, Play Console, store listing — step-by-step in [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md))
+5. Add auto-deploy to Railway/Vercel on green CI
 
 ---
 
