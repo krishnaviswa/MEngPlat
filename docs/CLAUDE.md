@@ -17,6 +17,8 @@ documentation — update the relevant section instead.
 | Auth / RBAC / security change | `README.md` §9 Security |
 | Deploy/env change | `README.md` §10 Deployment, §15 Environment variables |
 | Feature completed or gap closed | `README.md` §14 Known gaps |
+| New or changed **user-facing web** capability (route, nav, major interaction) | `README.md` §12 Web ↔ mobile feature parity tracker — add or adjust the mobile line item (`unimplemented` / `partial` / `future` as appropriate). Every web feature must have a mobile status row. |
+| Mobile closes a parity gap | Same §12 tracker → `implemented` or `partial`; also §14 if a known gap closes |
 
 Keep docs beginner-friendly. Use mermaid for non-trivial flows.
 

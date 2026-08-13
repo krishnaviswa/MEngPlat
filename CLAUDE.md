@@ -17,7 +17,8 @@ Monorepo: local-business review platform with AI insights.
 
 `README.md` is the single project document. Sections: §2 logical design, §3 architecture,
 §4 stack rationale, §5 domain model, §6 flows, §7 API, §8 frontend, §9 security,
-§13 multi-agent workflow, §14 known gaps.
+§12 repo layout (incl. Web ↔ mobile feature parity tracker), §13 multi-agent workflow,
+§14 known gaps.
 
 See also `[AGENTS.md](AGENTS.md)` for the repo map and where each tool's config lives.
 
@@ -38,3 +39,53 @@ See also `[AGENTS.md](AGENTS.md)` for the repo map and where each tool's config 
    specifics, `ANDROID_APP_STRATEGY.md` § "Testing & CI flow" (includes a known gap: `main`
    isn't yet branch-protection-gated on CI passing, so Railway can still deploy a failing build).
 
+## Multi-agent workflow
+
+Mirrors `.cursor/rules/agents/workflow.mdc`. Sequence (mandatory):
+
+```
+PM (slice brief) → Architect (tech spec) → Builder (code) → Tester (report) → PM (accept)
+```
+
+Do not skip steps. Do not implement before Architect fills the technical section.
+
+Roles are subagents in `.claude/agents/` (`product-manager.md`, `architect.md`, `tester.md`) —
+invoke explicitly, e.g. *"Act as Product Manager for slice S-00X"*, or the Agent tool with
+`subagent_type: architect`.
+
+### Definition of done (full cycle)
+
+- [ ] All acceptance criteria numbered and testable
+- [ ] Architect checklist complete on slice file
+- [ ] Code on a **feature branch** + PR (never commit directly on `main`; `.githooks/pre-commit` enforces this locally — see `testing.mdc` / `ANDROID_APP_STRATEGY.md`)
+- [ ] Every AC mapped to a test in test report
+- [ ] If the slice adds or changes a **user-facing web** capability, `README.md` §12 Web ↔ mobile feature parity tracker has a matching row (usually `unimplemented` / `partial` / `future` until mobile follows)
+- [ ] If the slice closes a **mobile** gap, the same §12 tracker row is updated to `implemented` or `partial`
+- [ ] PM set `Status: Accepted` on slice file
+
+### Cursor parity
+
+Keep this section and `.cursor/rules/agents/workflow.mdc` in sync (enforced by
+`scripts/check_agent_config_sync.py`).
+
+## Cursor ↔ Claude Code parity
+
+This project is built with both Cursor and Claude Code. Every rule in `.cursor/rules/`
+has a mirror in Claude Code's native config:
+
+| This Cursor rule | Mirrors |
+| ----- | ---- |
+| `project.mdc` (this file's stack/source/non-negotiables) | `CLAUDE.md` (root) |
+| `backend-fastapi.mdc` | `backend/CLAUDE.md` |
+| `frontend-nextjs.mdc` | `frontend/CLAUDE.md` |
+| `ai-and-integrations.mdc` | `backend/app/services/CLAUDE.md` |
+| `database.mdc` | `backend/app/models/CLAUDE.md` |
+| `docs-and-api.mdc` | `docs/CLAUDE.md` |
+| `testing.mdc` | `backend/tests/CLAUDE.md`, `frontend/CLAUDE.md` |
+| `agents/workflow.mdc` | "Multi-agent workflow" section of `CLAUDE.md` (this file) |
+| `agents/role-product-manager.mdc` | `.claude/agents/product-manager.md` |
+| `agents/role-architect.mdc` | `.claude/agents/architect.md` |
+| `agents/role-tester.mdc` | `.claude/agents/tester.md` |
+
+**Sync rule:** if you change a convention here, port it to the matching Claude Code file
+in the same commit, and vice versa. Enforced by `scripts/check_agent_config_sync.py`.

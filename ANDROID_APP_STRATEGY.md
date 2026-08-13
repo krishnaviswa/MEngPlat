@@ -193,12 +193,14 @@ Alternatives considered and rejected for now: Kotlin-only (no iOS path), React N
 | --------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **1. Spike**          | Flutter skeleton, login + list against `/api/v1`       | **Done** — `mobile/`                                                                                                                                                                                        |
 | **2. Contract**       | OpenAPI codegen + `API_BASE_URL` flavors               | **Done** — `mobile/packages/merchanthub_api/`, README                                                                                                                                                       |
-| **3. Customer MVP**   | Discover, reviews, favorites, notifications            | **Mostly done** — code in place; slices S-023 / S-024 / S-025 still **Testing** (not Accepted)                                                                                                              |
-| **4. Merchant later** | Insights (suggestion-only, same non-negotiable as web) | **Not started**                                                                                                                                                                                             |
-| **5. Ship Android**   | Signed AAB + Play internal → production                | **Not done** — `mobile/android/` scaffolding present; day-to-day is Flutter Web; CI now gates PRs on `flutter analyze` + `flutter test` before the emulator job (2026-08-12), still no release-AAB workflow |
+| **3. Customer MVP**   | Discover, reviews, favorites, notifications            | **Partial** — S-023 / S-024 / S-025 Accepted; thin shell vs web. Feature-level status lives in [`README.md` §12 Web ↔ mobile parity tracker](README.md#web--mobile-feature-parity-tracker) — update that table whenever web or mobile ships a user-facing capability; do not duplicate rows here. |
+| **4. Merchant later** | Insights (suggestion-only, same non-negotiable as web) | **Not started** — rows M-50–M-54 are `future` in the README tracker                                                                                                                                         |
+| **5. Ship Android**   | Signed AAB + Play internal → production                | **Not done** — `mobile/android/` scaffolding present; day-to-day is Flutter Web; CI now gates PRs on `flutter analyze` + `flutter test` before the emulator job (2026-08-12); release-AAB workflow exists but needs signing secrets (see below) |
 
 
 Also landed beyond the original five phases: mandatory TOTP (S-020), ADR-003 public business browsing, and `[.github/workflows/mobile-emulator-check.yml](.github/workflows/mobile-emulator-check.yml)`.
+
+**Feature sync rule:** every web UI capability must have a mobile status line in the README parity tracker (`implemented` | `partial` | `unimplemented` | `n/a` | `future`). This strategy doc stays focused on APK/AAB/Play — not a second feature checklist.
 
 ---
 
@@ -208,8 +210,8 @@ Also landed beyond the original five phases: mandatory TOTP (S-020), ADR-003 pub
 
 Do these in order. Each step has a reason.
 
-1. **Accept mobile customer slices (S-023–S-025)**
-  Why: a half-broken store listing is worse than no listing.
+1. **Keep customer MVP honest vs the [README parity tracker](README.md#web--mobile-feature-parity-tracker)**
+  Why: S-023–S-025 are Accepted, but most web surfaces remain `unimplemented` — a thin store listing is worse than no listing if you oversell parity.
 2. **Point release builds at production API**
   `--dart-define=API_BASE_URL=https://<your-backend>.up.railway.app`  
    Why: store-installed apps cannot use `localhost`.
