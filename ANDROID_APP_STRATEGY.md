@@ -215,7 +215,10 @@ Do these in order. Each step has a reason.
    Why: store-installed apps cannot use `localhost`.
 3. **Build a release/debug APK for local QA**
   `flutter build apk`  
-   Why: prove camera, secure storage, permissions, and real-device behavior before Play review.
+   Why: prove camera, secure storage, permissions, and real-device behavior before Play review.  
+   **No local Android SDK?** Use GitHub Actions → **Mobile build APK** → Run workflow
+   (`.github/workflows/mobile-build-apk.yml`). Download the `app-release-apk` artifact and
+   sideload it on your phone. That build is debug-signed (fine for personal QA, not for Play).
 4. **Create a signing keystore; keep it out of git**
   Why: Android requires signing; Play requires a stable signing identity across updates. Losing the key means you cannot update the same listing.
 5. **Build a release AAB**
@@ -251,6 +254,90 @@ Do these in order. Each step has a reason.
 - Production HTTPS API URL (Railway)
 - CI secrets: keystore password, Play service-account JSON — never commit, never put in Railway web env
 - Bump `versionName` / `versionCode` on every Play upload
+
+---
+
+
+
+## Play prerequisites, privacy policy, POC path, and who does what
+
+### Why a privacy-policy page? (and is it “first”?)
+
+It is **not** the first engineering task. It is a **Google Play policy prerequisite** for the
+store listing once the app handles accounts, reviews, photos, or similar personal data — which
+MerchantHub does.
+
+Play asks for a **public HTTPS URL** (not a PDF in the Console, not a private Google Doc) so
+users and reviewers can open it without logging in. The Data safety form must match what that
+page says. Without a policy URL, the listing/App content section stays incomplete and you cannot
+finish a Production (and often not even a full store-presence) submission.
+
+**Order of truth:**
+
+1. **Code/QA first** — accept S-023–S-025, prod `API_BASE_URL`, signed AAB (steps 1–6 above).
+2. **Play account + listing metadata next** — including privacy URL, Data safety, content
+   rating, minimal store assets (steps 7–8).
+3. **Tracks last** — Internal → (optional Closed/Open) → Production (step 9).
+
+Privacy is “first” only among *Play Console / policy* items, not among *build* items.
+
+### Prerequisites to post on Google Play (checklist)
+
+| # | Prerequisite | Required for | Cost (POC) |
+| --- | --- | --- | --- |
+| A | Working signed **AAB** pointed at **prod HTTPS API** | Any upload | $0 (CI + keystore) |
+| B | Stable **package name** (`com.merchanthub.merchanthub_mobile`) | Listing identity | $0 (already set) |
+| C | **Play Console developer account** + ID verification | Creating an app | **$25 one-time** |
+| D | **Privacy policy** at a public URL | Store listing / App content | **$0** DIY page on Railway frontend |
+| E | **Data safety** form (matches D) | App content | $0 (you fill the form) |
+| F | **Content rating** questionnaire | App content | $0 |
+| G | **Store listing** copy + **minimum assets** (icon, feature graphic, ≥2 phone screenshots) | Store presence | **$0** DIY screenshots / simple icon |
+| H | At least one **testing track** release (Internal first) | Install / later promote | $0 |
+| I | (Often for new personal accounts) **Closed testing** period before Production | Production | $0 + calendar wait |
+
+Not required for a POC Play listing: paid designer assets, lawyer-drafted policy, FCM, merchant
+screens, Codemagic, or a separate privacy host.
+
+### POC path — skip paid assets and lawyer policy
+
+For a proof-of-concept you can stay near **~$25 total cash** (Play fee only):
+
+| Instead of… | Do this… |
+| --- | --- |
+| Lawyer-drafted privacy policy | Write a short plain-English page yourself and host it on the existing Next.js app (`/privacy` on Railway). Disclose: email/name, reviews, photos, JWT/session, any location if used; purpose; how to request deletion (contact email). Keep Data safety answers identical. Upgrade to legal review only if you go commercial / collect more data. |
+| Paid store assets | Capture **≥2 phone screenshots** from emulator or a device (`flutter run` / CI artifact). Make a simple **512×512 icon** and **1024×500 feature graphic** in any free editor (or export from existing brand art). Play needs files that meet size rules — not agency polish. |
+| Full Production day-one | Stop at **Internal testing** (team only). That proves signing, prod API, and install without waiting on closed-test / full public review. Promote to Production later when the POC earns it. |
+
+Still non-negotiable on the POC path: signed AAB, prod API URL, Play account ($25), privacy URL,
+Data safety match, content rating, minimum listing assets.
+
+### Phase 5 — revised time breakdown and ownership
+
+Owners:
+
+- **You (product owner / repo admin)** — Play account, secrets in GitHub, Console forms, tester invites, go/no-go on tracks.
+- **Builder / you-as-dev** — slice fixes, privacy page code, keystore, CI secrets wiring, AAB, screenshots from the running app.
+- **Tester (agent or human)** — S-023–S-025 acceptance evidence; smoke on Internal build.
+- **Google** — account ID verification and store review waits (no one on the team can compress these).
+
+| # | Task | Owner | Hands-on | Calendar wait | POC notes |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Accept S-023–S-025 (or fix rework) | Tester → PM accept; Builder if bugs | 0.5–2 days | same | Do before any store push |
+| 2 | Point release builds at Railway prod API | Builder | 15–30 min | — | `--dart-define` / `MOBILE_PROD_API_BASE_URL` |
+| 3 | Local/device APK smoke (auth, storage, camera/permissions) | Builder + Tester | 1–2 hrs | — | Sideload; no Play yet |
+| 4 | Create keystore; store in password manager (never git) | **You** (repo admin) | 20–40 min | — | Losing it = cannot update listing |
+| 5 | Add GitHub secrets + `MOBILE_PROD_API_BASE_URL` variable | **You** (repo admin) | 15–30 min | — | Unblocks `mobile-release-aab.yml` |
+| 6 | Tag `mobile-v*` → download signed AAB artifact | Builder / You | 10 min | 5–15 min CI | Or local `flutter build appbundle` |
+| 7 | DIY `/privacy` page on frontend + deploy | Builder | 1–3 hrs | Railway deploy | **No lawyer** for POC |
+| 8 | Register Play developer account + pay $25 + ID verify | **You** | 30–60 min | **1–3 days** (Google) | Start early; parallel with 4–7 |
+| 9 | Create app + fill Data safety + content rating | **You** | 1–2 hrs | — | Must match privacy page |
+| 10 | DIY icon, feature graphic, ≥2 screenshots + short/long description | Builder / You | 2–4 hrs | — | **No paid designer** for POC |
+| 11 | Upload AAB to **Internal testing**; add testers | **You** | 30–60 min | hours–1 day | **Recommended POC stop** |
+| 12 | Internal smoke against prod API | Tester + You | 1–2 hrs | — | Install via opt-in link |
+| 13 | (Optional later) Closed → Open → Production | **You** | 1–2 hrs | **days–weeks** (Google) | Often needs closed-test window; skip until POC proven |
+
+**POC target:** rows 1–12 → Internal testing live in roughly **3–5 calendar days** after slices are Accepted, for about **$25**.  
+**Production:** add row 13 when you want a public listing; budget extra calendar time, not extra cash.
 
 ---
 
@@ -342,33 +429,35 @@ section.
 
 ## Step-by-step: Google Play Console, privacy policy, and store assets
 
-Everything in this section happens in Google's UI, not this repo — nothing here is scriptable
-from a coding session.
+Everything in this section happens in Google's UI (except hosting `/privacy` on the frontend),
+not in mobile compile scripts. Do this **after** you have a signed AAB (previous section). For
+**why** privacy is required, the **POC cheap path**, and **who owns each task**, see
+**Play prerequisites, privacy policy, POC path, and who does what** above.
 
 **1. Register a Play Console developer account** — [play.google.com/console](https://play.google.com/console/signup),
-one-time registration fee, requires a Google account and government ID verification (can take a
-day or two to clear).
+one-time registration fee ($25), requires a Google account and government ID verification (can take a
+day or two to clear). Start this in parallel with keystore/CI work — the wait is on Google, not you.
 
-**2. Write and host a privacy policy.** Required even for a simple app once it touches accounts,
-reviews, or photos. It needs a stable public URL — the easiest path here is a static page on the
-existing Next.js frontend (e.g. `frontend/src/app/privacy/page.tsx` → `https://<your-frontend>.up.railway.app/privacy`),
-so it's covered by infrastructure already deployed rather than a new host. Must disclose: what
-data is collected (email, name, reviews, photos, location if used), why, and how users can
-request deletion.
+**2. Write and host a privacy policy (DIY is enough for POC).** Required because the app touches
+accounts, reviews, and photos. It needs a stable **public HTTPS URL** — easiest path: a static
+page on the existing Next.js frontend (e.g. `frontend/src/app/privacy/page.tsx` →
+`https://<your-frontend>.up.railway.app/privacy`). No lawyer required for a POC; use plain English
+and keep the Play **Data safety** form identical. Disclose: what is collected (email, name,
+reviews, photos, location if used), why, and how users can request deletion. Upgrade to legal
+review only if you commercialize or expand data collection.
 
 **3. Create the app in Play Console:** Console → **Create app** → fill in app name
 ("MerchantHub"), default language, app type (App), free/paid (Free). This generates the app's
 internal Play listing shell.
 
 **4. Fill in the Store listing** (Console → your app → Grow → Store presence → Main store
-listing):
+listing) — **DIY assets are fine for POC**:
 
 - Short description (≤80 chars), full description (≤4000 chars)
-- App icon: 512×512 PNG
+- App icon: 512×512 PNG (simple brand mark is enough)
 - Feature graphic: 1024×500 PNG/JPG
-- Phone screenshots: at least 2, 16:9 or 9:16, PNG/JPG (screenshot the app from the emulator
-CI job's artifact, or run `flutter run` locally and capture a few core screens: business
-list, business detail, review form, favorites)
+- Phone screenshots: at least 2, 16:9 or 9:16, PNG/JPG (screenshot from emulator
+CI artifact, or `flutter run` locally: business list, detail, review form, favorites)
 - Category (e.g. Business or Food & Drink) and contact details
 
 **5. Complete the Data safety form** (Console → Policy → App content → Data safety) — declare
@@ -388,10 +477,12 @@ credential).
 
 **8. Add internal testers** (Console → Testing → Internal testing → Testers tab) — add team email
 addresses to a list, share the generated opt-in link so they can install without public review.
+**Recommended POC stop:** Internal testing proves the release pipeline without Production wait.
 
-**9. Promote through tracks** once internal testing looks good: Internal → Closed → Open →
-Production, each requiring a new release created from the same or a newer AAB. Production is the
-only track requiring full Google policy review before going live; earlier tracks are lighter-weight.
+**9. Promote through tracks** once internal testing looks good (and only when you want public):
+Internal → Closed → Open → Production. Production is the only track requiring full Google policy
+review before going live; new personal accounts often also need a closed-test window first.
+Earlier tracks are lighter-weight.
 
 ---
 
