@@ -119,7 +119,7 @@ class _FakeReviewRepository extends ReviewRepository {
 
 Future<void> _pumpFrames(WidgetTester tester) async {
   await tester.pump();
-  await tester.pump(const Duration(milliseconds: 400));
+  await tester.pumpAndSettle();
 }
 
 Future<({ProviderContainer container, _FakeAuthController auth})> _pumpApp(
@@ -160,7 +160,7 @@ Future<void> _fillRegisterForm(
   WidgetTester tester, {
   String name = 'Casey Customer',
   String email = 'casey@example.com',
-  String password = 'password123',
+  String password = 'password1234',
 }) async {
   await tester.enterText(find.byKey(const Key('registerFullNameField')), name);
   await tester.enterText(find.byKey(const Key('registerEmailField')), email);

@@ -49,7 +49,9 @@ void main() {
         child: const MaterialApp(home: BusinessEditorScreen()),
       ),
     );
+    await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.byKey(const Key('businessEditorSave')));
     await tester.tap(find.byKey(const Key('businessEditorSave')));
     await tester.pump();
     expect(repo.created, isNull);
@@ -77,10 +79,12 @@ void main() {
         child: MaterialApp.router(routerConfig: router),
       ),
     );
+    await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('businessNameField')), 'New Shop');
     await tester.enterText(find.byKey(const Key('businessAddressField')), '2 Oak');
     await tester.enterText(find.byKey(const Key('businessCityField')), 'Springfield');
+    await tester.ensureVisible(find.byKey(const Key('businessEditorSave')));
     await tester.tap(find.byKey(const Key('businessEditorSave')));
     await tester.pump();
     expect(repo.created?.name, 'New Shop');

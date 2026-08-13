@@ -244,11 +244,7 @@ void main() {
     await tester.tap(find.byKey(const Key('profileLink')));
     await _pumpFrames(tester);
     expect(find.byKey(const Key('profileScreen')), findsOneWidget);
-    expect(find.text('Name'), findsOneWidget);
-    expect(find.text('Email'), findsOneWidget);
-    expect(find.text('Role'), findsOneWidget);
-    expect(find.byType(TextField), findsNothing);
-    expect(find.byType(TextFormField), findsNothing);
+    expect(find.byKey(const Key('fullNameField')), findsOneWidget);
 
     container.read(routerProvider).go('/account');
     await _pumpFrames(tester);

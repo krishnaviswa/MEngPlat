@@ -70,9 +70,11 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
       appBar: AppBar(title: Text(widget.isEditing ? 'Edit business' : 'Create business')),
       body: Form(
         key: _formKey,
-        child: ListView(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
-          children: [
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             TextFormField(
               key: const Key('businessNameField'),
               controller: _name,
@@ -138,7 +140,8 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
               onPressed: _saving ? null : _save,
               child: Text(_saving ? 'Saving...' : 'Save'),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

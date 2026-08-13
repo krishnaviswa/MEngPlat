@@ -165,7 +165,7 @@ Future<_FakeBusinessRepository> _pumpExplore(
     );
   }
   await tester.pump();
-  await tester.pump(const Duration(milliseconds: 50));
+  await tester.pumpAndSettle();
   return repo;
 }
 
@@ -216,13 +216,19 @@ void main() {
     await tester.tap(find.byKey(const Key('filtersButton')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('filtersSheet')), findsOneWidget);
-    expect(find.text('Chennai'), findsWidgets);
-    expect(find.text('Cafe'), findsWidgets);
 
     await tester.tap(find.byKey(const Key('cityFilter')));
     await tester.pumpAndSettle();
+    expect(find.text('Chennai'), findsWidgets);
     await tester.tap(find.text('Chennai').last);
     await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('categoryFilter')));
+    await tester.pumpAndSettle();
+    expect(find.text('Cafe'), findsWidgets);
+    await tester.tap(find.text('All').last);
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(const Key('applyFiltersButton')));
     await tester.pumpAndSettle();
     expect(repo.lastQuery?.city, 'Chennai');
