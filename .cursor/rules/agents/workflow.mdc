@@ -58,7 +58,7 @@ Do not skip steps. Do not implement before Architect fills the technical section
 
 - [ ] All acceptance criteria numbered and testable
 - [ ] Architect checklist complete on slice file
-- [ ] Code merged with builder rules satisfied
+- [ ] Code on a **feature branch** + PR (never commit directly on `main`; `.githooks/pre-commit` enforces this locally — see `testing.mdc` / `ANDROID_APP_STRATEGY.md`)
 - [ ] Every AC mapped to a test in test report
 - [ ] PM set `Status: Accepted` on slice file
 

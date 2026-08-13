@@ -1,0 +1,42 @@
+name: Mobile build APK
+
+# Builds a sideloadable APK on GitHub's runners (Flutter + Android SDK) so you
+# do not need the Android SDK installed locally. Trigger from Actions →
+# "Mobile build APK" → Run workflow. Download the artifact and install on your
+# phone. Uses the debug signing key (fine for personal QA; not for Play).
+# Play/store uploads still use mobile-release-aab.yml + a real keystore.
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "Prod HTTPS API base URL (no trailing slash)"
+        required: true
+        default: "https://backend-production-2783.up.railway.app"
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter pub get
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build release APK (debug-signed for sideload)
+        working-directory: mobile
+        run: |
+          flutter build apk --release \
+            --dart-define=API_BASE_URL=${{ inputs.api_base_url }}
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error

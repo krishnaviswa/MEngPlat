@@ -27,7 +27,18 @@
 ## Auth
 Tokens in localStorage (MVP); attach via `apiFetch` Authorization header.
 
+## Local commits
+Do not commit on `main` — use a feature branch + PR. `.githooks/pre-commit` enforces this
+(and runs mobile analyze/test when `mobile/` is staged). See `.cursor/rules/testing.mdc`.
+
 ## Testing (Jest + RTL)
 - Colocate under `__tests__/`
 - Test behavior, not implementation
 - Run: `cd frontend && npm test`
+
+## Local git hooks (every commit, IDE included)
+- One-time: `git config core.hooksPath .githooks`
+- Hook refuses commits on `main`/`master` — use a feature branch + PR
+- If `mobile/` staged: `flutter analyze && flutter test`; emulator stays CI-only
+- Full CI table: `ANDROID_APP_STRATEGY.md` § "Testing & CI flow"
+- **Known gap:** branch protection on `main` (required status checks) still must be set in GitHub Settings

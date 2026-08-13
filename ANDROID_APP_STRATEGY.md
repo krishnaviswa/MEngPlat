@@ -5,21 +5,25 @@ what APK vs AAB mean, how Google Play fits next to Railway, and what remains to
 ship a store listing.
 
 Day-to-day mobile commands (Flutter Web dev loop, OpenAPI codegen, CI emulator)
-live in [`README.md`](README.md) under **Mobile client (Flutter)**. This file is
+live in `[README.md](README.md)` under **Mobile client (Flutter)**. This file is
 the Android/Play **strategy + release** doc — not a second product bible.
 
 ---
 
 ## Short answers
 
-| Question | Recommendation |
-|---|---|
-| Same repo? | **Yes** — top-level `mobile/` next to `backend/` and `frontend/`. |
-| Build on Railway? | **No.** Railway runs FastAPI + Next.js. It does not produce APK/AAB or publish to Play. |
-| Framework? | **Flutter** (Android now, iOS later with one codebase). Kotlin only if Android-only forever. |
-| Host the API on Play? | **No.** Play distributes the **client binary**. API/DB stay on Railway. |
+
+| Question              | Recommendation                                                                               |
+| --------------------- | -------------------------------------------------------------------------------------------- |
+| Same repo?            | **Yes** — top-level `mobile/` next to `backend/` and `frontend/`.                            |
+| Build on Railway?     | **No.** Railway runs FastAPI + Next.js. It does not produce APK/AAB or publish to Play.      |
+| Framework?            | **Flutter** (Android now, iOS later with one codebase). Kotlin only if Android-only forever. |
+| Host the API on Play? | **No.** Play distributes the **client binary**. API/DB stay on Railway.                      |
+
 
 ---
+
+
 
 ## How this fits the product
 
@@ -44,6 +48,8 @@ flowchart LR
   Store -->|installs APKs derived from AAB| Android
 ```
 
+
+
 The Android app is **another client of the same API**, not a fork of the web UI:
 
 - REST under `/api/v1`
@@ -54,22 +60,30 @@ CORS only affects browsers. Native apps call HTTPS directly.
 
 ---
 
+
+
 ## Why each major activity exists
 
-| Activity | Why |
-|---|---|
-| Keep Flutter in this monorepo | One OpenAPI contract, one PR when a slice touches API + web + mobile |
-| Leave Railway as API/web host | Mobile needs compile + signing + store distribution, not a container web service |
-| Generate API client from OpenAPI | Stop hand-duplicating DTOs; regenerate after backend schema changes |
-| Customer MVP before merchant | Matches existing product surfaces (discover, review, favorite, notify) |
-| Build APK for QA | Install on emulator/device without Play review cycles |
-| Build AAB for Play | Required modern upload format; Play generates device-specific APKs |
-| Internal testing track first | Catch config/crash mistakes with the team before public users |
-| Prod `API_BASE_URL` on store builds | Phones cannot reach `localhost`; must hit the Railway HTTPS API |
+
+| Activity                            | Why                                                                              |
+| ----------------------------------- | -------------------------------------------------------------------------------- |
+| Keep Flutter in this monorepo       | One OpenAPI contract, one PR when a slice touches API + web + mobile             |
+| Leave Railway as API/web host       | Mobile needs compile + signing + store distribution, not a container web service |
+| Generate API client from OpenAPI    | Stop hand-duplicating DTOs; regenerate after backend schema changes              |
+| Customer MVP before merchant        | Matches existing product surfaces (discover, review, favorite, notify)           |
+| Build APK for QA                    | Install on emulator/device without Play review cycles                            |
+| Build AAB for Play                  | Required modern upload format; Play generates device-specific APKs               |
+| Internal testing track first        | Catch config/crash mistakes with the team before public users                    |
+| Prod `API_BASE_URL` on store builds | Phones cannot reach `localhost`; must hit the Railway HTTPS API                  |
+
 
 ---
 
+
+
 ## APK vs AAB
+
+
 
 ### What is an APK?
 
@@ -85,11 +99,13 @@ You run `flutter build appbundle` → get a `.aab`. You upload it to Play Consol
 
 ### How they correlate
 
-| Artifact | Who builds it | Who installs it | Typical use |
-|---|---|---|---|
-| **APK** | You / CI | Device / emulator directly | Dev, QA, sideload |
-| **AAB** | You / CI | Not installed directly by users | Upload to Play |
-| **Device APKs** | **Play** (from your AAB) | End users via Play Store | Production installs |
+
+| Artifact        | Who builds it            | Who installs it                 | Typical use         |
+| --------------- | ------------------------ | ------------------------------- | ------------------- |
+| **APK**         | You / CI                 | Device / emulator directly      | Dev, QA, sideload   |
+| **AAB**         | You / CI                 | Not installed directly by users | Upload to Play      |
+| **Device APKs** | **Play** (from your AAB) | End users via Play Store        | Production installs |
+
 
 ```text
 Flutter code (mobile/)
@@ -103,6 +119,8 @@ Same app; different packaging for different distribution channels.
 
 ---
 
+
+
 ## What Google Play looks like (publisher view)
 
 Play is an **app storefront + distribution + signing pipeline**, not your backend host:
@@ -110,24 +128,30 @@ Play is an **app storefront + distribution + signing pipeline**, not your backen
 1. Create a **Google Play Console** developer account (one-time fee).
 2. Create an **app listing** (name, icon, screenshots, description, privacy policy URL, content rating).
 3. Upload an **AAB** to a track:
-   - **Internal testing** — tiny closed group (team)
-   - **Closed testing** — invited testers
-   - **Open testing** — public beta
-   - **Production** — anyone on Play
+  - **Internal testing** — tiny closed group (team)
+  - **Closed testing** — invited testers
+  - **Open testing** — public beta
+  - **Production** — anyone on Play
 4. Google reviews policy/compliance; then distributes updates when you upload a new AAB with a higher `versionCode`.
+
+
 
 ### Can you “host this over there”?
 
-| Piece | Hosted where? | Why |
-|---|---|---|
-| FastAPI + Postgres + Redis | **Railway** | Server needs always-on compute/DB |
-| Next.js web | **Railway** | Web SSR/static hosting |
-| Flutter Android binary | **Google Play** distributes it | Store installs/updates the app |
-| App source | **This monorepo** (`mobile/`) | One product, one API contract |
+
+| Piece                      | Hosted where?                  | Why                               |
+| -------------------------- | ------------------------------ | --------------------------------- |
+| FastAPI + Postgres + Redis | **Railway**                    | Server needs always-on compute/DB |
+| Next.js web                | **Railway**                    | Web SSR/static hosting            |
+| Flutter Android binary     | **Google Play** distributes it | Store installs/updates the app    |
+| App source                 | **This monorepo** (`mobile/`)  | One product, one API contract     |
+
 
 You do **not** move MerchantHub hosting to Play. You **publish the Android client** to Play; Play hosts the **download**, not your database or API.
 
 ---
+
+
 
 ## Monorepo layout and Railway
 
@@ -145,9 +169,11 @@ Railway’s job stays: FastAPI, Next.js, Postgres, Redis. Mobile artifacts need 
 
 ---
 
+
+
 ## Framework choice (locked)
 
-**Flutter in `mobile/`** is the concrete pick:
+**Flutter in** `mobile/` is the concrete pick:
 
 - One codebase → Android now, iOS later
 - Strong HTTP/JWT story against FastAPI
@@ -158,63 +184,65 @@ Alternatives considered and rejected for now: Kotlin-only (no iOS path), React N
 
 ---
 
+
+
 ## Phase status
 
-| Phase | Plan | Status |
-|---|---|---|
-| **1. Spike** | Flutter skeleton, login + list against `/api/v1` | **Done** — `mobile/` |
-| **2. Contract** | OpenAPI codegen + `API_BASE_URL` flavors | **Done** — `mobile/packages/merchanthub_api/`, README |
-| **3. Customer MVP** | Discover, reviews, favorites, notifications | **Mostly done** — code in place; slices S-023 / S-024 / S-025 still **Testing** (not Accepted) |
-| **4. Merchant later** | Insights (suggestion-only, same non-negotiable as web) | **Not started** |
-| **5. Ship Android** | Signed AAB + Play internal → production | **Not done** — `mobile/android/` scaffolding present; day-to-day is Flutter Web; CI now gates PRs on `flutter analyze` + `flutter test` before the emulator job (2026-08-12), still no release-AAB workflow |
 
-Also landed beyond the original five phases: mandatory TOTP (S-020), ADR-003 public business browsing, and [`.github/workflows/mobile-emulator-check.yml`](.github/workflows/mobile-emulator-check.yml).
+| Phase                 | Plan                                                   | Status                                                                                                                                                                                                      |
+| --------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1. Spike**          | Flutter skeleton, login + list against `/api/v1`       | **Done** — `mobile/`                                                                                                                                                                                        |
+| **2. Contract**       | OpenAPI codegen + `API_BASE_URL` flavors               | **Done** — `mobile/packages/merchanthub_api/`, README                                                                                                                                                       |
+| **3. Customer MVP**   | Discover, reviews, favorites, notifications            | **Mostly done** — code in place; slices S-023 / S-024 / S-025 still **Testing** (not Accepted)                                                                                                              |
+| **4. Merchant later** | Insights (suggestion-only, same non-negotiable as web) | **Not started**                                                                                                                                                                                             |
+| **5. Ship Android**   | Signed AAB + Play internal → production                | **Not done** — `mobile/android/` scaffolding present; day-to-day is Flutter Web; CI now gates PRs on `flutter analyze` + `flutter test` before the emulator job (2026-08-12), still no release-AAB workflow |
+
+
+Also landed beyond the original five phases: mandatory TOTP (S-020), ADR-003 public business browsing, and `[.github/workflows/mobile-emulator-check.yml](.github/workflows/mobile-emulator-check.yml)`.
 
 ---
+
+
 
 ## Ordered release checklist (phase 5)
 
 Do these in order. Each step has a reason.
 
-1. **Accept mobile customer slices (S-023–S-025)**  
-   Why: a half-broken store listing is worse than no listing.
-
-2. **Point release builds at production API**  
-   `--dart-define=API_BASE_URL=https://<your-backend>.up.railway.app`  
+1. **Accept mobile customer slices (S-023–S-025)**
+  Why: a half-broken store listing is worse than no listing.
+2. **Point release builds at production API**
+  `--dart-define=API_BASE_URL=https://<your-backend>.up.railway.app`  
    Why: store-installed apps cannot use `localhost`.
-
-3. **Build a release/debug APK for local QA**  
-   `flutter build apk`  
-   Why: prove camera, secure storage, permissions, and real-device behavior before Play review.
-
-4. **Create a signing keystore; keep it out of git**  
-   Why: Android requires signing; Play requires a stable signing identity across updates. Losing the key means you cannot update the same listing.
-
-5. **Build a release AAB**  
-   `flutter build appbundle`  
+3. **Build a release/debug APK for local QA**
+  `flutter build apk`  
+   Why: prove camera, secure storage, permissions, and real-device behavior before Play review.  
+   **No local Android SDK?** Use GitHub Actions → **Mobile build APK** → Run workflow
+   (`.github/workflows/mobile-build-apk.yml`). Download the `app-release-apk` artifact and
+   sideload it on your phone. That build is debug-signed (fine for personal QA, not for Play).
+4. **Create a signing keystore; keep it out of git**
+  Why: Android requires signing; Play requires a stable signing identity across updates. Losing the key means you cannot update the same listing.
+5. **Build a release AAB**
+  `flutter build appbundle`  
    Why: modern Play upload format.
-
-6. **Add CI: analyze/test on PR; AAB on tag**  
-   Why: Railway will never compile mobile; GitHub Actions/Codemagic is the mobile deploy equivalent.  
-   **Done (2026-08-12):** [`.github/workflows/mobile-emulator-check.yml`](.github/workflows/mobile-emulator-check.yml)
+6. **Add CI: analyze/test on PR; AAB on tag**
+  Why: Railway will never compile mobile; GitHub Actions/Codemagic is the mobile deploy equivalent.  
+   **Done (2026-08-12):** `[.github/workflows/mobile-emulator-check.yml](.github/workflows/mobile-emulator-check.yml)`
    runs an `analyze-test` job as a fast PR gate before the emulator job. A new
-   [`.github/workflows/mobile-release-aab.yml`](.github/workflows/mobile-release-aab.yml) builds
+   `[.github/workflows/mobile-release-aab.yml](.github/workflows/mobile-release-aab.yml)` builds
    a signed AAB whenever a `mobile-v*` tag is pushed. **It cannot run successfully yet** — it
    reads `MOBILE_KEYSTORE_BASE64`, `MOBILE_KEYSTORE_PASSWORD`, `MOBILE_KEY_ALIAS`,
    `MOBILE_KEY_PASSWORD` (secrets) and `MOBILE_PROD_API_BASE_URL` (repo variable), none of which
    exist yet. See **Step-by-step: signing keystore, CI secrets, and the release-AAB job** below.
+7. **Create Play Console app + privacy policy + content rating**
+  Why: Play policy for accounts, reviews, photos. Upload stays blocked without listing metadata.
+8. **Upload AAB to Internal testing first**
+  Why: lowest-risk track; team-only.
+9. **Promote Closed → Open → Production**
+  Why: staged trust after evidence the app works against prod API.
+10. **(Later) Merchant screens; optional FCM push**
+  Why: strategy phase 4; push is separate from polling-based notifications today.
 
-7. **Create Play Console app + privacy policy + content rating**  
-   Why: Play policy for accounts, reviews, photos. Upload stays blocked without listing metadata.
 
-8. **Upload AAB to Internal testing first**  
-   Why: lowest-risk track; team-only.
-
-9. **Promote Closed → Open → Production**  
-   Why: staged trust after evidence the app works against prod API.
-
-10. **(Later) Merchant screens; optional FCM push**  
-    Why: strategy phase 4; push is separate from polling-based notifications today.
 
 ### What else you need (beyond code)
 
@@ -228,6 +256,92 @@ Do these in order. Each step has a reason.
 - Bump `versionName` / `versionCode` on every Play upload
 
 ---
+
+
+
+## Play prerequisites, privacy policy, POC path, and who does what
+
+### Why a privacy-policy page? (and is it “first”?)
+
+It is **not** the first engineering task. It is a **Google Play policy prerequisite** for the
+store listing once the app handles accounts, reviews, photos, or similar personal data — which
+MerchantHub does.
+
+Play asks for a **public HTTPS URL** (not a PDF in the Console, not a private Google Doc) so
+users and reviewers can open it without logging in. The Data safety form must match what that
+page says. Without a policy URL, the listing/App content section stays incomplete and you cannot
+finish a Production (and often not even a full store-presence) submission.
+
+**Order of truth:**
+
+1. **Code/QA first** — accept S-023–S-025, prod `API_BASE_URL`, signed AAB (steps 1–6 above).
+2. **Play account + listing metadata next** — including privacy URL, Data safety, content
+   rating, minimal store assets (steps 7–8).
+3. **Tracks last** — Internal → (optional Closed/Open) → Production (step 9).
+
+Privacy is “first” only among *Play Console / policy* items, not among *build* items.
+
+### Prerequisites to post on Google Play (checklist)
+
+| # | Prerequisite | Required for | Cost (POC) |
+| --- | --- | --- | --- |
+| A | Working signed **AAB** pointed at **prod HTTPS API** | Any upload | $0 (CI + keystore) |
+| B | Stable **package name** (`com.merchanthub.merchanthub_mobile`) | Listing identity | $0 (already set) |
+| C | **Play Console developer account** + ID verification | Creating an app | **$25 one-time** |
+| D | **Privacy policy** at a public URL | Store listing / App content | **$0** DIY page on Railway frontend |
+| E | **Data safety** form (matches D) | App content | $0 (you fill the form) |
+| F | **Content rating** questionnaire | App content | $0 |
+| G | **Store listing** copy + **minimum assets** (icon, feature graphic, ≥2 phone screenshots) | Store presence | **$0** DIY screenshots / simple icon |
+| H | At least one **testing track** release (Internal first) | Install / later promote | $0 |
+| I | (Often for new personal accounts) **Closed testing** period before Production | Production | $0 + calendar wait |
+
+Not required for a POC Play listing: paid designer assets, lawyer-drafted policy, FCM, merchant
+screens, Codemagic, or a separate privacy host.
+
+### POC path — skip paid assets and lawyer policy
+
+For a proof-of-concept you can stay near **~$25 total cash** (Play fee only):
+
+| Instead of… | Do this… |
+| --- | --- |
+| Lawyer-drafted privacy policy | Write a short plain-English page yourself and host it on the existing Next.js app (`/privacy` on Railway). Disclose: email/name, reviews, photos, JWT/session, any location if used; purpose; how to request deletion (contact email). Keep Data safety answers identical. Upgrade to legal review only if you go commercial / collect more data. |
+| Paid store assets | Capture **≥2 phone screenshots** from emulator or a device (`flutter run` / CI artifact). Make a simple **512×512 icon** and **1024×500 feature graphic** in any free editor (or export from existing brand art). Play needs files that meet size rules — not agency polish. |
+| Full Production day-one | Stop at **Internal testing** (team only). That proves signing, prod API, and install without waiting on closed-test / full public review. Promote to Production later when the POC earns it. |
+
+Still non-negotiable on the POC path: signed AAB, prod API URL, Play account ($25), privacy URL,
+Data safety match, content rating, minimum listing assets.
+
+### Phase 5 — revised time breakdown and ownership
+
+Owners:
+
+- **You (product owner / repo admin)** — Play account, secrets in GitHub, Console forms, tester invites, go/no-go on tracks.
+- **Builder / you-as-dev** — slice fixes, privacy page code, keystore, CI secrets wiring, AAB, screenshots from the running app.
+- **Tester (agent or human)** — S-023–S-025 acceptance evidence; smoke on Internal build.
+- **Google** — account ID verification and store review waits (no one on the team can compress these).
+
+| # | Task | Owner | Hands-on | Calendar wait | POC notes |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Accept S-023–S-025 (or fix rework) | Tester → PM accept; Builder if bugs | 0.5–2 days | same | Do before any store push |
+| 2 | Point release builds at Railway prod API | Builder | 15–30 min | — | `--dart-define` / `MOBILE_PROD_API_BASE_URL` |
+| 3 | Local/device APK smoke (auth, storage, camera/permissions) | Builder + Tester | 1–2 hrs | — | Sideload; no Play yet |
+| 4 | Create keystore; store in password manager (never git) | **You** (repo admin) | 20–40 min | — | Losing it = cannot update listing |
+| 5 | Add GitHub secrets + `MOBILE_PROD_API_BASE_URL` variable | **You** (repo admin) | 15–30 min | — | Unblocks `mobile-release-aab.yml` |
+| 6 | Tag `mobile-v*` → download signed AAB artifact | Builder / You | 10 min | 5–15 min CI | Or local `flutter build appbundle` |
+| 7 | DIY `/privacy` page on frontend + deploy | Builder | 1–3 hrs | Railway deploy | **No lawyer** for POC |
+| 8 | Register Play developer account + pay $25 + ID verify | **You** | 30–60 min | **1–3 days** (Google) | Start early; parallel with 4–7 |
+| 9 | Create app + fill Data safety + content rating | **You** | 1–2 hrs | — | Must match privacy page |
+| 10 | DIY icon, feature graphic, ≥2 screenshots + short/long description | Builder / You | 2–4 hrs | — | **No paid designer** for POC |
+| 11 | Upload AAB to **Internal testing**; add testers | **You** | 30–60 min | hours–1 day | **Recommended POC stop** |
+| 12 | Internal smoke against prod API | Tester + You | 1–2 hrs | — | Install via opt-in link |
+| 13 | (Optional later) Closed → Open → Production | **You** | 1–2 hrs | **days–weeks** (Google) | Often needs closed-test window; skip until POC proven |
+
+**POC target:** rows 1–12 → Internal testing live in roughly **3–5 calendar days** after slices are Accepted, for about **$25**.  
+**Production:** add row 13 when you want a public listing; budget extra calendar time, not extra cash.
+
+---
+
+
 
 ## Step-by-step: signing keystore, CI secrets, and the release-AAB job
 
@@ -273,19 +387,23 @@ base64 -i mobile-release.keystore | tr -d '\n' > keystore.b64
 **4. Add GitHub repo secrets** (Settings → Secrets and variables → Actions → **New repository
 secret**, one at a time):
 
-| Name | Value |
-|---|---|
-| `MOBILE_KEYSTORE_BASE64` | contents of `keystore.b64` |
-| `MOBILE_KEYSTORE_PASSWORD` | store password from step 1 |
-| `MOBILE_KEY_ALIAS` | `merchanthub` (or whatever alias you used) |
-| `MOBILE_KEY_PASSWORD` | key password from step 1 |
+
+| Name                       | Value                                      |
+| -------------------------- | ------------------------------------------ |
+| `MOBILE_KEYSTORE_BASE64`   | contents of `keystore.b64`                 |
+| `MOBILE_KEYSTORE_PASSWORD` | store password from step 1                 |
+| `MOBILE_KEY_ALIAS`         | `merchanthub` (or whatever alias you used) |
+| `MOBILE_KEY_PASSWORD`      | key password from step 1                   |
+
 
 Then add one **repository variable** (same screen, "Variables" tab — not a secret, since it's
 not sensitive):
 
-| Name | Value |
-|---|---|
+
+| Name                       | Value                                                                             |
+| -------------------------- | --------------------------------------------------------------------------------- |
 | `MOBILE_PROD_API_BASE_URL` | `https://backend-production-2783.up.railway.app` (or current Railway backend URL) |
+
 
 **5. Delete the local plaintext copies** (`keystore.b64`, and `mobile-release.keystore` once
 it's safely in a password manager) from wherever you generated them, so they don't linger
@@ -298,7 +416,7 @@ git tag mobile-v1.0.0
 git push origin mobile-v1.0.0
 ```
 
-This runs [`.github/workflows/mobile-release-aab.yml`](.github/workflows/mobile-release-aab.yml),
+This runs `[.github/workflows/mobile-release-aab.yml](.github/workflows/mobile-release-aab.yml)`,
 which decodes the keystore, writes `key.properties` inside the CI runner only (never committed),
 builds `flutter build appbundle --release` against `MOBILE_PROD_API_BASE_URL`, deletes the
 signing material, and uploads `app-release.aab` as a downloadable workflow artifact. Download it
@@ -307,35 +425,40 @@ section.
 
 ---
 
+
+
 ## Step-by-step: Google Play Console, privacy policy, and store assets
 
-Everything in this section happens in Google's UI, not this repo — nothing here is scriptable
-from a coding session.
+Everything in this section happens in Google's UI (except hosting `/privacy` on the frontend),
+not in mobile compile scripts. Do this **after** you have a signed AAB (previous section). For
+**why** privacy is required, the **POC cheap path**, and **who owns each task**, see
+**Play prerequisites, privacy policy, POC path, and who does what** above.
 
 **1. Register a Play Console developer account** — [play.google.com/console](https://play.google.com/console/signup),
-one-time registration fee, requires a Google account and government ID verification (can take a
-day or two to clear).
+one-time registration fee ($25), requires a Google account and government ID verification (can take a
+day or two to clear). Start this in parallel with keystore/CI work — the wait is on Google, not you.
 
-**2. Write and host a privacy policy.** Required even for a simple app once it touches accounts,
-reviews, or photos. It needs a stable public URL — the easiest path here is a static page on the
-existing Next.js frontend (e.g. `frontend/src/app/privacy/page.tsx` → `https://<your-frontend>.up.railway.app/privacy`),
-so it's covered by infrastructure already deployed rather than a new host. Must disclose: what
-data is collected (email, name, reviews, photos, location if used), why, and how users can
-request deletion.
+**2. Write and host a privacy policy (DIY is enough for POC).** Required because the app touches
+accounts, reviews, and photos. It needs a stable **public HTTPS URL** — easiest path: a static
+page on the existing Next.js frontend (e.g. `frontend/src/app/privacy/page.tsx` →
+`https://<your-frontend>.up.railway.app/privacy`). No lawyer required for a POC; use plain English
+and keep the Play **Data safety** form identical. Disclose: what is collected (email, name,
+reviews, photos, location if used), why, and how users can request deletion. Upgrade to legal
+review only if you commercialize or expand data collection.
 
 **3. Create the app in Play Console:** Console → **Create app** → fill in app name
 ("MerchantHub"), default language, app type (App), free/paid (Free). This generates the app's
 internal Play listing shell.
 
 **4. Fill in the Store listing** (Console → your app → Grow → Store presence → Main store
-listing):
-   - Short description (≤80 chars), full description (≤4000 chars)
-   - App icon: 512×512 PNG
-   - Feature graphic: 1024×500 PNG/JPG
-   - Phone screenshots: at least 2, 16:9 or 9:16, PNG/JPG (screenshot the app from the emulator
-     CI job's artifact, or run `flutter run` locally and capture a few core screens: business
-     list, business detail, review form, favorites)
-   - Category (e.g. Business or Food & Drink) and contact details
+listing) — **DIY assets are fine for POC**:
+
+- Short description (≤80 chars), full description (≤4000 chars)
+- App icon: 512×512 PNG (simple brand mark is enough)
+- Feature graphic: 1024×500 PNG/JPG
+- Phone screenshots: at least 2, 16:9 or 9:16, PNG/JPG (screenshot from emulator
+CI artifact, or `flutter run` locally: business list, detail, review form, favorites)
+- Category (e.g. Business or Food & Drink) and contact details
 
 **5. Complete the Data safety form** (Console → Policy → App content → Data safety) — declare
 what data types are collected/shared, matching the privacy policy from step 2 exactly. Mismatches
@@ -354,105 +477,70 @@ credential).
 
 **8. Add internal testers** (Console → Testing → Internal testing → Testers tab) — add team email
 addresses to a list, share the generated opt-in link so they can install without public review.
+**Recommended POC stop:** Internal testing proves the release pipeline without Production wait.
 
-**9. Promote through tracks** once internal testing looks good: Internal → Closed → Open →
-Production, each requiring a new release created from the same or a newer AAB. Production is the
-only track requiring full Google policy review before going live; earlier tracks are lighter-weight.
+**9. Promote through tracks** once internal testing looks good (and only when you want public):
+Internal → Closed → Open → Production. Production is the only track requiring full Google policy
+review before going live; new personal accounts often also need a closed-test window first.
+Earlier tracks are lighter-weight.
 
 ---
+
+
 
 ## Testing & CI flow — what runs when, and why quality is never skipped
 
 **Rule zero, non-negotiable: optimizing for speed only ever changes *when* an expensive check
-runs, never *whether* it runs before code reaches `main`.** Nothing below trades test coverage
+runs, never *whether* it runs before code reaches** `main`**.** Nothing below trades test coverage
 for time. Read this table top to bottom — each row's "If" builds on the previous one passing.
 
-| # | If (situation) | Then (what runs) | Why quality isn't compromised | Else / what if it goes wrong |
-|---|---|---|---|---|
-| 1 | You edit mobile code locally, any size of change | You run `flutter analyze && flutter test` in `mobile/` yourself before committing (~15s, zero CI cost) | Catches most breaks before they ever leave your machine | If skipped, row 2 catches it ~1 commit later — nothing goes unchecked, it's just delayed |
-| 2 | You push a commit to a branch with an **open PR** | The `analyze-test` CI job (lint + unit tests) runs to completion — **this one is never cancelled**, every commit gets it | This is the cheap, always-on floor. No commit reaches `main` without at least this passing | If it fails: PR shows a red X in ~1 minute, you fix and push again — cheap to iterate |
-| 3 | You push another commit to the same PR while the **emulator** job (`emulator-test`, real Android emulator, full login→browse flow) is still running from a previous commit | The in-progress emulator run is **cancelled and restarted on the new commit** (`concurrency: cancel-in-progress`) | Only *stale* runs — validating code that no longer exists on the branch — get cancelled. The check always ends up validating whichever commit is latest, which is the one that matters before merge | If you merge before the last run finishes: row 6 (push to `main`) independently re-runs the same emulator job on `main` itself, so `main` is always re-validated regardless of PR timing |
-| 4 | The emulator test fails on the **final** commit of a PR | PR shows a red X on that check | In theory this should block merging | **Real gap today:** there is no GitHub branch-protection rule on `main` requiring status checks to pass. A red X does **not** currently block the "Merge" button. See the fix below. |
-| 5 | A fix is critical/high-stakes and you don't want to wait on PR-lifecycle timing | Manually trigger `workflow_dispatch` (GitHub Actions tab → "Mobile emulator check" → Run workflow → pick the branch) — runs the full emulator suite on that exact commit, on demand, right now | Gives certainty immediately, independent of concurrency dedup or PR state | This is a supplement, not a replacement — rows 2–4 already cover you even if you forget to do this |
-| 6 | You (or I) push a commit **directly to `main`**, bypassing a PR | Both `analyze-test` and `emulator-test` fire on `push: branches:[main]`, same jobs as a PR | `main` is never left completely unchecked even without PR review | The check runs **after** the code is already on `main` — if it fails, `main` is broken until fixed/reverted. Riskier than PR-gating. **Going forward: use a feature branch + PR for anything beyond a trivial doc/config edit.** |
-| 7 | Code merges (or is pushed) to `main` | Railway auto-deploys backend + frontend to production immediately | — | **Real gap today:** Railway's deploy trigger is a **separate system** from GitHub Actions and does not wait for `analyze-test`/`emulator-test` to pass. A failing CI check does **not** currently stop a production deploy. |
+
+| #   | If (situation)                                                                                                                                                             | Then (what runs)                                                                                                                                                                               | Why quality isn't compromised                                                                                                                                                                       | Else / what if it goes wrong                                                                                                                                                                                                     |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | You edit mobile code locally, any size of change                                                                                                                           | You run `flutter analyze && flutter test` in `mobile/` yourself before committing (~15s, zero CI cost)                                                                                         | Catches most breaks before they ever leave your machine                                                                                                                                             | If skipped, row 2 catches it ~1 commit later — nothing goes unchecked, it's just delayed                                                                                                                                         |
+| 2   | You push a commit to a branch with an **open PR**                                                                                                                          | The `analyze-test` CI job (lint + unit tests) runs to completion — **this one is never cancelled**, every commit gets it                                                                       | This is the cheap, always-on floor. No commit reaches `main` without at least this passing                                                                                                          | If it fails: PR shows a red X in ~1 minute, you fix and push again — cheap to iterate                                                                                                                                            |
+| 3   | You push another commit to the same PR while the **emulator** job (`emulator-test`, real Android emulator, full login→browse flow) is still running from a previous commit | The in-progress emulator run is **cancelled and restarted on the new commit** (`concurrency: cancel-in-progress`)                                                                              | Only *stale* runs — validating code that no longer exists on the branch — get cancelled. The check always ends up validating whichever commit is latest, which is the one that matters before merge | If you merge before the last run finishes: row 6 (push to `main`) independently re-runs the same emulator job on `main` itself, so `main` is always re-validated regardless of PR timing                                         |
+| 4   | The emulator test fails on the **final** commit of a PR                                                                                                                    | PR shows a red X on that check                                                                                                                                                                 | In theory this should block merging                                                                                                                                                                 | **Real gap today:** there is no GitHub branch-protection rule on `main` requiring status checks to pass. A red X does **not** currently block the "Merge" button. See the fix below.                                             |
+| 5   | A fix is critical/high-stakes and you don't want to wait on PR-lifecycle timing                                                                                            | Manually trigger `workflow_dispatch` (GitHub Actions tab → "Mobile emulator check" → Run workflow → pick the branch) — runs the full emulator suite on that exact commit, on demand, right now | Gives certainty immediately, independent of concurrency dedup or PR state                                                                                                                           | This is a supplement, not a replacement — rows 2–4 already cover you even if you forget to do this                                                                                                                               |
+| 6   | You (or I) push a commit **directly to** `main`, bypassing a PR                                                                                                            | Both `analyze-test` and `emulator-test` fire on `push: branches:[main]`, same jobs as a PR                                                                                                     | `main` is never left completely unchecked even without PR review                                                                                                                                    | The check runs **after** the code is already on `main` — if it fails, `main` is broken until fixed/reverted. Riskier than PR-gating. **Going forward: use a feature branch + PR for anything beyond a trivial doc/config edit.** |
+| 7   | Code merges (or is pushed) to `main`                                                                                                                                       | Railway auto-deploys backend + frontend to production immediately                                                                                                                              | —                                                                                                                                                                                                   | **Real gap today:** Railway's deploy trigger is a **separate system** from GitHub Actions and does not wait for `analyze-test`/`emulator-test` to pass. A failing CI check does **not** currently stop a production deploy.      |
+
+
+
+
+### Local enforcement (done) — feature branch + cheap mobile checks on every commit
+
+`[.githooks/pre-commit](.githooks/pre-commit)` now:
+
+1. **Refuses commits on `main` / `master`** — forces a feature branch before any commit (IDE Source
+   Control included; it still calls `git commit`).
+2. Keeps the Cursor ↔ Claude Code config sync check.
+3. If any staged path is under `mobile/`, runs `flutter analyze && flutter test` (~15s). Emulator
+   integration stays CI-only.
+
+One-time per clone: `git config core.hooksPath .githooks`. Bypass with `--no-verify` is possible
+locally; the remote lock is branch protection below.
 
 ### Closing the two real gaps (rows 4 and 7) — one fix, not yet done
 
 Add a GitHub **branch-protection rule** on `main`: Settings → Branches → Add rule → require
 `analyze-test` (and ideally `emulator-test`) as required status checks before merging is allowed.
-Since Railway only ever deploys whatever is on `main`, this one setting closes both gaps at once —
-nothing merges to `main` without passing CI, and therefore nothing reaches Railway without
-passing CI either. This needs GitHub repo-admin access in the web UI; `gh` CLI isn't available in
-this dev environment to script it, so it hasn't been done yet. **This is the single highest-value
-open item for "never compromise on quality."**
+Also enable **Do not allow bypassing the above settings** and **Restrict who can push to matching
+branches** (no direct pushes to `main`). Since Railway only ever deploys whatever is on `main`,
+this closes both gaps — nothing merges without CI, and therefore nothing reaches Railway without
+CI either. Optional: Settings → General → **Automatically delete head branches** after merge for
+periodic feature-branch cleanup. **This is still the single highest-value open item** (needs
+repo-admin in the GitHub web UI).
 
 ### Mobile test types, at a glance
 
-| Test type | Where | Cost | Catches |
-|---|---|---|---|
-| `flutter analyze` | `mobile/` | Seconds | Lint, type errors, dead code |
-| `flutter test` (unit/widget) | `mobile/test/*.dart` | Seconds | Provider logic, widget rendering, AC-level behavior — no device needed |
+
+| Test type                              | Where                                            | Cost    | Catches                                                                                                             |
+| -------------------------------------- | ------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------- |
+| `flutter analyze`                      | `mobile/`                                        | Seconds | Lint, type errors, dead code                                                                                        |
+| `flutter test` (unit/widget)           | `mobile/test/*.dart`                             | Seconds | Provider logic, widget rendering, AC-level behavior — no device needed                                              |
 | `flutter drive` (emulator integration) | CI only, `mobile/integration_test/app_test.dart` | Minutes | Real login→navigation flow on an actual Android emulator — the only layer that catches native/platform-level breaks |
 
----
-
-## Day-to-day management rules
-
-1. **Single backend, multiple clients** — features land in FastAPI first (or same PR). Avoid mobile-only endpoints unless there is a real device need (push tokens, device IDs).
-2. **OpenAPI is the shared package** — regenerate via `python mobile/scripts/generate_api_client.py` after backend schema changes.
-3. **Slices stay the same** — mobile-capable slices list Flutter screens + AC; Architect notes auth storage, deep links, Play constraints.
-4. **CI boundaries** — Railway: backend + frontend Docker. Mobile: emulator check today; release AAB workflow still to add.
-5. **Env / flavors** — `dev` → local API (`10.0.2.2:8000` on emulator, or LAN IP on device); `staging`/`prod` → Railway URL.
-6. **Secrets stay out of the monorepo** — signing keystores, Play service-account JSON, production `.env`.
 
 ---
 
-## Session log (2026-08-12) — what changed, and how to resume if it breaks
-
-**Done this session:**
-- Confirmed S-023/S-024/S-025 mobile code (reviews, favorites, notifications) is committed
-  (`76fa356`) and `flutter analyze` / `flutter test` are both clean (10/10 tests pass).
-- Fixed an async-dependency race in `myBusinessIdsProvider`
-  ([`mobile/lib/features/businesses/business_list_provider.dart`](mobile/lib/features/businesses/business_list_provider.dart)):
-  it read `authControllerProvider` via `.valueOrNull` instead of awaiting `.future`, so on cold
-  start it could resolve to `{}` before auth settled and briefly show "Add review" on a
-  merchant's own business. Same fix pattern as `FavoritedIdsController.build()` in
-  `favorites_providers.dart`.
-- Added an `analyze-test` job to
-  [`.github/workflows/mobile-emulator-check.yml`](.github/workflows/mobile-emulator-check.yml)
-  that runs `flutter analyze` + `flutter test` on every PR touching `mobile/**`, gating the
-  slower emulator job behind it (`needs: analyze-test`).
-
-**Known local limitation (not a code bug):** this dev machine has Flutter but **no Android SDK**
-(`flutter build apk` fails with "No Android SDK found"). Release APK/AAB builds only work in CI
-(once the AAB-on-tag job from checklist item 6 is added) or on a machine with Android Studio
-installed. Don't waste time debugging this as if it were a project defect.
-
-**If this work needs to be picked up cold in a new session/agent, paste this:**
-
-> Continue MerchantHub AI mobile work. Read `ANDROID_APP_STRATEGY.md` in full first — it's the
-> single source of truth for Android/Play strategy and has a "Session log" section with current
-> state. S-023/S-024/S-025 (mobile reviews/favorites/notifications) are code-complete and tested
-> (`flutter test` in `mobile/`) but still `Status: Testing` in their slice files under
-> `docs/agents/slices/` — they need a formal Tester pass (test plan + AC coverage matrix +
-> `docs/agents/test-reports/`) then a Product Manager review to move to `Accepted`, per the
-> PM → Architect → Builder → Tester → PM workflow in `README.md` §13. Do not implement ahead of
-> a slice's `Status: Specified` gate. This machine has no Android SDK — don't attempt
-> `flutter build apk`/`appbundle` locally; that only runs in CI or on a machine with Android
-> Studio.
-
-**Scope-creep guardrail for whoever picks this up:** stay inside the numbered AC in each
-slice file. If you find a bug or gap outside a slice's AC (like the `myBusinessIdsProvider` race
-above), fix it, note it in the slice's Changelog, but don't expand the slice's AC list — draft
-a new slice via the Product Manager agent instead.
-
----
-
-## Bottom line
-
-- Structure Android as a **third client** of the existing FastAPI API.
-- Keep code under `mobile/`; Railway continues to deploy only backend + frontend.
-- Ship **APKs** for ourselves to test and **AABs** for Google to distribute.
-- Play is the **store**; Railway remains the **backend host**.
-- Customer Flutter MVP is largely built; **signed release + Play listing** is the open gap.
