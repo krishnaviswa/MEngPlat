@@ -26,7 +26,7 @@ from app.services.mfa import enable_demo_totp
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-CHENNAI_CUSTOMER_PASSWORD = "demo12345"
+CHENNAI_CUSTOMER_PASSWORD = "demo12345abc"
 
 # Chrompet corridor anchor (~12.95°N, 80.14°E) with small per-business jitter.
 _CHENNAI_BASE_LAT = 12.9516
@@ -458,6 +458,7 @@ async def seed_chennai(
         db.add(customer)
         customers.append(customer)
     for customer in customers:
+        customer.hashed_password = get_password_hash(CHENNAI_CUSTOMER_PASSWORD)
         if not customer.totp_enabled:
             enable_demo_totp(customer)
     await db.flush()

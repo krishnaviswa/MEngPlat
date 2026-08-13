@@ -3,6 +3,7 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../auth/auth_provider.dart';
 import 'business_repository.dart';
+import 'maps_config.dart';
 
 final businessRepositoryProvider = Provider<BusinessRepository>(
   (ref) => BusinessRepository(ref.watch(apiClientProvider)),
@@ -10,6 +11,21 @@ final businessRepositoryProvider = Provider<BusinessRepository>(
 
 final businessListProvider = FutureProvider.autoDispose<List<BusinessResponse>>((ref) {
   return ref.watch(businessRepositoryProvider).searchBusinesses();
+});
+
+final searchFacetsProvider = FutureProvider.autoDispose<(List<String>, List<CategoryResponse>)>((ref) async {
+  final repo = ref.watch(businessRepositoryProvider);
+  final cities = await repo.listCities();
+  final categories = await repo.listCategories();
+  return (cities, categories);
+});
+
+final mapsConfigProvider = FutureProvider<MapsConfig>((ref) {
+  return ref.watch(businessRepositoryProvider).mapsConfig();
+});
+
+final businessPhotosProvider = FutureProvider.autoDispose.family<List<PhotoResponse>, String>((ref, businessId) {
+  return ref.watch(businessRepositoryProvider).listPhotos(businessId);
 });
 
 /// Backs the S-023 business detail screen (`/businesses/:slug`), a public

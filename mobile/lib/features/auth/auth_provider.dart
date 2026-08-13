@@ -46,6 +46,32 @@ class AuthController extends AsyncNotifier<UserResponse?> {
     state = AsyncValue.data(user);
   }
 
+  /// Password register: no session until the user logs in and completes TOTP.
+  Future<void> register({
+    required String email,
+    required String fullName,
+    required String password,
+    required UserRole role,
+  }) {
+    return ref.read(authRepositoryProvider).register(
+          email: email,
+          fullName: fullName,
+          password: password,
+          role: role,
+        );
+  }
+
+  Future<void> signInWithGoogle({required String credential}) async {
+    final user = await ref.read(authRepositoryProvider).loginWithGoogle(credential: credential);
+    state = AsyncValue.data(user);
+  }
+
+  Future<UserResponse> updateProfile(UserProfileUpdate payload) async {
+    final user = await ref.read(authRepositoryProvider).updateMe(payload);
+    state = AsyncValue.data(user);
+    return user;
+  }
+
   Future<void> logout() async {
     await ref.read(authRepositoryProvider).logout();
     state = const AsyncValue.data(null);

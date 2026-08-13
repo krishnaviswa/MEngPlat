@@ -13,9 +13,37 @@ final reviewRepositoryProvider = Provider<ReviewRepository>(
 /// One instance per `businessId` -- the single in-memory source of truth for
 /// that business's reviews (Architect spec, S-023 "Cache / side effects").
 class ReviewsController extends AutoDisposeFamilyAsyncNotifier<List<ReviewResponse>, String> {
+  final Set<String> _likedThisSession = {};
+  final Set<String> reportedIds = {};
+
   @override
   FutureOr<List<ReviewResponse>> build(String businessId) {
     return ref.watch(reviewRepositoryProvider).listForBusiness(businessId);
+  }
+
+  Future<void> likeReview(String reviewId) async {
+    if (_likedThisSession.contains(reviewId)) return;
+    final previous = state.valueOrNull;
+    if (previous != null) {
+      state = AsyncValue.data([
+        for (final review in previous)
+          if (review.id == reviewId) review.rebuild((b) => b.likeCount = review.likeCount + 1) else review,
+      ]);
+    }
+    try {
+      await ref.read(reviewRepositoryProvider).likeReview(reviewId);
+      _likedThisSession.add(reviewId);
+    } catch (error, stack) {
+      if (previous != null) state = AsyncValue.data(previous);
+      Error.throwWithStackTrace(error, stack);
+    }
+  }
+
+  Future<void> reportReview({required String reviewId, required String reason}) async {
+    await ref.read(reviewRepositoryProvider).reportReview(reviewId: reviewId, reason: reason);
+    reportedIds.add(reviewId);
+    final current = state.valueOrNull;
+    if (current != null) state = AsyncValue.data(current);
   }
 
   /// Creates the review and prepends it to the list on success so it appears

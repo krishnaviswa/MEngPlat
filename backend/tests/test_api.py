@@ -16,6 +16,9 @@ async def test_health(client):
     response = await client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert "strict-transport-security" not in {k.lower() for k in response.headers}
 
 
 @pytest.mark.asyncio
@@ -25,7 +28,7 @@ async def test_register_and_login(client):
         json={
             "email": "testuser@example.com",
             "full_name": "Test User",
-            "password": "testpass123",
+            "password": "testpass1234",
             "role": "customer",
         },
     )
@@ -33,7 +36,7 @@ async def test_register_and_login(client):
 
     from tests.auth_helpers import complete_password_login
 
-    tokens = await complete_password_login(client, "testuser@example.com", "testpass123")
+    tokens = await complete_password_login(client, "testuser@example.com", "testpass1234")
     assert "access_token" in tokens
     assert "refresh_token" in tokens
 

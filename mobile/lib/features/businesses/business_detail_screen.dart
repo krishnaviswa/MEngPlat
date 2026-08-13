@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/auth_provider.dart';
 import '../favorites/favorite_toggle_button.dart';
 import '../reviews/review_card.dart';
 import '../reviews/review_form_sheet.dart';
 import '../reviews/review_providers.dart';
+import 'business_hours.dart';
 import 'business_list_provider.dart';
+import 'maps_config.dart';
+import 'osm_map_view.dart';
+import 'photo_gallery.dart';
 
-/// Minimal business detail shell: header (name, average rating, review
-/// count) + reviews list + "Add review" action. A **public** route (see
-/// ADR-003) -- reachable while logged out (S-023 AC13). Full profile parity
-/// (hours, photo gallery, map, AI merchant summary) is a separate future
-/// slice.
+/// Public business profile (ADR-003): header, contact/hours/photos/map/AI
+/// overview (S-028), plus reviews + "Add review" (S-023).
 class BusinessDetailScreen extends ConsumerWidget {
   const BusinessDetailScreen({required this.slug, super.key});
 
@@ -87,13 +90,11 @@ class _BusinessDetailBody extends ConsumerWidget {
                       Expanded(
                         child: Text(business.name, style: Theme.of(context).textTheme.headlineSmall),
                       ),
-                      // S-024 AC1: favoriting also available from the detail
-                      // screen, not just the list row.
                       FavoriteToggleButton(businessId: business.id),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text([business.city, business.state].whereType<String>().join(', ')),
+                  Text(_placeLine(business)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -104,6 +105,19 @@ class _BusinessDetailBody extends ConsumerWidget {
                       Text('${business.reviewCount} reviews', style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
+                  if (business.description != null && business.description!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(business.description!, key: const Key('businessDescription')),
+                  ],
+                  if (business.aiMerchantSummary != null && business.aiMerchantSummary!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _AiOverview(summary: business.aiMerchantSummary!),
+                  ],
+                  _ContactBlock(business: business),
+                  _CategoryChips(categories: business.categories?.toList() ?? const []),
+                  _HoursBlock(business: business),
+                  _GalleryBlock(business: business),
+                  _DetailMap(business: business),
                   if (showAddReview) ...[
                     const SizedBox(height: 16),
                     FilledButton.icon(
@@ -140,6 +154,7 @@ class _BusinessDetailBody extends ConsumerWidget {
               ),
             ),
             data: (reviews) {
+              final reviewsController = ref.read(reviewsControllerProvider(business.id).notifier);
               if (reviews.isEmpty) {
                 return const SliverFillRemaining(
                   hasScrollBody: false,
@@ -150,7 +165,28 @@ class _BusinessDetailBody extends ConsumerWidget {
                 itemCount: reviews.length,
                 itemBuilder: (context, index) => Column(
                   children: [
-                    ReviewCard(review: reviews[index]),
+                    ReviewCard(
+                      review: reviews[index],
+                      reported: reviewsController.reportedIds.contains(reviews[index].id),
+                      onLike: isLoggedIn
+                          ? () async {
+                              try {
+                                await reviewsController.likeReview(reviews[index].id);
+                              } catch (error) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+                                }
+                              }
+                            }
+                          : () => context.push('/login'),
+                      onReport: isLoggedIn
+                          ? (reason) => reviewsController.reportReview(
+                                reviewId: reviews[index].id,
+                                reason: reason,
+                              )
+                          : null,
+                      onRequireLogin: isLoggedIn ? null : () => context.push('/login'),
+                    ),
                     if (index != reviews.length - 1) const Divider(height: 1),
                   ],
                 ),
@@ -168,5 +204,210 @@ class _BusinessDetailBody extends ConsumerWidget {
       return;
     }
     ReviewFormSheet.show(context, businessId: business.id);
+  }
+}
+
+String _placeLine(BusinessResponse business) {
+  return [
+    business.address,
+    business.city,
+    business.state,
+    business.postalCode,
+  ].whereType<String>().where((s) => s.isNotEmpty).join(', ');
+}
+
+class _AiOverview extends StatelessWidget {
+  const _AiOverview({required this.summary});
+
+  final String summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('aiOverviewSuggestion'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: 'AI overview (suggestion): ',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            TextSpan(text: summary, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactBlock extends StatelessWidget {
+  const _ContactBlock({required this.business});
+
+  final BusinessResponse business;
+
+  @override
+  Widget build(BuildContext context) {
+    final phone = business.phone?.trim();
+    final website = business.website?.trim();
+    final address = business.address.trim();
+    if ((phone == null || phone.isEmpty) && (website == null || website.isEmpty) && address.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (address.isNotEmpty)
+            Text(address, key: const Key('businessAddress')),
+          if (phone != null && phone.isNotEmpty)
+            TextButton.icon(
+              key: const Key('businessPhone'),
+              onPressed: () => launchUrl(Uri.parse('tel:$phone')),
+              icon: const Icon(Icons.phone, size: 18),
+              label: Text(phone),
+            ),
+          if (website != null && website.isNotEmpty)
+            TextButton.icon(
+              key: const Key('businessWebsite'),
+              onPressed: () {
+                final href = website.startsWith('http') ? website : 'https://$website';
+                launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
+              },
+              icon: const Icon(Icons.language, size: 18),
+              label: Text(website),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryChips extends StatelessWidget {
+  const _CategoryChips({required this.categories});
+
+  final List<CategoryResponse> categories;
+
+  @override
+  Widget build(BuildContext context) {
+    if (categories.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Wrap(
+        key: const Key('categoryChips'),
+        spacing: 8,
+        runSpacing: 4,
+        children: [
+          for (final category in categories) Chip(label: Text(category.name)),
+        ],
+      ),
+    );
+  }
+}
+
+class _HoursBlock extends StatelessWidget {
+  const _HoursBlock({required this.business});
+
+  final BusinessResponse business;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = businessHoursEntries(business.businessHours);
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        key: const Key('hoursBlock'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Hours', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 4),
+          if (entries.isEmpty)
+            const Text('Hours not listed')
+          else
+            for (final entry in entries) Text('${entry.key}: ${entry.value}'),
+        ],
+      ),
+    );
+  }
+}
+
+class _GalleryBlock extends ConsumerWidget {
+  const _GalleryBlock({required this.business});
+
+  final BusinessResponse business;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final photosAsync = ref.watch(businessPhotosProvider(business.id));
+    return photosAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.only(top: 12),
+        child: SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      error: (_, _) {
+        final fallback = PhotoGallery.urlsFor(business, const []);
+        if (fallback.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: FallbackPhotoStrip(urls: fallback),
+        );
+      },
+      data: (photos) {
+        if (photos.isNotEmpty) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: PhotoGallery(photos: photos),
+          );
+        }
+        final fallback = PhotoGallery.urlsFor(business, const []);
+        if (fallback.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: FallbackPhotoStrip(urls: fallback),
+        );
+      },
+    );
+  }
+}
+
+class _DetailMap extends ConsumerWidget {
+  const _DetailMap({required this.business});
+
+  final BusinessResponse business;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (business.latitude == null || business.longitude == null) {
+      return const SizedBox.shrink();
+    }
+    final config = ref.watch(mapsConfigProvider).valueOrNull ?? MapsConfig.fallback;
+    final point = LatLng(business.latitude!.toDouble(), business.longitude!.toDouble());
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Location', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          OsmMapView(
+            mapKey: const Key('detailMapPin'),
+            markers: [
+              MapMarkerTap(point: point, slug: business.slug, name: business.name),
+            ],
+            config: config,
+            center: point,
+            zoom: 15,
+            height: 200,
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -11,10 +11,10 @@ final notificationsRepositoryProvider = Provider<NotificationsRepository>(
 );
 
 /// Owns the 30s unread-count poll (AC9), mirroring `NotificationBell.tsx`'s
-/// "poll on mount, every 30s" -- scoped here to "while the app-bar shell is
-/// present" for the lifetime of the logged-in session. Deliberately **not**
+/// "poll on mount, every 30s" -- scoped to the logged-in [AppShell] (S-027)
+/// for the lifetime of the session. Deliberately **not**
 /// `.autoDispose` (Architect spec, S-025 "Cache / side effects") so the
-/// badge stays live across screen navigation instead of resetting every time
+/// badge stays live across tab navigation instead of resetting every time
 /// nothing happens to be watching it.
 class UnreadCountController extends Notifier<int> {
   Timer? _timer;

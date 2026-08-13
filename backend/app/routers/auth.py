@@ -30,7 +30,13 @@ from app.schemas import (
     UserRegister,
     UserResponse,
 )
-from app.services.cache import blocklist_token, is_token_blocklisted
+from app.services.cache import (
+    blocklist_token,
+    clear_login_failures,
+    is_login_locked,
+    is_token_blocklisted,
+    record_login_failure,
+)
 from app.services.google_auth import InvalidGoogleTokenError, verify_google_id_token
 from app.services.mfa import (
     build_otpauth_uri,
@@ -90,9 +96,9 @@ async def register(request: Request, payload: UserRegister, db: AsyncSession = D
     """
     Register a new user account.
 
-    **Request:** email, full_name, password (min 8 chars), role (customer|merchant|admin blocked for public)
+    **Request:** email, full_name, password (min 12 chars, at least one letter and one digit), role (customer|merchant|admin blocked for public)
     **Response:** Created user profile (no tokens — login separately; password login requires TOTP enrollment)
-    **Errors:** 409 if email exists, 429 if rate-limited (5/minute per IP)
+    **Errors:** 409 if email exists, 422 if password policy fails, 429 if rate-limited (5/minute per IP)
     """
     if payload.role == UserRole.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot self-register as admin")
@@ -128,8 +134,16 @@ async def login(request: Request, payload: UserLogin, db: AsyncSession = Depends
     or `{ mfa_required, mfa_token }` / `{ mfa_enrollment_required, mfa_token }` for TOTP.
     **Errors:** 400 account is Google-only (no password set), 401 invalid credentials, 403 inactive,
     429 if rate-limited (10/minute per IP) -- bcrypt makes each attempt expensive, so this also
-    caps CPU spent on credential stuffing, not just attempt count
+    caps CPU spent on credential stuffing, not just attempt count. After 5 failed password
+    attempts for the same email, Redis lockout applies for 15 minutes (best-effort; skipped
+    if Redis is unreachable).
     """
+    if await is_login_locked(payload.email):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed login attempts. Try again later.",
+        )
+
     result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
     if user and user.hashed_password is None:
@@ -138,9 +152,17 @@ async def login(request: Request, payload: UserLogin, db: AsyncSession = Depends
             detail="This account uses Google sign-in. Continue with Google instead.",
         )
     if not user or not verify_password(payload.password, user.hashed_password):
+        locked = await record_login_failure(payload.email)
+        if locked:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many failed login attempts. Try again later.",
+            )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
+
+    await clear_login_failures(payload.email)
 
     # Password accounts must complete authenticator MFA before receiving session tokens.
     if user.totp_enabled:
@@ -193,6 +215,7 @@ async def totp_confirm(payload: MfaTotpCodeRequest, db: AsyncSession = Depends(g
     user.totp_enabled = True
     await db.flush()
     await _consume_mfa_token(payload.mfa_token)
+    await clear_login_failures(user.email)
     return _issue_session_tokens(user)
 
 
@@ -212,13 +235,15 @@ async def totp_verify(payload: MfaTotpCodeRequest, db: AsyncSession = Depends(ge
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authenticator code")
 
     await _consume_mfa_token(payload.mfa_token)
+    await clear_login_failures(user.email)
     return _issue_session_tokens(user)
 
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(refresh_token: str, db: AsyncSession = Depends(get_db)) -> TokenResponse:
     """
-    Exchange a valid refresh token for new access + refresh tokens.
+    Exchange a valid refresh token for a new access + refresh pair. The presented
+    refresh token's jti is blocklisted so it cannot be reused (rotation).
 
     **Request:** refresh_token (query/body depending on client)
     **Response:** New token pair
@@ -239,6 +264,10 @@ async def refresh_token(refresh_token: str, db: AsyncSession = Depends(get_db)) 
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    exp = payload.get("exp")
+    if jti and exp:
+        await blocklist_token(jti, exp)
 
     return _issue_session_tokens(user)
 

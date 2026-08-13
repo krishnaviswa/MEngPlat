@@ -66,9 +66,55 @@ class AuthRepository {
     }
   }
 
+  /// Creates a password account. Does **not** store tokens — first login must
+  /// enroll TOTP (web `RegisterForm` / S-020).
+  Future<UserResponse> register({
+    required String email,
+    required String fullName,
+    required String password,
+    required UserRole role,
+  }) async {
+    try {
+      final response = await _client.authFreeApi.getAuthenticationApi().registerApiV1AuthRegisterPost(
+            userRegister: UserRegister((b) => b
+              ..email = email
+              ..fullName = fullName
+              ..password = password
+              ..role = role),
+          );
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Google ID-token exchange. Issues a session immediately (no TOTP).
+  Future<UserResponse> loginWithGoogle({required String credential}) async {
+    try {
+      final response = await _client.authFreeApi.getAuthenticationApi().googleAuthApiV1AuthGooglePost(
+            googleAuthRequest: GoogleAuthRequest((b) => b..credential = credential),
+          );
+      await _client.tokenStorage.save(response.data!);
+      return me();
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   Future<UserResponse> me() async {
     try {
       final response = await _client.api.getAuthenticationApi().getMeApiV1AuthMeGet();
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<UserResponse> updateMe(UserProfileUpdate payload) async {
+    try {
+      final response = await _client.api.getAuthenticationApi().updateMeApiV1AuthMePatch(
+            userProfileUpdate: payload,
+          );
       return response.data!;
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);

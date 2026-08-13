@@ -29,7 +29,7 @@ from app.services.mfa import enable_demo_totp
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-_US_CUSTOMER_PASSWORD = "demo12345"
+_US_CUSTOMER_PASSWORD = "demo12345abc"
 
 _JSON_FILES = (
     "fremont-ca.json",
@@ -256,6 +256,7 @@ async def seed_us(
         db.add(customer)
         customers.append(customer)
     for customer in customers:
+        customer.hashed_password = get_password_hash(_US_CUSTOMER_PASSWORD)
         if not customer.totp_enabled:
             enable_demo_totp(customer)
     await db.flush()

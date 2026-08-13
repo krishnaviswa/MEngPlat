@@ -1,3 +1,5 @@
+import 'package:built_collection/built_collection.dart';
+import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
@@ -38,6 +40,75 @@ class ReviewRepository {
               ..body = body),
           );
       return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<void> likeReview(String reviewId) async {
+    try {
+      await _client.api.getReviewsApi().likeReviewApiV1ReviewsReviewIdLikePost(reviewId: reviewId);
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<void> reportReview({required String reviewId, required String reason}) async {
+    try {
+      await _client.api.getReviewsApi().reportReviewApiV1ReviewsReviewIdReportPost(
+            reviewId: reviewId,
+            reviewReportCreate: ReviewReportCreate((b) => b.reason = reason),
+          );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<ReplyResponse> replyToReview({required String reviewId, required String body}) async {
+    try {
+      final response = await _client.api.getReviewsApi().replyToReviewApiV1ReviewsReviewIdReplyPost(
+            reviewId: reviewId,
+            replyCreate: ReplyCreate((b) => b.body = body),
+          );
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<List<ReviewResponse>> listReported() async {
+    try {
+      final response = await _client.api.getReviewsApi().listReportedReviewsApiV1ReviewsReportedGet();
+      return response.data!.toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<void> moderateReview({required String reviewId, required String action}) async {
+    try {
+      await _client.api.getReviewsApi().moderateReviewApiV1ReviewsReviewIdModeratePost(
+            reviewId: reviewId,
+            action: action,
+          );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// `GET /reviews/admin/all` is not on the generated client; use the same
+  /// authenticated Dio + BuiltValue serializers (S-031).
+  Future<List<ReviewResponse>> listAdminAll({int page = 1, int pageSize = 20}) async {
+    try {
+      final response = await _client.api.dio.get<Object>(
+        '/api/v1/reviews/admin/all',
+        queryParameters: {'page': page, 'page_size': pageSize},
+      );
+      final decoded = standardSerializers.deserialize(
+        response.data,
+        specifiedType: const FullType(BuiltList, [FullType(ReviewResponse)]),
+      ) as BuiltList<ReviewResponse>;
+      return decoded.toList();
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }

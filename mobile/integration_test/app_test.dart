@@ -17,7 +17,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('emailField')), 'customer@example.com');
-    await tester.enterText(find.byKey(const Key('passwordField')), 'customer123');
+    await tester.enterText(find.byKey(const Key('passwordField')), 'customer1234');
     await tester.tap(find.byKey(const Key('submitButton')));
 
     // Backend round trip for the credentials step against a freshly booted

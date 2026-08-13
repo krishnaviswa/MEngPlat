@@ -95,6 +95,22 @@ class _SucceedingPhotoUploadRepository extends ReviewRepository {
   }
 }
 
+class _LikeTrackingRepository extends ReviewRepository {
+  _LikeTrackingRepository() : super(ApiClient());
+
+  int likeCalls = 0;
+
+  @override
+  Future<List<ReviewResponse>> listForBusiness(String businessId) async {
+    return [_review(id: 'existing-review', authorId: 'other-user')];
+  }
+
+  @override
+  Future<void> likeReview(String reviewId) async {
+    likeCalls += 1;
+  }
+}
+
 void main() {
   test('createReview prepends the new review without a refetch', () async {
     final container = ProviderContainer(
@@ -161,5 +177,22 @@ void main() {
     final state = container.read(reviewsControllerProvider('biz-1')).value!;
     expect(state, hasLength(1));
     expect(state.first.photoUrls, contains('/uploads/photo-1.jpg'));
+  });
+
+  test('S-030: likeReview increments count once per session', () async {
+    final repo = _LikeTrackingRepository();
+    final container = ProviderContainer(
+      overrides: [reviewRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(reviewsControllerProvider('biz-1').future);
+    final notifier = container.read(reviewsControllerProvider('biz-1').notifier);
+    await notifier.likeReview('existing-review');
+    await notifier.likeReview('existing-review');
+
+    final state = container.read(reviewsControllerProvider('biz-1')).value!;
+    expect(state.first.likeCount, 1);
+    expect(repo.likeCalls, 1);
   });
 }

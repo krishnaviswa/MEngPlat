@@ -61,6 +61,8 @@ async def test_login_requires_enrollment_when_totp_disabled(monkeypatch):
             return FakeResult()
 
     monkeypatch.setattr(auth_module, "verify_password", lambda *_a, **_k: True)
+    monkeypatch.setattr(auth_module, "is_login_locked", AsyncMock(return_value=False))
+    monkeypatch.setattr(auth_module, "clear_login_failures", AsyncMock())
 
     result = await auth_module.login(
         fake_request(), UserLogin(email="a@example.com", password="password1"), FakeDb()
@@ -89,6 +91,8 @@ async def test_login_requires_verify_when_totp_enabled(monkeypatch):
             return FakeResult()
 
     monkeypatch.setattr(auth_module, "verify_password", lambda *_a, **_k: True)
+    monkeypatch.setattr(auth_module, "is_login_locked", AsyncMock(return_value=False))
+    monkeypatch.setattr(auth_module, "clear_login_failures", AsyncMock())
 
     result = await auth_module.login(
         fake_request(), UserLogin(email="a@example.com", password="password1"), FakeDb()
@@ -103,6 +107,7 @@ async def test_totp_verify_issues_tokens(monkeypatch):
     secret = mfa_module.generate_totp_secret()
     user = SimpleNamespace(
         id=uuid.uuid4(),
+        email="verify@example.com",
         is_active=True,
         totp_enabled=True,
         totp_secret=mfa_module.encrypt_totp_secret(secret),
@@ -112,6 +117,7 @@ async def test_totp_verify_issues_tokens(monkeypatch):
 
     monkeypatch.setattr(auth_module, "_user_from_mfa_token", AsyncMock(return_value=user))
     monkeypatch.setattr(auth_module, "_consume_mfa_token", AsyncMock())
+    monkeypatch.setattr(auth_module, "clear_login_failures", AsyncMock())
 
     class FakeDb:
         pass
@@ -187,12 +193,14 @@ async def test_totp_confirm_enables_totp_and_issues_tokens_on_correct_code(monke
     secret = mfa_module.generate_totp_secret()
     user = SimpleNamespace(
         id=uuid.uuid4(),
+        email="confirm@example.com",
         totp_enabled=False,
         totp_secret=mfa_module.encrypt_totp_secret(secret),
         role=SimpleNamespace(value="customer"),
     )
     monkeypatch.setattr(auth_module, "_user_from_mfa_token", AsyncMock(return_value=user))
     monkeypatch.setattr(auth_module, "_consume_mfa_token", AsyncMock())
+    monkeypatch.setattr(auth_module, "clear_login_failures", AsyncMock())
 
     tokens = await auth_module.totp_confirm(
         MfaTotpCodeRequest(mfa_token="x", code=pyotp.TOTP(secret).now()),

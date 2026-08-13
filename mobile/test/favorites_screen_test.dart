@@ -74,6 +74,11 @@ Future<_FakeFavoritesRepository> _pumpFavoritesScreen(
   );
   addTearDown(container.dispose);
 
+  tester.view.physicalSize = const Size(400, 1400);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
   final router = GoRouter(
     initialLocation: '/favorites',
     routes: [
