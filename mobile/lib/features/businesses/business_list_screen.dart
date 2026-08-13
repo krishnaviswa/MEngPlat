@@ -1,51 +1,209 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'business_card.dart';
 import 'business_list_provider.dart';
+import 'location_service.dart';
+import 'maps_config.dart';
+import 'osm_map_view.dart';
+import 'search_controller.dart';
+import 'search_filter_sheet.dart';
+import 'search_query.dart';
 
-class BusinessListScreen extends ConsumerWidget {
+class BusinessListScreen extends ConsumerStatefulWidget {
   const BusinessListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final businesses = ref.watch(businessListProvider);
+  ConsumerState<BusinessListScreen> createState() => _BusinessListScreenState();
+}
+
+class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
+  final _searchController = TextEditingController();
+  var _showMap = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openFilters(SearchQuery query) async {
+    final facets = await ref.read(searchFacetsProvider.future);
+    if (!mounted) return;
+    final next = await showSearchFilterSheet(
+      context: context,
+      query: query,
+      cities: facets.$1,
+      categories: facets.$2,
+    );
+    if (next == null || !mounted) return;
+    await ref.read(searchControllerProvider.notifier).applyQuery(next);
+  }
+
+  Future<void> _useLocation(SearchQuery query) async {
+    final point = await ref.read(locationServiceProvider).currentPosition();
+    if (!mounted) return;
+    if (point == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(key: Key('locationErrorSnackBar'), content: Text('Could not get your location. Check permissions.')),
+      );
+      return;
+    }
+    await ref.read(searchControllerProvider.notifier).applyQuery(
+          query.copyWith(lat: point.latitude, lng: point.longitude),
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final search = ref.watch(searchControllerProvider);
+    final query = search.valueOrNull?.query ?? const SearchQuery();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Businesses')),
-      body: businesses.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(error.toString()),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: () => ref.invalidate(businessListProvider),
-                child: const Text('Retry'),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: TextField(
+              key: const Key('searchField'),
+              controller: _searchController,
+              textInputAction: TextInputAction.search,
+              decoration: const InputDecoration(
+                hintText: 'Search businesses',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
               ),
-            ],
+              onChanged: ref.read(searchControllerProvider.notifier).setQueryText,
+            ),
           ),
-        ),
-        data: (list) {
-          if (list.isEmpty) {
-            return const Center(child: Text('No businesses found'));
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  key: const Key('filtersButton'),
+                  onPressed: () => _openFilters(query),
+                  icon: const Icon(Icons.tune),
+                  label: const Text('Filters'),
+                ),
+                TextButton.icon(
+                  key: const Key('useLocationButton'),
+                  onPressed: () => _useLocation(query),
+                  icon: const Icon(Icons.my_location),
+                  label: const Text('Use my location'),
+                ),
+                TextButton.icon(
+                  key: const Key('mapToggle'),
+                  onPressed: () => setState(() => _showMap = !_showMap),
+                  icon: Icon(_showMap ? Icons.list : Icons.map_outlined),
+                  label: Text(_showMap ? 'List' : 'Map'),
+                ),
+              ],
+            ),
+          ),
+          if (query.hasLocation)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                'Near ${query.lat!.toStringAsFixed(4)}, ${query.lng!.toStringAsFixed(4)} (${query.radiusKm.toStringAsFixed(0)} km)',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          Expanded(
+            child: search.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(error.toString()),
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: () => ref.invalidate(searchControllerProvider),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+              data: (results) {
+                if (results.items.isEmpty) {
+                  return const Center(child: Text('No businesses found'));
+                }
+                if (_showMap) {
+                  return _ResultsMap(results: results);
+                }
+                return _ResultsList(results: results);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultsList extends ConsumerWidget {
+  const _ResultsList({required this.results});
+
+  final SearchResults results;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final extra = results.isLoadingMore ? 1 : 0;
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.pixels >= notification.metrics.maxScrollExtent - 240) {
+          ref.read(searchControllerProvider.notifier).loadMore();
+        }
+        return false;
+      },
+      child: ListView.builder(
+        itemCount: results.items.length + extra,
+        itemBuilder: (context, index) {
+          if (index >= results.items.length) {
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator(key: Key('loadMoreIndicator'))),
+            );
           }
-          return ListView.separated(
-            itemCount: list.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final business = list[index];
-              return BusinessCard(
-                business: business,
-                onTap: () => context.push('/businesses/${business.slug}'),
-              );
-            },
+          final business = results.items[index];
+          return BusinessCard(
+            business: business,
+            onTap: () => context.push('/businesses/${business.slug}'),
           );
         },
       ),
+    );
+  }
+}
+
+class _ResultsMap extends ConsumerWidget {
+  const _ResultsMap({required this.results});
+
+  final SearchResults results;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final markers = markersForBusinesses(results.items);
+    if (markers.isEmpty) {
+      return const Center(child: Text('No mapped locations in these results'));
+    }
+    final config = ref.watch(mapsConfigProvider).valueOrNull ?? MapsConfig.fallback;
+    final query = results.query;
+    final center = query.hasLocation ? LatLng(query.lat!, query.lng!) : null;
+    return OsmMapView(
+      mapKey: const Key('resultsMap'),
+      markers: markers,
+      config: config,
+      center: center,
+      zoom: query.hasLocation ? 12 : 11,
+      height: double.infinity,
+      onMarkerTap: (marker) => context.push('/businesses/${marker.slug}'),
     );
   }
 }

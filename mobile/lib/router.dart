@@ -5,13 +5,18 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 
 import 'features/account/account_screen.dart';
 import 'features/account/profile_screen.dart';
-import 'features/account/role_home_screen.dart';
+import 'features/admin/admin_businesses_screen.dart';
+import 'features/admin/admin_home_screen.dart';
+import 'features/admin/admin_reviews_screen.dart';
 import 'features/auth/auth_provider.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/post_login_path.dart';
+import 'features/auth/register_screen.dart';
 import 'features/businesses/business_detail_screen.dart';
 import 'features/businesses/business_list_screen.dart';
 import 'features/favorites/favorites_screen.dart';
+import 'features/merchant/business_editor_screen.dart';
+import 'features/merchant/merchant_dashboard_screen.dart';
 import 'features/notifications/notifications_screen.dart';
 import 'features/shell/app_shell.dart';
 
@@ -36,7 +41,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const LoginScreen(),
+        builder: (context, state) => LoginScreen(
+          registered: state.uri.queryParameters['registered'] == '1',
+          prefillEmail: state.uri.queryParameters['email'],
+        ),
+      ),
+      GoRoute(
+        path: '/register',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const RegisterScreen(),
       ),
       ShellRoute(
         navigatorKey: shellNavigatorKey,
@@ -65,11 +78,25 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/merchant',
-            builder: (context, state) => const RoleHomeScreen.merchant(key: Key('merchantHomeScreen')),
+            builder: (context, state) => const MerchantDashboardScreen(),
+            routes: [
+              GoRoute(
+                path: 'businesses/new',
+                builder: (context, state) => const BusinessEditorScreen(),
+              ),
+              GoRoute(
+                path: 'businesses/:id/edit',
+                builder: (context, state) => BusinessEditorScreen(businessId: state.pathParameters['id']),
+              ),
+            ],
           ),
           GoRoute(
             path: '/admin',
-            builder: (context, state) => const RoleHomeScreen.admin(key: Key('adminHomeScreen')),
+            builder: (context, state) => const AdminHomeScreen(),
+            routes: [
+              GoRoute(path: 'businesses', builder: (context, state) => const AdminBusinessesScreen()),
+              GoRoute(path: 'reviews', builder: (context, state) => const AdminReviewsScreen()),
+            ],
           ),
         ],
       ),
@@ -82,18 +109,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoggedIn = user != null;
       final loc = state.matchedLocation;
       final isOnLogin = loc == '/login';
+      final isOnRegister = loc == '/register';
       // Public carve-out (ADR-003): business browsing and its reviews are
       // reachable without a session. Shell chrome on `/businesses` is fine
       // for guests; every other shell route stays auth-gated (ADR-005).
       final isPublicBusinessRoute = loc == '/businesses' || loc.startsWith('/businesses/');
 
-      if (!isLoggedIn && !isOnLogin && !isPublicBusinessRoute) return '/login';
-      if (isLoggedIn && isOnLogin) return postLoginPath(user.role);
+      if (!isLoggedIn && !isOnLogin && !isOnRegister && !isPublicBusinessRoute) return '/login';
+      if (isLoggedIn && (isOnLogin || isOnRegister)) return postLoginPath(user.role);
 
       if (isLoggedIn) {
         if (loc == '/favorites' && user.role != UserRole.customer) return postLoginPath(user.role);
-        if (loc == '/merchant' && user.role != UserRole.merchant) return postLoginPath(user.role);
-        if (loc == '/admin' && user.role != UserRole.admin) return postLoginPath(user.role);
+        if (loc.startsWith('/merchant') && user.role != UserRole.merchant) return postLoginPath(user.role);
+        if (loc.startsWith('/admin') && user.role != UserRole.admin) return postLoginPath(user.role);
       }
       return null;
     },

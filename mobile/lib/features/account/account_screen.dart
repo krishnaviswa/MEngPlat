@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../auth/auth_provider.dart';
 
-/// Identity + logout (S-027 / M-49). Profile **edit** is P2 / M-48.
+/// Identity + logout (S-027 / M-49). Profile edit is S-029 / M-48.
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
 
@@ -37,7 +37,7 @@ class AccountScreen extends ConsumerWidget {
                 ListTile(
                   key: const Key('profileLink'),
                   title: const Text('Profile'),
-                  subtitle: const Text('Name, email, and role'),
+                  subtitle: const Text('Name, contact, and role'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push('/account/profile'),
                 ),

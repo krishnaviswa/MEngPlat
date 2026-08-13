@@ -11,6 +11,9 @@
     <!-- Camera hardware is optional; review photo attach falls back to gallery-only
          on devices without a camera. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- S-028: Use my location → lat/lng on GET /search/businesses. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <application
         android:label="merchanthub_mobile"
@@ -54,5 +57,18 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <package android:name="com.google.android.gms" />
     </queries>
 </manifest>

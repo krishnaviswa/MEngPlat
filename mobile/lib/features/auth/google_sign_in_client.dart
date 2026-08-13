@@ -1,0 +1,58 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+import '../../core/config/app_config.dart';
+
+/// Port for Google Identity ID-token (the `credential` `POST /auth/google` expects).
+/// Tests fake this so widget tests never hit the real SDK.
+abstract class GoogleSignInClient {
+  bool get isConfigured;
+
+  /// Returns the ID token, or `null` if the user cancelled.
+  Future<String?> requestIdToken();
+}
+
+class UnconfiguredGoogleSignInClient implements GoogleSignInClient {
+  const UnconfiguredGoogleSignInClient();
+
+  @override
+  bool get isConfigured => false;
+
+  @override
+  Future<String?> requestIdToken() async => null;
+}
+
+class PluginGoogleSignInClient implements GoogleSignInClient {
+  PluginGoogleSignInClient(this.clientId);
+
+  final String clientId;
+
+  GoogleSignIn? _plugin;
+
+  GoogleSignIn get _googleSignIn => _plugin ??= GoogleSignIn(
+        clientId: clientId,
+        serverClientId: clientId,
+        scopes: const ['email', 'profile'],
+      );
+
+  @override
+  bool get isConfigured => clientId.isNotEmpty;
+
+  @override
+  Future<String?> requestIdToken() async {
+    final account = await _googleSignIn.signIn();
+    if (account == null) return null;
+    final auth = await account.authentication;
+    final token = auth.idToken;
+    if (token == null || token.isEmpty) {
+      throw StateError('Google sign-in did not return an ID token');
+    }
+    return token;
+  }
+}
+
+final googleSignInClientProvider = Provider<GoogleSignInClient>((ref) {
+  const id = AppConfig.googleClientId;
+  if (id.isEmpty) return const UnconfiguredGoogleSignInClient();
+  return PluginGoogleSignInClient(id);
+});

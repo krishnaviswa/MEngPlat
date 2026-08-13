@@ -5,6 +5,8 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:merchanthub_mobile/core/network/api_client.dart';
 import 'package:merchanthub_mobile/features/auth/auth_provider.dart';
 import 'package:merchanthub_mobile/features/businesses/business_detail_screen.dart';
+import 'package:merchanthub_mobile/features/businesses/maps_config.dart';
+import 'package:merchanthub_mobile/features/businesses/search_query.dart';
 import 'package:merchanthub_mobile/features/businesses/business_list_provider.dart';
 import 'package:merchanthub_mobile/features/businesses/business_repository.dart';
 import 'package:merchanthub_mobile/features/favorites/favorites_providers.dart';
@@ -62,10 +64,30 @@ class _FakeBusinessRepository extends BusinessRepository {
   final List<BusinessResponse> businesses;
 
   @override
-  Future<List<BusinessResponse>> searchBusinesses({int page = 1, int pageSize = 20}) async => businesses;
+  Future<List<BusinessResponse>> searchBusinesses({
+    SearchQuery query = const SearchQuery(),
+    int page = 1,
+    int pageSize = SearchQuery.pageSize,
+  }) async =>
+      businesses;
 
   @override
   Future<BusinessResponse> getBySlug(String slug) async => businesses.firstWhere((b) => b.slug == slug);
+
+  @override
+  Future<List<PhotoResponse>> listPhotos(String businessId) async => [];
+
+  @override
+  Future<List<BusinessResponse>> listMine() async => businesses;
+
+  @override
+  Future<MapsConfig> mapsConfig() async => MapsConfig.fallback;
+
+  @override
+  Future<List<String>> listCities() async => [];
+
+  @override
+  Future<List<CategoryResponse>> listCategories() async => [];
 }
 
 class _FakeNotificationsRepository extends NotificationsRepository {

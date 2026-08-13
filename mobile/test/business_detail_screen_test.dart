@@ -1,3 +1,4 @@
+import 'package:built_value/json_object.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,8 @@ import 'package:merchanthub_mobile/core/network/api_client.dart';
 import 'package:merchanthub_mobile/core/network/api_exception.dart';
 import 'package:merchanthub_mobile/features/auth/auth_provider.dart';
 import 'package:merchanthub_mobile/features/businesses/business_detail_screen.dart';
+import 'package:merchanthub_mobile/features/businesses/maps_config.dart';
+import 'package:merchanthub_mobile/features/businesses/search_query.dart';
 import 'package:merchanthub_mobile/features/businesses/business_list_provider.dart';
 import 'package:merchanthub_mobile/features/businesses/business_repository.dart';
 import 'package:merchanthub_mobile/features/favorites/favorites_providers.dart';
@@ -18,17 +21,43 @@ import 'package:merchanthub_mobile/features/reviews/review_repository.dart';
 /// + reviews list + "Add review" eligibility gating (already-reviewed, own
 /// business, logged-out).
 
-BusinessResponse _business({String id = 'biz-1', String slug = 'test-biz', String name = "Joe's Diner"}) {
-  return BusinessResponse((b) => b
-    ..id = id
-    ..name = name
-    ..slug = slug
-    ..address = '1 Main St'
-    ..city = 'Springfield'
-    ..country = 'US'
-    ..status = BusinessStatus.approved
-    ..averageRating = 4.2
-    ..reviewCount = 3);
+BusinessResponse _business({
+  String id = 'biz-1',
+  String slug = 'test-biz',
+  String name = "Joe's Diner",
+  String? description,
+  String? phone,
+  String? website,
+  String? aiSummary,
+  JsonObject? hours,
+  List<CategoryResponse>? categories,
+  num? lat,
+  num? lng,
+  String? storefront,
+}) {
+  return BusinessResponse((b) {
+    b
+      ..id = id
+      ..name = name
+      ..slug = slug
+      ..address = '1 Main St'
+      ..city = 'Springfield'
+      ..country = 'US'
+      ..status = BusinessStatus.approved
+      ..averageRating = 4.2
+      ..reviewCount = 3
+      ..description = description
+      ..phone = phone
+      ..website = website
+      ..aiMerchantSummary = aiSummary
+      ..businessHours = hours
+      ..storefrontUrl = storefront
+      ..latitude = lat
+      ..longitude = lng;
+    if (categories != null) {
+      b.categories.addAll(categories);
+    }
+  });
 }
 
 ReviewResponse _review({required String id, required String authorId}) {
@@ -63,11 +92,17 @@ class _FakeAuthController extends AuthController {
 }
 
 class _FakeBusinessRepository extends BusinessRepository {
-  _FakeBusinessRepository({this.business, this.mine = const [], this.detailError}) : super(ApiClient());
+  _FakeBusinessRepository({
+    this.business,
+    this.mine = const [],
+    this.detailError,
+    this.photos = const [],
+  }) : super(ApiClient());
 
   final BusinessResponse? business;
   final List<BusinessResponse> mine;
   final Object? detailError;
+  final List<PhotoResponse> photos;
 
   @override
   Future<BusinessResponse> getBySlug(String slug) async {
@@ -78,6 +113,20 @@ class _FakeBusinessRepository extends BusinessRepository {
 
   @override
   Future<List<BusinessResponse>> listMine() async => mine;
+
+  @override
+  Future<List<PhotoResponse>> listPhotos(String businessId) async => photos;
+
+  @override
+  Future<MapsConfig> mapsConfig() async => MapsConfig.fallback;
+
+  @override
+  Future<List<BusinessResponse>> searchBusinesses({
+    SearchQuery query = const SearchQuery(),
+    int page = 1,
+    int pageSize = SearchQuery.pageSize,
+  }) async =>
+      [];
 }
 
 class _FakeReviewRepository extends ReviewRepository {
@@ -109,6 +158,7 @@ Future<_FakeReviewRepository> _pumpDetailScreen(
   BusinessResponse? business,
   List<ReviewResponse> reviews = const [],
   List<BusinessResponse> mine = const [],
+  List<PhotoResponse> photos = const [],
   Object? businessError,
   Object? reviewsError,
 }) async {
@@ -117,7 +167,12 @@ Future<_FakeReviewRepository> _pumpDetailScreen(
     overrides: [
       authControllerProvider.overrideWith(() => _FakeAuthController(user)),
       businessRepositoryProvider.overrideWithValue(
-        _FakeBusinessRepository(business: business, mine: mine, detailError: businessError),
+        _FakeBusinessRepository(
+          business: business,
+          mine: mine,
+          detailError: businessError,
+          photos: photos,
+        ),
       ),
       reviewRepositoryProvider.overrideWithValue(reviewRepository),
       favoritesRepositoryProvider.overrideWithValue(_FakeFavoritesRepository()),
@@ -254,4 +309,122 @@ void main() {
       expect(find.text('LOGIN_SCREEN'), findsOneWidget);
     },
   );
+
+  testWidgets('S-028 AC13: description, address, phone, website; omit missing website', (tester) async {
+    await _pumpDetailScreen(
+      tester,
+      user: _user(id: 'cust-1', role: UserRole.customer),
+      business: _business(
+        description: 'A neighborhood diner.',
+        phone: '555-0100',
+        website: 'https://joes.example',
+      ),
+    );
+
+    expect(find.byKey(const Key('businessDescription')), findsOneWidget);
+    expect(find.text('A neighborhood diner.'), findsOneWidget);
+    expect(find.byKey(const Key('businessAddress')), findsOneWidget);
+    expect(find.byKey(const Key('businessPhone')), findsOneWidget);
+    expect(find.byKey(const Key('businessWebsite')), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pumpDetailScreen(
+      tester,
+      user: _user(id: 'cust-1', role: UserRole.customer),
+      business: _business(description: 'Only a blurb.'),
+    );
+    expect(find.byKey(const Key('businessWebsite')), findsNothing);
+    expect(find.byKey(const Key('businessPhone')), findsNothing);
+  });
+
+  testWidgets('S-028 AC14: all category names; omit empty category row', (tester) async {
+    await _pumpDetailScreen(
+      tester,
+      user: _user(id: 'cust-1', role: UserRole.customer),
+      business: _business(
+        categories: [
+          CategoryResponse((b) => b
+            ..id = 'c1'
+            ..name = 'Diner'
+            ..slug = 'diner'),
+          CategoryResponse((b) => b
+            ..id = 'c2'
+            ..name = 'Cafe'
+            ..slug = 'cafe'),
+        ],
+      ),
+    );
+    expect(find.byKey(const Key('categoryChips')), findsOneWidget);
+    expect(find.text('Diner'), findsOneWidget);
+    expect(find.text('Cafe'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pumpDetailScreen(tester, user: _user(id: 'cust-1', role: UserRole.customer));
+    expect(find.byKey(const Key('categoryChips')), findsNothing);
+  });
+
+  testWidgets('S-028 AC15: hours entries or Hours not listed', (tester) async {
+    await _pumpDetailScreen(
+      tester,
+      user: _user(id: 'cust-1', role: UserRole.customer),
+      business: _business(hours: JsonObject({'mon-fri': '7am-6pm'})),
+    );
+    expect(find.text('mon-fri: 7am-6pm'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pumpDetailScreen(tester, user: _user(id: 'cust-1', role: UserRole.customer));
+    expect(find.text('Hours not listed'), findsOneWidget);
+  });
+
+  testWidgets('S-028 AC16: gallery thumbs open a lightbox', (tester) async {
+    await _pumpDetailScreen(
+      tester,
+      user: _user(id: 'cust-1', role: UserRole.customer),
+      business: _business(),
+      photos: [
+        PhotoResponse((b) => b
+          ..id = 'p1'
+          ..url = 'https://example.com/p1.jpg'
+          ..photoType = 'gallery'),
+      ],
+    );
+    expect(find.byKey(const Key('photoGallery')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('galleryThumb_0')));
+    await tester.pump();
+    expect(find.byKey(const Key('photoLightbox')), findsOneWidget);
+  });
+
+  testWidgets('S-028 AC16: no gallery when there are no photos', (tester) async {
+    await _pumpDetailScreen(tester, user: _user(id: 'cust-1', role: UserRole.customer));
+    expect(find.byKey(const Key('photoGallery')), findsNothing);
+  });
+
+  testWidgets('S-028 AC17: map pin when coords exist; omitted otherwise', (tester) async {
+    await _pumpDetailScreen(
+      tester,
+      user: _user(id: 'cust-1', role: UserRole.customer),
+      business: _business(lat: 13.08, lng: 80.27),
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('detailMapPin')), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pumpDetailScreen(tester, user: _user(id: 'cust-1', role: UserRole.customer));
+    expect(find.byKey(const Key('detailMapPin')), findsNothing);
+  });
+
+  testWidgets('S-028 AC18: AI overview is labeled a suggestion; omitted when null', (tester) async {
+    await _pumpDetailScreen(
+      tester,
+      user: _user(id: 'cust-1', role: UserRole.customer),
+      business: _business(aiSummary: 'Regulars love the pancakes.'),
+    );
+    expect(find.byKey(const Key('aiOverviewSuggestion')), findsOneWidget);
+    expect(find.textContaining('AI overview (suggestion):'), findsOneWidget);
+    expect(find.textContaining('Regulars love the pancakes.'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pumpDetailScreen(tester, user: _user(id: 'cust-1', role: UserRole.customer));
+    expect(find.byKey(const Key('aiOverviewSuggestion')), findsNothing);
+  });
 }

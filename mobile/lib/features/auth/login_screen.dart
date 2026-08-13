@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
 import 'auth_provider.dart';
+import 'google_sign_in_button.dart';
 
 enum _Step { credentials, enroll, verify }
 
@@ -12,7 +13,10 @@ enum _Step { credentials, enroll, verify }
 /// either a first-time enrollment step (QR + secret) or a returning-user
 /// code-verify step. Mirrors frontend/src/components/LoginForm.tsx.
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.registered = false, this.prefillEmail});
+
+  final bool registered;
+  final String? prefillEmail;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -29,6 +33,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   TotpSetupResponse? _setup;
   bool _loading = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final prefill = widget.prefillEmail;
+    if (prefill != null && prefill.isNotEmpty) {
+      _emailController.text = prefill;
+    }
+  }
 
   @override
   void dispose() {
@@ -119,6 +132,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  Future<void> _onGoogleCredential(String credential) async {
+    setState(() => _error = null);
+    try {
+      await ref.read(authControllerProvider.notifier).signInWithGoogle(credential: credential);
+    } catch (e) {
+      setState(() => _error = e.toString());
+    }
+  }
+
   void _backToCredentials() {
     setState(() {
       _step = _Step.credentials;
@@ -146,6 +168,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   Text('MerchantHub', style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 24),
+                  if (widget.registered && _step == _Step.credentials)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        'Account created. Sign in with your password to set up your authenticator app.',
+                        key: const Key('registeredNote'),
+                        style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                      ),
+                    ),
                   if (_error != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -175,15 +206,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onPressed: _backToCredentials,
                       child: const Text('Back'),
                     ),
-                  // ADR-003: guest browsing entry point -- business listing
-                  // and detail screens are public routes, reachable through
-                  // real navigation rather than only a raw deep link.
-                  if (_step == _Step.credentials)
+                  if (_step == _Step.credentials) ...[
+                    TextButton(
+                      key: const Key('createAccountLink'),
+                      onPressed: _loading ? null : () => context.go('/register'),
+                      child: const Text('Create account'),
+                    ),
+                    // ADR-003: guest browsing entry point -- business listing
+                    // and detail screens are public routes, reachable through
+                    // real navigation rather than only a raw deep link.
                     TextButton(
                       key: const Key('continueAsGuestButton'),
                       onPressed: _loading ? null : () => context.go('/businesses'),
                       child: const Text('Continue without signing in'),
                     ),
+                    const SizedBox(height: 8),
+                    const Row(
+                      children: [
+                        Expanded(child: Divider()),
+                        Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('or')),
+                        Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    GoogleSignInButton(onCredential: _onGoogleCredential, enabled: !_loading),
+                  ],
                 ],
               ),
             ),
@@ -212,7 +259,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
       const SizedBox(height: 12),
       const Text(
-        'Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.).',
+        'Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.). '
+        'Gmail sign-in below skips that step.',
         style: TextStyle(fontSize: 12, color: Colors.grey),
       ),
     ];
