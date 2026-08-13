@@ -8,12 +8,10 @@ import '../storage/token_storage.dart';
 /// refresh loop, and concurrent 401s share a single in-flight refresh call.
 class AuthInterceptor extends Interceptor {
   AuthInterceptor({
-    required Dio apiDio,
-    required AuthenticationApi authenticationApi,
-    required TokenStorage tokenStorage,
-  })  : _apiDio = apiDio,
-        _authenticationApi = authenticationApi,
-        _tokenStorage = tokenStorage;
+    required this._apiDio,
+    required this._authenticationApi,
+    required this._tokenStorage,
+  });
 
   static const _noRefreshRetryPrefixes = [
     '/api/v1/auth/login',

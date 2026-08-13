@@ -33,9 +33,9 @@ class ApiClient {
 
     apiDio.interceptors.add(
       AuthInterceptor(
-        apiDio: apiDio,
-        authenticationApi: authFreeApi.getAuthenticationApi(),
-        tokenStorage: storage,
+        _apiDio: apiDio,
+        _authenticationApi: authFreeApi.getAuthenticationApi(),
+        _tokenStorage: storage,
       ),
     );
 
