@@ -19,6 +19,7 @@ Built as a portfolio-grade full-stack MVP demonstrating Forward Deployed Enginee
 | **Senior developer** | §3, [§5 Domain model](#5-domain-model), [§6 Flows](#6-feature-flows), §9, [§14 Known gaps](#14-known-gaps--roadmap), [web↔mobile parity](#web--mobile-feature-parity-tracker) | Where the seams are, what is not finished, and mobile gap status |
 | **Developer**        | [§1 Quick start](#1-quick-start), [§7 API](#7-api-reference), [§8 Frontend](#8-frontend-guide), [§12 Repo layout](#12-repo-layout--conventions) (incl. [web↔mobile parity](#web--mobile-feature-parity-tracker)) | Get running, then find the file — and the mobile status of each web feature |
 | **Tester**           | §6, §7, §9, [§11 Testing](#11-testing), [§13 Workflow](#13-multi-agent-workflow)                                                                | Behaviour to verify, RBAC surface, artifact templates            |
+| **Industry / investor** | [§16 Industry and investor overview](#16-industry-and-investor-overview), then §2 and §14                                                    | Honest loop, what is shipped vs planned, fee model               |
 
 
 **In 60 seconds:** A Next.js frontend calls a FastAPI backend over REST. When a customer submits a review, the backend persists it, sends the text (and any photos) to a pluggable AI provider, stores the returned sentiment/summary/suggestions, refreshes the business's rolling AI summary, and invalidates the Redis search cache. Merchants read those insights on a dashboard; admins approve businesses and moderate reviews. The AI provider defaults to a local mock, so the whole thing runs offline with no API key and no cost.
@@ -47,6 +48,7 @@ Built as a portfolio-grade full-stack MVP demonstrating Forward Deployed Enginee
 | 13  | [Multi-agent workflow](#13-multi-agent-workflow)          |
 | 14  | [Known gaps & roadmap](#14-known-gaps--roadmap)           |
 | 15  | [Environment variables](#15-environment-variables)        |
+| 16  | [Industry and investor overview](#16-industry-and-investor-overview) |
 
 
 ---
@@ -156,8 +158,8 @@ Everything else in this codebase is machinery for that loop. Three actors, three
 | Actor        | Wants                              | Can do                                                                                                                                                                                    |
 | ------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Customer** | find businesses worth trusting     | register/login, search & browse, view business profiles, rate 1–5, write reviews, upload photos, edit/delete own reviews, like reviews, report reviews                                    |
-| **Merchant** | know what customers actually think | register a business (pending approval), upload logo/storefront/gallery, set address + map pin, set hours & contact, reply publicly to reviews, view analytics dashboard, read AI insights |
-| **Admin**    | keep the platform trustworthy      | approve/suspend businesses, moderate reviews (hide/remove/restore), suspend accounts, view platform analytics, manage categories                                                          |
+| **Merchant** | know what customers actually think | register a business (pending approval), upload logo/storefront/gallery, set address + map pin, set hours & contact, reply publicly to reviews, view dashboard KPIs + AI insights (suggestions). **Time-series charts, rating mix, date range, reply-rate: S-033 (Specified, not built)** |
+| **Admin**    | keep the platform trustworthy      | approve/suspend **businesses**, moderate reviews (hide/remove/restore), five live platform **counts**. **Account suspend UI, category manager UI, and time-series: S-034 (Specified, not built)** |
 
 
 
@@ -183,13 +185,13 @@ flowchart LR
     subgraph Merchant
         MR[Register business] --> MP[Profile + map pin]
         MP --> MA[Pending admin approval]
-        MA --> MD[Dashboard + analytics]
-        MD --> MI[AI insights + reply to reviews]
+        MA --> MD[Dashboard KPIs + AI insights]
+        MD --> MI[Public reply to reviews]
     end
     subgraph Admin
         AR[Login as admin] --> AA[Approve / suspend businesses]
         AA --> AM[Moderate reviews]
-        AM --> AP[Platform analytics + categories]
+        AM --> AP[Platform counts]
     end
 ```
 
@@ -1014,8 +1016,8 @@ Upload form fields: `file`, `business_id`, `review_id`, `photo_type`, `caption`.
 
 | Method | Path                                | Auth     | Description              |
 | ------ | ----------------------------------- | -------- | ------------------------ |
-| GET    | `/dashboard/merchant/{business_id}` | Merchant | Merchant dashboard stats |
-| GET    | `/dashboard/admin/platform`         | Admin    | Platform analytics       |
+| GET    | `/dashboard/merchant/{business_id}` | Merchant | Merchant dashboard stats (`review_volume_by_month` is returned today; charted in **S-033**) |
+| GET    | `/dashboard/admin/platform`         | Admin    | Five live `COUNT(*)` tiles — not a time-series product (**S-034**) |
 
 
 
@@ -1042,13 +1044,14 @@ Query params: `q`, `city`, `category`, `min_rating`, `sentiment`, `lat`, `lng`, 
 
 
 
-### Analytics — `/analytics`
+### Analytics — `/analytics` (deprecated)
 
+Legacy aliases. The frontend must use `/dashboard` and `/ai`, not these routes. **Do not extend.** Removal is a later cleanup, not S-033/S-034.
 
 | Method | Path                               | Auth     | Description       |
 | ------ | ---------------------------------- | -------- | ----------------- |
-| GET    | `/analytics/merchant/{id}`         | Merchant | AI insights alias |
-| GET    | `/analytics/merchant/{id}/summary` | Merchant | Quick KPI summary |
+| GET    | `/analytics/merchant/{id}`         | Merchant | Unused AI insights alias |
+| GET    | `/analytics/merchant/{id}/summary` | Merchant | Unused KPI summary |
 
 
 
@@ -1374,10 +1377,11 @@ Confusing these is the classic RBAC bug, so they are separate mechanisms:
 | Upload photo                                    | ✅        | ✅                | ✅      |
 | Create / update business                        | —        | ✅                | ✅      |
 | Reply to review                                 | —        | ✅ (own business) | ✅      |
-| Merchant dashboard, AI insights, analytics      | —        | ✅ (own business) | ✅      |
-| Approve / suspend business, create category     | —        | —                | ✅      |
+| Merchant dashboard, AI insights                 | —        | ✅ (own business) | ✅      |
+| Approve / suspend business, create category API | —        | —                | ✅      |
 | Moderate review (hide/restore/remove)           | —        | —                | ✅      |
-| Platform analytics                              | —        | —                | ✅      |
+| Platform counts (`GET .../admin/platform`)      | —        | —                | ✅      |
+| User suspend / category **UI** / time-series    | —        | —                | S-034  |
 | Delete photo                                    | —        | ✅ (own)          | ✅      |
 
 
@@ -1623,9 +1627,11 @@ Run tests with `AI_PROVIDER=mock` so no network calls or API costs are incurred.
 ```
 MEngPlat/
 ├── docker-compose.yml          # Local dev: postgres, redis, backend, frontend
-├── README.md                   # ← this file, the single source of truth
+├── README.md                   # ← this file, the single source of truth (business + status)
 ├── AGENTS.md                   # Pointer for AI coding agents
 ├── CLAUDE.md                   # Claude Code config (root) — mirrors .cursor/rules/project.mdc
+├── ANDROID_APP_STRATEGY.md     # Play/AAB/signing strategy (day-to-day mobile is this §12)
+├── CHECKLIST_GAPS.txt          # Scored 13 Aug 2026 matrix — living hold list is §14 (fold, do not treat as a second bible)
 │
 ├── .cursor/rules/              # Cursor AI rules (builder + agent layers)
 ├── .claude/agents/             # Claude Code subagents — mirror .cursor/rules/agents/
@@ -1708,7 +1714,24 @@ MEngPlat/
 - **Ports** — new external integrations get a `Protocol` + factory, matching `services/ai/` and `services/storage/`
 - **Docs** — this README is the only prose doc; update the relevant section rather than adding a new file
 
+### Document map (what to open)
 
+Use **this README** for business summary, site flow, and implemented vs next. Other files are tooling, strategy leftovers, or agent tickets.
+
+| Path | Purpose | Disposition |
+| ---- | ------- | ----------- |
+| `README.md` | Product, API, security, parity, investor overview | **Keep** — only file to implement business/status against |
+| `AGENTS.md` | Agent onboarding pointer | Keep (tooling) |
+| `CLAUDE.md` + nested `**/CLAUDE.md` + `.cursor/rules` + `.claude/agents` | Cursor ↔ Claude Code parity | Keep (CI-enforced) |
+| `ANDROID_APP_STRATEGY.md` | Play/AAB/signing; Railway ≠ Play | Keep until Play subsection is enough; day-to-day mobile is this §12 |
+| `CHECKLIST_GAPS.txt` | Scored Have/Partial/Missing (13 Aug 2026) | **Folded** — §14 is the living hold list; do not update the `.txt` as source of truth |
+| `docs/agents/slices`, `adrs`, `test-plans`, `test-reports` | PM → Architect → Tester tickets | Artifact |
+| `docs/competitive-analysis-lentlo.md` | Lentlo scrape (2026-08-09) | Appendix; 5–8 line box in [§16](#16-industry-and-investor-overview) |
+| `docs/pivot-crowdsourced-live-status.md` | Exploratory Waze-style pivot | **Not on the roadmap** |
+| `docs/agents/DEVELOPMENT_HISTORY.md` | Build narrative | Artifact |
+| `mobile/README.md` | Flutter boilerplate | Prefer this §12 |
+| `data/real-businesses/README.md` | Seed note | Leave |
+| `mobile/packages/merchanthub_api/doc/*.md` | Generated OpenAPI | Not human docs |
 
 ### Mobile client (Flutter)
 
@@ -1807,7 +1830,7 @@ register/Google/profile edit, S-030 like/report/replies, S-031 merchant/admin da
 Home marketing (M-13–M-18) is still `unimplemented`. FCM (M-47) remains `future`.
 Combined `flutter analyze` / `flutter test` is deferred until you ask.
 
-**Last reviewed:** 2026-08-14
+**Last reviewed:** 2026-08-15
 
 
 | ID | Area | Feature | Web surface | Mobile surface | Status | Notes / slice |
@@ -1872,9 +1895,16 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-58 | Admin | Pending business approve / suspend | `/admin` queue | `/admin` queue | `implemented` | S-031 |
 | M-59 | Admin | Reported reviews moderate | `/admin` queue | `/admin` queue | `implemented` | S-031 |
 | M-60 | Admin | All businesses / all reviews browse | `/admin/businesses`, `/admin/reviews` | `/admin/businesses`, `/admin/reviews` | `implemented` | S-031 |
+| M-61 | Merchant | Time-series volume, rating mix, date range, reply-rate, CSV | `/merchant/dashboard` (S-033) | — | `n/a` | Specified, not built — S-033 |
+| M-62 | Admin | Platform time-series charts | `/admin` (S-034) | — | `n/a` | Specified, not built — S-034 |
+| M-63 | Admin | Category create / list UI | `/admin` (S-034) | — | `n/a` | API exists; UI Specified S-034 |
+| M-64 | Admin | User suspend / reactivate | `/admin` (S-034) | — | `n/a` | `is_active` exists; UI/API Specified S-034 |
+| M-65 | Account | Forgot / reset password (email) | `/login` (S-035) | — | `n/a` | Specified, not built — S-035 |
+| M-66 | Merchant | Featured listing boost (paid) | Dashboard + search rank (S-036) | — | `n/a` | Specified, not built — S-036 |
+| M-67 | Notifications | Listing-approved / new-review **email** | Transactional mail (S-035) | — | `n/a` | In-app exists; email Specified S-035 |
 
 
-**Rollup (2026-08-14):** `implemented` 46 · `partial` 1 · `unimplemented` 6 · `n/a` 6 · `future` 1 · **total 60**.
+**Rollup (2026-08-15):** `implemented` 46 · `partial` 1 · `unimplemented` 6 · `n/a` 13 · `future` 1 · **total 67**.
 
 This repo is built with both Cursor and Claude Code, so every convention is defined
 **twice, in each tool's native format** — a session started in either tool should
@@ -1945,6 +1975,8 @@ flowchart LR
 (set by PM → Architect → Builder → Tester → PM respectively)
 
 > Do **not** implement until Status is `Specified` and the Architect checklist is complete.
+
+When a slice is **Accepted**, the **same PR** must update this README: §14 implemented vs open (and §16 “built vs next” if the change is investor-visible); §12 parity if user-facing; §6 / §7 if flow or API changed. Do **not** add a new product `.md` / `.txt` checklist — slices, ADRs, and test artifacts stay under `docs/agents/` only.
 
 
 
@@ -2035,6 +2067,12 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-027 | Mobile P0 chrome (shell, role home, account/logout) | 1 Foundation | Accepted |
 | S-028 | Mobile P1 discovery + rich business detail | 2 Core | In Progress |
 | S-029 | Mobile P2 register, Google sign-in, profile edit | 1 Foundation | In Progress |
+| S-030 | Mobile P3 like / report / replies | 2 Core | In Progress |
+| S-031 | Mobile P4 merchant / admin | 4 Dashboards | In Progress |
+| S-033 | Merchant analytics (time-series, rating mix, range, reply-rate) | 4 Dashboards | Specified (closes S-006) |
+| S-034 | Admin platform series + category UI + account suspend | 4 Dashboards | Specified (closes S-007) |
+| S-035 | Transactional email (mock + Resend) | 5 Polish | Specified |
+| S-036 | Featured boost + Razorpay transaction fee | 5 Polish | Specified |
 
 
 
@@ -2076,7 +2114,7 @@ An honest delta between the original specification and what the code actually do
 | Backend routers | 11, all wired into `main.py` (includes favorites)                                                                                                                           |
 | Data models     | 19 SQLAlchemy models                                                                                                                                                        |
 | Auth            | JWT access/refresh with refresh `jti` rotation, bcrypt, RBAC, Redis logout blocklist + best-effort login lockout, mandatory TOTP for password login, Google OAuth exempt |
-| AI layer        | Pluggable provider — `mock` (canned, no network) or OpenAI-compatible (works for OpenAI *or* DeepSeek via `AI_BASE_URL`)                                                    |
+| AI layer        | **In the product today.** Review submit runs text + photo analysis + merchant rolling summary via `AIProvider`. Default `mock` (no key, no cost). Real vendors are env + key. Output is **suggestions**, never verdicts. Mock `monthly_trends` are canned — S-033 charts DB dates instead. |
 | Storage         | `local` disk and `s3` (boto3) providers implemented; `azure` still a stub                                                                                                   |
 | Frontend        | Home, search (map + location), business detail, login (MFA steps), register, enriched profile, settings, merchant dashboard + business create/edit, admin moderation queues |
 | Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine                                                                                               |
@@ -2112,13 +2150,12 @@ The MVP is complete when: (1) a customer can register, search, and submit a revi
 
 ### Deferred for commercial / enterprise
 
-These are **held off** until product needs them. They are not in-house leftovers of this repo’s MVP bar. The scored checklist lives in [`CHECKLIST_GAPS.txt`](CHECKLIST_GAPS.txt).
+These are **held off** until product needs them. They are not in-house leftovers of this repo’s MVP bar. The scored 13 Aug 2026 matrix still lives in [`CHECKLIST_GAPS.txt`](CHECKLIST_GAPS.txt); **do not treat that file as the living product plan** — this section and [§16](#16-industry-and-investor-overview) are.
 
 | Held item | Why it waits |
 | --------- | ------------ |
 | **S-026 httpOnly cookies** (ADR-004) | Dedicated slice: dual web cookie + mobile Bearer. Not in the in-house hardening batch so Flutter auth stays untouched. |
 | Managed IdP / enterprise SAML SSO (Auth0, Clerk, WorkOS, Cognito) | Rented identity; rewrite of session ownership |
-| Payments / PCI (Stripe etc.) | No product payments |
 | Error/APM SaaS (Sentry, Datadog, New Relic) | Rented integration |
 | Uptime SaaS (UptimeRobot etc.) | Optional free-tier wiring; not required for local/Compose |
 | CDN / object-storage **accounts** and paid edge (Cloudflare, Cloudinary) | S3 provider **code** exists; a real bucket is ops |
@@ -2127,12 +2164,20 @@ These are **held off** until product needs them. They are not in-house leftovers
 | Legal: ToS, Privacy, cookie CMP, GDPR program, lawyer-reviewed retention (incl. national ID) | Lawyers, not a PR |
 | Third-party pentest and SOC 2 / ISO audits | External agency |
 | GitHub branch protection / Railway auto-deploy | Settings in GitHub/Railway UI you own, not only code |
+| Event **grants** / merchant show sponsorship | Needs fee revenue from **S-036** first |
+
+**Payments / PCI** are no longer “held forever.” One featured-boost SKU + Razorpay + platform fee ledger is **S-036 (Specified, not built)** — see §16. Stripe and a second gateway stay out of scope.
 
 ### Suggested next steps, in order
 
-1. In-house leftovers that are still open: structured logs, isolated test DB, CSP (without breaking maps/GIS), S-026 when you are ready to dual-stack web cookies and mobile Bearer
-2. Keep the [§12 Web ↔ mobile parity tracker](#web--mobile-feature-parity-tracker) current; remaining mobile waves are P3 (like/report/replies) then P4 (merchant/admin) and Play (phase 5)
-3. Enterprise / SaaS / legal items stay on the [hold list](#deferred-for-commercial--enterprise) until a paying product needs them — they are not implied by this hardening batch
+1. **Docs are done for this batch** — §16 + document map. Do not add another product markdown file.
+2. Builder (feature branch, never `main`): **S-033** then **S-034** (real merchant/admin charts; close S-006 / S-007).
+3. Then **S-035** (email port + reset), **S-036** (Razorpay + ₹499 / 7-day featured week).
+4. In-house leftovers still open: structured logs, isolated test DB, CSP (without breaking maps/GIS), S-026 when you dual-stack cookies.
+5. Keep the [§12 parity tracker](#web--mobile-feature-parity-tracker) current; Play Store is phase 5 in `ANDROID_APP_STRATEGY.md`, not the VC story.
+6. Enterprise SaaS / legal items stay on the hold list until a paying neighborhood needs them.
+
+**Good position today:** working loop **including AI**, one README a VC can read, four Specified slices to commercial. **Bad position:** claiming live analytics, live fees, or traction — none of those are true until S-033–S-036 ship and a neighborhood is dense.
 
 ---
 
@@ -2185,6 +2230,87 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `NEXT_PUBLIC_GOOGLE_MAPS_KEY`  | `placeholder`           | Unused — Leaflet uses OSM tiles directly                                                                                                              |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | *(empty)*               | OAuth client ID for Google sign-in                                                                                                                    |
 
+
+---
+
+
+
+## 16. Industry and investor overview
+
+**Honest position:** we can demo a product loop. We cannot yet claim a funded business (no traction, no live fees, no real analytics UI).
+
+Pitch: **local review capture + merchant operating loop + AI suggestions (already wired)**. Then fees. Do not pitch an analytics company or a payments company until S-033–S-036 ship.
+
+### Problem
+
+Google/Maps reviews are high-friction (find the pin, public identity, permanent-feeling score). Category apps (food vs health vs auto) split the street. Owners get a star average, not themes they can act on the same day.
+
+### Product
+
+One neighborhood graph: cafés, clinics, shops, repair — not five vertical apps. QR / short link at the counter. **AI is already in the loop** as suggestion only (mock locally; live LLM via `AI_PROVIDER` + a key).
+
+### Site flow (high level)
+
+Discover on the map → open a listing → read reviews and photos → write a review → AI labels sentiment/themes (suggestion) → merchant sees dashboard KPIs + draft reply → admin keeps listings and reports honest.
+
+```mermaid
+flowchart LR
+  subgraph shipped [Shipped]
+    Cust[Customer review]
+    AI[AI suggestions]
+    Merch[Merchant reply]
+    Adm[Admin queues]
+  end
+  subgraph next [Specified not built]
+    Charts[Real time series]
+    Email[Transactional email]
+    Fees[Featured boost + fee]
+  end
+  Cust --> AI --> Merch
+  Adm --> Cust
+  Charts --> Email --> Fees
+```
+
+### Three roles
+
+| Role | Today | After specified slices |
+| ---- | ----- | ---------------------- |
+| **Customer** | Find nearby, photos, labeled sentiment, write review, favorite, report | Featured listings sort first (paid boost, labeled — S-036); password reset mail (S-035) |
+| **Merchant** | Own listing after admin approve; KPI tiles, sentiment bar, AI insights panel, public reply | Volume/rating over time, date range, reply-rate, CSV (S-033); buy ₹499 / 7-day featured week (S-036) |
+| **Admin** | Approve/suspend listings, moderate reports, five live counts, browse all | Platform series, category UI, account suspend (S-034); disable/refund placements (S-036) |
+
+### AI status (do not tell VCs we lack AI)
+
+Shipped: `AIProvider` port, factory, analysis on review submit, stored `ai_analyses`, review-card labels, merchant `AIInsights`. Default mock so demo/tests cost nothing. OpenAI-compatible and other adapters exist in code; production uses them only with keys.
+
+Not shipped (and not an “add AI” slice): DB-backed monthly charts (S-033), token-billing UI, chatbot, auto-send replies.
+
+### Moat (honest)
+
+Density in a few neighborhoods + merchant workflow + suggestion-grade AI. Not a Google replacement. Not a proprietary model. TAM for the first neighborhood is **to be measured**, not invented.
+
+### Competitor box (Lentlo, scraped 2026-08-09)
+
+Lentlo is a national India directory (listings, reviews, claim, premium packages). MerchantHub is narrower: **capture + merchant action + AI suggestions** in a dense neighborhood, with an admin trust layer. Lentlo’s “business analytics” was not visible beyond claim/reply in that scrape — we will not copy that oversell; our charts wait for S-033/S-034. Full notes: [`docs/competitive-analysis-lentlo.md`](docs/competitive-analysis-lentlo.md). Crowdsourced live-status (Waze-style) is **not on the roadmap**.
+
+### Monetization (planned, not live)
+
+- **SKU:** featured listing / search boost, **₹499 per 7 days** (inclusive listed price).
+- **Gateway:** Razorpay only (India-first). Never store cards. ~2% + GST recorded as `gateway_fee`; remainder is `platform_fee`.
+- **Later:** recycle a share of take into merchant **event grants** (shows/camps) once a neighborhood has traffic — not v1.
+- **Not v1:** marketplace GMV on food orders.
+
+### Traction and ask
+
+Demo / seeded listings only. A fundraise ask should be **pre-seed for one neighborhood launch + the fee stack**, not Series A language.
+
+### Built vs next
+
+| Built | Next (Specified slices — not coded yet) |
+| ----- | --------------------------------------- |
+| Auth (password + TOTP, Google), search + OSM, profiles, reviews + photos, likes/reports/replies, favorites, in-app notifications, merchant create/pending, dashboard tiles + AI panel, admin queues + counts, web + Flutter | **S-033** merchant charts · **S-034** admin series + categories + user suspend · **S-035** email · **S-036** Razorpay + fee |
+
+Play Store packaging is distribution (`ANDROID_APP_STRATEGY.md` phase 5), not this story.
 
 ---
 

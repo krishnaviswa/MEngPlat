@@ -2,6 +2,7 @@ MerchantHub AI — checklist gap file
 Scored 13 Aug 2026 against the generic modern-web technical/security checklist.
 Source of truth for product docs remains README.md. This file is a working gap list, not a second prose doc.
 Human-facing hold list (SaaS / legal / enterprise): README.md §14 “Deferred for commercial / enterprise”.
+Living product/status + investor overview: README.md §14 and §16 — do not treat this .txt as the plan to implement against.
 Scoring: Have | Partial | Missing | N/A | Exceeds (Have, and stricter than the list)
 
 Legend for later columns (effort / who):
