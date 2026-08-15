@@ -399,7 +399,9 @@ erDiagram
     users ||--o{ review_reports : reports
     users ||--o{ favorites : saves
     users ||--o{ notifications : receives
-    users ||--o{ audit_logs : "admin actions"
+    businesses ||--o{ payments : "featured checkout"
+    payments ||--o| featured_placements : "activates"
+    users ||--o{ payments : "merchant buyer"
 
     users {
         uuid id PK
@@ -490,9 +492,11 @@ erDiagram
 | `review_likes`        | Customer likes on reviews                                           |
 | `review_reports`      | Reported reviews queue                                              |
 | `seed_runs`           | Demo seed version markers (`SEED_VERSION`) — skip re-upsert on boot |
+| `payments`            | Featured-boost charges (paise, fee split, no PAN) — S-036           |
+| `featured_placements` | Time-bounded paid search boost (`starts_at` / `ends_at` / `disabled_at`) |
 
 
-20 SQLAlchemy models live in a single file: `[backend/app/models/__init__.py](backend/app/models/__init__.py)`.
+22 SQLAlchemy models live in a single file: `[backend/app/models/__init__.py](backend/app/models/__init__.py)`.
 
 ### Relationships
 
@@ -512,6 +516,8 @@ erDiagram
 | User → Favorite     | M:N         | Customers save businesses                            |
 | User → Notification | 1:N         | System notifications                                 |
 | User → AuditLog     | 1:N         | Admin actions are logged                             |
+| Business → Payment  | 1:N         | Featured-boost checkout rows                         |
+| Payment → Placement | 1:0..1      | Successful capture may create one 7-day window       |
 
 
 
@@ -524,6 +530,7 @@ erDiagram
 | `UserRole`       | `customer`, `merchant`, `admin`                |
 | `BusinessStatus` | `pending`, `approved`, `rejected`, `suspended` |
 | `ReviewStatus`   | `active`, `hidden`, `reported`, `removed`      |
+| `PaymentStatus`  | `created`, `paid`, `failed`, `refunded`        |
 
 
 
@@ -625,6 +632,32 @@ sequenceDiagram
 Reset tokens are high-entropy, stored in Redis **hashed** (SHA-256) with a 1-hour TTL,
 single-use, and looked up fail-closed — unlike login lockout, a Redis outage returns
 **503** rather than silently skipping the reset (§9 Security has the full rationale).
+
+### Featured listing boost (S-036)
+
+One SKU: ₹499 / 7 days. Placement activates only after a verified webhook (or DEBUG admin mock-complete). Search ranks active featured listings first. Copy on `/search` states this is a **paid boost**, not an AI quality judgment.
+
+```mermaid
+sequenceDiagram
+    participant Merchant
+    participant Web as Next.js
+    participant API as FastAPI
+    participant Pay as PaymentProvider
+    participant DB as PostgreSQL
+
+    Merchant->>Web: Boost CTA on dashboard
+    Web->>API: POST /payments/featured/checkout
+    API->>Pay: create_order 49900 INR
+    API->>DB: payments status=created
+    alt razorpay
+        Web->>Pay: Checkout.js (PAN never hits our API)
+        Pay->>API: POST /payments/webhooks/razorpay HMAC
+    else mock DEBUG
+        Note over Web,API: Admin POST /payments/mock/complete
+    end
+    API->>DB: paid + featured_placements 7d
+    API->>API: invalidate search:*
+```
 
 ### Review submission + AI analysis
 
@@ -1075,7 +1108,8 @@ Upload form fields: `file`, `business_id`, `review_id`, `photo_type`, `caption`.
 
 | Method | Path                                            | Auth            | Description                                                                                                                                                                                                                                                                             |
 | ------ | ----------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/dashboard/merchant/{business_id}`             | Merchant, Admin | Merchant dashboard stats. Query `range=30|90|all` (default `all`, 422 if invalid) filters `review_volume_by_month`, `rating_distribution`, `reply_rate` by `Review.created_at` (UTC). `total_reviews`/`average_rating`/`sentiment_breakdown`/`recent_reviews` stay all-time (**S-033**) |
+| GET    | `/dashboard/merchant/{business_id}`             | Merchant, Admin | Merchant dashboard stats. Query `range=30|90|all` (default `all`, 422 if invalid) filters `review_volume_by_month`, `rating_distribution`, `reply_rate`, plus S-037 previous-window counts. `total_reviews`/`average_rating`/`sentiment_breakdown`/`recent_reviews` stay all-time (**S-033**) |
+| GET    | `/dashboard/merchant/{business_id}/benchmark`   | Merchant, Admin | Category + city rating medians from approved listings; null if fewer than 3 peers. Not an AI judgment (**S-038**) |
 | GET    | `/dashboard/merchant/{business_id}/reviews.csv` | Merchant, Admin | Export that business's reviews as `text/csv` (same `range`, own business only, never cached) (**S-033**)                                                                                                                                                                                |
 | GET    | `/dashboard/admin/platform`                     | Admin           | Five live `COUNT(*)` tiles — unchanged snapshot                                                                                                                                                                                                                                         |
 | GET    | `/dashboard/admin/platform/series`              | Admin           | Time series: `new_users`, `businesses_approved` (from `audit_logs` `approve`/`business`), `new_reviews`, `new_reports`. Query `granularity=day|week` (default `day`), `days` 1-365 (default `90`), zero-filled buckets (**S-034**)                                                      |
@@ -1100,10 +1134,24 @@ Suspended/reactivated accounts are always `customer` or `merchant` — an admin 
 
 | Method | Path                 | Auth   | Description                    |
 | ------ | -------------------- | ------ | ------------------------------ |
-| GET    | `/search/businesses` | Public | Search + filter (Redis-cached) |
+| GET    | `/search/businesses` | Public | Search + filter (Redis-cached). Featured-active first; `is_featured` (S-036) |
 
 
-Query params: `q`, `city`, `category`, `min_rating`, `sentiment`, `lat`, `lng`, `radius_km`, `page`, `page_size`, `sort` (`rating`  `name`  `reviews`).
+Query params: `q`, `city`, `category`, `min_rating`, `sentiment`, `lat`, `lng`, `radius_km`, `page`, `page_size`, `sort` (`rating`  `name`  `reviews`). Active paid featured placements rank first (`is_featured`); among featured, sooner `ends_at` wins, then the requested `sort`. Geo search applies featured-first **after** the distance filter.
+
+
+### Payments — `/payments`
+
+
+| Method | Path | Auth | Description |
+| ------ | ---- | ---- | ----------- |
+| POST | `/payments/featured/checkout` | Merchant | ₹499 / 7-day featured SKU for an owned **approved** listing. 400 not approved; 409 already featured |
+| POST | `/payments/webhooks/razorpay` | HMAC header | Capture/fail; idempotent on `provider_order_id` |
+| POST | `/payments/mock/complete` | Admin | DEBUG-only mock capture/fail. **404** if `DEBUG=false` |
+| GET | `/payments/businesses/{id}/placement` | Merchant (own) or admin | Active/expiry. Admin also sees fee split |
+| POST | `/payments/admin/placements/{id}/disable` | Admin | Drop rank immediately; no refund |
+| POST | `/payments/admin/payments/{id}/refund` | Admin | Provider refund + disable placement. 409 if not `paid` |
+
 
 ### Favorites — `/favorites`
 
@@ -1236,6 +1284,7 @@ File-based routing under `frontend/src/app/`. A `page.tsx` file defines a route.
 | `/login`                         | `login/page.tsx`                         | Client form page                 |
 | `/forgot-password`               | `forgot-password/page.tsx`               | Client form page (S-035)         |
 | `/reset-password`                | `reset-password/page.tsx`                | Client form page (S-035)         |
+| `/collect/[businessId]`          | `collect/[businessId]/page.tsx`          | Client collect wizard (S-040)    |
 | `/register`                      | `register/page.tsx`                      | Client form page                 |
 | `/profile`                       | `profile/page.tsx`                       | Client                           |
 | `/settings`                      | `settings/page.tsx`                      | Client                           |
@@ -1312,7 +1361,7 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | `AdminCategoryPanel.tsx`   | Admin category create + list panel (S-034)                                     |
 | `AdminUserPanel.tsx`       | Admin user list + suspend/reactivate panel (S-034)                             |
 | `Dashboard.tsx`            | Layout shell for merchant/admin analytics                                      |
-| `Charts.tsx`               | Recharts sentiment / volume / rating charts                                    |
+| `Charts.tsx`               | Recharts bar / area / line dashboard series                                    |
 | `PhotoGallery.tsx`         | Image grid + lightbox                                                          |
 | `LoginForm.tsx`            | Login form with validation                                                     |
 | `RegisterForm.tsx`         | Registration form with validation                                              |
@@ -1320,6 +1369,9 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | `SettingsPage.tsx`         | Settings + logout                                                              |
 | `AIInsights.tsx`           | Merchant-facing AI summary panel                                               |
 | `MerchantDashboard.tsx`    | Reviews + analytics + insights composite                                       |
+| `FeaturedBoostPanel.tsx`   | Merchant ₹499 / 7-day featured checkout + active-until (S-036)                 |
+| `CollectQrCard.tsx`        | QR for `/collect/{id}` review wizard (S-040)                                   |
+| `BenchmarkCard.tsx`        | Category/city rating medians (S-038)                                           |
 
 
 The API client lives in `[frontend/src/lib/api.ts](frontend/src/lib/api.ts)` and calls the backend directly via `NEXT_PUBLIC_API_URL` / `API_URL_INTERNAL` — there is no BFF or rewrite layer.
@@ -1513,6 +1565,7 @@ Author-scoped actions (edit/delete review) follow the same principle at the rout
 | TOTP MFA            | Password login requires authenticator app; Google/Gmail path does not                                                                                                                                                                                                                      |
 | Password reset      | `/auth/forgot-password` + `/auth/reset-password` 5/minute per IP each; hashed single-use Redis token, 1-hour TTL, fail-closed 503 on Redis outage — see below                                                                                                                              |
 | Transactional email | `EmailProvider` port (`mock`/`resend`) — best-effort, never blocks review create or business approve on a send failure; v1 templates carry no AI-generated text (S-035)                                                                                                                    |
+| Featured payments   | `PaymentProvider` port (`mock`/`razorpay`); hosted Checkout so PAN never hits our API; webhook HMAC; mock-complete DEBUG-only (S-036)                                                                                                                                                      |
 
 
 
@@ -2013,12 +2066,12 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-63 | Admin             | Category create / list UI                                          | `/admin`                                        | —                                                                      | `unimplemented` | S-034; web built — mobile not yet                            |
 | M-64 | Admin             | User suspend / reactivate                                          | `/admin`                                        | —                                                                      | `unimplemented` | S-034; web built — mobile not yet                            |
 | M-65 | Account           | Forgot / reset password (email)                                    | `/login`, `/forgot-password`, `/reset-password` | —                                                                      | `unimplemented` | S-035; web built — mobile not yet                            |
-| M-66 | Merchant          | Featured listing boost (paid)                                      | Dashboard + search rank (S-036)                 | —                                                                      | `n/a`           | Specified, not built — S-036                                 |
+| M-66 | Merchant          | Featured listing boost (paid)                                      | Dashboard + search rank + Featured badge            | —                                                                      | `unimplemented` | S-036; web built — mobile checkout later                     |
 | M-67 | Notifications     | Listing-approved / new-review **email**                            | Transactional mail (mock/Resend, best-effort)   | —                                                                      | `unimplemented` | S-035; web built — mobile not yet                            |
-| M-68 | Merchant          | Dashboard area/line trend charts + period-over-period delta badges | `/merchant/dashboard`                           | —                                                                      | `n/a`           | Draft — S-037; not yet built                                 |
-| M-69 | Merchant          | Competitor rating benchmarking (category + city median)            | `/merchant/dashboard`                           | —                                                                      | `n/a`           | Draft — S-038; not yet built                                 |
-| M-70 | Merchant          | AI reply drafting ("Draft with AI" button on review cards)         | `/merchant/dashboard`                           | —                                                                      | `n/a`           | Draft — S-039; not yet built                                 |
-| M-71 | Merchant/Customer | Review collection flow (public QR/link wizard, no gating)          | `/collect/[businessId]`                         | —                                                                      | `n/a`           | Draft — S-040; not yet built                                 |
+| M-68 | Merchant          | Dashboard area/line trend charts + period-over-period delta badges | `/merchant/dashboard`                           | —                                                                      | `unimplemented` | S-037; web built — mobile not yet                            |
+| M-69 | Merchant          | Competitor rating benchmarking (category + city median)            | `/merchant/dashboard`                           | —                                                                      | `unimplemented` | S-038; web built — mobile not yet                            |
+| M-70 | Merchant          | AI reply drafting ("Draft with AI" button on review cards)         | `/merchant/dashboard`                           | —                                                                      | `unimplemented` | S-039; web built — mobile not yet                            |
+| M-71 | Merchant/Customer | Review collection flow (public QR/link wizard, no gating)          | `/collect/[businessId]`                         | —                                                                      | `unimplemented` | S-040; web built — mobile not yet                            |
 
 
 
@@ -2189,11 +2242,11 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-033 | Merchant analytics (time-series, rating mix, range, reply-rate)                | 4 Dashboards | Accepted (closes S-006)                  |
 | S-034 | Admin platform series + category UI + account suspend                          | 4 Dashboards | Accepted (closes S-007)                  |
 | S-035 | Transactional email (mock + Resend)                                            | 5 Polish     | Accepted                                 |
-| S-036 | Featured boost + Razorpay transaction fee                                      | 5 Polish     | Specified                                |
-| S-037 | Merchant dashboard chart upgrade (area/line charts, period-over-period deltas) | 4 Dashboards | Draft                                    |
-| S-038 | Competitor rating benchmarking (category + city median vs. own rating)         | 4 Dashboards | Draft                                    |
-| S-039 | AI reply drafting — surface `suggested_response` in merchant reply UI          | 2 Core       | Draft                                    |
-| S-040 | Review collection flow (public QR/link wizard, no rating gating)               | 2 Core       | Draft                                    |
+| S-036 | Featured boost + Razorpay transaction fee                                      | 5 Polish     | Accepted                                 |
+| S-037 | Merchant dashboard chart upgrade (area/line charts, period-over-period deltas) | 4 Dashboards | Accepted                                 |
+| S-038 | Competitor rating benchmarking (category + city median vs. own rating)         | 4 Dashboards | Accepted                                 |
+| S-039 | AI reply drafting — surface `suggested_response` in merchant reply UI          | 2 Core       | Accepted                                 |
+| S-040 | Review collection flow (public QR/link wizard, no rating gating)               | 2 Core       | Accepted                                 |
 
 
 
@@ -2232,13 +2285,14 @@ An honest delta between the original specification and what the code actually do
 
 | Area            | State                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend routers | 12, all wired into `main.py` (includes favorites, admin)                                                                                                                                                                                                                                                                                                                                 |
-| Data models     | 19 SQLAlchemy models                                                                                                                                                                                                                                                                                                                                                                     |
+| Backend routers | 13, all wired into `main.py` (includes favorites, admin, payments)                                                                                                                                                                                                                                                                                                                          |
+| Data models     | 22 SQLAlchemy models                                                                                                                                                                                                                                                                                                                                                                     |
 | Auth            | JWT access/refresh with refresh `jti` rotation, bcrypt, RBAC, Redis logout blocklist + best-effort login lockout, mandatory TOTP for password login, Google OAuth exempt                                                                                                                                                                                                                 |
 | AI layer        | **In the product today.** Review submit runs text + photo analysis + merchant rolling summary via `AIProvider`. Default `mock` (no key, no cost). Real vendors are env + key. Output is **suggestions**, never verdicts. `monthly_trends` (mock or real) are AI-estimated, not review dates — shown as a labeled suggestion list only, never charted as fact (S-033).                    |
 | Storage         | `local` disk and `s3` (boto3) providers implemented; `azure` still a stub                                                                                                                                                                                                                                                                                                                |
 | Email           | `mock` (logs only) and `resend` providers implemented via `EmailProvider` port. Three transactional sends: password reset, listing approved, new review — best-effort, never blocks the triggering request (S-035, Accepted)                                                                                                                                                           |
-| Frontend        | Home, search (map + location), business detail, login (MFA steps) + forgot/reset password (S-035, Accepted), register, enriched profile, settings, merchant dashboard (+ time-series volume/rating-mix/reply-rate/CSV export, S-033) + business create/edit, admin moderation queues (+ platform trend charts, category admin, user suspend/reactivate, S-034) |
+| Payments        | `mock` and `razorpay` via `PaymentProvider` port. One SKU: ₹499 / 7-day featured search boost; webhook HMAC; PAN never stored (S-036)                                                                                                                                                                                                                                                   |
+| Frontend        | Home, search (map + location, paid **Featured** badge), business detail, login (MFA steps) + forgot/reset password (S-035, Accepted), register, enriched profile, settings, merchant dashboard (+ time-series volume/rating-mix/reply-rate/CSV export, S-033; featured boost CTA, S-036) + business create/edit, admin moderation queues (+ platform trend charts, category admin, user suspend/reactivate, S-034; placement disable/refund) |
 | Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine                                                                                                                                                                                                                                                                                                            |
 | Seeding         | `scripts/seed.py` — Portland + Chennai + US; gated by `SEED_MODE` / `seed_runs` (Railway: not on boot)                                                                                                                                                                                                                                                                                   |
 | Local dev       | `docker compose up --build`                                                                                                                                                                                                                                                                                                                                                              |
@@ -2290,22 +2344,19 @@ These are **held off** until product needs them. They are not in-house leftovers
 | Event **grants** / merchant show sponsorship                                                 | Needs fee revenue from **S-036** first                                                                                 |
 
 
-**Payments / PCI** are no longer “held forever.” One featured-boost SKU + Razorpay + platform fee ledger is **S-036 (Specified, not built)** — see §16. Stripe and a second gateway stay out of scope.
+**Payments / PCI** for v1 is **S-036** (one featured SKU, Razorpay, no cards stored). Stripe and a second gateway stay out of scope. Event grants still wait on neighborhood traffic.
 
-### Suggested next steps, in order
+### Suggested next steps (waves, not a fake serial gate)
 
-1. **S-033**, **S-034**, and **S-035** (transactional email) are Accepted (S-033/S-034 closed S-006/S-007; S-035 closes the "no outbound email" gap).
-2. Then **S-036** (Razorpay + ₹499 / 7-day featured week).
-3. **S-037** — merchant dashboard chart upgrade: area/line charts for monthly trends (Recharts already installed), period-over-period delta badges on stat tiles (minor backend extension to `merchant_dashboard.py` + `dashboard.py`).
-4. **S-038** — competitor rating benchmarking: `GET /dashboard/merchant/{id}/benchmark` returns category median + city median from existing Business table. New BenchmarkCard on merchant dashboard — no external APIs needed.
-5. **S-039** — AI reply drafting: `AIAnalysis.suggested_response` is already generated per review but not surfaced. Wire it to a "Draft with AI" button in the merchant reply textarea — near-zero-backend change.
-6. **S-040** — review collection flow: public mobile-web wizard (`/collect/[businessId]`) — star rating → category chips → AI-drafted text → Google Maps deep link. All star ratings route equally (no interception). QR code card on merchant dashboard (`qrcode.react` dependency).
-7. In-house leftovers still open: structured logs, isolated test DB, CSP (without breaking maps/GIS), S-026 when you dual-stack cookies.
-8. **Multi-platform review aggregation** (S-041+) — deferred; Google Business Profile API requires per-merchant OAuth, Zomato has no public API. Revisit after S-026 (merchant OAuth infrastructure).
-9. Keep the [§12 parity tracker](#web--mobile-feature-parity-tracker) current; Play Store is phase 5 in `ANDROID_APP_STRATEGY.md`, not the VC story.
-10. Enterprise SaaS / legal items stay on the hold list until a paying neighborhood needs them.
+Hard deps: S-037–S-040 need a Specified slice file before Builder. S-033 is Accepted (dashboard host). S-035 is **not** required for S-036. File overlap: do not dual-edit `MerchantDashboard.tsx` / `Charts.tsx` in two open Builder PRs.
 
-**Good position today:** working loop **including AI**, one README a VC can read, three slices (S-033, S-034, S-035) just Accepted, one Specified slice to commercial, and four planned slices (S-037–S-040) that turn collected reviews into intelligence. **Bad position:** claiming live fees or traction — none of that is true until S-036 is Accepted and a neighborhood is dense.
+1. **Wave 0 (docs):** §16 must list S-035 as Built.
+2. **Wave 1:** Builder **S-036** in parallel with PM+Architect **specifying** S-037–S-040. **Test shot 1** = Tester+PM on S-036 only.
+3. **Wave 2:** Build S-039 + S-040 (low overlap), then S-037 then S-038 (shared charts). **Test shot 2** = one combined pass for S-037–S-040. No per-slice Tester in between.
+4. Leftovers (not this wave): structured logs, isolated test DB, CSP, S-026 cookies.
+5. S-041+ aggregation waits on S-026. Play Store is `ANDROID_APP_STRATEGY.md` phase 5. Enterprise/legal stay on the hold list.
+
+**Good position today:** working loop **including AI**, transactional email (S-035), and a Specified-then-built featured fee SKU (S-036). **Bad position:** claiming live Razorpay production traffic or neighborhood traction until keys are real and a neighborhood is dense.
 
 ---
 
@@ -2343,6 +2394,10 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `RESEND_API_KEY`              | *(empty)*                                                                | Required when `EMAIL_PROVIDER=resend` — fails at startup if missing                           |
 | `EMAIL_FROM`                  | *(empty)*                                                                | Required when `EMAIL_PROVIDER=resend` — must be a Resend-verified sending domain              |
 | `PUBLIC_APP_URL`              | `http://localhost:3000`                                                  | Origin used to build password-reset links in email copy — not a secret                        |
+| `PAYMENTS_PROVIDER`           | `mock`                                                                   | `mock` (no keys) or `razorpay`                                                                |
+| `RAZORPAY_KEY_ID`             | *(empty)*                                                                | Required when `PAYMENTS_PROVIDER=razorpay`                                                    |
+| `RAZORPAY_KEY_SECRET`         | *(empty)*                                                                | Required when `PAYMENTS_PROVIDER=razorpay`                                                    |
+| `RAZORPAY_WEBHOOK_SECRET`     | *(empty)*                                                                | HMAC secret; mock uses this or `mock-webhook-secret`                                          |
 | `CORS_ORIGINS`                | `http://localhost:3000`                                                  | Comma-separated allowlist                                                                     |
 | `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap/Nominatim                                                     |
 | `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
@@ -2369,9 +2424,9 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 
 ## 16. Industry and investor overview
 
-**Honest position:** we can demo a product loop. We cannot yet claim a funded business (no traction, no live fees, no real analytics UI).
+**Honest position:** we can demo a product loop including AI, email, merchant charts, and a featured-boost SKU (mock checkout locally). We cannot yet claim traction or live production Razorpay volume.
 
-Pitch: **local review capture + merchant operating loop + AI suggestions (already wired)**. Then fees. Do not pitch an analytics company or a payments company until S-033–S-036 ship.
+Pitch: **local review capture + merchant operating loop + AI suggestions (already wired) + one listing-boost fee**. Do not pitch a payments company.
 
 ### Problem
 
@@ -2392,15 +2447,19 @@ flowchart LR
     AI[AI suggestions]
     Merch[Merchant reply]
     Adm[Admin queues]
-  end
-  subgraph next [Specified not built]
     Charts[Real time series]
     Email[Transactional email]
-    Fees[Featured boost + fee]
+    Fees[Featured boost SKU]
+  end
+  subgraph next [Specified intel]
+    MoreCharts[Area charts and deltas]
+    Bench[Benchmark card]
   end
   Cust --> AI --> Merch
   Adm --> Cust
   Charts --> Email --> Fees
+  Fees --> MoreCharts
+  MoreCharts --> Bench
 ```
 
 
@@ -2412,9 +2471,9 @@ flowchart LR
 
 | Role         | Today                                                                                                                                                           | After specified slices                                                                               |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **Customer** | Find nearby, photos, labeled sentiment, write review, favorite, report                                                                                          | Featured listings sort first (paid boost, labeled — S-036); password reset mail (S-035)              |
-| **Merchant** | Own listing after admin approve; KPI tiles, sentiment bar, AI insights panel, public reply                                                                      | Volume/rating over time, date range, reply-rate, CSV (S-033); buy ₹499 / 7-day featured week (S-036) |
-| **Admin**    | Approve/suspend listings, moderate reports, five live counts, browse all, platform trend series, category create/list, user suspend/reactivate (S-034) | Disable/refund placements (S-036)                                                                    |
+| **Customer** | Find nearby, photos, labeled sentiment, write review, favorite, report, password-reset mail (S-035), paid **Featured** search first (S-036) | Area/line charts (S-037); QR collect flow (S-040) |
+| **Merchant** | Own listing after admin approve; KPI tiles + volume/rating/reply-rate/CSV (S-033); AI insights; buy ₹499 / 7-day featured week (S-036) | Benchmark vs city/category (S-038); Draft with AI (S-039) |
+| **Admin**    | Approve/suspend listings, moderate reports, platform series, categories, user suspend (S-034); disable/refund featured placements (S-036) | — |
 
 
 
@@ -2433,7 +2492,11 @@ Density in a few neighborhoods + merchant workflow + suggestion-grade AI. Not a 
 
 Lentlo is a national India directory (listings, reviews, claim, premium packages). MerchantHub is narrower: **capture + merchant action + AI suggestions** in a dense neighborhood, with an admin trust layer. Lentlo’s “business analytics” was not visible beyond claim/reply in that scrape — we will not copy that oversell; our charts wait for S-033/S-034. Full notes: `[docs/competitive-analysis-lentlo.md](docs/competitive-analysis-lentlo.md)`. Crowdsourced live-status (Waze-style) is **not on the roadmap**.
 
-### Monetization (planned, not live)
+### Fee numbers (S-036)
+
+Listed **₹499** = **49900 paise**, **7 days**, INR. `gateway_fee_paise` is Razorpay `fee` (GST typically inside `fee`; do not add `tax`). `platform_fee_paise` = captured − gateway. Mock estimates ~2%+GST when `fee` is absent. Production Checkout needs live Razorpay keys; Compose stays `PAYMENTS_PROVIDER=mock`.
+
+### Monetization (live SKU in mock; production keys optional)
 
 - **SKU:** featured listing / search boost, **₹499 per 7 days** (inclusive listed price).
 - **Gateway:** Razorpay only (India-first). Never store cards. ~2% + GST recorded as `gateway_fee`; remainder is `platform_fee`.
@@ -2451,7 +2514,7 @@ Demo / seeded listings only. A fundraise ask should be **pre-seed for one neighb
 
 | Built                                                                                                                                                                                                                                                                                                                       | Next (not yet Accepted)                                                                                                                                                                                                                                                                                                                                                                                                               |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth (password + TOTP, Google) + forgot/reset password, search + OSM, profiles, reviews + photos, likes/reports/replies, favorites, in-app notifications + best-effort transactional email (reset, listing approved, new review), merchant create/pending, dashboard tiles + AI panel, admin queues + counts, web + Flutter, **S-033** merchant charts, **S-034** admin series + categories + user suspend | **S-035** email — coded, Tester review pending · **S-036** Razorpay + fee (Specified, not coded) · **S-037** area/line charts + delta badges (Draft) · **S-038** competitor benchmarking (Draft) · **S-039** AI reply drafting (Draft) · **S-040** review collection flow / QR (Draft) |
+| Auth (password + TOTP, Google) + forgot/reset + email, search + OSM + paid Featured, reviews, favorites, merchant dashboard (S-033 charts, S-037 area/deltas, S-038 benchmark, S-039 AI draft, S-040 QR collect), admin queues (S-034) + placement refund, **S-036** featured SKU (mock/Razorpay port) | Leftovers: structured logs, isolated test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity |
 
 
 Play Store packaging is distribution (`ANDROID_APP_STRATEGY.md` phase 5), not this story.

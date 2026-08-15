@@ -112,6 +112,13 @@ class Settings(BaseSettings):
     # Origin used to build password-reset links in email copy. Not a secret.
     public_app_url: str = "http://localhost:3000"
 
+    # Featured-boost payments (app/services/payments/). mock (default) needs no
+    # Razorpay keys. razorpay fails at startup if keys/webhook secret are missing.
+    payments_provider: str = "mock"
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
+    razorpay_webhook_secret: str = ""
+
     cors_origins: str = "http://localhost:3000"
 
     google_maps_api_key: str = "placeholder"

@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-036 |
 | **Phase** | 5 Polish |
-| **Status** | Specified |
+| **Status** | Accepted |
 | **Role(s)** | merchant, admin |
 | **Owner** | PM / 2026-08-15 |
 
@@ -63,21 +63,21 @@
 
 ## Dependencies
 
-- **S-033** merchant dashboard — **nice-to-have**, not a hard gate: the dashboard already exists; this slice adds a buy-boost control and active/expiry display on that surface.
-- Existing **search** and approved-business listing (Phase 2) — featured-first rank applies to the current search list, not a new discovery product.
-- **Payments** today sit on the README **hold list** (deferred commercial item: “Payments / PCI (Stripe etc.) — no product payments”). **This slice moves that item to planned** (one SKU, India-first, no cards stored). Do not treat Stripe-on-the-hold-list as the design.
-- **S-035** email — **not** a dependency; explicitly out of scope.
+- **S-033** (Accepted) — merchant dashboard host; nice-to-have, not a hard gate.
+- Existing **search** (Phase 2) — featured-first rank.
+- **S-035** email — **not** a dependency.
+- **S-037–S-040** — do not block this slice; they must not dual-edit `MerchantDashboard.tsx` until this dashboard hunk lands.
 
 ---
 
 ## Definition of done (PM)
 
-- [ ] All AC verified in test report
-- [ ] UX matches notes above (dashboard buy-boost, search ranking + paid-placement copy, admin disable/refund + ledger)
-- [ ] Documented in `README.md` §7 API reference / §8 Frontend guide if new patterns; §6 flow if the checkout/webhook path is user-visible
-- [ ] `README.md` §12 Web ↔ mobile feature parity tracker has a row for this user-facing web capability (mobile typically `unimplemented` / `future` until a later slice)
-- [ ] `README.md` §14 hold-list **Payments** row is updated from deferred to **planned / this slice** (not left as “no product payments”)
-- [ ] PM Status set to **Accepted**
+- [x] All AC verified in test report
+- [x] UX matches notes above (dashboard buy-boost, search ranking + paid-placement copy, admin disable/refund + ledger)
+- [x] Documented in `README.md` §7 API reference / §8 Frontend guide if new patterns; §6 flow if the checkout/webhook path is user-visible
+- [x] `README.md` §12 Web ↔ mobile feature parity tracker has a row for this user-facing web capability (mobile typically `unimplemented` / `future` until a later slice)
+- [x] `README.md` §14 hold-list **Payments** row is updated from deferred to **planned / this slice** (not left as “no product payments”)
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -288,3 +288,6 @@ Admin disable/refund: admin drilldown → `POST .../disable` or `.../refund` →
 |------|-------|--------|
 | 2026-08-15 | PM | Created slice. Monetization is deferred on the README hold list today; VC story needs a **transaction fee** without inventing marketplace GMV. One SKU only: **₹499 / 7-day featured listing (search boost)**. India-first gateway; **never store cards**; local **test/mock** must demo without live production keys (Architect specifies port). Event grants are **not** this slice. Fee split is product-level: gateway (~2% + GST) → `gateway_fee`, remainder → `platform_fee`. 9 numbered AC, UX (MerchantDashboard + search list + admin refund/disable), out of scope (Stripe, two SKUs, subscriptions, grants, S-035 email, AI billing). Dependencies: S-033 nice-to-have; payments move from hold → planned. Architect section left as template for Razorpay/gateway details. Status: **Draft**. |
 | 2026-08-15 | Architect | Technical spec: Razorpay + `PAYMENTS_PROVIDER` mock port; tables `payments` / `featured_placements`; locked `/api/v1` payment endpoints including DEBUG-only `POST /payments/mock/complete`; webhook HMAC + `provider_order_id` idempotency; fee split from captured webhook; search featured-first + `search:*` invalidation; README §5–7, §9, §12, §14–16 when built. ADR-008 Proposed. Status: **Specified**. Handoff: Builder. |
+| 2026-08-15 | Builder | Implemented payments port, migration, search rank, dashboard boost, admin ledger. |
+| 2026-08-15 | Tester | TR-S-036 Ship. |
+| 2026-08-15 | PM | Accepted against TR-S-036. |

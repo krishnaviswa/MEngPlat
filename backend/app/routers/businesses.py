@@ -32,11 +32,12 @@ from app.schemas import (
 )
 from app.services.cache import cache_delete_pattern
 from app.services.email import try_send_listing_approved
+from app.services.payments.featured import load_active_featured_ends
 
 router = APIRouter(prefix="/businesses", tags=["Businesses"])
 
 
-def _to_response(business: Business) -> BusinessResponse:
+def _to_response(business: Business, *, is_featured: bool = False) -> BusinessResponse:
     return BusinessResponse(
         id=business.id,
         name=business.name,
@@ -60,7 +61,13 @@ def _to_response(business: Business) -> BusinessResponse:
         review_count=business.review_count,
         ai_merchant_summary=business.ai_merchant_summary,
         categories=[CategoryResponse.model_validate(bc.category) for bc in business.categories],
+        is_featured=is_featured,
     )
+
+
+async def _to_responses(db: AsyncSession, rows: list[Business]) -> list[BusinessResponse]:
+    featured = await load_active_featured_ends(db)
+    return [_to_response(b, is_featured=b.id in featured) for b in rows]
 
 
 @router.get("", response_model=list[BusinessResponse])
@@ -81,7 +88,7 @@ async def list_businesses(
         query = query.where(Business.city.ilike(f"%{city}%"))
     query = query.order_by(Business.average_rating.desc()).limit(50)
     result = await db.execute(query)
-    return [_to_response(b) for b in result.scalars().all()]
+    return await _to_responses(db, list(result.scalars().all()))
 
 
 @router.get("/categories/all", response_model=list[CategoryResponse])
@@ -151,7 +158,7 @@ async def list_my_businesses(
         .where(Business.merchant_id == merchant_obj.id)
         .order_by(Business.name)
     )
-    return [_to_response(b) for b in result.scalars().all()]
+    return await _to_responses(db, list(result.scalars().all()))
 
 
 @router.get("/admin/all", response_model=list[BusinessResponse])
@@ -177,7 +184,7 @@ async def list_all_businesses_admin(
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
-    return [_to_response(b) for b in result.scalars().all()]
+    return await _to_responses(db, list(result.scalars().all()))
 
 
 @router.post("/categories", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)

@@ -110,7 +110,8 @@ export default async function SearchPage({ searchParams }: Props) {
         <FilterPanel params={params} categories={categories} cities={cities} />
         <div className="lg:col-span-3">
           <p className="mb-4 text-sm text-gray-500">
-            {results.length} businesses on page {page}
+            {results.length} businesses on page {page}. Listings marked <strong>Featured</strong> paid for a 7-day
+            search boost — that is not an AI quality score and does not mean the business is better.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             {results.map((b) => (

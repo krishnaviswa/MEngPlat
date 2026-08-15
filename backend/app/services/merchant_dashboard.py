@@ -113,4 +113,48 @@ async def get_dashboard_aggregates(db: AsyncSession, business_id: UUID, date_ran
         "review_volume_by_month": await get_review_volume_by_month(db, business_id, date_range),
         "rating_distribution": await get_rating_distribution(db, business_id, date_range),
         "reply_rate": await get_reply_rate(db, business_id, date_range),
+        "review_count_in_range": await _count_reviews(db, business_id, date_range, previous=False),
+        "review_count_previous": await _count_reviews(db, business_id, date_range, previous=True),
+        "reply_rate_previous": await _reply_rate_previous(db, business_id, date_range),
     }
+
+
+async def _count_reviews(db: AsyncSession, business_id: UUID, date_range: DateRange, *, previous: bool) -> int | None:
+    if date_range == "all":
+        if previous:
+            return None
+        stmt = select(func.count(Review.id)).where(Review.business_id == business_id)
+        return (await db.execute(stmt)).scalar() or 0
+    days = int(date_range)
+    now = datetime.now(timezone.utc)
+    if previous:
+        start = now - timedelta(days=days * 2)
+        end = now - timedelta(days=days)
+        stmt = select(func.count(Review.id)).where(
+            Review.business_id == business_id, Review.created_at >= start, Review.created_at < end
+        )
+    else:
+        stmt = _in_range(select(func.count(Review.id)), business_id, date_range)
+    return (await db.execute(stmt)).scalar() or 0
+
+
+async def _reply_rate_previous(db: AsyncSession, business_id: UUID, date_range: DateRange) -> float | None:
+    if date_range == "all":
+        return None
+    days = int(date_range)
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(days=days * 2)
+    end = now - timedelta(days=days)
+    total_stmt = select(func.count(Review.id)).where(
+        Review.business_id == business_id, Review.created_at >= start, Review.created_at < end
+    )
+    total = (await db.execute(total_stmt)).scalar() or 0
+    if total == 0:
+        return None
+    replied_stmt = (
+        select(func.count(Review.id))
+        .join(Reply, Reply.review_id == Review.id)
+        .where(Review.business_id == business_id, Review.created_at >= start, Review.created_at < end)
+    )
+    replied = (await db.execute(replied_stmt)).scalar() or 0
+    return replied / total

@@ -162,7 +162,19 @@ export function ReviewCard({
             className="w-full rounded border px-2 py-1 text-sm"
             rows={2}
           />
+          <p className="text-xs text-gray-500">AI draft is a suggestion — edit before sending. It is not posted automatically.</p>
           <div className="flex gap-2">
+            {review.ai_analysis?.suggested_response ? (
+              <button
+                type="button"
+                onClick={() => setReplyBody(review.ai_analysis!.suggested_response!)}
+                className="rounded border border-brand-300 px-3 py-1 text-sm text-brand-700 hover:bg-brand-50"
+              >
+                Draft with AI
+              </button>
+            ) : (
+              <span className="self-center text-xs text-gray-400">No draft available</span>
+            )}
             <button
               type="submit"
               disabled={submittingReply}
