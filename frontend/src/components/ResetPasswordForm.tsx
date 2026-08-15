@@ -1,0 +1,93 @@
+"use client";
+
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { auth } from "@/lib/api";
+
+/** ResetPasswordForm — new password + confirm, using the `token` query param from the reset email. */
+export function ResetPasswordForm() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token") || "";
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+    setLoading(true);
+    try {
+      await auth.resetPassword(token, newPassword);
+      setDone(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Reset failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (!token) {
+    return (
+      <div className="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6 shadow-sm">
+        <h1 className="text-xl font-bold">Invalid reset link</h1>
+        <p className="text-sm text-gray-600">
+          This link is missing its reset token. Request a new one from the forgot-password page.
+        </p>
+        <a href="/forgot-password" className="block text-sm text-brand-600 underline">
+          Request a new link
+        </a>
+      </div>
+    );
+  }
+
+  if (done) {
+    return (
+      <div className="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6 shadow-sm">
+        <h1 className="text-xl font-bold">Password updated</h1>
+        <p className="text-sm text-gray-600">Sign in with your new password.</p>
+        <a href="/login" className="block rounded bg-brand-600 py-2 text-center text-white hover:bg-brand-700">
+          Go to sign in
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6 shadow-sm">
+      <h1 className="text-xl font-bold">Reset password</h1>
+      {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+      <input
+        type="password"
+        required
+        minLength={12}
+        value={newPassword}
+        onChange={(e) => setNewPassword(e.target.value)}
+        placeholder="New password"
+        className="w-full rounded border px-3 py-2"
+      />
+      <input
+        type="password"
+        required
+        minLength={12}
+        value={confirmPassword}
+        onChange={(e) => setConfirmPassword(e.target.value)}
+        placeholder="Confirm new password"
+        className="w-full rounded border px-3 py-2"
+      />
+      <p className="text-xs text-gray-500">At least 12 characters, with at least one letter and one digit.</p>
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full rounded bg-brand-600 py-2 text-white hover:bg-brand-700 disabled:opacity-50"
+      >
+        {loading ? "Updating..." : "Update password"}
+      </button>
+    </form>
+  );
+}

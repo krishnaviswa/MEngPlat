@@ -2,12 +2,25 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import get_optional_user, require_roles, slugify
-from app.models import Business, BusinessCategory, BusinessStatus, Category, Merchant, Review, ReviewStatus, User, UserRole
+from app.models import (
+    Business,
+    BusinessCategory,
+    BusinessStatus,
+    Category,
+    Merchant,
+    Notification,
+    NotificationType,
+    Review,
+    ReviewStatus,
+    User,
+    UserRole,
+)
 from app.schemas import (
     BusinessCreate,
     BusinessResponse,
@@ -18,6 +31,7 @@ from app.schemas import (
     PublicPlatformStats,
 )
 from app.services.cache import cache_delete_pattern
+from app.services.email import try_send_listing_approved
 
 router = APIRouter(prefix="/businesses", tags=["Businesses"])
 
@@ -172,9 +186,16 @@ async def create_category(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> CategoryResponse:
-    """Admin: create a new category."""
+    """Admin: create a new category. 409 if name or slug already exists."""
     category = Category(**payload.model_dump())
     db.add(category)
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Category name or slug already exists"
+        ) from exc
     await db.refresh(category)
     return category
 
@@ -281,7 +302,7 @@ async def approve_business(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> BusinessResponse:
-    """Admin: approve a pending business."""
+    """Admin: approve a pending business. Notifies the merchant in-app and by best-effort email."""
     from app.models import AuditLog
 
     business = await db.get(Business, business_id)
@@ -289,6 +310,23 @@ async def approve_business(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
     business.status = BusinessStatus.APPROVED
     db.add(AuditLog(admin_id=admin.id, action="approve", entity_type="business", entity_id=str(business_id)))
+
+    merchant_result = await db.execute(select(Merchant).where(Merchant.id == business.merchant_id))
+    merchant = merchant_result.scalar_one_or_none()
+    if merchant:
+        db.add(
+            Notification(
+                user_id=merchant.user_id,
+                type=NotificationType.APPROVAL,
+                title="Listing approved",
+                message=f"{business.name} has been approved and is now live",
+                extra_data={"business_id": str(business.id)},
+            )
+        )
+        merchant_user = await db.get(User, merchant.user_id)
+        if merchant_user:
+            await try_send_listing_approved(merchant_user.email, business.name)
+
     await cache_delete_pattern("search:*")
     result = await db.execute(
         select(Business)

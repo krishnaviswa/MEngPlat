@@ -6,8 +6,17 @@ import { Charts } from "./Charts";
 import { Dashboard } from "./Dashboard";
 import { ReviewCard } from "./ReviewCard";
 import { Select } from "./ui/Select";
+import { StatCard } from "./ui/StatCard";
 import { auth, businesses, dashboard, reviews as reviewsApi } from "@/lib/api";
-import type { Business, BusinessStatus, Review, User } from "@/lib/api";
+import type { Business, BusinessStatus, DashboardRange, Review, User } from "@/lib/api";
+
+const RANGE_LABEL: Record<DashboardRange, string> = {
+  "30": "Last 30 days",
+  "90": "Last 90 days",
+  all: "All time",
+};
+
+const RATING_STARS = ["1", "2", "3", "4", "5"] as const;
 
 const STATUS_LABEL: Record<BusinessStatus, string> = {
   pending: "Awaiting approval",
@@ -37,6 +46,8 @@ export default function MerchantDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshingAi, setRefreshingAi] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [range, setRange] = useState<DashboardRange>("all");
+  const [exportingCsv, setExportingCsv] = useState(false);
 
   useEffect(() => {
     auth.me().then(setUser).catch(() => setUser(null));
@@ -53,13 +64,9 @@ export default function MerchantDashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const loadDashboard = useCallback(async (b: Business) => {
+  const loadBusiness = useCallback(async (b: Business) => {
     setBusiness(b);
-    const [dash, ins] = await Promise.all([
-      dashboard.merchant(b.id),
-      dashboard.insights(b.id),
-    ]);
-    setStats(dash);
+    const ins = await dashboard.insights(b.id);
     setInsights(ins);
   }, []);
 
@@ -67,11 +74,34 @@ export default function MerchantDashboardPage() {
     if (!selectedId) return;
     const b = owned.find((x) => x.id === selectedId);
     if (!b) return;
-    loadDashboard(b).catch(() => {
-      setStats(null);
-      setInsights(null);
-    });
-  }, [selectedId, owned, loadDashboard]);
+    loadBusiness(b).catch(() => setInsights(null));
+  }, [selectedId, owned, loadBusiness]);
+
+  useEffect(() => {
+    if (!business) return;
+    dashboard
+      .merchant(business.id, { range })
+      .then(setStats)
+      .catch(() => setStats(null));
+  }, [business, range]);
+
+  async function handleExportCsv() {
+    if (!business) return;
+    setExportingCsv(true);
+    try {
+      const blob = await dashboard.reviewsCsv(business.id, { range });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `reviews-${business.id}-${range}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportingCsv(false);
+    }
+  }
 
   async function handleReply(reviewId: string, body: string) {
     const reply = await reviewsApi.reply(reviewId, body);
@@ -135,6 +165,13 @@ export default function MerchantDashboardPage() {
         value,
       }))
     : [];
+  const volumeData = ((stats?.review_volume_by_month as { month: string; count: number }[] | undefined) || []).map(
+    (v) => ({ name: v.month, value: v.count })
+  );
+  const ratingDistribution = (stats?.rating_distribution as Record<string, number> | undefined) || {};
+  const ratingData = RATING_STARS.map((star) => ({ name: `${star}★`, value: ratingDistribution[star] ?? 0 }));
+  const inRangeReviewCount = ratingData.reduce((sum, r) => sum + r.value, 0);
+  const replyRate = stats?.reply_rate as number | null | undefined;
 
   return (
     <Dashboard title="Merchant Dashboard" description={business.name} navItems={navItems}>
@@ -188,6 +225,59 @@ export default function MerchantDashboardPage() {
             <p className="text-sm text-gray-500">Status</p>
             <p className={`text-2xl font-bold ${STATUS_CLASS[status]}`}>{STATUS_LABEL[status]}</p>
           </a>
+        </div>
+
+        <div id="review-analytics" className="scroll-mt-20 rounded-xl border bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-semibold">Review analytics</h3>
+            <div className="flex items-center gap-3">
+              <Select
+                value={range}
+                onChange={(e) => setRange(e.target.value as DashboardRange)}
+                className="w-auto"
+                aria-label="Date range"
+              >
+                {(Object.keys(RANGE_LABEL) as DashboardRange[]).map((r) => (
+                  <option key={r} value={r}>
+                    {RANGE_LABEL[r]}
+                  </option>
+                ))}
+              </Select>
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                disabled={exportingCsv}
+                className="rounded border border-brand-300 bg-white px-3 py-1.5 text-sm text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+              >
+                {exportingCsv ? "Exporting..." : "Export CSV"}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-6 sm:grid-cols-2">
+            <div>
+              <h4 className="mb-2 text-sm font-medium text-gray-700">Review volume</h4>
+              <Charts data={volumeData} emptyMessage="No reviews in this range yet." />
+            </div>
+            <div>
+              <h4 className="mb-2 text-sm font-medium text-gray-700">Rating mix (1-5 stars)</h4>
+              <Charts data={ratingData} emptyMessage="No reviews in this range yet." />
+            </div>
+          </div>
+
+          {inRangeReviewCount === 0 && (
+            <p className="mt-3 text-sm text-gray-500">
+              No reviews in this range yet. Try a wider date range, or check back once customers start reviewing.
+            </p>
+          )}
+
+          <div className="mt-4 max-w-xs">
+            <StatCard
+              label="Reply rate"
+              value={replyRate == null ? "—" : `${Math.round(replyRate * 100)}%`}
+              trend={replyRate == null ? "No reviews in this range" : RANGE_LABEL[range]}
+            />
+          </div>
         </div>
 
         <div id="sentiment-breakdown" className="scroll-mt-20 rounded-xl border bg-white p-4">

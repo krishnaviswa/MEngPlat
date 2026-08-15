@@ -10,14 +10,16 @@ CI's ephemeral Postgres service container only.
 """
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 
 from app.core.security import get_password_hash
 from app.database import AsyncSessionLocal
 from app.main import app
-from app.models import User, UserRole
+from app.models import Review, User, UserRole
 from tests.auth_helpers import complete_password_login, register_and_get_token
 
 
@@ -108,16 +110,91 @@ async def test_merchant_dashboard_returns_stats_shape_for_owner(client):
     )
     assert response.status_code == 200
     body = response.json()
+    # S-033 extended DashboardStats with rating_distribution + reply_rate.
     assert set(body.keys()) == {
         "total_reviews",
         "average_rating",
         "sentiment_breakdown",
         "recent_reviews",
         "review_volume_by_month",
+        "rating_distribution",
+        "reply_rate",
     }
     assert body["total_reviews"] == 0
     assert body["recent_reviews"] == []
     assert set(body["sentiment_breakdown"].keys()) == {"positive", "neutral", "negative"}
+    # S-033 AC 8 / AC 5: zero reviews in range -> mix keys still "1"-"5" at 0, reply_rate null (not 0/0).
+    assert set(body["rating_distribution"].keys()) == {"1", "2", "3", "4", "5"}
+    assert all(v == 0 for v in body["rating_distribution"].values())
+    assert body["reply_rate"] is None
+
+
+@pytest.mark.asyncio
+async def test_merchant_dashboard_range_filters_out_older_reviews(client):
+    """S-033 AC 3 / AC 5: range=30 excludes a review created outside the
+    window (rating mix + reply-rate), while range=all still counts it --
+    proving the filter is real SQL on Review.created_at, not just present in
+    the response shape."""
+    owner = await _register(client, "merchant")
+    business = await _create_business(client, owner["headers"])
+    admin = await _register_admin(client)
+    approve = await client.post(f"/api/v1/businesses/{business['id']}/approve", headers=admin["headers"])
+    assert approve.status_code == 200, approve.text
+
+    recent_customer = await _register(client, "customer")
+    recent = await client.post(
+        "/api/v1/reviews",
+        headers=recent_customer["headers"],
+        json={"business_id": business["id"], "rating": 5, "body": "Great place, recent review here."},
+    )
+    assert recent.status_code == 201, recent.text
+
+    old_customer = await _register(client, "customer")
+    old = await client.post(
+        "/api/v1/reviews",
+        headers=old_customer["headers"],
+        json={"business_id": business["id"], "rating": 1, "body": "Old review, backdated by this test."},
+    )
+    assert old.status_code == 201, old.text
+
+    # Backdate the second review's created_at directly -- the API always
+    # writes "now", so this is the only way to get a review outside a 30-day
+    # window without waiting 30 days.
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(Review).where(Review.id == uuid.UUID(old.json()["id"])))
+        old_review = result.scalar_one()
+        old_review.created_at = datetime.now(timezone.utc) - timedelta(days=60)
+        await db.commit()
+
+    range_all = await client.get(
+        f"/api/v1/dashboard/merchant/{business['id']}?range=all", headers=owner["headers"]
+    )
+    assert range_all.status_code == 200
+    all_mix = range_all.json()["rating_distribution"]
+    assert sum(all_mix.values()) == 2
+
+    range_30 = await client.get(
+        f"/api/v1/dashboard/merchant/{business['id']}?range=30", headers=owner["headers"]
+    )
+    assert range_30.status_code == 200
+    body_30 = range_30.json()
+    mix_30 = body_30["rating_distribution"]
+    assert sum(mix_30.values()) == 1
+    assert mix_30["5"] == 1  # the recent review
+    assert mix_30["1"] == 0  # the backdated one is excluded
+    # Neither review in range=30 has a merchant reply.
+    assert body_30["reply_rate"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_merchant_dashboard_invalid_range_422(client):
+    owner = await _register(client, "merchant")
+    business = await _create_business(client, owner["headers"])
+
+    response = await client.get(
+        f"/api/v1/dashboard/merchant/{business['id']}?range=bogus", headers=owner["headers"]
+    )
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio

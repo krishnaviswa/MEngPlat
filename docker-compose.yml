@@ -35,6 +35,7 @@ services:
       SECRET_KEY: dev-secret-key-change-in-production
       DEBUG: "true"
       AI_PROVIDER: mock
+      EMAIL_PROVIDER: mock
       STORAGE_PROVIDER: local
       STORAGE_LOCAL_PATH: /app/uploads
       CORS_ORIGINS: http://localhost:3000,http://localhost:5000

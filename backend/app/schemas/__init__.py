@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
@@ -48,6 +48,12 @@ class UserBase(BaseModel):
     full_name: str
 
 
+def _require_letter_and_digit(value: str) -> str:
+    if not any(c.isalpha() for c in value) or not any(c.isdigit() for c in value):
+        raise ValueError("Password must contain at least one letter and one digit")
+    return value
+
+
 class UserRegister(UserBase):
     password: str = Field(min_length=12)
     role: UserRole = UserRole.CUSTOMER
@@ -55,14 +61,26 @@ class UserRegister(UserBase):
     @field_validator("password")
     @classmethod
     def password_complexity(cls, value: str) -> str:
-        if not any(c.isalpha() for c in value) or not any(c.isdigit() for c in value):
-            raise ValueError("Password must contain at least one letter and one digit")
-        return value
+        return _require_letter_and_digit(value)
 
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=12)
+
+    @field_validator("new_password")
+    @classmethod
+    def password_complexity(cls, value: str) -> str:
+        return _require_letter_and_digit(value)
 
 
 class UserResponse(UserBase):
@@ -304,6 +322,8 @@ class DashboardStats(BaseModel):
     sentiment_breakdown: dict[str, int]
     recent_reviews: list[ReviewResponse]
     review_volume_by_month: list[dict[str, Any]]
+    rating_distribution: dict[str, int]
+    reply_rate: float | None = None
 
 
 class PlatformAnalytics(BaseModel):
@@ -312,6 +332,12 @@ class PlatformAnalytics(BaseModel):
     pending_businesses: int
     total_reviews: int
     reported_reviews: int
+
+
+class PlatformAnalyticsSeries(BaseModel):
+    granularity: Literal["day", "week"]
+    days: int
+    series: dict[str, list[dict[str, Any]]]
 
 
 class NotificationResponse(BaseModel):

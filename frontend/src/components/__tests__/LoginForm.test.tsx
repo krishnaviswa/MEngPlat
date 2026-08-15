@@ -98,6 +98,12 @@ describe("LoginForm", () => {
     expect(window.location.href).toBe("/");
   });
 
+  // S-035: the credentials step must offer a way into the forgot-password flow.
+  it("shows a Forgot password? link to /forgot-password on the credentials step", () => {
+    render(<LoginForm />);
+    expect(screen.getByText("Forgot password?").closest("a")).toHaveAttribute("href", "/forgot-password");
+  });
+
   // S-020 AC2: a password account that already has TOTP enrolled is routed
   // straight to the verify step, not enrollment.
   it("routes a returning TOTP-enrolled login into the verify step, skipping setup", async () => {
