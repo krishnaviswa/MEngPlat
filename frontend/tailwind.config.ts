@@ -3,6 +3,7 @@
 // (https://www.figma.com/design/X0XXhJiwW8SxFdMf39n2t3). Keep the two in step:
 // add the token in Figma first, then mirror the hex here.
 module.exports = {
+  darkMode: "class",
   content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
@@ -23,6 +24,14 @@ module.exports = {
           800: "#075985",
           900: "#0c4a6e",
         },
+        // Semantic, theme-aware tokens (S-045) — read CSS vars so one class
+        // resolves correctly in both themes. Placeholder values pending a
+        // human diff against the Figma Color collection (see globals.css).
+        surface: "var(--mh-surface)",
+        "surface-raised": "var(--mh-surface-raised)",
+        ink: "var(--mh-ink)",
+        muted: "var(--mh-muted)",
+        border: "var(--mh-border)",
       },
       keyframes: {
         "fade-up": {

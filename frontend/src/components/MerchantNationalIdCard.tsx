@@ -41,14 +41,14 @@ export function MerchantNationalIdCard({
   }
 
   return (
-    <section className="rounded-xl border bg-white p-4">
+    <section className="rounded-xl border bg-surface-raised p-4">
       <h3 className="font-semibold">National ID</h3>
-      <p className="mt-1 text-sm text-gray-600">
+      <p className="mt-1 text-sm text-muted">
         Required for shop owners before you submit a listing. Stored on your account — not verified as government
         KYC.
       </p>
       {!complete && (
-        <p className="mt-2 text-sm text-amber-800">Add PAN, Aadhaar, or another national ID to create listings.</p>
+        <p className="mt-2 text-sm text-amber-800 dark:text-amber-400">Add PAN, Aadhaar, or another national ID to create listings.</p>
       )}
       <form onSubmit={onSubmit} className="mt-3 space-y-3">
         <Select

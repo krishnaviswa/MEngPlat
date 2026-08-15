@@ -24,8 +24,8 @@ export function FeaturedGrid({
     <section className="mh-section-reveal mx-auto max-w-6xl px-4 py-16">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="max-w-2xl">
-          <h2 className="font-display text-3xl font-semibold tracking-tight text-slate-900">{title}</h2>
-          <p className="mt-2 text-slate-600">{subtitle}</p>
+          <h2 className="font-display text-3xl font-semibold tracking-tight text-ink">{title}</h2>
+          <p className="mt-2 text-muted">{subtitle}</p>
         </div>
         <a href={viewAllHref} className="text-sm font-medium text-brand-700 hover:underline">
           {viewAllLabel} →
@@ -38,8 +38,8 @@ export function FeaturedGrid({
             <div key={b.id} className="flex flex-col gap-3">
               <BusinessCard business={b} />
               {b.ai_merchant_summary && (
-                <p className="px-1 text-sm text-slate-600">
-                  <span className="font-medium text-brand-800">Why locals love it: </span>
+                <p className="px-1 text-sm text-muted">
+                  <span className="font-medium text-brand-800 dark:text-brand-300">Why locals love it: </span>
                   <span className="line-clamp-2">{b.ai_merchant_summary}</span>
                 </p>
               )}
@@ -47,32 +47,32 @@ export function FeaturedGrid({
           ))}
         </div>
       ) : (
-        <div className="mt-8 border border-dashed border-slate-300 bg-white/60 p-6 text-slate-600">
+        <div className="mt-8 border border-dashed border-border bg-surface-raised/60 p-6 text-muted">
           {loadError ? (
             <>
-              <p className="font-medium text-slate-800">Could not load businesses from the API.</p>
+              <p className="font-medium text-ink">Could not load businesses from the API.</p>
               <p className="mt-2 text-sm">
                 On Railway, set frontend Variables{" "}
-                <code className="rounded bg-slate-100 px-1">NEXT_PUBLIC_API_URL</code> and{" "}
-                <code className="rounded bg-slate-100 px-1">API_URL_INTERNAL</code> to the backend
+                <code className="rounded bg-surface px-1">NEXT_PUBLIC_API_URL</code> and{" "}
+                <code className="rounded bg-surface px-1">API_URL_INTERNAL</code> to the backend
                 HTTPS URL (no trailing slash), redeploy the frontend, then hard-refresh. Seed is
                 run separately in Railway Shell — it does not appear in deploy logs.
               </p>
-              <p className="mt-3 font-mono text-xs text-slate-500 break-all">{loadError}</p>
+              <p className="mt-3 font-mono text-xs text-muted break-all">{loadError}</p>
             </>
           ) : (
             <>
-              <p className="font-medium text-slate-800">No businesses loaded yet.</p>
+              <p className="font-medium text-ink">No businesses loaded yet.</p>
               <p className="mt-2 text-sm">
                 If the API is healthy but empty, run seed once in the backend Railway Shell:{" "}
-                <code className="rounded bg-slate-100 px-1">
+                <code className="rounded bg-surface px-1">
                   PYTHONPATH=/app SEED_MODE=force python scripts/seed.py
                 </code>
                 . Confirm{" "}
-                <code className="rounded bg-slate-100 px-1">GET /api/v1/businesses/cities</code>{" "}
+                <code className="rounded bg-surface px-1">GET /api/v1/businesses/cities</code>{" "}
                 returns cities, and that{" "}
-                <code className="rounded bg-slate-100 px-1">NEXT_PUBLIC_API_URL</code> /{" "}
-                <code className="rounded bg-slate-100 px-1">API_URL_INTERNAL</code> point at that
+                <code className="rounded bg-surface px-1">NEXT_PUBLIC_API_URL</code> /{" "}
+                <code className="rounded bg-surface px-1">API_URL_INTERNAL</code> point at that
                 backend.
               </p>
             </>

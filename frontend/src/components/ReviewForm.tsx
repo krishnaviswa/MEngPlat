@@ -71,8 +71,8 @@ export function ReviewForm({ business }: ReviewFormProps) {
 
   if (!signedIn) {
     return (
-      <div className="rounded-xl border bg-white p-6 text-center shadow-sm">
-        <p className="text-gray-700">Sign in to write a review.</p>
+      <div className="rounded-xl border bg-surface-raised p-6 text-center shadow-sm">
+        <p className="text-muted">Sign in to write a review.</p>
         <a href="/login" className="mt-3 inline-block rounded bg-brand-600 px-4 py-2 text-white hover:bg-brand-700">
           Sign in
         </a>
@@ -81,10 +81,10 @@ export function ReviewForm({ business }: ReviewFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border bg-white p-6 shadow-sm">
-      {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
+      {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-300">{error}</p>}
       <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">Rating</label>
+        <label className="mb-1 block text-sm font-medium text-muted">Rating</label>
         <RatingWidget value={rating} onChange={setRating} size="lg" />
       </div>
       <input
@@ -104,9 +104,9 @@ export function ReviewForm({ business }: ReviewFormProps) {
         className="w-full rounded border px-3 py-2"
       />
       <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">Photos (optional, up to {MAX_PHOTOS})</label>
+        <label className="mb-1 block text-sm font-medium text-muted">Photos (optional, up to {MAX_PHOTOS})</label>
         <input type="file" accept="image/*" multiple onChange={handleFiles} className="w-full text-sm" />
-        {files.length > 0 && <p className="mt-1 text-xs text-gray-500">{files.length} photo(s) selected</p>}
+        {files.length > 0 && <p className="mt-1 text-xs text-muted">{files.length} photo(s) selected</p>}
       </div>
       <button
         type="submit"

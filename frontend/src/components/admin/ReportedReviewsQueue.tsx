@@ -43,14 +43,14 @@ export function ReportedReviewsQueue({ onChange }: { onChange?: () => void }) {
   }
 
   if (loading) {
-    return <p className="text-sm text-gray-500">Loading reported reviews…</p>;
+    return <p className="text-sm text-muted">Loading reported reviews…</p>;
   }
 
   return (
     <div className="space-y-4">
       {error && <p className="text-sm text-red-600">{error}</p>}
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-gray-50 p-6 text-center text-sm text-gray-500">
+        <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
           No reported reviews
         </p>
       ) : (
@@ -70,7 +70,7 @@ export function ReportedReviewsQueue({ onChange }: { onChange?: () => void }) {
                 type="button"
                 disabled={acting === r.id}
                 onClick={() => handleModerate(r.id, "restore")}
-                className="rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50"
+                className="rounded-lg border px-3 py-1.5 text-sm hover:bg-surface disabled:opacity-50"
               >
                 Restore
               </button>
@@ -78,7 +78,7 @@ export function ReportedReviewsQueue({ onChange }: { onChange?: () => void }) {
                 type="button"
                 disabled={acting === r.id}
                 onClick={() => handleModerate(r.id, "remove")}
-                className="rounded-lg border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                className="rounded-lg border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 disabled:opacity-50"
               >
                 Remove
               </button>

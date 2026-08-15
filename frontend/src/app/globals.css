@@ -6,11 +6,28 @@
   --mh-ink: #0f172a;
   --mh-muted: #475569;
   --mh-surface: #f8fafc;
+  --mh-surface-raised: #ffffff;
+  --mh-border: #e2e8f0;
   --mh-glow: rgba(14, 165, 233, 0.18);
 }
 
+/*
+ * Dark-mode token values (S-045) are M3-grounded placeholders — the Figma
+ * Color collection (X0XXhJiwW8SxFdMf39n2t3, 99 vars · Light + Dark) could not
+ * be read this session (local, unpublished variables). A human should diff
+ * these against the real Figma collection and patch if they differ.
+ */
+.dark {
+  --mh-ink: #e2e8f0;
+  --mh-muted: #94a3b8;
+  --mh-surface: #121212;
+  --mh-surface-raised: #1e1e1e;
+  --mh-border: #2e2e2e;
+  --mh-glow: rgba(56, 189, 248, 0.12);
+}
+
 body {
-  @apply bg-[var(--mh-surface)] text-slate-900 antialiased;
+  @apply bg-[var(--mh-surface)] text-[var(--mh-ink)] antialiased;
   background-image:
     radial-gradient(ellipse 80% 50% at 10% -10%, var(--mh-glow), transparent 55%),
     radial-gradient(ellipse 60% 40% at 90% 0%, rgba(2, 132, 199, 0.08), transparent 50%);

@@ -47,7 +47,7 @@ export default function EditBusinessPage() {
           { href: "/settings", label: "Settings" },
         ]}
       >
-        <p className="rounded-xl border bg-white p-6 text-center text-red-700">{error || "Not found"}</p>
+        <p className="rounded-xl border border-border bg-surface-raised p-6 text-center text-red-700 dark:text-red-400">{error || "Not found"}</p>
       </Dashboard>
       </RequireAuth>
     );

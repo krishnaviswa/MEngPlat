@@ -13,31 +13,31 @@ interface AIInsightsProps {
 /** AIInsights — merchant panel showing AI suggestions with disclaimer. */
 export function AIInsights({ insights }: AIInsightsProps) {
   return (
-    <div className="space-y-4 rounded-xl border border-brand-100 bg-brand-50/50 p-6">
+    <div className="space-y-4 rounded-xl border border-brand-100 bg-brand-50/50 p-6 dark:border-brand-800/50 dark:bg-brand-900/20">
       <div>
-        <h3 className="text-lg font-semibold text-brand-900">AI Insights</h3>
-        <p className="text-xs text-brand-700">
+        <h3 className="text-lg font-semibold text-brand-900 dark:text-brand-200">AI Insights</h3>
+        <p className="text-xs text-brand-700 dark:text-brand-300">
           Suggestions only — not definitive judgments. Verify in person before acting.
         </p>
       </div>
       {insights.merchant_summary && (
         <section>
-          <h4 className="font-medium text-gray-800">Overall Summary</h4>
-          <p className="mt-1 text-sm text-gray-700">{insights.merchant_summary}</p>
+          <h4 className="font-medium text-ink">Overall Summary</h4>
+          <p className="mt-1 text-sm text-muted">{insights.merchant_summary}</p>
         </section>
       )}
       <div className="grid gap-4 md:grid-cols-2">
         <section>
-          <h4 className="font-medium text-green-800">Frequently Mentioned Positives</h4>
-          <ul className="mt-1 list-inside list-disc text-sm text-gray-700">
+          <h4 className="font-medium text-green-800 dark:text-green-300">Frequently Mentioned Positives</h4>
+          <ul className="mt-1 list-inside list-disc text-sm text-muted">
             {(insights.frequently_mentioned_positives || []).map((p) => (
               <li key={p}>{p}</li>
             ))}
           </ul>
         </section>
         <section>
-          <h4 className="font-medium text-red-800">Frequently Mentioned Complaints</h4>
-          <ul className="mt-1 list-inside list-disc text-sm text-gray-700">
+          <h4 className="font-medium text-red-800 dark:text-red-300">Frequently Mentioned Complaints</h4>
+          <ul className="mt-1 list-inside list-disc text-sm text-muted">
             {(insights.frequently_mentioned_complaints || []).map((c) => (
               <li key={c}>{c}</li>
             ))}
@@ -46,9 +46,9 @@ export function AIInsights({ insights }: AIInsightsProps) {
       </div>
       {(insights.suggested_responses || []).length > 0 && (
         <section>
-          <h4 className="font-medium text-gray-800">Suggested Owner Responses</h4>
+          <h4 className="font-medium text-ink">Suggested Owner Responses</h4>
           {insights.suggested_responses!.map((r, i) => (
-            <blockquote key={i} className="mt-2 rounded border-l-4 border-brand-400 bg-white p-3 text-sm italic">
+            <blockquote key={i} className="mt-2 rounded border-l-4 border-brand-400 bg-surface-raised p-3 text-sm italic">
               {r}
             </blockquote>
           ))}
@@ -56,13 +56,13 @@ export function AIInsights({ insights }: AIInsightsProps) {
       )}
       {(insights.monthly_trends || []).length > 0 && (
         <section>
-          <h4 className="font-medium text-gray-800">AI Trend Suggestion</h4>
-          <p className="mt-1 text-xs text-amber-700">
+          <h4 className="font-medium text-ink">AI Trend Suggestion</h4>
+          <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
             {insights.degraded ? "Mock/degraded data. " : ""}
             Not computed from your review history — a suggestion, not a fact. See the Review volume chart above for
             actual review dates.
           </p>
-          <ul className="mt-2 space-y-1 text-sm text-gray-700">
+          <ul className="mt-2 space-y-1 text-sm text-muted">
             {insights.monthly_trends!.map((t) => (
               <li key={t.month}>
                 {t.month}: {t.positive} positive · {t.neutral} neutral · {t.negative} negative (suggestion)

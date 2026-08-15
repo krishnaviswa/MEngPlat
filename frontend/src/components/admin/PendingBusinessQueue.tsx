@@ -53,25 +53,25 @@ export function PendingBusinessQueue({ onChange }: { onChange?: () => void }) {
   }
 
   if (loading) {
-    return <p className="text-sm text-gray-500">Loading pending businesses…</p>;
+    return <p className="text-sm text-muted">Loading pending businesses…</p>;
   }
 
   return (
     <div className="space-y-3">
       {error && <p className="text-sm text-red-600">{error}</p>}
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-gray-50 p-6 text-center text-sm text-gray-500">
+        <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
           No pending businesses
         </p>
       ) : (
         items.map((b) => (
-          <div key={b.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border bg-white p-4">
+          <div key={b.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border bg-surface-raised p-4">
             <div>
               <p className="font-semibold">{b.name}</p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted">
                 {b.address}, {b.city}
               </p>
-              {b.description && <p className="mt-1 text-sm text-gray-500 line-clamp-2">{b.description}</p>}
+              {b.description && <p className="mt-1 text-sm text-muted line-clamp-2">{b.description}</p>}
             </div>
             <div className="flex shrink-0 gap-2">
               <button
@@ -86,7 +86,7 @@ export function PendingBusinessQueue({ onChange }: { onChange?: () => void }) {
                 type="button"
                 disabled={acting === b.id}
                 onClick={() => handleSuspend(b.id)}
-                className="rounded-lg border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                className="rounded-lg border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 disabled:opacity-50"
               >
                 Suspend
               </button>

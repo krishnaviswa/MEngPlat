@@ -9,7 +9,7 @@ export default function AdminAllBusinessesPage() {
     <RequireAuth role="admin">
       <div className="mx-auto max-w-4xl px-4 py-8">
         <h1 className="text-2xl font-bold">All businesses</h1>
-        <p className="text-gray-600">Every business on the platform, regardless of status.</p>
+        <p className="text-muted">Every business on the platform, regardless of status.</p>
         <div className="mt-6">
           <AllBusinessesQueue />
         </div>

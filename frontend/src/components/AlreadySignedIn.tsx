@@ -48,15 +48,15 @@ export function AlreadySignedIn({ children }: { children: React.ReactNode }) {
   if (!user) return <>{children}</>;
 
   return (
-    <div className="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6 text-center shadow-sm">
-      <p className="text-gray-700">
+    <div className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 text-center shadow-sm">
+      <p className="text-muted">
         You&apos;re signed in as <span className="font-medium">{user.full_name}</span> ({user.role}).
       </p>
       <div className="flex justify-center gap-3">
         <a href="/" className="rounded bg-brand-600 px-4 py-2 text-white hover:bg-brand-700">
           Continue
         </a>
-        <button onClick={handleLogout} className="rounded border px-4 py-2 hover:bg-gray-50">
+        <button onClick={handleLogout} className="rounded border px-4 py-2 hover:bg-surface">
           Log out to sign in as someone else
         </button>
       </div>

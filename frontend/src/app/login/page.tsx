@@ -18,7 +18,7 @@ export default async function LoginPage() {
     <div className="mx-auto grid max-w-5xl gap-12 px-4 py-12 lg:grid-cols-2 lg:items-center lg:py-20">
       <AuthMarketingPanel stats={validStats} />
       <AlreadySignedIn>
-        <Suspense fallback={<p className="text-center text-gray-500">Loading…</p>}>
+        <Suspense fallback={<p className="text-center text-muted">Loading…</p>}>
           <LoginForm />
         </Suspense>
       </AlreadySignedIn>

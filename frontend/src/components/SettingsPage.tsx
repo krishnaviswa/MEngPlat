@@ -46,7 +46,7 @@ export default function SettingsPage() {
     <div className="mx-auto max-w-md px-4 py-8">
       <Card>
         <h1 className="text-xl font-bold">Settings</h1>
-        <p className="mt-2 text-sm text-gray-600">Manage your account.</p>
+        <p className="mt-2 text-sm text-muted">Manage your account.</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button href="/profile" variant="secondary">
             Edit profile

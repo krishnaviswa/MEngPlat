@@ -34,9 +34,9 @@ export function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <div className="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6 shadow-sm">
+      <div className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
         <h1 className="text-xl font-bold">Invalid reset link</h1>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted">
           This link is missing its reset token. Request a new one from the forgot-password page.
         </p>
         <a href="/forgot-password" className="block text-sm text-brand-600 underline">
@@ -48,9 +48,9 @@ export function ResetPasswordForm() {
 
   if (done) {
     return (
-      <div className="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6 shadow-sm">
+      <div className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
         <h1 className="text-xl font-bold">Password updated</h1>
-        <p className="text-sm text-gray-600">Sign in with your new password.</p>
+        <p className="text-sm text-muted">Sign in with your new password.</p>
         <a href="/login" className="block rounded bg-brand-600 py-2 text-center text-white hover:bg-brand-700">
           Go to sign in
         </a>
@@ -59,9 +59,9 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6 shadow-sm">
+    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
       <h1 className="text-xl font-bold">Reset password</h1>
-      {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+      {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-300">{error}</p>}
       <input
         type="password"
         required
@@ -80,7 +80,7 @@ export function ResetPasswordForm() {
         placeholder="Confirm new password"
         className="w-full rounded border px-3 py-2"
       />
-      <p className="text-xs text-gray-500">At least 12 characters, with at least one letter and one digit.</p>
+      <p className="text-xs text-muted">At least 12 characters, with at least one letter and one digit.</p>
       <button
         type="submit"
         disabled={loading}

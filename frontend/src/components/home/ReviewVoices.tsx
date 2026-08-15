@@ -17,27 +17,27 @@ export function ReviewVoices({ items }: ReviewVoicesProps) {
   return (
     <section className="mh-section-reveal mx-auto max-w-6xl px-4 py-16">
       <div className="max-w-2xl">
-        <h2 className="font-display text-3xl font-semibold tracking-tight text-slate-900">
+        <h2 className="font-display text-3xl font-semibold tracking-tight text-ink">
           Voices from the neighborhood
         </h2>
-        <p className="mt-2 text-slate-600">
+        <p className="mt-2 text-muted">
           Recent reviews from real listings — AI notes are suggestions, not definitive judgments.
         </p>
       </div>
       <ul className="mt-10 grid gap-10 lg:grid-cols-3">
         {items.map(({ business, review }) => (
-          <li key={review.id} className="flex flex-col border-t border-slate-200 pt-6">
+          <li key={review.id} className="flex flex-col border-t border-border pt-6">
             <div className="flex items-center gap-2">
               <RatingWidget value={review.rating} readonly size="sm" />
-              <span className="text-sm font-medium text-slate-800">{review.rating.toFixed(1)}</span>
+              <span className="text-sm font-medium text-muted">{review.rating.toFixed(1)}</span>
             </div>
             {review.title && (
-              <p className="mt-3 font-display text-lg font-semibold text-slate-900">{review.title}</p>
+              <p className="mt-3 font-display text-lg font-semibold text-ink">{review.title}</p>
             )}
-            <p className="mt-2 line-clamp-4 text-slate-700">{review.body}</p>
+            <p className="mt-2 line-clamp-4 text-muted">{review.body}</p>
             {review.ai_analysis?.summary && (
-              <p className="mt-4 border-l-2 border-brand-400 pl-3 text-sm text-slate-600">
-                <span className="font-medium text-brand-800">In a nutshell: </span>
+              <p className="mt-4 border-l-2 border-brand-400 pl-3 text-sm text-muted">
+                <span className="font-medium text-brand-800 dark:text-brand-300">In a nutshell: </span>
                 {review.ai_analysis.summary}
               </p>
             )}
