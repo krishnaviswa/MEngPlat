@@ -21,6 +21,19 @@ describe("FeaturedBoostPanel", () => {
     expect(screen.queryByRole("button", { name: /boost this listing/i })).not.toBeInTheDocument();
   });
 
+  it("states the ₹499 / 7-day SKU is paid placement not an AI score", async () => {
+    placementMock.mockResolvedValue({
+      business_id: "b1",
+      active: false,
+      placement: null,
+      sku: { code: "featured_7d", duration_days: 7, listed_price_inr: 499 },
+    });
+    render(<FeaturedBoostPanel businessId="b1" listingStatus="approved" />);
+    expect(await screen.findByRole("button", { name: /boost this listing — ₹499 \/ 7 days/i })).toBeInTheDocument();
+    expect(screen.getByText(/not an AI quality score/i)).toBeInTheDocument();
+    expect(screen.queryByText(/grant|sponsorship/i)).not.toBeInTheDocument();
+  });
+
   it("shows expiry when placement is active", async () => {
     placementMock.mockResolvedValue({
       business_id: "b1",

@@ -1,4 +1,4 @@
-import { apiFetch, auth, performLogout } from "@/lib/api";
+import { apiFetch, auth, dashboard, performLogout } from "@/lib/api";
 
 function mockFetchOnce(response: { ok: boolean; status: number; json: () => Promise<unknown> }) {
   return jest.fn().mockResolvedValueOnce(response);
@@ -215,5 +215,32 @@ describe("auth.resetPassword", () => {
         body: JSON.stringify({ token: "raw-token-123", new_password: "brandnewpass123" }),
       }),
     );
+  });
+});
+
+describe("dashboard.benchmark", () => {
+  it("GETs /api/v1/dashboard/merchant/{id}/benchmark", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        business_id: "biz-1",
+        own_rating: 4.5,
+        category_median: null,
+        city_median: 4.0,
+        category_sample_size: 1,
+        city_sample_size: 5,
+        disclaimer: "Directory medians from MerchantHub listings — not an AI judgment.",
+      }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await dashboard.benchmark("biz-1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/dashboard/merchant/biz-1/benchmark",
+      expect.anything(),
+    );
+    expect(result.disclaimer).toMatch(/not an AI judgment/i);
   });
 });

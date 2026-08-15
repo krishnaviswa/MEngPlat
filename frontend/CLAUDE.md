@@ -35,10 +35,12 @@ Do not commit on `main` — use a feature branch + PR. `.githooks/pre-commit` en
 - Colocate under `__tests__/`
 - Test behavior, not implementation
 - Run: `cd frontend && npm test`
+- Full evaluation model: `README.md` §11. Browser e2e is S-010 (Playwright), not Cypress.
 
 ## Local git hooks (every commit, IDE included)
 - One-time: `git config core.hooksPath .githooks`
 - Hook refuses commits on `main`/`master` — use a feature branch + PR
 - If `mobile/` staged: `flutter analyze && flutter test`; emulator stays CI-only
 - Full CI table: `ANDROID_APP_STRATEGY.md` § "Testing & CI flow"
-- **Known gap:** branch protection on `main` (required status checks) still must be set in GitHub Settings
+- **Known gap:** frontend-tests.yml is currently `workflow_dispatch` only. Branch
+  protection on `main` still must be set in GitHub Settings. See `README.md` §11.

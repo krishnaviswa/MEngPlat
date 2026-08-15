@@ -3,6 +3,9 @@
 > Mirrors `.cursor/rules/ai-and-integrations.mdc` (Cursor `globs: backend/app/services/**/*`).
 > Keep both in sync — see the parity table in the root [`CLAUDE.md`](../../../CLAUDE.md).
 
+Volatile vendors go behind a port + factory. Routers never import SDKs.
+Defaults for Compose, pytest, and staging are mock/local — see `README.md` §3 and §11.
+
 ## AI
 - Implement `AIProvider` in `app/services/ai/base.py`
 - Factory: `get_ai_provider()` — never call LLM APIs from routers
@@ -15,7 +18,18 @@
 
 ## Storage
 - Use `get_storage_provider()` — don't write files directly from routers
-- Dev: `local`; prod: implement S3/Azure placeholder classes
+- Dev: `local`; `s3` is implemented (optional `STORAGE_S3_PUBLIC_BASE_URL` for a CDN in front of the bucket)
+- `azure` is still a stub (`NotImplementedError`)
+
+## Email
+- `get_email_provider()` — `EMAIL_PROVIDER=mock|resend` (ADR-007)
+- Mock logs only; never fail review/approve HTTP if send fails (best-effort)
+- Password reset tokens are Redis, fail-closed
+
+## Payments
+- `get_payment_provider()` — `PAYMENTS_PROVIDER=mock|razorpay` (ADR-008)
+- One SKU: featured listing ₹499 / 7 days; PAN never stored
+- Mock + DEBUG mock-complete for Compose/pytest
 
 ## Maps
-Placeholder only in `app/routers/maps.py` until Google Maps is wired.
+- OpenStreetMap tiles + Nominatim (`app/routers/maps.py` + Leaflet). Google Maps env vars are unused leftovers.

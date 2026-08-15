@@ -89,3 +89,5 @@ Collect page public. Create review: customer (existing).
 | Date | Agent | Change |
 |------|-------|--------|
 | 2026-08-15 | PM + Architect | Specified; public wizard + QR; no gating. |
+| 2026-08-15 | Tester | Combined TR-S-037-040 shot 2: all 5 AC mapped and passing, including 1-star continue (no rating gating). Recommendation Ship. Status left for PM. |
+| 2026-08-15 | PM | **Accepted** on combined `TR-S-037-040-intel-wave.md` (shot 2, Ship, 5/5). 1-star continues (no gating); signed-in create via existing POST; login `next=` when unsigned; QR on approved dashboard; Maps link is optional suggestion. |

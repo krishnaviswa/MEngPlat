@@ -1,9 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import CollectReviewPage from "@/app/collect/[businessId]/page";
-import { businesses } from "@/lib/api";
+import { auth, businesses, reviews } from "@/lib/api";
+
+const pushMock = jest.fn();
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: pushMock }),
 }));
 
 jest.mock("../../../../lib/api", () => ({
@@ -16,15 +18,61 @@ function resolvedParams(value: { businessId: string }): Promise<{ businessId: st
   return { status: "fulfilled", value, then() {} } as unknown as Promise<{ businessId: string }>;
 }
 
-describe("Collect review wizard", () => {
-  it("does not intercept low star ratings", async () => {
+describe("Collect review wizard (S-040)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
     (businesses.list as jest.Mock).mockResolvedValue([
       { id: "b1", name: "Cafe", city: "Chennai", slug: "cafe", address: "1", average_rating: 4, review_count: 1 },
     ]);
+  });
+
+  it("does not intercept low star ratings", async () => {
     render(<CollectReviewPage params={resolvedParams({ businessId: "b1" })} />);
     expect(await screen.findByText(/Every star rating is collected the same way/i)).toBeInTheDocument();
+    expect(await screen.findByText("Cafe")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "1 stars" }));
     fireEvent.click(screen.getByRole("button", { name: /continue/i }));
     expect(screen.getByPlaceholderText(/at least 10 characters/i)).toBeInTheDocument();
+    expect(screen.queryByText(/google/i)).not.toBeInTheDocument();
+  });
+
+  it("creates the review through the existing API when signed in", async () => {
+    (auth.me as jest.Mock).mockResolvedValue({ id: "c1", role: "customer" });
+    (reviews.create as jest.Mock).mockResolvedValue({ id: "r1" });
+
+    render(<CollectReviewPage params={resolvedParams({ businessId: "b1" })} />);
+    fireEvent.click(await screen.findByRole("button", { name: "5 stars" }));
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+    fireEvent.change(screen.getByPlaceholderText(/at least 10 characters/i), {
+      target: { value: "Really enjoyed the coffee here." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /submit review/i }));
+
+    await waitFor(() =>
+      expect(reviews.create).toHaveBeenCalledWith({
+        business_id: "b1",
+        rating: 5,
+        body: "Really enjoyed the coffee here.",
+      }),
+    );
+    expect(await screen.findByText(/Your review is in MerchantHub/i)).toBeInTheDocument();
+    const maps = screen.getByRole("link", { name: /optional: also leave a google maps review/i });
+    expect(maps).toHaveAttribute("href", expect.stringContaining("google.com/maps"));
+    expect(maps).toHaveTextContent(/not required/i);
+  });
+
+  it("redirects to login with next= when the visitor is not signed in", async () => {
+    (auth.me as jest.Mock).mockRejectedValue(new Error("unauthorized"));
+
+    render(<CollectReviewPage params={resolvedParams({ businessId: "b1" })} />);
+    fireEvent.click(await screen.findByRole("button", { name: "1 stars" }));
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+    fireEvent.change(screen.getByPlaceholderText(/at least 10 characters/i), {
+      target: { value: "Too noisy near the street." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /submit review/i }));
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/login?next=/collect/b1"));
+    expect(reviews.create).not.toHaveBeenCalled();
   });
 });

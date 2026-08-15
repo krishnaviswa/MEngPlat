@@ -39,7 +39,7 @@ export function Charts({ data, emptyMessage, variant = "bar" }: ChartsProps) {
     );
 
   return (
-    <div className="h-64 w-full">
+    <div className="h-64 w-full" data-chart-variant={variant}>
       <ResponsiveContainer width="100%" height="100%">
         {inner}
       </ResponsiveContainer>
