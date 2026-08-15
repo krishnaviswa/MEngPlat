@@ -5,6 +5,9 @@ import { AIInsights } from "./AIInsights";
 import { Charts } from "./Charts";
 import { Dashboard } from "./Dashboard";
 import { ReviewCard } from "./ReviewCard";
+import { FeaturedBoostPanel } from "./FeaturedBoostPanel";
+import { CollectQrCard } from "./CollectQrCard";
+import { BenchmarkCard } from "./BenchmarkCard";
 import { Select } from "./ui/Select";
 import { StatCard } from "./ui/StatCard";
 import { auth, businesses, dashboard, reviews as reviewsApi } from "@/lib/api";
@@ -48,6 +51,12 @@ export default function MerchantDashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [range, setRange] = useState<DashboardRange>("all");
   const [exportingCsv, setExportingCsv] = useState(false);
+  const [benchmark, setBenchmark] = useState<{
+    own_rating: number;
+    category_median: number | null;
+    city_median: number | null;
+    disclaimer: string;
+  } | null>(null);
 
   useEffect(() => {
     auth.me().then(setUser).catch(() => setUser(null));
@@ -84,6 +93,14 @@ export default function MerchantDashboardPage() {
       .then(setStats)
       .catch(() => setStats(null));
   }, [business, range]);
+
+  useEffect(() => {
+    if (!business) return;
+    dashboard
+      .benchmark(business.id)
+      .then(setBenchmark)
+      .catch(() => setBenchmark(null));
+  }, [business]);
 
   async function handleExportCsv() {
     if (!business) return;
@@ -172,6 +189,15 @@ export default function MerchantDashboardPage() {
   const ratingData = RATING_STARS.map((star) => ({ name: `${star}★`, value: ratingDistribution[star] ?? 0 }));
   const inRangeReviewCount = ratingData.reduce((sum, r) => sum + r.value, 0);
   const replyRate = stats?.reply_rate as number | null | undefined;
+  const replyPrev = stats?.reply_rate_previous as number | null | undefined;
+  const countInRange = stats?.review_count_in_range as number | null | undefined;
+  const countPrev = stats?.review_count_previous as number | null | undefined;
+
+  function deltaText(current: number | null | undefined, previous: number | null | undefined): string {
+    if (range === "all" || current == null || previous == null || previous === 0) return "n/a";
+    const pct = Math.round(((current - previous) / previous) * 100);
+    return `${pct > 0 ? "+" : ""}${pct}% vs prior period`;
+  }
 
   return (
     <Dashboard title="Merchant Dashboard" description={business.name} navItems={navItems}>
@@ -227,6 +253,9 @@ export default function MerchantDashboardPage() {
           </a>
         </div>
 
+        <FeaturedBoostPanel businessId={business.id} listingStatus={status} />
+        {status === "approved" && <CollectQrCard businessId={business.id} />}
+
         <div id="review-analytics" className="scroll-mt-20 rounded-xl border bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="font-semibold">Review analytics</h3>
@@ -257,7 +286,7 @@ export default function MerchantDashboardPage() {
           <div className="mt-4 grid gap-6 sm:grid-cols-2">
             <div>
               <h4 className="mb-2 text-sm font-medium text-gray-700">Review volume</h4>
-              <Charts data={volumeData} emptyMessage="No reviews in this range yet." />
+              <Charts data={volumeData} variant="area" emptyMessage="No reviews in this range yet." />
             </div>
             <div>
               <h4 className="mb-2 text-sm font-medium text-gray-700">Rating mix (1-5 stars)</h4>
@@ -275,10 +304,28 @@ export default function MerchantDashboardPage() {
             <StatCard
               label="Reply rate"
               value={replyRate == null ? "—" : `${Math.round(replyRate * 100)}%`}
-              trend={replyRate == null ? "No reviews in this range" : RANGE_LABEL[range]}
+              trend={
+                replyRate == null
+                  ? "No reviews in this range"
+                  : `${RANGE_LABEL[range]} · ${deltaText(replyRate, replyPrev)}`
+              }
+            />
+            <StatCard
+              label="Reviews in range"
+              value={countInRange ?? "—"}
+              trend={deltaText(countInRange, countPrev)}
             />
           </div>
         </div>
+
+        {benchmark && (
+          <BenchmarkCard
+            own={benchmark.own_rating}
+            categoryMedian={benchmark.category_median}
+            cityMedian={benchmark.city_median}
+            disclaimer={benchmark.disclaimer}
+          />
+        )}
 
         <div id="sentiment-breakdown" className="scroll-mt-20 rounded-xl border bg-white p-4">
           <h3 className="font-semibold">Sentiment breakdown</h3>

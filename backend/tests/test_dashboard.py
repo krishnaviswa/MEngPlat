@@ -119,6 +119,9 @@ async def test_merchant_dashboard_returns_stats_shape_for_owner(client):
         "review_volume_by_month",
         "rating_distribution",
         "reply_rate",
+        "review_count_in_range",
+        "review_count_previous",
+        "reply_rate_previous",
     }
     assert body["total_reviews"] == 0
     assert body["recent_reviews"] == []

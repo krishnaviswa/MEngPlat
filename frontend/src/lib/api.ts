@@ -60,6 +60,7 @@ export interface Business {
   storefront_url?: string;
   categories?: { id?: string; name: string; slug: string }[];
   ai_merchant_summary?: string;
+  is_featured?: boolean;
 }
 
 export interface BusinessCreateInput {
@@ -452,6 +453,16 @@ export const dashboard = {
     apiFetch<Record<string, unknown>>(
       `/api/v1/dashboard/merchant/${businessId}${opts?.range ? `?range=${opts.range}` : ""}`
     ),
+  benchmark: (businessId: string) =>
+    apiFetch<{
+      business_id: string;
+      own_rating: number;
+      category_median: number | null;
+      city_median: number | null;
+      category_sample_size: number;
+      city_sample_size: number;
+      disclaimer: string;
+    }>(`/api/v1/dashboard/merchant/${businessId}/benchmark`),
   insights: (businessId: string) =>
     apiFetch<Record<string, unknown>>(`/api/v1/ai/businesses/${businessId}/insights`),
   refreshInsights: (businessId: string) =>
@@ -492,6 +503,77 @@ export const admin = {
   },
   suspendUser: (id: string) => apiFetch<User>(`/api/v1/admin/users/${id}/suspend`, { method: "POST" }),
   reactivateUser: (id: string) => apiFetch<User>(`/api/v1/admin/users/${id}/reactivate`, { method: "POST" }),
+};
+
+export interface FeaturedSku {
+  code: string;
+  duration_days: number;
+  listed_price_inr: number;
+}
+
+export interface FeaturedCheckout {
+  payment_id: string;
+  provider: "mock" | "razorpay";
+  provider_order_id: string;
+  amount_paise: number;
+  currency: string;
+  sku: FeaturedSku;
+  checkout: {
+    key_id: string;
+    order_id: string;
+    amount: number;
+    currency: string;
+    name: string;
+    description: string;
+    prefill?: Record<string, string>;
+  };
+}
+
+export interface PlacementResponse {
+  business_id: string;
+  active: boolean;
+  placement: {
+    id: string;
+    starts_at: string;
+    ends_at: string;
+    disabled_at: string | null;
+    payment_id: string;
+  } | null;
+  sku: FeaturedSku;
+  payment?: {
+    id: string;
+    status: string;
+    amount_paise: number;
+    currency: string;
+    platform_fee_paise: number | null;
+    gateway_fee_paise: number | null;
+    provider: string;
+    provider_order_id: string;
+    created_at: string;
+  } | null;
+}
+
+export const payments = {
+  checkoutFeatured: (businessId: string) =>
+    apiFetch<FeaturedCheckout>("/api/v1/payments/featured/checkout", {
+      method: "POST",
+      body: JSON.stringify({ business_id: businessId }),
+    }),
+  placement: (businessId: string) =>
+    apiFetch<PlacementResponse>(`/api/v1/payments/businesses/${businessId}/placement`),
+  mockComplete: (providerOrderId: string, outcome: "paid" | "failed") =>
+    apiFetch<{ ok: boolean; duplicate: boolean }>("/api/v1/payments/mock/complete", {
+      method: "POST",
+      body: JSON.stringify({ provider_order_id: providerOrderId, outcome }),
+    }),
+  disablePlacement: (placementId: string) =>
+    apiFetch<{ id: string; disabled_at: string }>(`/api/v1/payments/admin/placements/${placementId}/disable`, {
+      method: "POST",
+    }),
+  refundPayment: (paymentId: string) =>
+    apiFetch<{ id: string; status: string }>(`/api/v1/payments/admin/payments/${paymentId}/refund`, {
+      method: "POST",
+    }),
 };
 
 export interface Notification {

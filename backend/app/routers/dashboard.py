@@ -11,8 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import require_roles
 from app.models import Business, BusinessStatus, Merchant, Review, ReviewStatus, User, UserRole
-from app.schemas import DashboardStats, PlatformAnalytics, PlatformAnalyticsSeries, ReviewResponse, UserResponse
+from app.schemas import (
+    BenchmarkResponse,
+    DashboardStats,
+    PlatformAnalytics,
+    PlatformAnalyticsSeries,
+    ReviewResponse,
+    UserResponse,
+)
 from app.routers.reviews import _review_response
+from app.services import benchmark as benchmark_service
 from app.services import merchant_dashboard as merchant_dashboard_service
 from app.services import platform_analytics as platform_analytics_service
 from app.services.merchant_dashboard import DateRange
@@ -68,6 +76,18 @@ async def merchant_dashboard(
         recent_reviews=[_review_response(r) for r in recent],
         **aggregates,
     )
+
+
+@router.get("/merchant/{business_id}/benchmark", response_model=BenchmarkResponse)
+async def merchant_benchmark(
+    business_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
+) -> BenchmarkResponse:
+    """Category and city rating medians from approved listings. Not an AI judgment."""
+    business = await _load_owned_business(db, business_id, user)
+    data = await benchmark_service.get_benchmark(db, business)
+    return BenchmarkResponse(**data)
 
 
 @router.get("/merchant/{business_id}/reviews.csv")

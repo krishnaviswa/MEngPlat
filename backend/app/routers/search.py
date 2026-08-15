@@ -1,16 +1,18 @@
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BeforeValidator
-from sqlalchemy import or_, select
+from sqlalchemy import case, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models import AIAnalysis, Business, BusinessCategory, BusinessStatus, Category, Review, Sentiment
+from app.models import AIAnalysis, Business, BusinessCategory, BusinessStatus, Category, FeaturedPlacement, Review, Sentiment
 from app.schemas import BusinessResponse, CategoryResponse
 from app.services.cache import cache_get, cache_set
 from app.services.geo import bounding_box, haversine_km
+from app.services.payments.featured import load_active_featured_ends
 
 router = APIRouter(prefix="/search", tags=["Search"])
 
@@ -93,11 +95,19 @@ async def search_businesses(
         )
 
     if sort == "name":
-        query = query.order_by(Business.name.asc())
+        secondary = Business.name.asc()
     elif sort == "reviews":
-        query = query.order_by(Business.review_count.desc())
+        secondary = Business.review_count.desc()
     else:
-        query = query.order_by(Business.average_rating.desc())
+        secondary = Business.average_rating.desc()
+
+    featured_ends = await load_active_featured_ends(db)
+    now = datetime.now(timezone.utc)
+    featured_sub = (
+        select(FeaturedPlacement.business_id, FeaturedPlacement.ends_at)
+        .where(FeaturedPlacement.disabled_at.is_(None), FeaturedPlacement.ends_at > now)
+        .subquery()
+    )
 
     if geo_search:
         result = await db.execute(query)
@@ -109,10 +119,23 @@ async def search_businesses(
             and b.longitude is not None
             and haversine_km(lat, lng, b.latitude, b.longitude) <= radius_km
         ]
-        businesses.sort(key=lambda b: haversine_km(lat, lng, b.latitude, b.longitude))  # type: ignore[arg-type]
+        far = datetime.max.replace(tzinfo=timezone.utc)
+
+        def _geo_key(b: Business) -> tuple:
+            dist = haversine_km(lat, lng, b.latitude, b.longitude)  # type: ignore[arg-type]
+            if b.id in featured_ends:
+                return (0, featured_ends[b.id], dist)
+            return (1, far, dist)
+
+        businesses.sort(key=_geo_key)
         offset = (page - 1) * page_size
         businesses = businesses[offset : offset + page_size]
     else:
+        query = query.outerjoin(featured_sub, featured_sub.c.business_id == Business.id).order_by(
+            case((featured_sub.c.business_id.isnot(None), 0), else_=1),
+            featured_sub.c.ends_at.asc().nulls_last(),
+            secondary,
+        )
         offset = (page - 1) * page_size
         result = await db.execute(query.offset(offset).limit(page_size))
         businesses = result.scalars().unique().all()
@@ -141,6 +164,7 @@ async def search_businesses(
             review_count=b.review_count,
             ai_merchant_summary=b.ai_merchant_summary,
             categories=[CategoryResponse.model_validate(bc.category) for bc in b.categories],
+            is_featured=b.id in featured_ends,
         )
         for b in businesses
     ]

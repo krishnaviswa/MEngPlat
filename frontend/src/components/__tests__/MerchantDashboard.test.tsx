@@ -1,13 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import MerchantDashboardPage from "@/components/MerchantDashboard";
-import { auth, businesses, dashboard } from "@/lib/api";
+import { auth, businesses, dashboard, payments } from "@/lib/api";
 import type { Business } from "@/lib/api";
 
 jest.mock("../../lib/api", () => ({
   auth: { me: jest.fn() },
   businesses: { mine: jest.fn() },
-  dashboard: { merchant: jest.fn(), insights: jest.fn(), refreshInsights: jest.fn(), reviewsCsv: jest.fn() },
+  dashboard: { merchant: jest.fn(), insights: jest.fn(), refreshInsights: jest.fn(), reviewsCsv: jest.fn(), benchmark: jest.fn() },
   reviews: { reply: jest.fn() },
+  payments: { placement: jest.fn(), checkoutFeatured: jest.fn() },
 }));
 
 const meMock = auth.me as jest.Mock;
@@ -15,6 +16,8 @@ const mineMock = businesses.mine as jest.Mock;
 const merchantStatsMock = dashboard.merchant as jest.Mock;
 const insightsMock = dashboard.insights as jest.Mock;
 const reviewsCsvMock = dashboard.reviewsCsv as jest.Mock;
+const placementMock = payments.placement as jest.Mock;
+const benchmarkMock = dashboard.benchmark as jest.Mock;
 
 function makeBusiness(overrides: Partial<Business> = {}): Business {
   return {
@@ -62,6 +65,18 @@ describe("MerchantDashboard tile interactivity (S-022)", () => {
     (window.HTMLElement.prototype.scrollIntoView as jest.Mock).mockClear();
     meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
     insightsMock.mockResolvedValue({});
+    placementMock.mockResolvedValue({
+      business_id: "biz-1",
+      active: false,
+      placement: null,
+      sku: { code: "featured_7d", duration_days: 7, listed_price_inr: 499 },
+    });
+    benchmarkMock.mockResolvedValue({
+      own_rating: 4.5,
+      category_median: null,
+      city_median: null,
+      disclaimer: "Directory medians from MerchantHub listings — not an AI judgment.",
+    });
   });
 
   // S-022 AC1 + AC2: "Total reviews" renders as a real <button> (not an inert
@@ -216,6 +231,18 @@ describe("MerchantDashboard analytics (S-033)", () => {
     jest.clearAllMocks();
     meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
     insightsMock.mockResolvedValue({});
+    placementMock.mockResolvedValue({
+      business_id: "biz-1",
+      active: false,
+      placement: null,
+      sku: { code: "featured_7d", duration_days: 7, listed_price_inr: 499 },
+    });
+    benchmarkMock.mockResolvedValue({
+      own_rating: 4.5,
+      category_median: null,
+      city_median: null,
+      disclaimer: "Directory medians from MerchantHub listings — not an AI judgment.",
+    });
   });
 
   // AC 1 / AC 2: review_volume_by_month and rating_distribution render as
@@ -263,7 +290,7 @@ describe("MerchantDashboard analytics (S-033)", () => {
     render(<MerchantDashboardPage />);
 
     expect(await screen.findByText("Reply rate")).toBeInTheDocument();
-    expect(await screen.findByText("—")).toBeInTheDocument();
+    expect(screen.getByText("Reply rate").closest(".rounded-xl")).toHaveTextContent("—");
     expect(screen.queryByText("0%")).not.toBeInTheDocument();
   });
 

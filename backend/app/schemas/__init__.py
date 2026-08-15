@@ -204,6 +204,7 @@ class BusinessResponse(BaseModel):
     review_count: int
     ai_merchant_summary: str | None = None
     categories: list[CategoryResponse] = []
+    is_featured: bool = False
 
 
 class ReviewCreate(BaseModel):
@@ -316,6 +317,16 @@ class MerchantInsightsResponse(BaseModel):
     degraded: bool = False
 
 
+class BenchmarkResponse(BaseModel):
+    business_id: UUID
+    own_rating: float
+    category_median: float | None = None
+    city_median: float | None = None
+    category_sample_size: int
+    city_sample_size: int
+    disclaimer: str
+
+
 class DashboardStats(BaseModel):
     total_reviews: int
     average_rating: float
@@ -324,6 +335,9 @@ class DashboardStats(BaseModel):
     review_volume_by_month: list[dict[str, Any]]
     rating_distribution: dict[str, int]
     reply_rate: float | None = None
+    review_count_in_range: int | None = None
+    review_count_previous: int | None = None
+    reply_rate_previous: float | None = None
 
 
 class PlatformAnalytics(BaseModel):
@@ -383,3 +397,81 @@ class FavoriteCreate(BaseModel):
 class FavoriteResponse(BaseModel):
     favorited: bool
     business_id: UUID
+
+
+class FeaturedCheckoutRequest(BaseModel):
+    business_id: UUID
+
+
+class FeaturedSku(BaseModel):
+    code: str
+    duration_days: int
+    listed_price_inr: int
+
+
+class CheckoutFields(BaseModel):
+    key_id: str
+    order_id: str
+    amount: int
+    currency: str
+    name: str
+    description: str
+    prefill: dict[str, str] = {}
+
+
+class FeaturedCheckoutResponse(BaseModel):
+    payment_id: UUID
+    provider: str
+    provider_order_id: str
+    amount_paise: int
+    currency: str
+    sku: FeaturedSku
+    checkout: CheckoutFields
+
+
+class WebhookAck(BaseModel):
+    ok: bool = True
+    duplicate: bool = False
+
+
+class MockCompleteRequest(BaseModel):
+    provider_order_id: str
+    outcome: str = Field(pattern="^(paid|failed)$")
+
+
+class PlacementWindow(BaseModel):
+    id: UUID
+    starts_at: datetime
+    ends_at: datetime
+    disabled_at: datetime | None = None
+    payment_id: UUID
+
+
+class PaymentLedger(BaseModel):
+    id: UUID
+    status: str
+    amount_paise: int
+    currency: str
+    platform_fee_paise: int | None = None
+    gateway_fee_paise: int | None = None
+    provider: str
+    provider_order_id: str
+    created_at: datetime
+
+
+class PlacementResponse(BaseModel):
+    business_id: UUID
+    active: bool
+    placement: PlacementWindow | None = None
+    sku: FeaturedSku
+    payment: PaymentLedger | None = None
+
+
+class PlacementDisableResponse(BaseModel):
+    id: UUID
+    disabled_at: datetime
+
+
+class PaymentRefundResponse(BaseModel):
+    id: UUID
+    status: str

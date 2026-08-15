@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { ReviewCard } from "@/components/ReviewCard";
 import type { Review } from "@/lib/api";
 
@@ -75,5 +75,21 @@ describe("ReviewCard AI disclaimer language (regression, S-021 AC 8)", () => {
 
     expect(screen.queryByText(/^AI:/)).not.toBeInTheDocument();
     expect(screen.queryByText("AI summary (suggestion):")).not.toBeInTheDocument();
+  });
+
+  it("fills the reply box from suggested_response as a suggestion", () => {
+    render(
+      <ReviewCard
+        review={makeReview({
+          ai_analysis: { sentiment: "positive", suggested_response: "Thanks for visiting — suggestion only." },
+        })}
+        canReply
+        onReply={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /reply as business/i }));
+    fireEvent.click(screen.getByRole("button", { name: /draft with ai/i }));
+    expect(screen.getByDisplayValue(/Thanks for visiting/)).toBeInTheDocument();
+    expect(screen.getByText(/AI draft is a suggestion/i)).toBeInTheDocument();
   });
 });

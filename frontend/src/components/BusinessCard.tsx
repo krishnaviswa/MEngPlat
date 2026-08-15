@@ -31,6 +31,11 @@ export function BusinessCard({ business, href }: BusinessCardProps) {
         <span className="absolute left-3 top-3 rounded bg-white/95 px-2 py-0.5 text-xs font-medium text-gray-800 shadow-sm">
           {category}
         </span>
+        {business.is_featured && (
+          <span className="absolute right-3 top-3 rounded bg-brand-700 px-2 py-0.5 text-xs font-medium text-white shadow-sm">
+            Featured
+          </span>
+        )}
       </div>
       <div className="p-4">
         <h3 className="text-lg font-semibold text-gray-900 group-hover:text-brand-700">{business.name}</h3>

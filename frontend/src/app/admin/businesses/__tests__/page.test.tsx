@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { render, screen } from "@testing-library/react";
 import AdminBusinessDrilldownPage from "@/app/admin/businesses/[id]/page";
-import { auth, businesses, reviews } from "@/lib/api";
+import { auth, businesses, payments, reviews } from "@/lib/api";
 import type { Business, Review } from "@/lib/api";
 
 const replaceMock = jest.fn();
@@ -15,11 +15,13 @@ jest.mock("../../../../lib/api", () => ({
   auth: { me: jest.fn() },
   businesses: { adminAll: jest.fn() },
   reviews: { adminAll: jest.fn() },
+  payments: { placement: jest.fn(), disablePlacement: jest.fn(), refundPayment: jest.fn(), mockComplete: jest.fn() },
 }));
 
 const meMock = auth.me as jest.Mock;
 const adminAllBusinessesMock = businesses.adminAll as jest.Mock;
 const adminAllReviewsMock = reviews.adminAll as jest.Mock;
+const placementMock = payments.placement as jest.Mock;
 
 // The page reads its dynamic route param via React's `use(params)` on a
 // Promise (Next.js 15's async-params client-component pattern). A bare
@@ -70,6 +72,7 @@ describe("Admin business drill-down page (S-021)", () => {
     jest.clearAllMocks();
     localStorage.setItem("access_token", "tok-1");
     meMock.mockResolvedValue({ id: "admin-1", role: "admin", full_name: "Admin" });
+    placementMock.mockResolvedValue(null);
   });
 
   it("shows the business's shop name and its review history without needing a slug", async () => {
