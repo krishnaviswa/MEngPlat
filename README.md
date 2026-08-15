@@ -2188,7 +2188,7 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-031 | Mobile P4 merchant / admin                                                     | 4 Dashboards | In Progress                              |
 | S-033 | Merchant analytics (time-series, rating mix, range, reply-rate)                | 4 Dashboards | Accepted (closes S-006)                  |
 | S-034 | Admin platform series + category UI + account suspend                          | 4 Dashboards | Accepted (closes S-007)                  |
-| S-035 | Transactional email (mock + Resend)                                            | 5 Polish     | Testing                                  |
+| S-035 | Transactional email (mock + Resend)                                            | 5 Polish     | Accepted                                 |
 | S-036 | Featured boost + Razorpay transaction fee                                      | 5 Polish     | Specified                                |
 | S-037 | Merchant dashboard chart upgrade (area/line charts, period-over-period deltas) | 4 Dashboards | Draft                                    |
 | S-038 | Competitor rating benchmarking (category + city median vs. own rating)         | 4 Dashboards | Draft                                    |
@@ -2237,8 +2237,8 @@ An honest delta between the original specification and what the code actually do
 | Auth            | JWT access/refresh with refresh `jti` rotation, bcrypt, RBAC, Redis logout blocklist + best-effort login lockout, mandatory TOTP for password login, Google OAuth exempt                                                                                                                                                                                                                 |
 | AI layer        | **In the product today.** Review submit runs text + photo analysis + merchant rolling summary via `AIProvider`. Default `mock` (no key, no cost). Real vendors are env + key. Output is **suggestions**, never verdicts. `monthly_trends` (mock or real) are AI-estimated, not review dates — shown as a labeled suggestion list only, never charted as fact (S-033).                    |
 | Storage         | `local` disk and `s3` (boto3) providers implemented; `azure` still a stub                                                                                                                                                                                                                                                                                                                |
-| Email           | `mock` (logs only) and `resend` providers implemented via `EmailProvider` port. Three transactional sends: password reset, listing approved, new review — best-effort, never blocks the triggering request (S-035, in Testing)                                                                                                                                                           |
-| Frontend        | Home, search (map + location), business detail, login (MFA steps) + forgot/reset password (S-035, in Testing), register, enriched profile, settings, merchant dashboard (+ time-series volume/rating-mix/reply-rate/CSV export, S-033) + business create/edit, admin moderation queues (+ platform trend charts, category admin, user suspend/reactivate, S-034) |
+| Email           | `mock` (logs only) and `resend` providers implemented via `EmailProvider` port. Three transactional sends: password reset, listing approved, new review — best-effort, never blocks the triggering request (S-035, Accepted)                                                                                                                                                           |
+| Frontend        | Home, search (map + location), business detail, login (MFA steps) + forgot/reset password (S-035, Accepted), register, enriched profile, settings, merchant dashboard (+ time-series volume/rating-mix/reply-rate/CSV export, S-033) + business create/edit, admin moderation queues (+ platform trend charts, category admin, user suspend/reactivate, S-034) |
 | Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine                                                                                                                                                                                                                                                                                                            |
 | Seeding         | `scripts/seed.py` — Portland + Chennai + US; gated by `SEED_MODE` / `seed_runs` (Railway: not on boot)                                                                                                                                                                                                                                                                                   |
 | Local dev       | `docker compose up --build`                                                                                                                                                                                                                                                                                                                                                              |
@@ -2294,7 +2294,7 @@ These are **held off** until product needs them. They are not in-house leftovers
 
 ### Suggested next steps, in order
 
-1. **S-033** and **S-034** are Accepted (closed S-006, S-007). **S-035** (transactional email) is Testing with a Ship recommendation — PM accept next (closes the "no outbound email" gap).
+1. **S-033**, **S-034**, and **S-035** (transactional email) are Accepted (S-033/S-034 closed S-006/S-007; S-035 closes the "no outbound email" gap).
 2. Then **S-036** (Razorpay + ₹499 / 7-day featured week).
 3. **S-037** — merchant dashboard chart upgrade: area/line charts for monthly trends (Recharts already installed), period-over-period delta badges on stat tiles (minor backend extension to `merchant_dashboard.py` + `dashboard.py`).
 4. **S-038** — competitor rating benchmarking: `GET /dashboard/merchant/{id}/benchmark` returns category median + city median from existing Business table. New BenchmarkCard on merchant dashboard — no external APIs needed.
@@ -2305,7 +2305,7 @@ These are **held off** until product needs them. They are not in-house leftovers
 9. Keep the [§12 parity tracker](#web--mobile-feature-parity-tracker) current; Play Store is phase 5 in `ANDROID_APP_STRATEGY.md`, not the VC story.
 10. Enterprise SaaS / legal items stay on the hold list until a paying neighborhood needs them.
 
-**Good position today:** working loop **including AI**, one README a VC can read, two slices (S-033, S-034) just Accepted, one slice (S-035) in Testing, one Specified slice to commercial, and four planned slices (S-037–S-040) that turn collected reviews into intelligence. **Bad position:** claiming live fees, live email, or traction — none of those are true until S-035–S-036 are Accepted and a neighborhood is dense.
+**Good position today:** working loop **including AI**, one README a VC can read, three slices (S-033, S-034, S-035) just Accepted, one Specified slice to commercial, and four planned slices (S-037–S-040) that turn collected reviews into intelligence. **Bad position:** claiming live fees or traction — none of that is true until S-036 is Accepted and a neighborhood is dense.
 
 ---
 
