@@ -95,7 +95,7 @@ export default async function SearchPage({ searchParams }: Props) {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <UseLocationButton />
         {hasUserLocation && (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted">
             Showing results near {Number(params.lat).toFixed(4)}, {Number(params.lng).toFixed(4)}
             {params.radius_km ? ` (${params.radius_km} km)` : ""}
           </p>
@@ -109,7 +109,7 @@ export default async function SearchPage({ searchParams }: Props) {
       <div className="grid gap-6 lg:grid-cols-4">
         <FilterPanel params={params} categories={categories} cities={cities} />
         <div className="lg:col-span-3">
-          <p className="mb-4 text-sm text-gray-500">
+          <p className="mb-4 text-sm text-muted">
             {results.length} businesses on page {page}. Listings marked <strong>Featured</strong> paid for a 7-day
             search boost — that is not an AI quality score and does not mean the business is better.
           </p>

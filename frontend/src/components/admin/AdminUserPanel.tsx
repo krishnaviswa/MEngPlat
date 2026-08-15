@@ -55,9 +55,9 @@ export function AdminUserPanel() {
     <div className="space-y-3">
       {error && <p className="text-sm text-red-600">{error}</p>}
       {loading ? (
-        <p className="text-sm text-gray-500">Loading users…</p>
+        <p className="text-sm text-muted">Loading users…</p>
       ) : items.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-gray-50 p-6 text-center text-sm text-gray-500">
+        <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
           No users found
         </p>
       ) : (
@@ -67,11 +67,11 @@ export function AdminUserPanel() {
             return (
               <div
                 key={u.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-4"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-surface-raised p-4"
               >
                 <div>
                   <p className="font-semibold">{u.full_name}</p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted">
                     {u.email || u.phone || "no email"} · {u.role}
                     {u.national_id_type
                       ? ` · ID ${u.national_id_type} ${u.national_id_number || "—"}`
@@ -87,7 +87,7 @@ export function AdminUserPanel() {
                       onClick={() => handleToggle(u)}
                       className={
                         u.is_active
-                          ? "rounded-lg border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                          ? "rounded-lg border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 disabled:opacity-50"
                           : "rounded-lg bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700 disabled:opacity-50"
                       }
                     >
@@ -105,16 +105,16 @@ export function AdminUserPanel() {
           type="button"
           disabled={page === 1 || loading}
           onClick={() => setPage((p) => Math.max(1, p - 1))}
-          className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded border border-border px-3 py-1.5 text-sm text-muted hover:bg-surface disabled:opacity-50"
         >
           Previous
         </button>
-        <span className="text-sm text-gray-500">Page {page}</span>
+        <span className="text-sm text-muted">Page {page}</span>
         <button
           type="button"
           disabled={loading || items.length < PAGE_SIZE}
           onClick={() => setPage((p) => p + 1)}
-          className="rounded border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded border border-border px-3 py-1.5 text-sm text-muted hover:bg-surface disabled:opacity-50"
         >
           Next
         </button>

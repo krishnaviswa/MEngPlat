@@ -53,7 +53,7 @@ export function AdminCategoryPanel() {
     }
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading categories…</p>;
+  if (loading) return <p className="text-sm text-muted">Loading categories…</p>;
 
   return (
     <div className="space-y-3">
@@ -74,7 +74,7 @@ export function AdminCategoryPanel() {
       </form>
       {error && <p className="text-sm text-red-600">{error}</p>}
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-gray-50 p-6 text-center text-sm text-gray-500">
+        <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
           No categories yet
         </p>
       ) : (
@@ -83,7 +83,7 @@ export function AdminCategoryPanel() {
             <li key={c.id}>
               <a
                 href={`/search?category=${encodeURIComponent(c.slug)}`}
-                className="inline-block rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 hover:bg-gray-200 hover:underline"
+                className="inline-block rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 hover:bg-gray-200 hover:underline dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 {c.name}
               </a>

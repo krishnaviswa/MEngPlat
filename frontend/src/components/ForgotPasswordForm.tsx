@@ -26,9 +26,9 @@ export function ForgotPasswordForm() {
 
   if (submitted) {
     return (
-      <div className="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6 shadow-sm">
+      <div className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
         <h1 className="text-xl font-bold">Check your email</h1>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted">
           If an account exists for that email, we sent password-reset instructions.
         </p>
         <a href="/login" className="block text-sm text-brand-600 underline">
@@ -39,10 +39,10 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6 shadow-sm">
+    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
       <h1 className="text-xl font-bold">Forgot password</h1>
-      <p className="text-sm text-gray-600">Enter your account email and we&apos;ll send you a reset link.</p>
-      {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+      <p className="text-sm text-muted">Enter your account email and we&apos;ll send you a reset link.</p>
+      {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-300">{error}</p>}
       <input
         type="email"
         required
@@ -58,7 +58,7 @@ export function ForgotPasswordForm() {
       >
         {loading ? "Sending..." : "Send reset link"}
       </button>
-      <a href="/login" className="block text-center text-sm text-gray-500 underline">
+      <a href="/login" className="block text-center text-sm text-muted underline">
         Back to sign in
       </a>
     </form>

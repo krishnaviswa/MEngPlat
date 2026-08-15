@@ -164,18 +164,18 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border bg-white p-6 shadow-sm">
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
       <h2 className="text-lg font-semibold">{mode === "create" ? "Register your business" : "Edit business"}</h2>
       {mode === "create" && (
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted">
           New listings start as <strong>pending</strong> until an admin approves them.
         </p>
       )}
-      {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+      {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-300">{error}</p>}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block sm:col-span-2">
-          <span className="text-sm font-medium text-gray-700">Business name *</span>
+          <span className="text-sm font-medium text-muted">Business name *</span>
           <input
             required
             value={form.name}
@@ -184,7 +184,7 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
           />
         </label>
         <label className="block sm:col-span-2">
-          <span className="text-sm font-medium text-gray-700">Description</span>
+          <span className="text-sm font-medium text-muted">Description</span>
           <textarea
             rows={3}
             value={form.description}
@@ -193,7 +193,7 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
           />
         </label>
         <label className="block sm:col-span-2">
-          <span className="text-sm font-medium text-gray-700">Street address *</span>
+          <span className="text-sm font-medium text-muted">Street address *</span>
           <input
             required
             value={form.address}
@@ -202,7 +202,7 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">City *</span>
+          <span className="text-sm font-medium text-muted">City *</span>
           <input
             required
             value={form.city}
@@ -211,7 +211,7 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">State</span>
+          <span className="text-sm font-medium text-muted">State</span>
           <input
             value={form.state}
             onChange={(e) => setForm({ ...form, state: e.target.value })}
@@ -219,7 +219,7 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">Postal code</span>
+          <span className="text-sm font-medium text-muted">Postal code</span>
           <input
             value={form.postal_code}
             onChange={(e) => setForm({ ...form, postal_code: e.target.value })}
@@ -227,7 +227,7 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">Country</span>
+          <span className="text-sm font-medium text-muted">Country</span>
           <input
             value={form.country}
             onChange={(e) => setForm({ ...form, country: e.target.value })}
@@ -236,7 +236,7 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">Phone</span>
+          <span className="text-sm font-medium text-muted">Phone</span>
           <input
             type="tel"
             value={form.phone}
@@ -245,7 +245,7 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">Email</span>
+          <span className="text-sm font-medium text-muted">Email</span>
           <input
             type="email"
             value={form.email}
@@ -254,7 +254,7 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
           />
         </label>
         <label className="block sm:col-span-2">
-          <span className="text-sm font-medium text-gray-700">Website</span>
+          <span className="text-sm font-medium text-muted">Website</span>
           <input
             type="url"
             value={form.website}
@@ -264,7 +264,7 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">Latitude</span>
+          <span className="text-sm font-medium text-muted">Latitude</span>
           <input
             type="number"
             step="any"
@@ -275,7 +275,7 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">Longitude</span>
+          <span className="text-sm font-medium text-muted">Longitude</span>
           <input
             type="number"
             step="any"
@@ -290,12 +290,12 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
             type="button"
             onClick={handleGeocode}
             disabled={geocodeLoading}
-            className="w-fit rounded border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-medium text-brand-800 hover:bg-brand-100 disabled:opacity-50"
+            className="w-fit rounded border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-medium text-brand-800 hover:bg-brand-100 disabled:opacity-50 dark:border-brand-800 dark:bg-brand-900/30 dark:text-brand-300 dark:hover:bg-brand-900/50"
           >
             {geocodeLoading ? "Looking up…" : "Look up address"}
           </button>
-          {geocodeMessage && <p className="text-sm text-gray-600">{geocodeMessage}</p>}
-          <p className="text-xs text-gray-500">
+          {geocodeMessage && <p className="text-sm text-muted">{geocodeMessage}</p>}
+          <p className="text-xs text-muted">
             Geocoding uses OpenStreetMap Nominatim on button click only (not while typing).
           </p>
         </div>
@@ -303,10 +303,10 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
 
       {categories.length > 0 && (
         <fieldset>
-          <legend className="text-sm font-medium text-gray-700">Categories</legend>
+          <legend className="text-sm font-medium text-muted">Categories</legend>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {categories.map((cat) => (
-              <label key={cat.id} className="flex items-center gap-2 text-sm text-gray-700">
+              <label key={cat.id} className="flex items-center gap-2 text-sm text-muted">
                 <input
                   type="checkbox"
                   checked={form.category_ids.includes(cat.id)}
@@ -327,7 +327,7 @@ export function BusinessForm({ mode, business, onSuccess }: BusinessFormProps) {
         >
           {loading ? "Saving..." : mode === "create" ? "Submit for approval" : "Save changes"}
         </button>
-        <a href="/merchant/dashboard" className="rounded border px-4 py-2 text-gray-700 hover:bg-gray-50">
+        <a href="/merchant/dashboard" className="rounded border px-4 py-2 text-muted hover:bg-surface">
           Cancel
         </a>
       </div>

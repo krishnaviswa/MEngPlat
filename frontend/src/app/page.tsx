@@ -191,12 +191,12 @@ export default async function HomePage() {
 
       <ReviewVoices items={voiceItems} />
 
-      <section className="mh-section-reveal border-t border-slate-200 bg-white/70 px-4 py-16">
+      <section className="mh-section-reveal border-t border-border bg-surface-raised/70 px-4 py-16">
         <div className="mx-auto max-w-6xl">
-          <h2 className="text-center font-display text-3xl font-semibold tracking-tight text-slate-900">
+          <h2 className="text-center font-display text-3xl font-semibold tracking-tight text-ink">
             How it works
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-center text-slate-600">
+          <p className="mx-auto mt-2 max-w-xl text-center text-muted">
             Three steps from discovery to supporting the shops around you
           </p>
           <ol className="mt-12 grid gap-10 md:grid-cols-3">
@@ -219,8 +219,8 @@ export default async function HomePage() {
             ].map((step) => (
               <li key={step.n} className="border-t border-brand-200 pt-6">
                 <p className="font-display text-sm font-semibold tracking-widest text-brand-700">{step.n}</p>
-                <h3 className="mt-3 font-display text-xl font-semibold text-slate-900">{step.title}</h3>
-                <p className="mt-2 text-slate-600">{step.body}</p>
+                <h3 className="mt-3 font-display text-xl font-semibold text-ink">{step.title}</h3>
+                <p className="mt-2 text-muted">{step.body}</p>
               </li>
             ))}
           </ol>

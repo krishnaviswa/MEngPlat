@@ -99,20 +99,20 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
         </div>
       </div>
 
-      <p className="mt-4 text-center text-sm text-gray-600">
+      <p className="mt-4 text-center text-sm text-muted">
         Your review takes &lt; 30 seconds · Helps locals discover this place
       </p>
 
       {step === "stars" && (
         <div className="mt-6 space-y-6">
-          <div className="rounded-xl border bg-white p-5 text-center shadow-sm">
-            <p className="text-sm font-medium text-gray-700">How was your experience?</p>
+          <div className="rounded-xl border border-border bg-surface-raised p-5 text-center shadow-sm">
+            <p className="text-sm font-medium text-muted">How was your experience?</p>
             <div className="mt-3 flex justify-center">
               <RatingWidget value={rating} onChange={setRating} size="lg" />
             </div>
             {rating > 0 && (
               <div className="mt-5">
-                <p className="mb-2 text-sm text-gray-600">What stood out? (optional)</p>
+                <p className="mb-2 text-sm text-muted">What stood out? (optional)</p>
                 <div className="flex flex-wrap justify-center gap-2">
                   {CHIPS.map((chip) => (
                     <button
@@ -122,7 +122,7 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
                       className={`rounded-full border px-3 py-1 text-sm transition ${
                         selectedChips.includes(chip)
                           ? "border-brand-600 bg-brand-600 text-white"
-                          : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                          : "border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
                       }`}
                     >
                       {chip}
@@ -144,9 +144,9 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
       )}
 
       {step === "text" && (
-        <form onSubmit={submit} className="mt-6 space-y-3 rounded-xl border bg-white p-5 shadow-sm">
+        <form onSubmit={submit} className="mt-6 space-y-3 rounded-xl border border-border bg-surface-raised p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-700">Write your review</p>
+            <p className="text-sm font-medium text-muted">Write your review</p>
             <button
               type="button"
               onClick={fillDraft}
@@ -160,11 +160,11 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
             minLength={10}
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            className="w-full rounded border p-2 text-sm"
+            className="w-full rounded border border-border bg-surface-raised text-ink p-2 text-sm"
             rows={6}
             placeholder="Share what made your visit memorable…"
           />
-          <div className="h-1 w-full overflow-hidden rounded-full bg-gray-100">
+          <div className="h-1 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
             <div
               className={`h-full transition-all ${body.length >= 50 ? "bg-green-500" : "bg-brand-400"}`}
               style={{ width: `${Math.min(100, (body.length / 50) * 100)}%` }}
@@ -179,12 +179,12 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
 
       {step === "done" && (
         <div className="mt-6 space-y-4 text-center">
-          <div className="rounded-xl border bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-border bg-surface-raised p-6 shadow-sm">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-600">
               ✓
             </div>
             <p className="mt-3 text-lg font-semibold">Thank you! Your review is live.</p>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mt-1 text-sm text-muted">
               You're one of {(business?.review_count ?? 0) + 1} people who reviewed this spot.
             </p>
           </div>
@@ -199,7 +199,7 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
             <p className="mt-1 text-sm text-brand-700">Takes 10 more seconds · Helps them rank higher</p>
           </a>
 
-          <a href="/search" className="block text-sm text-gray-500 hover:underline">
+          <a href="/search" className="block text-sm text-muted hover:underline">
             Review another place near you →
           </a>
         </div>
@@ -218,19 +218,19 @@ function SocialProof({ reviews }: { reviews: Review[] }) {
   if (reviews.length === 0) return null;
   return (
     <div>
-      <p className="mb-3 text-sm font-medium text-gray-700">What others said</p>
+      <p className="mb-3 text-sm font-medium text-muted">What others said</p>
       <ul className="space-y-3">
         {reviews.map((r) => (
-          <li key={r.id} className="flex gap-3 rounded-lg border bg-white p-3 shadow-sm">
+          <li key={r.id} className="flex gap-3 rounded-lg border border-border bg-surface-raised p-3 shadow-sm">
             <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
               {(r.author?.full_name || "C").charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <RatingWidget value={r.rating} readonly size="sm" />
-                <span className="text-xs text-gray-500">{new Date(r.created_at).toLocaleDateString()}</span>
+                <span className="text-xs text-muted">{new Date(r.created_at).toLocaleDateString()}</span>
               </div>
-              <p className="mt-1 line-clamp-2 text-sm text-gray-700">{r.body.slice(0, 100)}</p>
+              <p className="mt-1 line-clamp-2 text-sm text-muted">{r.body.slice(0, 100)}</p>
             </div>
           </li>
         ))}

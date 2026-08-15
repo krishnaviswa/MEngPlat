@@ -35,7 +35,7 @@ export function AllBusinessesQueue() {
   }, [load]);
 
   if (loading) {
-    return <p className="text-sm text-gray-500">Loading businesses…</p>;
+    return <p className="text-sm text-muted">Loading businesses…</p>;
   }
 
   if (error) {
@@ -44,7 +44,7 @@ export function AllBusinessesQueue() {
 
   if (items.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed bg-gray-50 p-6 text-center text-sm text-gray-500">
+      <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
         No businesses
       </p>
     );
@@ -56,11 +56,11 @@ export function AllBusinessesQueue() {
         <a
           key={b.id}
           href={`/admin/businesses/${b.id}`}
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-4 transition hover:border-brand-300 hover:shadow-sm"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-surface-raised p-4 transition hover:border-brand-300 hover:shadow-sm"
         >
           <div>
             <p className="font-semibold">{b.name}</p>
-            <p className="text-sm text-gray-600">{b.city}</p>
+            <p className="text-sm text-muted">{b.city}</p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <RatingWidget value={b.average_rating} readonly size="sm" />

@@ -40,16 +40,16 @@ export default function AdminBusinessDrilldownPage({ params }: { params: Promise
   return (
     <RequireAuth role="admin">
       <div className="mx-auto max-w-4xl px-4 py-8">
-        {loading && <p className="text-sm text-gray-500">Loading…</p>}
+        {loading && <p className="text-sm text-muted">Loading…</p>}
         {error && <p className="text-sm text-red-600">{error}</p>}
-        {!loading && !error && !business && <p className="text-sm text-gray-500">Business not found.</p>}
+        {!loading && !error && !business && <p className="text-sm text-muted">Business not found.</p>}
         {business && (
           <>
             <h1 className="text-2xl font-bold">{business.name}</h1>
-            <p className="text-gray-600">{business.city}</p>
+            <p className="text-muted">{business.city}</p>
 
             {placement && (
-              <div className="mt-6 rounded-xl border bg-white p-4 text-sm">
+              <div className="mt-6 rounded-xl border border-border bg-surface-raised p-4 text-sm">
                 <h2 className="mb-2 font-semibold">Featured boost ledger</h2>
                 <p>
                   {placement.active
@@ -57,7 +57,7 @@ export default function AdminBusinessDrilldownPage({ params }: { params: Promise
                     : "No active paid placement"}
                 </p>
                 {placement.payment && (
-                  <p className="mt-1 text-gray-700">
+                  <p className="mt-1 text-muted">
                     Payment {placement.payment.status}: platform ₹
                     {((placement.payment.platform_fee_paise ?? 0) / 100).toFixed(2)} · gateway ₹
                     {((placement.payment.gateway_fee_paise ?? 0) / 100).toFixed(2)} · order{" "}
@@ -69,7 +69,7 @@ export default function AdminBusinessDrilldownPage({ params }: { params: Promise
                   {placement.placement && (
                     <button
                       type="button"
-                      className="rounded border px-3 py-1.5"
+                      className="rounded border border-border px-3 py-1.5"
                       onClick={async () => {
                         setActionError("");
                         try {
@@ -86,7 +86,7 @@ export default function AdminBusinessDrilldownPage({ params }: { params: Promise
                   {placement.payment && (
                     <button
                       type="button"
-                      className="rounded border px-3 py-1.5"
+                      className="rounded border border-border px-3 py-1.5"
                       onClick={async () => {
                         setActionError("");
                         try {
@@ -103,7 +103,7 @@ export default function AdminBusinessDrilldownPage({ params }: { params: Promise
                   {placement.payment?.status === "created" && (
                     <button
                       type="button"
-                      className="rounded border px-3 py-1.5"
+                      className="rounded border border-border px-3 py-1.5"
                       onClick={async () => {
                         setActionError("");
                         try {
@@ -118,14 +118,14 @@ export default function AdminBusinessDrilldownPage({ params }: { params: Promise
                     </button>
                   )}
                 </div>
-                <p className="mt-2 text-xs text-gray-500">Customers are not charged. Event grants are not offered here.</p>
+                <p className="mt-2 text-xs text-muted">Customers are not charged. Event grants are not offered here.</p>
               </div>
             )}
 
             <div className="mt-8">
               <h2 className="mb-3 text-lg font-semibold">Review history</h2>
               {reviewList.length === 0 ? (
-                <p className="rounded-lg border border-dashed bg-gray-50 p-6 text-center text-sm text-gray-500">
+                <p className="rounded-lg border border-dashed border-border bg-surface p-6 text-center text-sm text-muted">
                   No reviews yet
                 </p>
               ) : (

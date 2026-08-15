@@ -4,9 +4,9 @@ import clsx from "clsx";
 type Tone = "positive" | "negative" | "neutral";
 
 const toneClasses: Record<Tone, string> = {
-  positive: "bg-green-100 text-green-800",
-  negative: "bg-red-100 text-red-800",
-  neutral: "bg-gray-100 text-gray-900",
+  positive: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+  negative: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+  neutral: "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-200",
 };
 
 export type BadgeProps = HTMLAttributes<HTMLSpanElement> & {

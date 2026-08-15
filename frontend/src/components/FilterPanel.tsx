@@ -36,8 +36,8 @@ export function FilterPanel({ params, categories = [], cities = [] }: FilterPane
   const activeCity = params?.city?.trim().toLowerCase() ?? "";
 
   return (
-    <aside className="rounded-xl border bg-white p-4">
-      <h3 className="font-semibold text-gray-900">Filters</h3>
+    <aside className="rounded-xl border bg-surface-raised p-4">
+      <h3 className="font-semibold text-ink">Filters</h3>
       {cities.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {cities.map((city) => {
@@ -49,7 +49,7 @@ export function FilterPanel({ params, categories = [], cities = [] }: FilterPane
                 className={
                   selected
                     ? "rounded-full bg-brand-600 px-3 py-1 text-xs font-medium text-white"
-                    : "rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-800 hover:bg-brand-100"
+                    : "rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-800 hover:bg-brand-100 dark:bg-brand-900/30 dark:text-brand-300 dark:hover:bg-brand-900/50"
                 }
               >
                 {city}
@@ -65,7 +65,7 @@ export function FilterPanel({ params, categories = [], cities = [] }: FilterPane
         {params?.radius_km && <input type="hidden" name="radius_km" value={params.radius_km} />}
         <input type="hidden" name="page" value="1" />
         <div>
-          <label className="text-sm text-gray-600">City</label>
+          <label className="text-sm text-muted">City</label>
           <input
             name="city"
             defaultValue={params?.city}
@@ -74,7 +74,7 @@ export function FilterPanel({ params, categories = [], cities = [] }: FilterPane
           />
         </div>
         <div>
-          <label className="text-sm text-gray-600">Category</label>
+          <label className="text-sm text-muted">Category</label>
           <Select name="category" defaultValue={params?.category ?? ""} className="mt-1">
             <option value="">All</option>
             {categories.map((c) => (
@@ -85,7 +85,7 @@ export function FilterPanel({ params, categories = [], cities = [] }: FilterPane
           </Select>
         </div>
         <div>
-          <label className="text-sm text-gray-600">Sort by</label>
+          <label className="text-sm text-muted">Sort by</label>
           <Select name="sort" defaultValue={params?.sort ?? "rating"} className="mt-1">
             <option value="rating">Highest rated</option>
             <option value="reviews">Most reviews</option>
@@ -93,7 +93,7 @@ export function FilterPanel({ params, categories = [], cities = [] }: FilterPane
           </Select>
         </div>
         <div>
-          <label className="text-sm text-gray-600">Min rating</label>
+          <label className="text-sm text-muted">Min rating</label>
           <Select name="min_rating" defaultValue={params?.min_rating ?? ""} className="mt-1">
             <option value="">Any</option>
             <option value="3">3+ stars</option>

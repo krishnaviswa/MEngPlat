@@ -57,7 +57,7 @@ export function RequireAuth({ role, children }: RequireAuthProps) {
   }, [verify]);
 
   if (checking) {
-    return <div className="px-4 py-16 text-center text-gray-500">Checking access…</div>;
+    return <div className="px-4 py-16 text-center text-muted">Checking access…</div>;
   }
   if (!user) return null;
   return <>{children}</>;

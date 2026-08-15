@@ -149,3 +149,40 @@ describe("ReviewCard AI reply drafting (S-039)", () => {
     expect(screen.queryByText(/AI draft is a suggestion/i)).not.toBeInTheDocument();
   });
 });
+
+// S-046 AC 4: length-threshold truncation with a Read more/Read less toggle.
+describe("ReviewCard truncation (S-046 AC 4)", () => {
+  it("shows no Read more toggle for a review body under the threshold", () => {
+    render(<ReviewCard review={makeReview({ body: "Short and sweet review." })} />);
+    expect(screen.queryByRole("button", { name: /read more/i })).not.toBeInTheDocument();
+  });
+
+  it("shows a Read more toggle for a review body over the threshold, and expands/collapses on click", () => {
+    const longBody = "A very long review body. ".repeat(15); // > 280 chars
+    expect(longBody.length).toBeGreaterThan(280);
+    render(<ReviewCard review={makeReview({ body: longBody })} />);
+
+    const readMore = screen.getByRole("button", { name: /read more/i });
+    expect(readMore).toBeInTheDocument();
+
+    fireEvent.click(readMore);
+    const readLess = screen.getByRole("button", { name: /read less/i });
+    expect(readLess).toBeInTheDocument();
+
+    fireEvent.click(readLess);
+    expect(screen.getByRole("button", { name: /read more/i })).toBeInTheDocument();
+  });
+
+  it("still renders the AI 'Quick take' disclaimer after the Read more toggle in document order (not sandwiched awkwardly)", () => {
+    const longBody = "A very long review body. ".repeat(15);
+    render(
+      <ReviewCard
+        review={makeReview({ body: longBody, ai_analysis: { sentiment: "positive", summary: "Mostly positive feedback." } })}
+      />,
+    );
+    const readMoreButton = screen.getByRole("button", { name: /read more/i });
+    const quickTake = screen.getByText("Quick take:");
+    // DOCUMENT_POSITION_FOLLOWING (4) means quickTake comes after readMoreButton in the DOM.
+    expect(readMoreButton.compareDocumentPosition(quickTake) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});

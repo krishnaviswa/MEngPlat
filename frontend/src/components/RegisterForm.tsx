@@ -48,9 +48,9 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6 shadow-sm">
+    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
       <h1 className="text-xl font-bold">Create account</h1>
-      {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+      {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-300">{error}</p>}
       <input
         required
         value={form.full_name}
@@ -82,7 +82,7 @@ export function RegisterForm() {
         <option value="customer">Customer — discover & review</option>
         <option value="merchant">Merchant — list my business</option>
       </Select>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-muted">
         After sign-up you will set up an authenticator app (required for email/password sign-in).
         Gmail sign-in below skips that step.
       </p>
@@ -93,10 +93,10 @@ export function RegisterForm() {
       >
         {loading ? "Creating..." : "Sign up"}
       </button>
-      <div className="flex items-center gap-3 text-xs text-gray-400">
-        <div className="h-px flex-1 bg-gray-200" />
+      <div className="flex items-center gap-3 text-xs text-muted">
+        <div className="h-px flex-1 bg-border" />
         or
-        <div className="h-px flex-1 bg-gray-200" />
+        <div className="h-px flex-1 bg-border" />
       </div>
       <GoogleSignInButton onCredential={handleGoogleCredential} />
       <PhoneOtpPanel fullName={form.full_name} role={form.role} onError={setError} />

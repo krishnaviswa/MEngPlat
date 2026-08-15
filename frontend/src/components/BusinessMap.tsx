@@ -48,7 +48,7 @@ export function BusinessMap({
         ]);
 
   return (
-    <div className={`overflow-hidden rounded-xl border bg-white shadow-sm ${className}`} style={{ height }}>
+    <div className={`overflow-hidden rounded-xl border bg-surface-raised shadow-sm ${className}`} style={{ height }}>
       <MapContainer center={mapCenter} zoom={zoom} scrollWheelZoom={false} style={{ height: "100%", width: "100%" }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'

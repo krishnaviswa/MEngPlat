@@ -125,7 +125,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6 shadow-sm">
+    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
       <h1 className="text-xl font-bold">
         {step === "credentials" && "Login"}
         {step === "enroll" && "Set up authenticator"}
@@ -133,12 +133,12 @@ export function LoginForm() {
       </h1>
 
       {registeredNote && step === "credentials" && (
-        <p className="rounded bg-green-50 p-2 text-sm text-green-800">
+        <p className="rounded bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/40 dark:text-green-300">
           Account created. Sign in with your password to set up your authenticator app.
         </p>
       )}
 
-      {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+      {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-300">{error}</p>}
 
       {step === "credentials" && (
         <>
@@ -161,7 +161,7 @@ export function LoginForm() {
           <a href="/forgot-password" className="block text-right text-xs text-brand-600 underline">
             Forgot password?
           </a>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted">
             Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.).
             Or continue with Gmail below.
           </p>
@@ -172,10 +172,10 @@ export function LoginForm() {
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>
-          <div className="flex items-center gap-3 text-xs text-gray-400">
-            <div className="h-px flex-1 bg-gray-200" />
+          <div className="flex items-center gap-3 text-xs text-muted">
+            <div className="h-px flex-1 bg-border" />
             or
-            <div className="h-px flex-1 bg-gray-200" />
+            <div className="h-px flex-1 bg-border" />
           </div>
           <GoogleSignInButton onCredential={handleGoogleCredential} />
           <PhoneOtpPanel onError={setError} />
@@ -184,7 +184,7 @@ export function LoginForm() {
 
       {step === "enroll" && (
         <>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted">
             Scan this QR code with your authenticator app, or enter the secret manually. Then enter the
             6-digit code to finish — this protects your password account.
           </p>
@@ -194,12 +194,12 @@ export function LoginForm() {
                 className="mx-auto flex max-w-[200px] justify-center [&_svg]:h-full [&_svg]:w-full"
                 dangerouslySetInnerHTML={{ __html: setup.qr_svg }}
               />
-              <p className="break-all rounded bg-gray-50 p-2 font-mono text-xs text-gray-700">
+              <p className="break-all rounded bg-surface p-2 font-mono text-xs text-muted">
                 {setup.secret}
               </p>
             </>
           ) : (
-            <p className="text-sm text-gray-500">Preparing authenticator…</p>
+            <p className="text-sm text-muted">Preparing authenticator…</p>
           )}
           <input
             type="text"
@@ -220,7 +220,7 @@ export function LoginForm() {
           >
             {loading ? "Confirming..." : "Confirm and sign in"}
           </button>
-          <button type="button" onClick={backToCredentials} className="w-full text-sm text-gray-500 underline">
+          <button type="button" onClick={backToCredentials} className="w-full text-sm text-muted underline">
             Back
           </button>
         </>
@@ -228,7 +228,7 @@ export function LoginForm() {
 
       {step === "verify" && (
         <>
-          <p className="text-sm text-gray-600">Enter the 6-digit code from your authenticator app.</p>
+          <p className="text-sm text-muted">Enter the 6-digit code from your authenticator app.</p>
           <input
             type="text"
             inputMode="numeric"
@@ -248,7 +248,7 @@ export function LoginForm() {
           >
             {loading ? "Verifying..." : "Verify and sign in"}
           </button>
-          <button type="button" onClick={backToCredentials} className="w-full text-sm text-gray-500 underline">
+          <button type="button" onClick={backToCredentials} className="w-full text-sm text-muted underline">
             Back
           </button>
         </>

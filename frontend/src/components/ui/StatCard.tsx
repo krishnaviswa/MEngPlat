@@ -15,11 +15,11 @@ export function StatCard({ label, value, icon, trend, className }: StatCardProps
   return (
     <Card className={clsx(className)}>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm text-gray-500">{label}</p>
+        <p className="text-sm text-muted">{label}</p>
         {icon}
       </div>
       <p className="text-2xl font-bold">{value}</p>
-      {trend != null && <div className="mt-1 text-sm text-gray-500">{trend}</div>}
+      {trend != null && <div className="mt-1 text-sm text-muted">{trend}</div>}
     </Card>
   );
 }

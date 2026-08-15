@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { RatingWidget } from "./ui/RatingWidget";
+import { PhotoGallery } from "./PhotoGallery";
 import { API_URL } from "@/lib/api";
 import type { Review } from "@/lib/api";
+
+const TRUNCATE_THRESHOLD = 280;
 
 interface ReviewCardProps {
   review: Review;
@@ -38,12 +41,15 @@ export function ReviewCard({
   const [replying, setReplying] = useState(false);
   const [replyBody, setReplyBody] = useState("");
   const [submittingReply, setSubmittingReply] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const isLong = review.body.length > TRUNCATE_THRESHOLD;
 
   const sentiment = review.ai_analysis?.sentiment;
   const sentimentColor =
-    sentiment === "positive" ? "bg-green-100 text-green-800" :
-    sentiment === "negative" ? "bg-red-100 text-red-800" :
-    "bg-gray-100 text-gray-800";
+    sentiment === "positive" ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300" :
+    sentiment === "negative" ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300" :
+    "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
 
   function submitReport(e: React.FormEvent) {
     e.preventDefault();
@@ -66,7 +72,7 @@ export function ReviewCard({
   }
 
   return (
-    <article className="rounded-xl border bg-white p-4 shadow-sm">
+    <article className="rounded-xl border bg-surface-raised p-4 shadow-sm">
       <div className="flex items-start justify-between">
         <div>
           {showBusinessLink && review.business && (
@@ -87,21 +93,33 @@ export function ReviewCard({
         )}
       </div>
       {review.title && <h4 className="mt-2 font-semibold">{review.title}</h4>}
-      <p className="mt-1 text-gray-700">{review.body}</p>
+      <p className={`mt-1 text-muted ${!expanded && isLong ? "line-clamp-3" : ""}`}>{review.body}</p>
+      {isLong && (
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="mt-1 text-sm text-brand-600 hover:text-brand-700"
+        >
+          {expanded ? "Read less" : "Read more"}
+        </button>
+      )}
       {review.ai_analysis?.summary && (
-        <p className="mt-2 rounded bg-brand-50 p-2 text-sm text-brand-900">
+        <p className="mt-2 rounded bg-brand-50 p-2 text-sm text-brand-900 dark:bg-brand-900/20 dark:text-brand-100">
           <span className="font-medium">Quick take:</span> {review.ai_analysis.summary}
         </p>
       )}
       {review.photo_urls && review.photo_urls.length > 0 && (
-        <div className="mt-3 flex gap-2">
-          {review.photo_urls.map((url) => (
-            <img key={url} src={resolveUrl(url)} alt="" className="h-16 w-16 rounded object-cover" />
-          ))}
+        <div className="mt-3">
+          <PhotoGallery
+            photos={review.photo_urls.map(resolveUrl)}
+            altPrefix={`${review.author?.full_name ?? "Customer"} photo`}
+            gridClassName="flex gap-2"
+            thumbClassName="h-16 w-16"
+          />
         </div>
       )}
       {showActions && (
-        <div className="mt-3 flex gap-3 text-sm text-gray-500">
+        <div className="mt-3 flex gap-3 text-sm text-muted">
           <button onClick={() => onLike?.(review.id)} className="hover:text-brand-600">
             👍 {review.like_count}
           </button>
@@ -113,7 +131,7 @@ export function ReviewCard({
         </div>
       )}
       {reporting && (
-        <form onSubmit={submitReport} className="mt-3 space-y-2 rounded border border-red-100 bg-red-50 p-3">
+        <form onSubmit={submitReport} className="mt-3 space-y-2 rounded border border-red-100 bg-red-50 p-3 dark:border-red-900/40 dark:bg-red-900/20">
           <textarea
             required
             minLength={10}
@@ -133,7 +151,7 @@ export function ReviewCard({
                 setReporting(false);
                 setReportReason("");
               }}
-              className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+              className="rounded border px-3 py-1 text-sm hover:bg-surface"
             >
               Cancel
             </button>
@@ -141,9 +159,9 @@ export function ReviewCard({
         </form>
       )}
       {review.reply && (
-        <div className="mt-3 rounded border-l-2 border-brand-300 bg-gray-50 p-3">
-          <p className="text-xs font-medium text-gray-500">Response from the business</p>
-          <p className="mt-1 text-sm text-gray-700">{review.reply.body}</p>
+        <div className="mt-3 rounded border-l-2 border-brand-300 bg-surface p-3">
+          <p className="text-xs font-medium text-muted">Response from the business</p>
+          <p className="mt-1 text-sm text-muted">{review.reply.body}</p>
         </div>
       )}
       {canReply && !review.reply && !replying && (
@@ -165,7 +183,7 @@ export function ReviewCard({
             className="w-full rounded border px-2 py-1 text-sm"
             rows={2}
           />
-          <p className="text-xs text-gray-500">AI draft is a suggestion — edit before sending. It is not posted automatically.</p>
+          <p className="text-xs text-muted">AI draft is a suggestion — edit before sending. It is not posted automatically.</p>
           <div className="flex gap-2">
             {review.ai_analysis?.suggested_response ? (
               <button
@@ -176,7 +194,7 @@ export function ReviewCard({
                 Draft with AI
               </button>
             ) : (
-              <span className="self-center text-xs text-gray-400">No draft available</span>
+              <span className="self-center text-xs text-muted">No draft available</span>
             )}
             <button
               type="submit"
@@ -191,7 +209,7 @@ export function ReviewCard({
                 setReplying(false);
                 setReplyBody("");
               }}
-              className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+              className="rounded border px-3 py-1 text-sm hover:bg-surface"
             >
               Cancel
             </button>

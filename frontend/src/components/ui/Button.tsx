@@ -14,7 +14,7 @@ const sizeClasses: Record<Size, string> = {
 
 const variantClasses: Record<Variant, string> = {
   primary: "bg-brand-600 text-white hover:bg-brand-700",
-  secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200",
+  secondary: "bg-gray-100 text-ink hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700",
   danger: "bg-red-600 text-white hover:bg-red-700",
 };
 

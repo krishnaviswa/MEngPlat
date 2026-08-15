@@ -27,7 +27,7 @@ export function AllReviewsQueue() {
   }, [load]);
 
   if (loading) {
-    return <p className="text-sm text-gray-500">Loading reviews…</p>;
+    return <p className="text-sm text-muted">Loading reviews…</p>;
   }
 
   if (error) {
@@ -36,7 +36,7 @@ export function AllReviewsQueue() {
 
   if (items.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed bg-gray-50 p-6 text-center text-sm text-gray-500">
+      <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
         No reviews
       </p>
     );

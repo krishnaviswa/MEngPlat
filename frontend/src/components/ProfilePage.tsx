@@ -130,7 +130,7 @@ export default function ProfilePage() {
         <h1 className="text-xl font-bold">Profile</h1>
         <form onSubmit={onSubmit} className="mt-4 space-y-4">
           <div>
-            <label className="text-sm text-gray-600" htmlFor="full_name">
+            <label className="text-sm text-muted" htmlFor="full_name">
               Display name
             </label>
             <Input
@@ -142,7 +142,7 @@ export default function ProfilePage() {
             />
           </div>
           <div>
-            <label className="text-sm text-gray-600" htmlFor="phone">
+            <label className="text-sm text-muted" htmlFor="phone">
               Mobile number
             </label>
             <Input
@@ -153,10 +153,10 @@ export default function ProfilePage() {
               placeholder="+91…"
               className="mt-1"
             />
-            <p className="mt-1 text-xs text-gray-500">Used for account contact. Password sign-in uses an authenticator app, not SMS.</p>
+            <p className="mt-1 text-xs text-muted">Used for account contact. Password sign-in uses an authenticator app, not SMS.</p>
           </div>
           <div>
-            <label className="text-sm text-gray-600" htmlFor="avatar_url">
+            <label className="text-sm text-muted" htmlFor="avatar_url">
               Avatar URL
             </label>
             <Input
@@ -169,7 +169,7 @@ export default function ProfilePage() {
           </div>
 
           <fieldset className="space-y-3 border-t pt-4">
-            <legend className="text-sm font-medium text-gray-800">Address</legend>
+            <legend className="text-sm font-medium text-ink">Address</legend>
             <Input
               value={addressLine1}
               onChange={(e) => setAddressLine1(e.target.value)}
@@ -193,7 +193,7 @@ export default function ProfilePage() {
           </fieldset>
 
           <fieldset className="space-y-3 border-t pt-4">
-            <legend className="text-sm font-medium text-gray-800">National ID</legend>
+            <legend className="text-sm font-medium text-ink">National ID</legend>
             <Select
               value={nationalIdType}
               onChange={(e) => setNationalIdType(e.target.value as NationalIdType | "")}
@@ -208,7 +208,7 @@ export default function ProfilePage() {
               onChange={(e) => setNationalIdNumber(e.target.value)}
               placeholder="ID number"
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted">
               {user.role === "merchant"
                 ? "Required for merchants before you can submit a listing. Stored for your account — not verified as government KYC."
                 : "Optional. Stored for your account only — not verified as KYC in this version."}
@@ -216,22 +216,22 @@ export default function ProfilePage() {
           </fieldset>
 
           <div className="border-t pt-4">
-            <p className="text-sm text-gray-500">Email</p>
+            <p className="text-sm text-muted">Email</p>
             <p className="font-medium">{user.email}</p>
-            <p className="mt-1 text-xs text-gray-500">Email changes aren&apos;t supported yet.</p>
+            <p className="mt-1 text-xs text-muted">Email changes aren&apos;t supported yet.</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Role</p>
+            <p className="text-sm text-muted">Role</p>
             <p className="font-medium capitalize">{user.role}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Sign-in security</p>
+            <p className="text-sm text-muted">Sign-in security</p>
             {user.auth_provider === "google" && !user.totp_enabled ? (
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-muted">
                 You sign in with Gmail/Google. Authenticator MFA is not required on that path.
               </p>
             ) : (
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-muted">
                 {user.totp_enabled
                   ? "Authenticator app enabled — required for email/password sign-in."
                   : isPasswordAccount
@@ -239,11 +239,11 @@ export default function ProfilePage() {
                     : "Authenticator app not enabled."}
               </p>
             )}
-            <p className="mt-1 text-xs text-amber-800">
+            <p className="mt-1 text-xs text-amber-800 dark:text-amber-400">
               Tip: an authenticator app is more secure than password alone and helps safeguard your account.
             </p>
           </div>
-          {success && <p className="text-sm text-green-700">{success}</p>}
+          {success && <p className="text-sm text-green-700 dark:text-green-400">{success}</p>}
           {error && <p className="text-sm text-red-600">{error}</p>}
           <Button type="submit" disabled={saving}>
             {saving ? "Saving…" : "Save changes"}
@@ -255,9 +255,9 @@ export default function ProfilePage() {
         <div>
           <h2 className="text-lg font-bold">Favorites</h2>
           {favoritesLoading ? (
-            <p className="mt-2 text-sm text-gray-500">Loading favorites...</p>
+            <p className="mt-2 text-sm text-muted">Loading favorites...</p>
           ) : favoriteBusinesses.length === 0 ? (
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-muted">
               No favorites yet —{" "}
               <a href="/search" className="text-brand-600">
                 discover businesses

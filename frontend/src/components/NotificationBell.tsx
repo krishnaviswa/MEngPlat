@@ -82,7 +82,7 @@ export function NotificationBell() {
     <div className="relative" ref={rootRef}>
       <button
         type="button"
-        className="relative rounded p-1 text-gray-600 hover:bg-gray-100 hover:text-brand-600"
+        className="relative rounded p-1 text-muted hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-800"
         aria-label="Notifications"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
@@ -111,19 +111,19 @@ export function NotificationBell() {
           </div>
           <ul className="max-h-80 overflow-y-auto">
             {items.length === 0 ? (
-              <li className="px-3 py-6 text-center text-sm text-gray-500">No notifications yet</li>
+              <li className="px-3 py-6 text-center text-sm text-muted">No notifications yet</li>
             ) : (
               items.map((n) => (
                 <li key={n.id}>
                   <button
                     type="button"
-                    className={`w-full px-3 py-2 text-left hover:bg-gray-50 ${n.is_read ? "opacity-70" : ""}`}
+                    className={`w-full px-3 py-2 text-left hover:bg-surface ${n.is_read ? "opacity-70" : ""}`}
                     onClick={() => {
                       if (!n.is_read) void markOne(n.id);
                     }}
                   >
-                    <p className="text-sm font-medium text-gray-900">{n.title}</p>
-                    <p className="text-xs text-gray-600">{n.message}</p>
+                    <p className="text-sm font-medium text-ink">{n.title}</p>
+                    <p className="text-xs text-muted">{n.message}</p>
                   </button>
                 </li>
               ))

@@ -69,23 +69,23 @@ export function FeaturedBoostPanel({ businessId, listingStatus }: FeaturedBoostP
   const awaiting = Boolean(placement?.awaiting_approval);
 
   return (
-    <section className="rounded-xl border bg-white p-4">
+    <section className="rounded-xl border bg-surface-raised p-4">
       <h3 className="font-semibold">Featured listing boost</h3>
-      <p className="mt-1 text-sm text-gray-600">
+      <p className="mt-1 text-sm text-muted">
         Paid search placement for a fixed period. This is not an AI quality score.
       </p>
       {activeUntil && (
-        <p className="mt-2 text-sm text-green-700">
+        <p className="mt-2 text-sm text-green-700 dark:text-green-400">
           Active until <strong>{activeUntil}</strong>
         </p>
       )}
       {awaiting && (
-        <p className="mt-2 text-sm text-amber-800">
+        <p className="mt-2 text-sm text-amber-800 dark:text-amber-400">
           Payment received. Waiting for an admin to approve this boost before it appears in search.
         </p>
       )}
       {!approved && (
-        <p className="mt-2 text-sm text-amber-800">Boost is available only after the listing is approved.</p>
+        <p className="mt-2 text-sm text-amber-800 dark:text-amber-400">Boost is available only after the listing is approved.</p>
       )}
       {approved && !placement?.active && !awaiting && (
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -100,7 +100,7 @@ export function FeaturedBoostPanel({ businessId, listingStatus }: FeaturedBoostP
               <span className="block font-semibold text-brand-800">
                 ₹{sku.listed_price_inr} / {sku.duration_days === 30 ? "1 month" : `${sku.duration_days} days`}
               </span>
-              <span className="text-xs text-gray-600">
+              <span className="text-xs text-muted">
                 {busy === sku.code ? "Starting…" : "Boost this listing"}
               </span>
             </button>
@@ -108,7 +108,7 @@ export function FeaturedBoostPanel({ businessId, listingStatus }: FeaturedBoostP
         </div>
       )}
       {pendingOrder && (
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-muted">
           Demo order <code className="text-xs">{pendingOrder}</code> created. An admin records the mock capture,
           then approves the boost. Cards never go to this app.
         </p>

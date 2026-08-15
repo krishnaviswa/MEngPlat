@@ -30,10 +30,10 @@ const STATUS_LABEL: Record<BusinessStatus, string> = {
 };
 
 const STATUS_CLASS: Record<BusinessStatus, string> = {
-  pending: "text-amber-600",
-  approved: "text-green-600",
-  rejected: "text-gray-600",
-  suspended: "text-red-600",
+  pending: "text-amber-600 dark:text-amber-400",
+  approved: "text-green-600 dark:text-green-400",
+  rejected: "text-muted",
+  suspended: "text-red-600 dark:text-red-400",
 };
 
 function scrollToSection(id: string) {
@@ -160,9 +160,9 @@ export default function MerchantDashboardPage() {
       <Dashboard title="Merchant Dashboard" description="Manage your business" navItems={navItems}>
         <div className="space-y-6">
           {user?.role === "merchant" && <MerchantNationalIdCard user={user} onSaved={setUser} />}
-          <div className="rounded-xl border bg-white p-8 text-center">
-            <h2 className="text-lg font-semibold text-gray-900">No business yet</h2>
-            <p className="mt-2 text-sm text-gray-600">
+          <div className="rounded-xl border bg-surface-raised p-8 text-center">
+            <h2 className="text-lg font-semibold text-ink">No business yet</h2>
+            <p className="mt-2 text-sm text-muted">
               Register your shop or service to see reviews, stats, and AI insights here.
             </p>
             <a
@@ -207,8 +207,8 @@ export default function MerchantDashboardPage() {
     <Dashboard title="Merchant Dashboard" description={business.name} navItems={navItems}>
       <div className="space-y-6">
         {owned.length > 1 && (
-          <label className="block rounded-xl border bg-white p-4">
-            <span className="text-sm font-medium text-gray-700">Your businesses</span>
+          <label className="block rounded-xl border bg-surface-raised p-4">
+            <span className="text-sm font-medium text-muted">Your businesses</span>
             <Select
               value={selectedId}
               onChange={(e) => setSelectedId(e.target.value)}
@@ -225,7 +225,7 @@ export default function MerchantDashboardPage() {
         )}
 
         {status === "pending" && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-300">
             Your business is <strong>awaiting admin approval</strong>. You can update details anytime; public
             discovery starts after approval.
           </div>
@@ -235,24 +235,24 @@ export default function MerchantDashboardPage() {
           <button
             type="button"
             onClick={() => scrollToSection("recent-reviews")}
-            className="rounded-xl border bg-white p-4 text-left transition hover:border-brand-300 hover:shadow-sm"
+            className="rounded-xl border bg-surface-raised p-4 text-left transition hover:border-brand-300 hover:shadow-sm"
           >
-            <p className="text-sm text-gray-500">Total reviews</p>
+            <p className="text-sm text-muted">Total reviews</p>
             <p className="text-2xl font-bold">{String(stats?.total_reviews ?? 0)}</p>
           </button>
           <button
             type="button"
             onClick={() => scrollToSection("sentiment-breakdown")}
-            className="rounded-xl border bg-white p-4 text-left transition hover:border-brand-300 hover:shadow-sm"
+            className="rounded-xl border bg-surface-raised p-4 text-left transition hover:border-brand-300 hover:shadow-sm"
           >
-            <p className="text-sm text-gray-500">Average rating</p>
+            <p className="text-sm text-muted">Average rating</p>
             <p className="text-2xl font-bold">{Number(stats?.average_rating ?? 0).toFixed(1)}</p>
           </button>
           <a
             href={status === "approved" ? `/businesses/${business.slug}` : `/merchant/businesses/${business.id}/edit`}
-            className="rounded-xl border bg-white p-4 transition hover:border-brand-300 hover:shadow-sm"
+            className="rounded-xl border bg-surface-raised p-4 transition hover:border-brand-300 hover:shadow-sm"
           >
-            <p className="text-sm text-gray-500">Status</p>
+            <p className="text-sm text-muted">Status</p>
             <p className={`text-2xl font-bold ${STATUS_CLASS[status]}`}>{STATUS_LABEL[status]}</p>
           </a>
         </div>
@@ -263,7 +263,7 @@ export default function MerchantDashboardPage() {
         <FeaturedBoostPanel businessId={business.id} listingStatus={status} />
         {status === "approved" && <CollectQrCard businessId={business.id} />}
 
-        <div id="review-analytics" className="scroll-mt-20 rounded-xl border bg-white p-4">
+        <div id="review-analytics" className="scroll-mt-20 rounded-xl border bg-surface-raised p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="font-semibold">Review analytics</h3>
             <div className="flex items-center gap-3">
@@ -283,7 +283,7 @@ export default function MerchantDashboardPage() {
                 type="button"
                 onClick={handleExportCsv}
                 disabled={exportingCsv}
-                className="rounded border border-brand-300 bg-white px-3 py-1.5 text-sm text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+                className="rounded border border-brand-300 bg-surface-raised px-3 py-1.5 text-sm text-brand-700 hover:bg-brand-50 disabled:opacity-50"
               >
                 {exportingCsv ? "Exporting..." : "Export CSV"}
               </button>
@@ -292,17 +292,17 @@ export default function MerchantDashboardPage() {
 
           <div className="mt-4 grid gap-6 sm:grid-cols-2">
             <div>
-              <h4 className="mb-2 text-sm font-medium text-gray-700">Review volume</h4>
+              <h4 className="mb-2 text-sm font-medium text-muted">Review volume</h4>
               <Charts data={volumeData} variant="area" emptyMessage="No reviews in this range yet." />
             </div>
             <div>
-              <h4 className="mb-2 text-sm font-medium text-gray-700">Rating mix (1-5 stars)</h4>
+              <h4 className="mb-2 text-sm font-medium text-muted">Rating mix (1-5 stars)</h4>
               <Charts data={ratingData} emptyMessage="No reviews in this range yet." />
             </div>
           </div>
 
           {inRangeReviewCount === 0 && (
-            <p className="mt-3 text-sm text-gray-500">
+            <p className="mt-3 text-sm text-muted">
               No reviews in this range yet. Try a wider date range, or check back once customers start reviewing.
             </p>
           )}
@@ -334,7 +334,7 @@ export default function MerchantDashboardPage() {
           />
         )}
 
-        <div id="sentiment-breakdown" className="scroll-mt-20 rounded-xl border bg-white p-4">
+        <div id="sentiment-breakdown" className="scroll-mt-20 rounded-xl border bg-surface-raised p-4">
           <h3 className="font-semibold">Sentiment breakdown</h3>
           <Charts data={sentimentData} />
         </div>
@@ -342,12 +342,12 @@ export default function MerchantDashboardPage() {
         {insights && (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm text-gray-600">Refresh AI summary when you want an updated suggestion.</p>
+              <p className="text-sm text-muted">Refresh AI summary when you want an updated suggestion.</p>
               <button
                 type="button"
                 onClick={handleRefreshAi}
                 disabled={refreshingAi}
-                className="rounded border border-brand-300 bg-white px-3 py-1.5 text-sm text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+                className="rounded border border-brand-300 bg-surface-raised px-3 py-1.5 text-sm text-brand-700 hover:bg-brand-50 disabled:opacity-50"
               >
                 {refreshingAi ? "Refreshing..." : "Refresh AI insights"}
               </button>
@@ -360,7 +360,7 @@ export default function MerchantDashboardPage() {
           <h3 className="mb-3 font-semibold">Recent reviews</h3>
           <div className="space-y-3">
             {((stats?.recent_reviews as Review[]) || []).length === 0 ? (
-              <p className="text-sm text-gray-500">No reviews yet.</p>
+              <p className="text-sm text-muted">No reviews yet.</p>
             ) : (
               ((stats?.recent_reviews as Review[]) || []).map((r) => (
                 <ReviewCard

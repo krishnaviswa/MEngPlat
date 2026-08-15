@@ -14,14 +14,14 @@ export function TrustMetrics({ stats }: TrustMetricsProps) {
   ];
 
   return (
-    <section className="mh-section-reveal border-y border-slate-200/80 bg-white/70 backdrop-blur-sm">
+    <section className="mh-section-reveal border-y border-border/80 bg-surface-raised/70 backdrop-blur-sm">
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-8 px-4 py-10 md:grid-cols-4">
         {items.map((item) => (
           <div key={item.label} className="text-center md:text-left">
-            <p className="font-display text-3xl font-semibold tracking-tight text-brand-800 md:text-4xl">
+            <p className="font-display text-3xl font-semibold tracking-tight text-brand-800 dark:text-brand-300 md:text-4xl">
               {(item.value ?? 0).toLocaleString()}
             </p>
-            <p className="mt-1 text-sm text-slate-600">{item.label}</p>
+            <p className="mt-1 text-sm text-muted">{item.label}</p>
           </div>
         ))}
       </div>

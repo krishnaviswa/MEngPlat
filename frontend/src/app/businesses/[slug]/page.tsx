@@ -51,7 +51,7 @@ export default async function BusinessPage({ params }: Props) {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       {hero && (
-        <div className="mb-6 overflow-hidden rounded-xl border bg-white shadow-sm">
+        <div className="mb-6 overflow-hidden rounded-xl border border-border bg-surface-raised shadow-sm">
           <img
             src={hero.startsWith("http") ? hero : `${API_URL}${hero}`}
             alt=""
@@ -60,21 +60,21 @@ export default async function BusinessPage({ params }: Props) {
         </div>
       )}
 
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-border bg-surface-raised p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-brand-700">
               {business.categories?.[0]?.name || "Local business"}
             </p>
             <h1 className="mt-1 text-3xl font-bold">{business.name}</h1>
-            <p className="mt-2 text-gray-700">{placeLine}</p>
-            {business.phone && <p className="mt-1 text-sm text-gray-600">{business.phone}</p>}
+            <p className="mt-2 text-muted">{placeLine}</p>
+            {business.phone && <p className="mt-1 text-sm text-muted">{business.phone}</p>}
             <div className="mt-3 flex items-center gap-2">
               <RatingWidget value={business.average_rating} readonly />
-              <span className="text-sm font-semibold text-gray-800">
+              <span className="text-sm font-semibold text-muted">
                 {business.average_rating ? business.average_rating.toFixed(1) : "New"}
               </span>
-              <span className="text-sm text-gray-500">({business.review_count} reviews)</span>
+              <span className="text-sm text-muted">({business.review_count} reviews)</span>
             </div>
             {/* S-011: favorite toggle — keep separate from S-012 Details section below */}
             <div className="mt-3">
@@ -89,11 +89,11 @@ export default async function BusinessPage({ params }: Props) {
             <span className="text-xs font-normal text-brand-100">takes 2 min</span>
           </a>
         </div>
-        {business.description && <p className="mt-4 text-gray-700">{business.description}</p>}
+        {business.description && <p className="mt-4 text-muted">{business.description}</p>}
         {business.ai_merchant_summary && (
-          <div className="mt-4 rounded border-l-4 border-brand-400 bg-brand-50 p-3">
+          <div className="mt-4 rounded border-l-4 border-brand-400 bg-brand-50 p-3 dark:bg-brand-900/20">
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">About this place</p>
-            <p className="mt-1 text-sm text-gray-700">{business.ai_merchant_summary}</p>
+            <p className="mt-1 text-sm text-muted">{business.ai_merchant_summary}</p>
           </div>
         )}
       </div>
@@ -104,7 +104,7 @@ export default async function BusinessPage({ params }: Props) {
           <Card className="space-y-4">
             {hasCategories && (
               <div>
-                <h3 className="mb-1.5 text-sm font-semibold text-gray-700">Categories</h3>
+                <h3 className="mb-1.5 text-sm font-semibold text-muted">Categories</h3>
                 <CategoryBadges categories={business.categories} />
               </div>
             )}
@@ -133,7 +133,7 @@ export default async function BusinessPage({ params }: Props) {
             )}
             {hasHours && (
               <div>
-                <h3 className="mb-1.5 text-sm font-semibold text-gray-700">Hours</h3>
+                <h3 className="mb-1.5 text-sm font-semibold text-muted">Hours</h3>
                 <BusinessHours hours={business.business_hours} />
               </div>
             )}
@@ -169,7 +169,7 @@ export default async function BusinessPage({ params }: Props) {
       <section className="mt-8">
         <h2 className="mb-4 text-xl font-semibold">Reviews</h2>
         {reviewList.length === 0 ? (
-          <p className="text-gray-500">No reviews yet — be the first to share your experience.</p>
+          <p className="text-muted">No reviews yet — be the first to share your experience.</p>
         ) : (
           <>
             {reviewList.length >= 3 && <ReviewHighlights reviews={reviewList} averageRating={business.average_rating} />}

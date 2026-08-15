@@ -61,10 +61,10 @@ function SeriesChart({ title, subtitle, data }: { title: string; subtitle?: stri
   const allZero = data.every((b) => b.count === 0);
   return (
     <div>
-      <h4 className="mb-1 text-sm font-medium text-gray-700">{title}</h4>
-      {subtitle && <p className="mb-2 text-xs text-gray-500">{subtitle}</p>}
+      <h4 className="mb-1 text-sm font-medium text-muted">{title}</h4>
+      {subtitle && <p className="mb-2 text-xs text-muted">{subtitle}</p>}
       {allZero ? (
-        <p className="rounded-lg border border-dashed bg-gray-50 p-6 text-center text-sm text-gray-500">
+        <p className="rounded-lg border border-dashed border-border bg-surface p-6 text-center text-sm text-muted">
           No data yet for this window
         </p>
       ) : (
@@ -95,12 +95,12 @@ export default function AdminPage() {
     <RequireAuth role="admin">
       <div className="mx-auto max-w-4xl px-4 py-8">
         <h1 className="text-2xl font-bold">Admin Panel</h1>
-        <p className="text-gray-600">Platform moderation and analytics</p>
+        <p className="text-muted">Platform moderation and analytics</p>
 
         {error && (
-          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-center">
-            <p className="text-red-700">{error}</p>
-            <p className="mt-2 text-sm text-gray-600">
+          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-center dark:border-red-900/50 dark:bg-red-900/20">
+            <p className="text-red-700 dark:text-red-300">{error}</p>
+            <p className="mt-2 text-sm text-muted">
               Sign in with an admin account to access this page.
             </p>
           </div>
@@ -117,9 +117,9 @@ export default function AdminPage() {
                     key={key}
                     type="button"
                     onClick={() => scrollToSection(target)}
-                    className="rounded-xl border bg-white p-4 text-left transition hover:border-brand-300 hover:shadow-sm"
+                    className="rounded-xl border border-border bg-surface-raised p-4 text-left transition hover:border-brand-300 hover:shadow-sm"
                   >
-                    <p className="text-sm text-gray-500">{STAT_LABELS[key]}</p>
+                    <p className="text-sm text-muted">{STAT_LABELS[key]}</p>
                     <p className="text-2xl font-bold">{value}</p>
                   </button>
                 );
@@ -129,9 +129,9 @@ export default function AdminPage() {
                   <a
                     key={key}
                     href={link}
-                    className="rounded-xl border bg-white p-4 transition hover:border-brand-300 hover:shadow-sm"
+                    className="rounded-xl border border-border bg-surface-raised p-4 transition hover:border-brand-300 hover:shadow-sm"
                   >
-                    <p className="text-sm text-gray-500">{STAT_LABELS[key]}</p>
+                    <p className="text-sm text-muted">{STAT_LABELS[key]}</p>
                     <p className="text-2xl font-bold">{value}</p>
                   </a>
                 );
@@ -142,9 +142,9 @@ export default function AdminPage() {
         )}
 
         {series && (
-          <section className="mt-8 rounded-xl border bg-white p-4">
+          <section className="mt-8 rounded-xl border border-border bg-surface-raised p-4">
             <h3 className="font-semibold">Platform trends</h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted">
               Daily counts over the last {series.days} days, from stored timestamps — operational facts, not AI
               output.
             </p>
@@ -158,7 +158,7 @@ export default function AdminPage() {
 
         <section id="pending-businesses" className="mt-10 scroll-mt-20">
           <h2 className="text-lg font-semibold">Pending businesses</h2>
-          <p className="text-sm text-gray-500">Approve new listings or suspend suspicious registrations.</p>
+          <p className="text-sm text-muted">Approve new listings or suspend suspicious registrations.</p>
           <div className="mt-4">
             <PendingBusinessQueue onChange={loadStats} />
           </div>
@@ -166,7 +166,7 @@ export default function AdminPage() {
 
         <section id="reported-reviews" className="mt-10 scroll-mt-20">
           <h2 className="text-lg font-semibold">Reported reviews</h2>
-          <p className="text-sm text-gray-500">Hide, restore, or permanently remove flagged content.</p>
+          <p className="text-sm text-muted">Hide, restore, or permanently remove flagged content.</p>
           <div className="mt-4">
             <ReportedReviewsQueue onChange={loadStats} />
           </div>
@@ -174,7 +174,7 @@ export default function AdminPage() {
 
         <section id="admin-categories" className="mt-10 scroll-mt-20">
           <h2 className="text-lg font-semibold">Categories</h2>
-          <p className="text-sm text-gray-500">Add browse categories without a developer.</p>
+          <p className="text-sm text-muted">Add browse categories without a developer.</p>
           <div className="mt-4">
             <AdminCategoryPanel />
           </div>
@@ -182,7 +182,7 @@ export default function AdminPage() {
 
         <section id="admin-payments" className="mt-10 scroll-mt-20">
           <h2 className="text-lg font-semibold">Payments</h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted">
             Featured boost charges. Capture records money; approve turns on search placement. Reject does not
             refund.
           </p>
@@ -193,7 +193,7 @@ export default function AdminPage() {
 
         <section id="admin-users" className="mt-10 scroll-mt-20">
           <h2 className="text-lg font-semibold">Users</h2>
-          <p className="text-sm text-gray-500">Suspend or reactivate customer and merchant accounts.</p>
+          <p className="text-sm text-muted">Suspend or reactivate customer and merchant accounts.</p>
           <div className="mt-4">
             <AdminUserPanel />
           </div>

@@ -16,14 +16,14 @@ export function ReviewHighlights({ reviews, averageRating }: ReviewHighlightsPro
 
   return (
     <div className="mb-4 flex flex-wrap gap-2">
-      <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-800">
+      <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-800 dark:bg-brand-900/30 dark:text-brand-200">
         {averageRating.toFixed(1)}★ avg
       </span>
-      <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-800">
+      <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-800 dark:bg-brand-900/30 dark:text-brand-200">
         {reviews.length} reviews
       </span>
       {topSentiment && (
-        <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-medium capitalize text-brand-800">
+        <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-medium capitalize text-brand-800 dark:bg-brand-900/30 dark:text-brand-200">
           Mostly {topSentiment}
         </span>
       )}

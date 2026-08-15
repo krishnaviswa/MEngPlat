@@ -34,10 +34,10 @@ export function AuthMarketingPanel({ stats }: AuthMarketingPanelProps) {
       <p className="font-display text-sm font-semibold uppercase tracking-[0.2em] text-brand-700">
         MerchantHub
       </p>
-      <h1 className="mt-4 font-display text-3xl font-semibold leading-tight tracking-tight text-slate-900 sm:text-4xl">
+      <h1 className="mt-4 font-display text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl">
         The trusted home for local business reviews
       </h1>
-      <p className="mt-4 text-lg text-slate-600">
+      <p className="mt-4 text-lg text-muted">
         Find neighborhood shops with photos, ratings, and AI-suggested insights — never presented
         as definitive judgments.
       </p>
@@ -45,25 +45,25 @@ export function AuthMarketingPanel({ stats }: AuthMarketingPanelProps) {
       <ul className="mt-8 space-y-5">
         {FEATURES.map((f) => (
           <li key={f.title} className="flex gap-3">
-            <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+            <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
               ✓
             </span>
             <div>
-              <p className="font-medium text-slate-900">{f.title}</p>
-              <p className="mt-0.5 text-sm text-slate-600">{f.body}</p>
+              <p className="font-medium text-ink">{f.title}</p>
+              <p className="mt-0.5 text-sm text-muted">{f.body}</p>
             </div>
           </li>
         ))}
       </ul>
 
       {items.length > 0 && (
-        <div className="mt-10 grid grid-cols-3 gap-4 border-t border-slate-200 pt-6">
+        <div className="mt-10 grid grid-cols-3 gap-4 border-t border-border pt-6">
           {items.map((item) => (
             <div key={item.label}>
-              <p className="font-display text-2xl font-semibold tracking-tight text-brand-800">
+              <p className="font-display text-2xl font-semibold tracking-tight text-brand-800 dark:text-brand-300">
                 {(item.value ?? 0).toLocaleString()}
               </p>
-              <p className="mt-1 text-xs text-slate-500">{item.label}</p>
+              <p className="mt-1 text-xs text-muted">{item.label}</p>
             </div>
           ))}
         </div>

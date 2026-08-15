@@ -1452,7 +1452,29 @@ The visual layer is mirrored in Figma as a token-driven design system, generated
 
 The brand ramp was completed to 50–900 while building this. `border-brand-400` in `[AIInsights.tsx](frontend/src/components/AIInsights.tsx)` referenced a stop `tailwind.config.ts` never defined, so that blockquote border was silently rendering as no border.
 
-**Dark mode exists in Figma but not in code.** The `Color` collection is staged with both modes so tokens are ready when dark mode lands; the app ships light-only today. Switch any frame's mode to preview it — do not read its presence as a shipped feature.
+**Dark mode is shipped in code (S-045, Accepted).** The `Color` collection's Light/Dark modes were the design intent; the working implementation (`next-themes`, class-based Tailwind dark mode, 5 semantic tokens, a swept ~65-file component pass) shipped ahead of a human pulling the real hex values out of Figma — the Color collection's 99 variables are local/unpublished, so Figma MCP tooling couldn't read them this session. Every dark-mode hex currently in code is a reasoned, contrast-checked, Material-3-grounded placeholder, not the canonical Figma value. See §14 for the follow-up.
+
+### Theming (dark mode, S-045)
+
+`darkMode: "class"` in `tailwind.config.ts` + the `next-themes` package (`ThemeProvider attribute="class" defaultTheme="system" enableSystem`, wired in `ClientLayout.tsx`) drive theme resolution — an inline pre-hydration script sets `.dark` on `<html>` before React hydrates, so there's no flash of the wrong theme on first paint, and an explicit choice made via the navbar's `ThemeToggle.tsx` persists to `localStorage` and overrides the OS preference from then on.
+
+Five semantic Tailwind color tokens, each backed by a CSS custom property that flips value inside a `.dark { }` block in `globals.css`, replace the old grey-scale utility classes:
+
+| Token | Replaces | Role |
+| ----- | -------- | ---- |
+| `bg-surface` | `bg-gray-50` | page / section background |
+| `bg-surface-raised` | `bg-white` | cards, headers, panels, modals |
+| `text-ink` | `text-gray-900` / `text-slate-900` | primary text |
+| `text-muted` | `text-gray-500/600/700/800` | secondary/tertiary text |
+| `border-border` | `border-gray-200` | card/divider borders |
+
+**Convention going forward:** new components should reach for these 5 tokens instead of hardcoded `bg-white` / `text-gray-*` grey utilities, so they theme correctly for free. Tone-carrying colors (sentiment badges, star-rating fill, hover chrome) intentionally stay as explicit `dark:` pairs rather than folding into a generic token, since they carry meaning beyond surface/text role. `Charts.tsx` (Recharts) is the one place tokens can't reach — its SVG props read a `CHART_COLORS` light/dark map keyed off `useTheme().resolvedTheme` instead.
+
+### Review-list interactivity (S-046)
+
+`ReviewsList.tsx` (on `/businesses/[slug]`) reuses `FilterPanel`'s sort-`Select` + min-rating-pill *pattern* client-side, rather than the `FilterPanel` component itself — `FilterPanel` is a URL-param-driven server form built for `/search`'s full-page navigation model, while `ReviewsList` sorts/filters an already-fetched in-memory `Review[]` with a `useMemo` filter-then-sort derivation and no page reload. Sort (Newest / Oldest / Highest / Lowest) and a minimum-star-rating pill row (`All` / `3+` / `4+` / `5`) combine; a zero-match combination renders a distinct "No reviews match these filters" state with a Clear-filters affordance, kept visually separate from the existing "no reviews yet" empty state. `ReviewCard.tsx` also gained `line-clamp-3` truncation with a Read more/less toggle for long review bodies (280-char heuristic), and now wires its photo thumbnails through `PhotoGallery`'s existing lightbox instead of a raw `<img>` grid.
+
+`ui/RatingWidget.tsx` gained half-star rendering (a width-clipped two-glyph unicode overlay) for its **readonly** display mode only — every readonly call site (`BusinessCard`, business profile header, `AllBusinessesQueue`, `ReviewVoices`, `ReviewCard`) picks this up for free. The interactive rating *picker* used on the review-submission form is untouched by construction — it never enters the half-star code path, whole-star selection only, same as before this slice.
 
 #### Components and templates
 
@@ -2232,11 +2254,13 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-69 | Merchant          | Competitor rating benchmarking (category + city median)            | `/merchant/dashboard`                           | —                                                                      | `unimplemented` | S-038; web built — mobile not yet                            |
 | M-70 | Merchant          | AI reply drafting ("Draft with AI" button on review cards)         | `/merchant/dashboard`                           | —                                                                      | `unimplemented` | S-039; web built — mobile not yet                            |
 | M-71 | Merchant/Customer | Review collection flow (public QR/link wizard, no gating)          | `/collect/[businessId]`                         | —                                                                      | `unimplemented` | S-040; web built — mobile not yet                            |
+| M-75 | Chrome            | Dark mode (system-matched default, explicit toggle, persisted)     | Navbar `ThemeToggle` (`next-themes`)            | —                                                                      | `unimplemented` | S-045; web built — mobile not yet                            |
+| M-72 | Reviews           | Review-list sort/filter/truncate/lightbox + half-star ratings      | `/businesses/[slug]` (`ReviewsList`, `ReviewCard`, `ui/RatingWidget`) | —                                                          | `unimplemented` | S-046; web built — mobile not yet                            |
 
 
 
 
-**Rollup (2026-08-15):** `implemented` 46 · `partial` 1 · `unimplemented` 15 · `n/a` 11 · `future` 1 · **total 74**.
+**Rollup (2026-08-15):** `implemented` 46 · `partial` 1 · `unimplemented` 17 · `n/a` 11 · `future` 1 · **total 76**.
 
 This repo is built with both Cursor and Claude Code, so every convention is defined
 **twice, in each tool's native format** — a session started in either tool should
@@ -2476,6 +2500,7 @@ An honest delta between the original specification and what the code actually do
 | **Android Play release**    | Signed AAB + Play Console listing / internal-testing track not wired yet (see `[ANDROID_APP_STRATEGY.md](ANDROID_APP_STRATEGY.md)` phase 5). Feature-level web↔mobile gaps live in the [§12 parity tracker](#web--mobile-feature-parity-tracker) — not duplicated here.          |
 | **Mobile web parity**       | P0–P4 (S-023–S-025, S-027–S-031) are on Flutter (analyze/test not run yet). Remaining gaps: home marketing (M-13–M-18), FCM (M-47 `future`), storefront/hours editors (`n/a`). Living checklist: [§12 Web ↔ mobile feature parity tracker](#web--mobile-feature-parity-tracker). |
 | **Optional seed ops**       | Core seed gating is done (`SEED_MODE` / `seed_runs`). Still optional later: a Railway one-shot/cron seed service (never on the web dyno), blue-green app cutover on one DB, or a disposable dual-DB demo reset — not required for normal deploys.                                |
+| **Dark mode hex values are placeholder** | Dark mode itself is shipped (S-045, Accepted — `next-themes`, class-based Tailwind, 5 semantic tokens, ~65-file sweep). What's still open: every dark-mode hex (`globals.css` `--mh-*` vars, `Charts.tsx` `CHART_COLORS.dark`, Badge/RatingWidget `dark:` pairs) is a contrast-checked, Material-3-grounded placeholder — the real Figma `Color` collection (`X0XXhJiwW8SxFdMf39n2t3`, 99 variables, Light+Dark) is local/unpublished and unreachable via Figma MCP tooling this session. A human needs to open the file directly, diff the real values against the table in the S-045 slice spec, and file a follow-up patch if they drift. |
 
 
 
@@ -2679,7 +2704,7 @@ Demo / seeded listings only. A fundraise ask should be **pre-seed for one neighb
 
 | Built                                                                                                                                                                                                                                                                                                                       | Next (not yet Accepted)                                                                                                                                                                                                                                                                                                                                                                                                               |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth (password + TOTP, Google) + forgot/reset + email, search + OSM + paid Featured, reviews, favorites, merchant dashboard (S-033 charts, S-037 area/deltas, S-038 benchmark, S-039 AI draft, S-040 QR collect), admin queues (S-034) + placement refund, **S-036** featured SKU (mock/Razorpay port), **S-010** Playwright journeys + manual `web-e2e.yml` | Leftovers: structured logs, isolated test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity, optional re-enable pytest/Jest on PR |
+| Auth (password + TOTP, Google) + forgot/reset + email, search + OSM + paid Featured, reviews, favorites, merchant dashboard (S-033 charts, S-037 area/deltas, S-038 benchmark, S-039 AI draft, S-040 QR collect), admin queues (S-034) + placement refund, **S-036** featured SKU (mock/Razorpay port), **S-045** dark mode (system default + toggle, ~65-file sweep), **S-046** review-list sort/filter/truncate/lightbox + half-star ratings, **S-010** Playwright journeys + manual `web-e2e.yml` | Leftovers: structured logs, isolated test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity (incl. dark mode, review-list interactivity), optional re-enable pytest/Jest on PR |
 
 
 Play Store packaging is distribution (`ANDROID_APP_STRATEGY.md` phase 5), not this story.

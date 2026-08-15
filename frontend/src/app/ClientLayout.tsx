@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ThemeProvider } from "next-themes";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { auth, clearTokens, performLogout, type User } from "@/lib/api";
@@ -39,10 +40,12 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Navbar user={user} onLogout={handleLogout} />
-      <main className="flex-1">{children}</main>
-      <Footer />
-    </div>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <div className="flex min-h-screen flex-col">
+        <Navbar user={user} onLogout={handleLogout} />
+        <main className="flex-1">{children}</main>
+        <Footer />
+      </div>
+    </ThemeProvider>
   );
 }

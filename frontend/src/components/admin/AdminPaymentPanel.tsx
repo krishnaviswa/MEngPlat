@@ -43,30 +43,30 @@ export function AdminPaymentPanel() {
     }
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading payments…</p>;
+  if (loading) return <p className="text-sm text-muted">Loading payments…</p>;
 
   return (
     <div className="space-y-3">
       {error && <p className="text-sm text-red-600">{error}</p>}
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-gray-50 p-6 text-center text-sm text-gray-500">
+        <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
           No featured payments yet
         </p>
       ) : (
         items.map((p) => (
-          <div key={p.id} className="rounded-xl border bg-white p-4 text-sm">
+          <div key={p.id} className="rounded-xl border bg-surface-raised p-4 text-sm">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <p className="font-semibold">{p.business_name || "Listing"}</p>
-                <p className="text-gray-600">
+                <p className="text-muted">
                   {p.merchant_name} · {p.merchant_email || "no email"} · {p.merchant_payment_count} payment
                   {p.merchant_payment_count === 1 ? "" : "s"}
                 </p>
-                <p className="mt-1 text-gray-700">
+                <p className="mt-1 text-muted">
                   {p.sku_code} · {p.duration_days} days · {rupees(p.amount_paise)} · {p.status}
                   {p.awaiting_approval ? " · awaiting boost approval" : ""}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted">
                   Order <code>{p.provider_order_id}</code>
                   {p.platform_fee_paise != null && (
                     <>
