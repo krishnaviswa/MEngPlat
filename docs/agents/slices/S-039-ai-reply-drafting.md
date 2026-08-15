@@ -82,3 +82,5 @@ Unchanged reply POST.
 | Date | Agent | Change |
 |------|-------|--------|
 | 2026-08-15 | PM + Architect | Specified; near-zero backend. |
+| 2026-08-15 | Tester | Combined TR-S-037-040 shot 2: all 4 AC mapped and passing, including suggestion / not-auto-sent copy. Recommendation Ship. Status left for PM. |
+| 2026-08-15 | PM | **Accepted** on combined `TR-S-037-040-intel-wave.md` (shot 2, Ship, 4/4). Spot-check: “AI draft is a suggestion — edit before sending. It is not posted automatically.” Saved reply is merchant text; customer ReviewCard has no Draft with AI. |

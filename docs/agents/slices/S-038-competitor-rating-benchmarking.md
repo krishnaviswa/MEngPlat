@@ -89,3 +89,5 @@ CSR `BenchmarkCard`. `dashboard.benchmark(id)` in `api.ts`.
 | Date | Agent | Change |
 |------|-------|--------|
 | 2026-08-15 | PM + Architect | Specified; waits on S-037 file overlap. |
+| 2026-08-15 | Tester | Combined TR-S-037-040 shot 2: all 4 AC mapped and passing, including directory-median (not AI) disclaimer. Recommendation Ship. Status left for PM. |
+| 2026-08-15 | PM | **Accepted** on combined `TR-S-037-040-intel-wave.md` (shot 2, Ship, 4/4). Own + category/city medians; fewer than 3 peers → null + “not enough local data”; copy is directory medians not an AI judgment; ownership 403/404. Non-blocking: no live Postgres join this session. |

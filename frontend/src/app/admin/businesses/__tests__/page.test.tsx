@@ -108,3 +108,53 @@ describe("Admin business drill-down page (S-021)", () => {
     expect(screen.queryByText(/error/i)).not.toBeInTheDocument();
   });
 });
+
+describe("Admin featured boost ledger (S-036)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.setItem("access_token", "tok-1");
+    meMock.mockResolvedValue({ id: "admin-1", role: "admin", full_name: "Admin" });
+    adminAllReviewsMock.mockResolvedValue([]);
+    adminAllBusinessesMock.mockResolvedValue([makeBusiness({ id: "biz-1", name: "Corner Bakery" })]);
+  });
+
+  it("shows platform and gateway fees plus disable/refund, not grants", async () => {
+    placementMock.mockResolvedValue({
+      business_id: "biz-1",
+      active: true,
+      placement: {
+        id: "place-1",
+        starts_at: "2026-08-15T00:00:00Z",
+        ends_at: "2026-08-22T00:00:00Z",
+        disabled_at: null,
+        payment_id: "pay-1",
+      },
+      sku: { code: "featured_7d", duration_days: 7, listed_price_inr: 499 },
+      payment: {
+        id: "pay-1",
+        status: "paid",
+        amount_paise: 49900,
+        currency: "INR",
+        platform_fee_paise: 48722,
+        gateway_fee_paise: 1178,
+        provider: "mock",
+        provider_order_id: "order_mock_abc",
+        created_at: "2026-08-15T00:00:00Z",
+      },
+    });
+
+    render(
+      <Suspense fallback="loading-params">
+        <AdminBusinessDrilldownPage params={resolvedParams({ id: "biz-1" })} />
+      </Suspense>,
+    );
+
+    expect(await screen.findByText("Featured boost ledger")).toBeInTheDocument();
+    expect(screen.getByText(/platform ₹487\.22/i)).toBeInTheDocument();
+    expect(screen.getByText(/gateway ₹11\.78/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /disable placement/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^refund$/i })).toBeInTheDocument();
+    expect(screen.getByText(/customers are not charged/i)).toBeInTheDocument();
+    expect(screen.getByText(/event grants are not offered here/i)).toBeInTheDocument();
+  });
+});

@@ -6,14 +6,22 @@ alwaysApply: false
 
 # Testing
 
+Full evaluation model (pyramid, mocks, staging, Playwright plan): `README.md` §11 and `docs/agents/adrs/ADR-009-web-functional-e2e.md`.
+
 ## Backend (pytest)
 - `httpx.AsyncClient` + `ASGITransport` against `app.main:app`
 - Test auth, RBAC, happy path per router
 - `AI_PROVIDER=mock` — no network in tests
+- Email/payments/storage stay on mock/local defaults in CI
 
 ## Frontend (Jest + RTL)
 - Colocate under `__tests__/`
 - Test behavior, not implementation
+
+## Web browser e2e (not implemented — S-010)
+- Do not add Cypress/Selenium
+- Playwright (Python) per ADR-009 / TP-S-010 when that slice is built
+- Run against Compose or staging with mock vendors, never live LLM/payment keys
 
 ## Mobile (Flutter)
 - `flutter analyze` + `flutter test` (unit/widget, `mobile/test/`) — no device needed; enforced by
@@ -36,4 +44,4 @@ alwaysApply: false
 - Cheap checks (lint/unit) run on every push, never cancelled.
 - Expensive checks (emulator integration) cancel a *stale* run when a newer commit supersedes it on the same PR — the check still always validates the latest commit, never skips it.
 - Manual `workflow_dispatch` exists as an on-demand full-validation override for critical fixes.
-- **Known gap:** `main` has no branch-protection rule requiring CI to pass, and Railway's deploy is not gated on CI status — a failing check does not yet block a merge or a production deploy. Fixing this (GitHub Settings → Branches → required status checks; block direct pushes) is the top open item; see `ANDROID_APP_STRATEGY.md`.
+- **Known gap:** backend/frontend app-test workflows are currently dispatch-only (PR triggers commented). `main` has no branch-protection rule requiring CI to pass, and Railway's deploy is not gated on CI status. See `README.md` §11 and `ANDROID_APP_STRATEGY.md`.

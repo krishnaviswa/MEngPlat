@@ -16,7 +16,17 @@ down_revision: str | None = "c3d4e5f6a7b8"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-payment_status = sa.Enum("CREATED", "PAID", "FAILED", "REFUNDED", name="paymentstatus")
+# create_type=False: we emit CREATE TYPE once below. The default True would
+# CREATE TYPE again inside op.create_table and fail with DuplicateObjectError
+# (paymentstatus already exists) — that is what broke Railway on this revision.
+payment_status = postgresql.ENUM(
+    "CREATED",
+    "PAID",
+    "FAILED",
+    "REFUNDED",
+    name="paymentstatus",
+    create_type=False,
+)
 
 
 def upgrade() -> None:

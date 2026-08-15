@@ -91,5 +91,55 @@ describe("ReviewCard AI disclaimer language (regression, S-021 AC 8)", () => {
     fireEvent.click(screen.getByRole("button", { name: /draft with ai/i }));
     expect(screen.getByDisplayValue(/Thanks for visiting/)).toBeInTheDocument();
     expect(screen.getByText(/AI draft is a suggestion/i)).toBeInTheDocument();
+    expect(screen.getByText(/not posted automatically/i)).toBeInTheDocument();
+  });
+});
+
+describe("ReviewCard AI reply drafting (S-039)", () => {
+  it("shows 'No draft available' when suggested_response is missing", () => {
+    render(
+      <ReviewCard
+        review={makeReview({ ai_analysis: { sentiment: "neutral" } })}
+        canReply
+        onReply={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /reply as business/i }));
+    expect(screen.getByText("No draft available")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /draft with ai/i })).not.toBeInTheDocument();
+  });
+
+  it("posts the edited textarea, not the original AI draft", async () => {
+    const onReply = jest.fn().mockResolvedValue(undefined);
+    render(
+      <ReviewCard
+        review={makeReview({
+          ai_analysis: { sentiment: "positive", suggested_response: "Thanks for visiting — suggestion only." },
+        })}
+        canReply
+        onReply={onReply}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /reply as business/i }));
+    fireEvent.click(screen.getByRole("button", { name: /draft with ai/i }));
+    fireEvent.change(screen.getByDisplayValue(/Thanks for visiting/), {
+      target: { value: "Edited by the merchant before send." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /post reply/i }));
+    expect(onReply).toHaveBeenCalledWith("rev-1", "Edited by the merchant before send.");
+    expect(onReply).not.toHaveBeenCalledWith("rev-1", "Thanks for visiting — suggestion only.");
+  });
+
+  it("hides Draft with AI when canReply is omitted (customer view)", () => {
+    render(
+      <ReviewCard
+        review={makeReview({
+          ai_analysis: { sentiment: "positive", suggested_response: "Thanks for visiting — suggestion only." },
+        })}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /reply as business/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /draft with ai/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/AI draft is a suggestion/i)).not.toBeInTheDocument();
   });
 });

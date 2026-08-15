@@ -18,7 +18,7 @@ Built as a portfolio-grade full-stack MVP demonstrating Forward Deployed Enginee
 | **Architect**           | [§2 Logical design](#2-logical-design), [§3 Architecture](#3-architecture), [§4 Why this stack](#4-why-this-stack), [§9 Security](#9-security)                                                                   | Shape of the system, the pattern behind it, the trade-offs taken            |
 | **Senior developer**    | §3, [§5 Domain model](#5-domain-model), [§6 Flows](#6-feature-flows), §9, [§14 Known gaps](#14-known-gaps--roadmap), [web↔mobile parity](#web--mobile-feature-parity-tracker)                                    | Where the seams are, what is not finished, and mobile gap status            |
 | **Developer**           | [§1 Quick start](#1-quick-start), [§7 API](#7-api-reference), [§8 Frontend](#8-frontend-guide), [§12 Repo layout](#12-repo-layout--conventions) (incl. [web↔mobile parity](#web--mobile-feature-parity-tracker)) | Get running, then find the file — and the mobile status of each web feature |
-| **Tester**              | §6, §7, §9, [§11 Testing](#11-testing), [§13 Workflow](#13-multi-agent-workflow)                                                                                                                                 | Behaviour to verify, RBAC surface, artifact templates                       |
+| **Tester**              | [§11 Testing](#11-testing) (evaluation model), then §6, §7, §9, [§13 Workflow](#13-multi-agent-workflow), [ADR-009](docs/agents/adrs/ADR-009-web-functional-e2e.md)                                               | What is proven today, how new slices stay covered, Playwright staging plan  |
 | **Industry / investor** | [§16 Industry and investor overview](#16-industry-and-investor-overview), then §2 and §14                                                                                                                        | Honest loop, what is shipped vs planned, fee model                          |
 
 
@@ -157,8 +157,8 @@ Everything else in this codebase is machinery for that loop. Three actors, three
 
 | Actor        | Wants                              | Can do                                                                                                                                                                                                                                                                                          |
 | ------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Customer** | find businesses worth trusting     | register/login, search & browse, view business profiles, rate 1–5, write reviews, upload photos, edit/delete own reviews, like reviews, report reviews                                                                                                                                          |
-| **Merchant** | know what customers actually think | register a business (pending approval), upload logo/storefront/gallery, set address + map pin, set hours & contact, reply publicly to reviews, view dashboard KPIs + AI insights (suggestions), **and now time-series charts, rating mix, date range, reply-rate, CSV export (S-033)** |
+| **Customer** | find businesses worth trusting     | register/login (password + TOTP, Google), search & browse, view profiles, rate 1–5, write reviews with photos, like/report, favorite, password reset. **Not built:** edit/delete own reviews (parity M-40/M-41).                                                                                                                                          |
+| **Merchant** | know what customers actually think | register a listing (pending approval), set address + map pin + contact, reply, dashboard KPIs + AI insights (suggestions) + time-series / rating mix / reply-rate / CSV (S-033) + charts/deltas (S-037) + competitor benchmark (S-038) + AI reply draft (S-039) + QR collect (S-040) + featured boost (S-036). **API exists, no web form:** logo/storefront/gallery upload and hours editor (M-55/M-56). |
 | **Admin**    | keep the platform trustworthy      | approve/suspend **businesses**, moderate reviews (hide/remove/restore), five live platform **counts**, **and now platform time-series charts, category create/list, and user suspend/reactivate (S-034)**                                                                              |
 
 
@@ -210,9 +210,9 @@ flowchart LR
 **A layered monolith with ports & adapters at the volatile edges.**
 
 - **Layered** for everything stable: HTTP router → service → ORM model → PostgreSQL. Straightforward, easy to trace, no ceremony.
-- **Ports & adapters (hexagonal)** for exactly the two things expected to change: **AI providers** and **file storage**. Each is a `typing.Protocol` with a factory that returns an implementation chosen by one environment variable.
+- **Ports & adapters (hexagonal)** only where vendors would otherwise weld the product: **AI**, **file storage**, **transactional email**, and **payments**. Each is a `Protocol` (or ABC for AI) plus a factory selected by one environment variable. Local/CI defaults are always the **mock** (or `local` disk) implementation.
 
-That split is deliberate. Applying hexagonal architecture to the whole app would bury a portfolio MVP in indirection; applying none of it would weld the app to OpenAI and to local disk. The seams sit exactly where the churn is.
+The original write-up named two seams (AI + storage). Email (S-035 / ADR-007) and payments (S-036 / ADR-008) were added **using the same pattern**, not a new architecture. That is the intended drift: more adapters, same rule. Applying hexagonal architecture to the whole app would bury an MVP in indirection; applying none of it would weld the app to OpenAI, Resend, Razorpay, and a single cloud disk.
 
 ### System overview
 
@@ -231,15 +231,17 @@ flowchart TB
 
     subgraph Backend["FastAPI Backend :8000"]
         API[REST API layer /api/v1]
-        AUTH[JWT auth + RBAC<br/>OAuth placeholder]
+        AUTH[JWT auth + RBAC + Google ID token]
         AI[AI provider port]
         STORAGE[Storage port]
+        MAIL[Email provider port]
+        PAY[Payment provider port]
     end
 
     subgraph Data
         PG[(PostgreSQL)]
         RD[(Redis cache)]
-        FS[Local disk / S3 / Azure Blob]
+        FS[Local disk / S3 / Azure stub]
     end
 
     C --> UI
@@ -251,8 +253,12 @@ flowchart TB
     API --> RD
     API --> AI
     API --> STORAGE
+    API --> MAIL
+    API --> PAY
     STORAGE --> FS
-    AI --> LLM[OpenAI / DeepSeek / Mock]
+    AI --> LLM[OpenAI-compatible / Mock]
+    MAIL --> MailVend[Mock log / Resend]
+    PAY --> PayVend[Mock / Razorpay]
     API --> Maps[OpenStreetMap / Nominatim + Leaflet]
 ```
 
@@ -283,8 +289,10 @@ flowchart LR
     end
 
     subgraph Services["Services / ports"]
-        AIProv[AI provider abstraction]
-        Store[Storage abstraction]
+        AIProv[AI provider]
+        Store[Storage]
+        Mail[Email]
+        Pay[Payments]
         Cache[Redis cache helpers]
     end
 
@@ -313,7 +321,7 @@ flowchart LR
     Route --> Val[Pydantic schema validation]
     Val --> Dep["Dependencies:<br/>get_current_user / require_roles"]
     Dep --> Own[Ownership check<br/>get_owned_business]
-    Own --> Svc[Service logic<br/>+ AI / storage / cache ports]
+    Own --> Svc[Service logic<br/>+ AI / storage / email / payments / cache]
     Svc --> ORM[SQLAlchemy async session]
     ORM --> DB[(PostgreSQL)]
     Svc --> Resp[Pydantic response model]
@@ -330,12 +338,45 @@ flowchart LR
 | -------------- | ---------------------------------------------- | ---------------------------------- |
 | Frontend       | UI, routing, client-side auth token storage    | contain business rules             |
 | API routers    | HTTP validation, auth checks, response mapping | call an LLM or touch disk directly |
-| Services       | AI analysis, caching, storage, business logic  | know about HTTP                    |
+| Services       | Business logic + AI / storage / email / payments / cache | know about HTTP                    |
 | Models         | SQLAlchemy ORM, PostgreSQL persistence         | contain request logic              |
 | Infrastructure | Docker Compose, PostgreSQL, Redis              | —                                  |
 
 
 The rule that keeps this honest: **business logic and external integrations stay out of routers.**
+
+### Integration ports (what is mocked vs live)
+
+These four are **functionally in the product**. Tests and Compose must stay vendor-free. Switching a mock to a live vendor is an env change, not a rewrite.
+
+
+| Port | Env | Default (Compose / CI / pytest) | Live adapter | Functional today? |
+| ---- | --- | ------------------------------- | ------------ | ----------------- |
+| AI | `AI_PROVIDER` | `mock` (deterministic suggestions, no network) | OpenAI-compatible HTTP (`AI_BASE_URL` + key) | Yes — review analysis, insights, reply draft |
+| Storage | `STORAGE_PROVIDER` | `local` disk at `/uploads` | `s3` (boto3; optional `STORAGE_S3_PUBLIC_BASE_URL` for a CDN in front of the bucket) | Yes locally; **Azure class is still a stub** |
+| Email | `EMAIL_PROVIDER` | `mock` (logs only) | `resend` | Yes — reset, listing approved, new review (best-effort) |
+| Payments | `PAYMENTS_PROVIDER` | `mock` (no keys; DEBUG mock-complete) | `razorpay` Checkout + webhook HMAC | Yes — ₹499 / 7-day featured SKU |
+
+**Staging policy:** spin the same Compose stack (or a Railway “staging” project) with those four defaults. Do not buy Resend/Razorpay/S3 to prove the web loop. Prove the loop against mocks; prove adapters with contract tests (`backend/tests/test_email_provider.py`, `test_payments.py`, `test_storage.py`, `test_ai_*`).
+
+Architecture files for this layer: [ADR-007](docs/agents/adrs/ADR-007-transactional-email-port.md), [ADR-008](docs/agents/adrs/ADR-008-razorpay-featured-fee.md), [ADR-009](docs/agents/adrs/ADR-009-web-functional-e2e.md) (how we *prove* the loop), plus `.cursor/rules/ai-and-integrations.mdc` / `backend/app/services/CLAUDE.md`.
+
+### Architecture vs original product design (drift)
+
+The **logical loop in §2 is implemented** (customer review → AI suggestion → merchant action → admin honesty). What changed is machinery and a few capability promises, not the product:
+
+
+| Topic | Original design | Built | Verdict |
+| ----- | --------------- | ----- | ------- |
+| Shape | Layered monolith + 2 ports | Same monolith + **4** ports | Pattern held; seams grew on purpose |
+| Maps | Google Maps env vars | Leaflet + OSM + Nominatim (ADR-006) | Intentional swap; keys unused |
+| Auth | JWT in `localStorage` | Same + mandatory TOTP + Google ID-token | S-026 httpOnly cookies still Draft |
+| AI | Suggestions only | Enforced in UI copy + mock default | No drift |
+| Customer edit/delete review | Named in early actor table | No UI either client (M-40/M-41) | **Doc over-promise** — corrected in §2 |
+| Merchant hours / gallery forms | Named in early actor table | Display + photo API; no merchant editor | **Deferred**, not abandoned |
+| Google OAuth | Redirect/callback (S-009) | GIS ID-token, no redirect route | Simpler; S-009 “callback stub” is stale wording |
+| Observability | Structured logs as NFR | `/health` only | Open gap (§14) |
+| Web proof | Pytest + RTL + “manual integration” | Same; **no Playwright in CI** | S-010 / ADR-009 |
 
 ### Non-functional requirements
 
@@ -1746,7 +1787,7 @@ ID-token flow via Google Identity Services — no client secret, no redirect rou
 
 ### CI/CD
 
-GitHub Actions runs `pytest` (`[backend-tests.yml](.github/workflows/backend-tests.yml)`, throwaway Postgres/Redis service containers, path-filtered to `backend/**`) and `npm test` (`[frontend-tests.yml](.github/workflows/frontend-tests.yml)`, path-filtered to `frontend/**`) on every push to `main` and every PR. Auto-deploy of `main` to Railway/Vercel on green CI is still a recommended next step, not yet wired up.
+GitHub Actions **defines** `pytest` (`[backend-tests.yml](.github/workflows/backend-tests.yml)`, throwaway Postgres/Redis) and `npm test` (`[frontend-tests.yml](.github/workflows/frontend-tests.yml)`). **As of 2026-08-15 those jobs are `workflow_dispatch` only** (PR/push triggers commented out). Re-enable path-filtered `push`/`pull_request`, then add Playwright (S-010) against Compose. Auto-deploy of `main` to Railway/Vercel on green CI is still a recommended next step, not wired up. See [§11](#11-testing).
 
 ---
 
@@ -1754,29 +1795,128 @@ GitHub Actions runs `pytest` (`[backend-tests.yml](.github/workflows/backend-tes
 
 ## 11. Testing
 
+This section is the **evaluation model** for the web product: what is proven today, what is deliberately mocked, how a new slice stays covered, and the second (browser) view that is specified but not yet coded. Mobile emulator CI is separate (`ANDROID_APP_STRATEGY.md`); this §11 is **web-first**.
 
-| Layer       | Tool                  | Intended scope                              |
-| ----------- | --------------------- | ------------------------------------------- |
-| Backend     | pytest                | Auth, RBAC, reviews, AI mock, business CRUD |
-| Frontend    | React Testing Library | Key components, auth forms                  |
-| Integration | Manual                | Docker smoke test, role flows               |
+Architecture for the missing browser layer: [ADR-009](docs/agents/adrs/ADR-009-web-functional-e2e.md). Click-through oracles already drafted: [TP-S-010](docs/agents/test-plans/TP-S-010-e2e-flow-verification.md). Slice **S-010** is still **Open** (plan exists; Playwright suite is not in the repo).
 
+### What “done” means here
+
+The product is **working in place** when the §2 loop can be exercised on Compose with mock vendors: register/login → search → review (+ AI suggestion) → merchant dashboard/reply → admin approve/moderate → optional featured mock checkout and password-reset **log** (not a real inbox).
+
+That is **not** the same as: live Resend, live Razorpay, live S3/CDN, Playwright on every PR, or GitHub branch protection. Those are ops or S-010.
+
+### Pyramid — what we actually run
+
+
+| Layer | Tool | What it proves | Where it lives | CI today |
+| ----- | ---- | -------------- | -------------- | -------- |
+| 1. Adapter / unit | pytest | Mock AI/email/payments/storage contracts, helpers, RBAC matrices, JWT claims | `backend/tests/test_*.py` (~185 cases, ~39 files) | Workflow exists; **PR/push triggers are commented out** (manual `workflow_dispatch` only) |
+| 2. API integration | pytest + `httpx.AsyncClient` + `ASGITransport` against `app.main:app` | HTTP + DB + Redis for routers that use the real app | Same folder; needs Postgres (Compose or CI service containers) | Same backend workflow (throwaway Postgres/Redis — never Railway) |
+| 3. UI component | Jest + React Testing Library | Visible behaviour of pages/components with mocked `api.ts` | `frontend/src/**/__tests__/` (~29 files; ~102 cases as of TR-S-037–040, growing) | Same: dispatch-only |
+| 4. Slice AC matrix | Tester report | Every numbered AC mapped to A (automated) or M (manual) | `docs/agents/test-plans/`, `test-reports/` | Not a runner — a gate in §13 |
+| 5. Browser functional + technical | Playwright (Python) + Trace Viewer | Real Chromium against a **spun-up** frontend+API; UI `expect()` **and** API schema/status oracles | Specified in TP-S-010 / ADR-009 — **`backend/tests/e2e/` does not exist yet** | Not wired |
+| 6. Hosted staging smoke | Same Playwright against a staging URL | Deployed Next.js + API with mock vendors | Not wired (Railway is production-shaped; no dedicated staging job) | Not wired |
+
+```mermaid
+flowchart TB
+    subgraph cheap [Every change — cheap]
+        U[pytest unit + adapter mocks]
+        A[pytest ASGI + throwaway Postgres]
+        J[Jest RTL]
+    end
+    subgraph missing [Specified, not built — S-010]
+        P[Playwright role journeys]
+        T[Trace Viewer + timing JSON]
+        S[Staging compose or Railway staging]
+    end
+    U --> A --> J
+    J -.->|does not replace| P
+    P --> T
+    S --> P
+```
+
+Layers 1–3 catch “easy fix broke a helper or a button.” They **cannot** catch: SSR home/search/detail wiring, MFA click-through, cookie/localStorage session, featured mock checkout in the browser, or “admin approve then merchant dashboard updates.” That is why S-010 is a second view, not more Jest.
+
+### How we evaluate a slice today (and as the repo grows)
+
+Do not invent a second checklist file. Use this sequence every time:
+
+1. **Product** — numbered Given/When/Then on the slice (`docs/agents/slices/`). If an AC is unnumbered, Tester cannot map it.
+2. **Architecture** — API/RBAC/data/cache on the same slice; ADR only if a vendor or auth/schema pattern changes.
+3. **Builder** — code + this README (§6/§7/§12/§14 as applicable).
+4. **Tester** — `TP-S-XXX` then `TR-S-XXX` with an AC coverage matrix. **Every AC** → pytest and/or RTL **or** an explicit Manual ID.
+5. **Regression pack** — `cd backend && pytest` and `cd frontend && npm test` with `AI_PROVIDER=mock` (and email/payments/storage defaults). This is the pack that must stay green when someone “just fixes” a dashboard tile.
+6. **After S-010 exists** — additionally run the Playwright role journeys against Compose (or staging). A trace.zip per role is the audit artifact; a test with no `expect()` is a recording, not a test.
+
+If the change is a **tiny fix** (copy, CSS, one handler): still run layers 1–3 locally. If it touches auth, payments, review create, or SSR data fetching: that is when you need layer 5, even if Jest is green.
+
+**Growth rule:** new user-facing web capability → new or extended Playwright flow in TP-S-010 **plus** a §12 parity row. New port/vendor → adapter tests, not a live key in CI. New AC → a named test, not “covered by the old dashboard file.”
+
+### Mocked vendors are in-scope functional behaviour
+
+Treat mocks as **the staging truth** until keys exist. Assertions belong on the port, not the SaaS.
+
+
+| Capability | Mock behaviour to assert | Do not assert in CI |
+| ---------- | ------------------------ | ------------------- |
+| AI | `AI_PROVIDER=mock` writes `ai_analyses`, sentiment ∈ {positive,neutral,negative}, UI says **suggestion** | Live LLM quality / cost |
+| Email | `EMAIL_PROVIDER=mock` logs template + to; reset still needs Redis (fail-closed) | Resend delivery, spam |
+| Payments | `PAYMENTS_PROVIDER=mock` + DEBUG `mock/complete` (or signed mock webhook) activates a 7-day placement | Live Razorpay settlement |
+| Photos / CDN | `STORAGE_PROVIDER=local`; S3 adapter unit-tested; optional public base URL for a CDN in front of S3 | Azure Blob (stub), Cloudinary account |
+
+### What is implemented vs what must still be built (web evaluation)
+
+
+| Need | Status |
+| ---- | ------ |
+| Core loop on Compose (roles, reviews, AI mock, admin) | **In place** — §14 success criteria 1–6 |
+| pytest + RTL regression pack | **In place and growing** — still not every router/page |
+| Isolated disposable DB per test process | **Partial** — CI has throwaway Postgres; local pytest often assumes a reachable DB; no fully hermetic fixture story |
+| Slice AC → test reports | **In place** for Accepted slices; quality varies |
+| Playwright role journeys + dual oracle | **Specified only** (TP-S-010) |
+| Playwright Trace Viewer / HTML report as the “enterprise UI” for failures | **Specified** (ADR-009) — tool is Playwright, not a second Cypress/Selenium app |
+| Staging environment that spins, migrates, seeds, runs e2e | **Not built** — Compose is the local stand-in; GitHub Actions app-test workflows are dispatch-only |
+| Branch protection requiring green CI | **Not set** (known gap) |
+| Live Resend / Razorpay / S3-CDN | **Optional later** — adapters exist |
+| Azure storage | **Stub** |
+| Structured request logs / APM | **Not built** |
+
+### How to run (today)
 
 ```bash
+# Always mock AI (and keep Compose defaults for email/payments/storage)
+export AI_PROVIDER=mock
+
 cd backend && pip install -r requirements.txt && pytest
 cd frontend && npm install && npm test
 ```
 
-**Current coverage grew past the original three pytest cases / one Jest file, but it is still not a full product suite.**
+ASGI/DB cases need PostgreSQL (Docker Compose backend + Postgres, or the CI service containers). Redis is required for password-reset tests (fail-closed).
 
-- Backend: pytest modules under `[backend/tests/](backend/tests/)` cover health, auth (MFA, Google, logout, lockout, refresh rotation), RBAC, reviews, favorites, AI providers, cache, rate limits, and more. There is still **no isolated test database** — many tests call handlers with fakes because PostgreSQL is not assumed in every environment.
-- Frontend: React Testing Library specs under `frontend/src/**/__tests__/` (auth forms, admin queues, dashboard pieces, `api.ts`, etc.), not a single `RatingWidget` file.
-- No Playwright (or equivalent) browser e2e in CI.
-- Backend tests that hit the real app still need a reachable PostgreSQL for the ASGI/DB cases (see §1).
+**Intended after S-010 (not runnable until the suite lands):**
 
-Run tests with `AI_PROVIDER=mock` so no network calls or API costs are incurred.
+```bash
+docker compose up --build   # frontend :3000, API :8000, mock vendors
+cd backend && playwright install chromium
+FRONTEND_URL=http://localhost:3000 API_URL=http://localhost:8000/api/v1 \
+  pytest tests/e2e -v
+# Artifacts: tests/e2e/test-results/*.zip → Playwright Trace Viewer
+```
+
+Staging is the same command with `FRONTEND_URL` / `API_URL` pointed at a spun-up staging stack that still uses mock AI/email/payments and local or test-bucket storage.
+
+### Why Playwright (not another UI test product)
+
+The “second view” is **Playwright + Trace Viewer** (and Playwright UI mode locally): step-by-step screenshots, DOM snapshots, and network. TP-S-010 chose **Python** Playwright so the technical oracle can `model_validate` the same Pydantic schemas the API already ships — one contract, not a parallel JSON schema in Cypress. Cypress/Selenium are rejected for this repo: they would duplicate the pytest toolchain and not reuse `backend/app/schemas`.
+
+SSR caveat (must stay in the e2e design): Home, Search, and Business detail fetch on the **Next.js server**, so the browser network log will not show `GET /api/v1/businesses`. Those steps use a parallel `APIRequestContext` call. Client pages (`/login`, dashboard, admin, collect, review form) are browser-visible.
+
+### CI honesty
+
+README §10 still describes pytest/Jest on every PR. **Current YAML** (`.github/workflows/backend-tests.yml`, `frontend-tests.yml`) is `workflow_dispatch` only — PR/push blocks are commented as a POC so product work is not blocked. Re-enable those triggers, then add a third job for Playwright against Compose, then require the checks on `main`. Until then, **local pytest + npm test is the real gate.**
 
 ---
+
 
 
 
@@ -1886,7 +2026,7 @@ Use **this README** for business summary, site flow, and implemented vs next. Ot
 | `CLAUDE.md` + nested `**/CLAUDE.md` + `.cursor/rules` + `.claude/agents` | Cursor ↔ Claude Code parity                       | Keep (CI-enforced)                                                                    |
 | `ANDROID_APP_STRATEGY.md`                                                | Play/AAB/signing; Railway ≠ Play                  | Keep until Play subsection is enough; day-to-day mobile is this §12                   |
 | `CHECKLIST_GAPS.txt`                                                     | Scored Have/Partial/Missing (13 Aug 2026)         | **Folded** — §14 is the living hold list; do not update the `.txt` as source of truth |
-| `docs/agents/slices`, `adrs`, `test-plans`, `test-reports`               | PM → Architect → Tester tickets                   | Artifact                                                                              |
+| `docs/agents/slices`, `adrs`, `test-plans`, `test-reports`               | PM → Architect → Tester tickets                   | Artifact. Web e2e architecture: [ADR-009](docs/agents/adrs/ADR-009-web-functional-e2e.md) |
 | `docs/competitive-analysis-lentlo.md`                                    | Lentlo scrape (2026-08-09)                        | Appendix; 5–8 line box in [§16](#16-industry-and-investor-overview)                   |
 | `docs/pivot-crowdsourced-live-status.md`                                 | Exploratory Waze-style pivot                      | **Not on the roadmap**                                                                |
 | `docs/agents/DEVELOPMENT_HISTORY.md`                                     | Build narrative                                   | Artifact                                                                              |
@@ -2217,7 +2357,7 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-007 | Admin moderation + platform analytics                                          | 4 Dashboards | Accepted (closed by S-034)               |
 | S-008 | Notifications                                                                  | 4 Dashboards | Accepted (UI wired)                      |
 | S-009 | OAuth + OpenStreetMap maps                                                     | 5 Polish     | Partial (maps done; OAuth callback stub) |
-| S-010 | Test hardening + deploy verification                                           | 5 Polish     | Open                                     |
+| S-010 | Test hardening + deploy verification                                           | 5 Polish     | Open — **Specified** by TP-S-010 + ADR-009; Playwright not implemented |
 | S-011 | Customer favorites                                                             | 2 Core       | Accepted                                 |
 | S-012 | Business detail enrichment                                                     | 2 Core       | Accepted                                 |
 | S-013 | Search pagination / sort / categories                                          | 2 Core       | Accepted                                 |
@@ -2306,7 +2446,7 @@ An honest delta between the original specification and what the code actually do
 | Gap                         | Detail                                                                                                                                                                                                                                                                           |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Azure storage is a stub** | Raises `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). `local` and `s3` both work.                                                                                                                                                                  |
-| **Thin tests**              | Expanding, but still no full fixture/DB isolation suite. See §11.                                                                                                                                                                                                                |
+| **Thin tests / no browser e2e** | Layers 1–3 (pytest + RTL) are real and growing. **No Playwright suite yet** (S-010). App-test GitHub workflows are **dispatch-only**. See §11. |
 | **Design-system migration** | Complete. `Select` / `StatCard` / `ui/RatingWidget` (S-017) now back every remaining call site — native `<select>`s, inline stat tiles, and the duplicate top-level `RatingWidget` (removed, canonical copy is `ui/RatingWidget`) all migrated.                                  |
 | **Security items 1–6**      | §9: rate limit, upload MIME/size, lockout, refresh rotation, headers, password policy are in. Remaining: `localStorage` tokens (S-026) and world-readable `/uploads`. Commercial SaaS/legal items: [Deferred](#deferred-for-commercial--enterprise).                             |
 | **No structured logging**   | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                                                                                                           |
@@ -2346,17 +2486,16 @@ These are **held off** until product needs them. They are not in-house leftovers
 
 **Payments / PCI** for v1 is **S-036** (one featured SKU, Razorpay, no cards stored). Stripe and a second gateway stay out of scope. Event grants still wait on neighborhood traffic.
 
-### Suggested next steps (waves, not a fake serial gate)
+### Suggested next steps (evaluation and leftovers)
 
-Hard deps: S-037–S-040 need a Specified slice file before Builder. S-033 is Accepted (dashboard host). S-035 is **not** required for S-036. File overlap: do not dual-edit `MerchantDashboard.tsx` / `Charts.tsx` in two open Builder PRs.
+Product intel slices S-033–S-040 are **Accepted**. Remaining work is proof, ops, and deferred UI — not another dashboard feature.
 
-1. **Wave 0 (docs):** §16 must list S-035 as Built.
-2. **Wave 1:** Builder **S-036** in parallel with PM+Architect **specifying** S-037–S-040. **Test shot 1** = Tester+PM on S-036 only.
-3. **Wave 2:** Build S-039 + S-040 (low overlap), then S-037 then S-038 (shared charts). **Test shot 2** = one combined pass for S-037–S-040. No per-slice Tester in between.
-4. Leftovers (not this wave): structured logs, isolated test DB, CSP, S-026 cookies.
-5. S-041+ aggregation waits on S-026. Play Store is `ANDROID_APP_STRATEGY.md` phase 5. Enterprise/legal stay on the hold list.
+1. **S-010 (highest leverage for “nothing breaks”):** implement Playwright e2e per ADR-009 / TP-S-010 against Compose with mock vendors; then a CI job that spins that stack.
+2. **Re-enable** `push`/`pull_request` on `backend-tests.yml` / `frontend-tests.yml`; require status checks on `main`.
+3. Leftovers: structured logs, hermetic test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity (§12).
+4. Live Resend / Razorpay / S3-CDN when a neighborhood launch needs them — adapters already exist.
 
-**Good position today:** working loop **including AI**, transactional email (S-035), and a Specified-then-built featured fee SKU (S-036). **Bad position:** claiming live Razorpay production traffic or neighborhood traction until keys are real and a neighborhood is dense.
+**Good position today:** working loop **including AI**, transactional email (S-035), featured fee SKU (S-036), merchant intel (S-037–S-040), with vendor mocks. **Bad position:** claiming Playwright-on-staging, live Razorpay traffic, or neighborhood traction.
 
 ---
 
@@ -2450,16 +2589,17 @@ flowchart LR
     Charts[Real time series]
     Email[Transactional email]
     Fees[Featured boost SKU]
+    Intel[Area charts, benchmark, AI draft, QR collect]
   end
-  subgraph next [Specified intel]
-    MoreCharts[Area charts and deltas]
-    Bench[Benchmark card]
+  subgraph later [Later / ops]
+    E2E[Playwright S-010]
+    Keys[Live Resend / Razorpay / S3]
   end
   Cust --> AI --> Merch
   Adm --> Cust
-  Charts --> Email --> Fees
-  Fees --> MoreCharts
-  MoreCharts --> Bench
+  Charts --> Email --> Fees --> Intel
+  Intel -.-> E2E
+  Fees -.-> Keys
 ```
 
 
@@ -2469,11 +2609,11 @@ flowchart LR
 ### Three roles
 
 
-| Role         | Today                                                                                                                                                           | After specified slices                                                                               |
+| Role         | Today                                                                                                                                                           | Still open                                                                                           |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **Customer** | Find nearby, photos, labeled sentiment, write review, favorite, report, password-reset mail (S-035), paid **Featured** search first (S-036) | Area/line charts (S-037); QR collect flow (S-040) |
-| **Merchant** | Own listing after admin approve; KPI tiles + volume/rating/reply-rate/CSV (S-033); AI insights; buy ₹499 / 7-day featured week (S-036) | Benchmark vs city/category (S-038); Draft with AI (S-039) |
-| **Admin**    | Approve/suspend listings, moderate reports, platform series, categories, user suspend (S-034); disable/refund featured placements (S-036) | — |
+| **Customer** | Find nearby, photos, labeled sentiment, write review, favorite, report, password-reset mail (S-035), paid **Featured** search first (S-036), QR collect (S-040) | Edit/delete own review; mobile forgot-password |
+| **Merchant** | Listing after approve; KPI + S-033/S-037 charts; benchmark (S-038); AI draft (S-039); ₹499 featured week (S-036) | Hours/gallery editors; live Razorpay keys; mobile parity for intel/fees |
+| **Admin**    | Approve/suspend, moderate, platform series, categories, user suspend (S-034); featured disable/refund (S-036) | — |
 
 
 
@@ -2514,7 +2654,7 @@ Demo / seeded listings only. A fundraise ask should be **pre-seed for one neighb
 
 | Built                                                                                                                                                                                                                                                                                                                       | Next (not yet Accepted)                                                                                                                                                                                                                                                                                                                                                                                                               |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth (password + TOTP, Google) + forgot/reset + email, search + OSM + paid Featured, reviews, favorites, merchant dashboard (S-033 charts, S-037 area/deltas, S-038 benchmark, S-039 AI draft, S-040 QR collect), admin queues (S-034) + placement refund, **S-036** featured SKU (mock/Razorpay port) | Leftovers: structured logs, isolated test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity |
+| Auth (password + TOTP, Google) + forgot/reset + email, search + OSM + paid Featured, reviews, favorites, merchant dashboard (S-033 charts, S-037 area/deltas, S-038 benchmark, S-039 AI draft, S-040 QR collect), admin queues (S-034) + placement refund, **S-036** featured SKU (mock/Razorpay port) | **S-010** Playwright staging e2e; leftovers: structured logs, isolated test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity, re-enable CI on PR |
 
 
 Play Store packaging is distribution (`ANDROID_APP_STRATEGY.md` phase 5), not this story.

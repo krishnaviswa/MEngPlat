@@ -357,4 +357,183 @@ describe("MerchantDashboard analytics (S-033)", () => {
     expect(screen.getByText(/not computed from your review history/i)).toBeInTheDocument();
     expect(screen.getByText(/\(suggestion\)/i)).toBeInTheDocument();
   });
+
+  it("hosts the featured boost panel with paid-placement copy, not grants", async () => {
+    mineMock.mockResolvedValue([makeBusiness({ status: "approved" })]);
+    merchantStatsMock.mockResolvedValue(makeStats());
+
+    render(<MerchantDashboardPage />);
+
+    expect(await screen.findByText("Featured listing boost")).toBeInTheDocument();
+    expect(screen.getByText(/not an AI quality score/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /boost this listing — ₹499 \/ 7 days/i })).toBeInTheDocument();
+    expect(screen.queryByText(/grant|sponsorship/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("MerchantDashboard chart upgrade + deltas (S-037)", () => {
+  beforeAll(() => {
+    window.HTMLElement.prototype.scrollIntoView = jest.fn();
+    (global as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
+    insightsMock.mockResolvedValue({});
+    placementMock.mockResolvedValue({
+      business_id: "biz-1",
+      active: false,
+      placement: null,
+      sku: { code: "featured_7d", duration_days: 7, listed_price_inr: 499 },
+    });
+    benchmarkMock.mockResolvedValue({
+      own_rating: 4.5,
+      category_median: null,
+      city_median: null,
+      disclaimer: "Directory medians from MerchantHub listings — not an AI judgment.",
+    });
+  });
+
+  it("renders review volume as an area chart (not bars)", async () => {
+    const business = makeBusiness();
+    mineMock.mockResolvedValue([business]);
+    merchantStatsMock.mockResolvedValue(
+      makeStats({
+        review_volume_by_month: [{ month: "2026-07", count: 4 }],
+        rating_distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 4 },
+      }),
+    );
+
+    const { container } = render(<MerchantDashboardPage />);
+    expect(await screen.findByText("Review volume")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(container.querySelector('[data-chart-variant="area"]')).toBeTruthy();
+    });
+    expect(container.querySelectorAll('[data-chart-variant="bar"]').length).toBeGreaterThan(0);
+  });
+
+  it("hides period deltas on the all-time range (n/a, never a fake 0%)", async () => {
+    const business = makeBusiness();
+    mineMock.mockResolvedValue([business]);
+    merchantStatsMock.mockResolvedValue(
+      makeStats({
+        reply_rate: 0.5,
+        reply_rate_previous: null,
+        review_count_in_range: 10,
+        review_count_previous: null,
+      }),
+    );
+
+    render(<MerchantDashboardPage />);
+    expect(await screen.findByText("Reviews in range")).toBeInTheDocument();
+    expect(screen.getByText("Reviews in range").closest(".rounded-xl")).toHaveTextContent("n/a");
+    expect(screen.queryByText("0% vs prior period")).not.toBeInTheDocument();
+  });
+
+  it("shows n/a when the previous window has zero reviews", async () => {
+    const business = makeBusiness();
+    mineMock.mockResolvedValue([business]);
+    merchantStatsMock.mockResolvedValue(
+      makeStats({
+        reply_rate: 0.4,
+        reply_rate_previous: 0,
+        review_count_in_range: 8,
+        review_count_previous: 0,
+      }),
+    );
+
+    render(<MerchantDashboardPage />);
+    await screen.findByRole("combobox", { name: /date range/i });
+    fireEvent.change(screen.getByRole("combobox", { name: /date range/i }), { target: { value: "30" } });
+    expect(await screen.findByText("Reviews in range")).toBeInTheDocument();
+    expect(screen.getByText("Reviews in range").closest(".rounded-xl")).toHaveTextContent("n/a");
+  });
+
+  it("shows a percent vs the prior 30-day window when previous counts exist", async () => {
+    const business = makeBusiness();
+    mineMock.mockResolvedValue([business]);
+    merchantStatsMock.mockResolvedValue(
+      makeStats({
+        reply_rate: 0.6,
+        reply_rate_previous: 0.4,
+        review_count_in_range: 12,
+        review_count_previous: 8,
+      }),
+    );
+
+    render(<MerchantDashboardPage />);
+    fireEvent.change(await screen.findByRole("combobox", { name: /date range/i }), { target: { value: "30" } });
+    expect(await screen.findByText("Last 30 days · +50% vs prior period")).toBeInTheDocument();
+    expect(screen.getByText("+50% vs prior period")).toBeInTheDocument();
+  });
+});
+
+describe("MerchantDashboard benchmark + collect QR (S-038 / S-040)", () => {
+  beforeAll(() => {
+    window.HTMLElement.prototype.scrollIntoView = jest.fn();
+    (global as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
+    insightsMock.mockResolvedValue({});
+    placementMock.mockResolvedValue({
+      business_id: "biz-1",
+      active: false,
+      placement: null,
+      sku: { code: "featured_7d", duration_days: 7, listed_price_inr: 499 },
+    });
+  });
+
+  it("renders directory-median disclaimer from the benchmark payload", async () => {
+    const business = makeBusiness();
+    mineMock.mockResolvedValue([business]);
+    merchantStatsMock.mockResolvedValue(makeStats());
+    benchmarkMock.mockResolvedValue({
+      own_rating: 4.5,
+      category_median: null,
+      city_median: 4.0,
+      disclaimer: "Directory medians from MerchantHub listings — not an AI judgment.",
+    });
+
+    render(<MerchantDashboardPage />);
+    expect(
+      await screen.findByText("Directory medians from MerchantHub listings — not an AI judgment."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Not enough nearby listings yet.")).toBeInTheDocument();
+    expect(screen.queryByText(/AI judged/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the collect QR on an approved listing and hides it when pending", async () => {
+    const approved = makeBusiness({ id: "biz-ok", slug: "ok", status: "approved" });
+    mineMock.mockResolvedValue([approved]);
+    merchantStatsMock.mockResolvedValue(makeStats());
+    benchmarkMock.mockResolvedValue({
+      own_rating: 4.5,
+      category_median: null,
+      city_median: null,
+      disclaimer: "Directory medians from MerchantHub listings — not an AI judgment.",
+    });
+
+    const { unmount } = render(<MerchantDashboardPage />);
+    expect(await screen.findByText("Review collection QR")).toBeInTheDocument();
+    expect(screen.getByText(`${window.location.origin}/collect/biz-ok`)).toBeInTheDocument();
+    unmount();
+
+    const pending = makeBusiness({ id: "biz-pend", slug: "pend", status: "pending" });
+    mineMock.mockResolvedValue([pending]);
+    render(<MerchantDashboardPage />);
+    await screen.findByText("Awaiting approval");
+    expect(screen.queryByText("Review collection QR")).not.toBeInTheDocument();
+  });
 });

@@ -95,3 +95,5 @@ None. Dashboard is uncached.
 | Date | Agent | Change |
 |------|-------|--------|
 | 2026-08-15 | PM + Architect | Specified in parallel wave; deps S-033/S-036 file overlap. |
+| 2026-08-15 | Tester | Combined TR-S-037-040 shot 2: all 4 AC mapped and passing (Jest + DB-free pytest). Recommendation Ship. Status left for PM. |
+| 2026-08-15 | PM | **Accepted** on combined `TR-S-037-040-intel-wave.md` (shot 2, Ship, 4/4). Area/line volume, 30/90 deltas vs prior window, n/a when no prior reviews (never fake 0%), customer still denied. Non-blocking: no ASGI/Postgres/Docker this session. |
