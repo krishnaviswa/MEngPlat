@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.core.rate_limit import limiter
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.routers import (
+    admin,
     ai,
     analytics,
     auth,
@@ -24,8 +25,9 @@ from app.routers import (
     reviews,
     search,
 )
-from app.services.ai import validate_startup_config
+from app.services.ai import validate_startup_config as validate_ai_startup_config
 from app.services.ai.http_client import close_shared_client
+from app.services.email import validate_startup_config as validate_email_startup_config
 
 settings = get_settings()
 
@@ -40,7 +42,9 @@ async def lifespan(app: FastAPI):
     Path(settings.storage_local_path).mkdir(parents=True, exist_ok=True)
     # Catch an unregistered AI_PROVIDER or a missing API key here, not on the
     # first review a customer submits.
-    validate_startup_config()
+    validate_ai_startup_config()
+    # Same idea for EMAIL_PROVIDER=resend missing its key/from.
+    validate_email_startup_config()
     yield
     await close_shared_client()
 
@@ -81,6 +85,7 @@ app.include_router(maps.router, prefix=api_prefix)
 app.include_router(analytics.router, prefix=api_prefix)
 app.include_router(notifications.router, prefix=api_prefix)
 app.include_router(favorites.router, prefix=api_prefix)
+app.include_router(admin.router, prefix=api_prefix)
 
 uploads_path = Path(settings.storage_local_path)
 uploads_path.mkdir(parents=True, exist_ok=True)

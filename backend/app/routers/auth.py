@@ -17,12 +17,14 @@ from app.database import get_db
 from app.dependencies import get_current_user, security
 from app.models import Merchant, User, UserRole
 from app.schemas import (
+    ForgotPasswordRequest,
     GoogleAuthRequest,
     LoginResult,
     LogoutRequest,
     MessageResponse,
     MfaTokenRequest,
     MfaTotpCodeRequest,
+    ResetPasswordRequest,
     TokenResponse,
     TotpSetupResponse,
     UserLogin,
@@ -33,10 +35,12 @@ from app.schemas import (
 from app.services.cache import (
     blocklist_token,
     clear_login_failures,
+    get_redis,
     is_login_locked,
     is_token_blocklisted,
     record_login_failure,
 )
+from app.services.email import try_send_password_reset
 from app.services.google_auth import InvalidGoogleTokenError, verify_google_id_token
 from app.services.mfa import (
     build_otpauth_uri,
@@ -46,8 +50,13 @@ from app.services.mfa import (
     qr_svg_for_uri,
     verify_totp_code,
 )
+from app.services.password_reset import consume_reset_token, create_reset_token
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+# One string for known and unknown addresses -- no extra account enumeration
+# compared with today's login (technical spec AC 2).
+FORGOT_PASSWORD_GENERIC_MESSAGE = "If an account exists for that email, we sent password-reset instructions."
 
 
 def _issue_session_tokens(user: User) -> TokenResponse:
@@ -174,6 +183,79 @@ async def login(request: Request, payload: UserLogin, db: AsyncSession = Depends
         mfa_enrollment_required=True,
         mfa_token=create_mfa_token(str(user.id), "enroll"),
     )
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+@limiter.limit("5/minute")
+async def forgot_password(
+    request: Request, payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)
+) -> MessageResponse:
+    """
+    Request a password-reset email. Always returns the same generic message,
+    whether or not the address is registered -- the response never confirms
+    account existence (ADR-007).
+
+    **Request:** email
+    **Response:** Always 200, generic confirmation copy
+    **Errors:** 422 invalid email shape, 429 rate-limited (5/minute per IP),
+    503 Redis unreachable (cannot store a hashed token -- fails closed before
+    the account lookup, so the 503 itself does not distinguish known vs
+    unknown addresses)
+    """
+    try:
+        redis_client = await get_redis()
+        await redis_client.ping()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Try again shortly"
+        ) from exc
+
+    result = await db.execute(select(User).where(User.email == payload.email))
+    user = result.scalar_one_or_none()
+
+    # Google-only accounts (hashed_password is None) have no password to reset.
+    if user and user.hashed_password is not None:
+        token = await create_reset_token(str(user.id))
+        await try_send_password_reset(user.email, token)
+
+    return MessageResponse(message=FORGOT_PASSWORD_GENERIC_MESSAGE)
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+@limiter.limit("5/minute")
+async def reset_password(
+    request: Request, payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)
+) -> MessageResponse:
+    """
+    Complete a password reset with a token from the reset email.
+
+    **Request:** token, new_password (min 12 chars, at least one letter and
+    one digit -- same policy as register)
+    **Response:** Confirmation message. No session tokens are issued -- sign
+    in still requires TOTP (ADR-001).
+    **Errors:** 422 password policy, 400 invalid/expired/already-used token
+    (generic, does not distinguish which), 429 rate-limited (5/minute per
+    IP), 503 Redis unreachable
+    """
+    try:
+        user_id = await consume_reset_token(payload.token)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Try again shortly"
+        ) from exc
+
+    if user_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset link")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset link")
+
+    user.hashed_password = get_password_hash(payload.new_password)
+    await db.flush()
+
+    return MessageResponse(message="Password updated. Sign in with your new password.")
 
 
 @router.post("/mfa/totp/setup", response_model=TotpSetupResponse)

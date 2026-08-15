@@ -13,12 +13,13 @@ Built as a portfolio-grade full-stack MVP demonstrating Forward Deployed Enginee
 ## Read this by role
 
 
-| You are a…           | Read                                                                                                                                            | Why                                                              |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| **Architect**        | [§2 Logical design](#2-logical-design), [§3 Architecture](#3-architecture), [§4 Why this stack](#4-why-this-stack), [§9 Security](#9-security)  | Shape of the system, the pattern behind it, the trade-offs taken |
-| **Senior developer** | §3, [§5 Domain model](#5-domain-model), [§6 Flows](#6-feature-flows), §9, [§14 Known gaps](#14-known-gaps--roadmap), [web↔mobile parity](#web--mobile-feature-parity-tracker) | Where the seams are, what is not finished, and mobile gap status |
-| **Developer**        | [§1 Quick start](#1-quick-start), [§7 API](#7-api-reference), [§8 Frontend](#8-frontend-guide), [§12 Repo layout](#12-repo-layout--conventions) (incl. [web↔mobile parity](#web--mobile-feature-parity-tracker)) | Get running, then find the file — and the mobile status of each web feature |
-| **Tester**           | §6, §7, §9, [§11 Testing](#11-testing), [§13 Workflow](#13-multi-agent-workflow)                                                                | Behaviour to verify, RBAC surface, artifact templates            |
+| You are a…              | Read                                                                                                                                                                                                             | Why                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **Architect**           | [§2 Logical design](#2-logical-design), [§3 Architecture](#3-architecture), [§4 Why this stack](#4-why-this-stack), [§9 Security](#9-security)                                                                   | Shape of the system, the pattern behind it, the trade-offs taken            |
+| **Senior developer**    | §3, [§5 Domain model](#5-domain-model), [§6 Flows](#6-feature-flows), §9, [§14 Known gaps](#14-known-gaps--roadmap), [web↔mobile parity](#web--mobile-feature-parity-tracker)                                    | Where the seams are, what is not finished, and mobile gap status            |
+| **Developer**           | [§1 Quick start](#1-quick-start), [§7 API](#7-api-reference), [§8 Frontend](#8-frontend-guide), [§12 Repo layout](#12-repo-layout--conventions) (incl. [web↔mobile parity](#web--mobile-feature-parity-tracker)) | Get running, then find the file — and the mobile status of each web feature |
+| **Tester**              | §6, §7, §9, [§11 Testing](#11-testing), [§13 Workflow](#13-multi-agent-workflow)                                                                                                                                 | Behaviour to verify, RBAC surface, artifact templates                       |
+| **Industry / investor** | [§16 Industry and investor overview](#16-industry-and-investor-overview), then §2 and §14                                                                                                                        | Honest loop, what is shipped vs planned, fee model                          |
 
 
 **In 60 seconds:** A Next.js frontend calls a FastAPI backend over REST. When a customer submits a review, the backend persists it, sends the text (and any photos) to a pluggable AI provider, stores the returned sentiment/summary/suggestions, refreshes the business's rolling AI summary, and invalidates the Redis search cache. Merchants read those insights on a dashboard; admins approve businesses and moderate reviews. The AI provider defaults to a local mock, so the whole thing runs offline with no API key and no cost.
@@ -30,23 +31,24 @@ Built as a portfolio-grade full-stack MVP demonstrating Forward Deployed Enginee
 ## Table of contents
 
 
-| §   | Section                                                   |
-| --- | --------------------------------------------------------- |
-| 1   | [Quick start](#1-quick-start)                             |
-| 2   | [Logical design](#2-logical-design)                       |
-| 3   | [Architecture](#3-architecture)                           |
-| 4   | [Why this stack](#4-why-this-stack)                       |
-| 5   | [Domain model](#5-domain-model)                           |
-| 6   | [Feature flows](#6-feature-flows)                         |
-| 7   | [API reference](#7-api-reference)                         |
-| 8   | [Frontend guide](#8-frontend-guide)                       |
-| 9   | [Security](#9-security)                                   |
-| 10  | [Deployment](#10-deployment)                              |
-| 11  | [Testing](#11-testing)                                    |
+| §   | Section                                                                                                                              |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | [Quick start](#1-quick-start)                                                                                                        |
+| 2   | [Logical design](#2-logical-design)                                                                                                  |
+| 3   | [Architecture](#3-architecture)                                                                                                      |
+| 4   | [Why this stack](#4-why-this-stack)                                                                                                  |
+| 5   | [Domain model](#5-domain-model)                                                                                                      |
+| 6   | [Feature flows](#6-feature-flows)                                                                                                    |
+| 7   | [API reference](#7-api-reference)                                                                                                    |
+| 8   | [Frontend guide](#8-frontend-guide)                                                                                                  |
+| 9   | [Security](#9-security)                                                                                                              |
+| 10  | [Deployment](#10-deployment)                                                                                                         |
+| 11  | [Testing](#11-testing)                                                                                                               |
 | 12  | [Repo layout & conventions](#12-repo-layout--conventions) (incl. [Web ↔ mobile parity tracker](#web--mobile-feature-parity-tracker)) |
-| 13  | [Multi-agent workflow](#13-multi-agent-workflow)          |
-| 14  | [Known gaps & roadmap](#14-known-gaps--roadmap)           |
-| 15  | [Environment variables](#15-environment-variables)        |
+| 13  | [Multi-agent workflow](#13-multi-agent-workflow)                                                                                     |
+| 14  | [Known gaps & roadmap](#14-known-gaps--roadmap)                                                                                      |
+| 15  | [Environment variables](#15-environment-variables)                                                                                   |
+| 16  | [Industry and investor overview](#16-industry-and-investor-overview)                                                                 |
 
 
 ---
@@ -79,8 +81,8 @@ On Railway, the same paths (`/docs`, `/redoc`, `/openapi.json`, `/health`) hang 
 ### Demo accounts (seeded on first run)
 
 
-| Role               | Email                                                        | Password      |
-| ------------------ | ------------------------------------------------------------ | ------------- |
+| Role               | Email                                                        | Password       |
+| ------------------ | ------------------------------------------------------------ | -------------- |
 | Admin              | `admin@merchanthub.ai`                                       | `admin12345ok` |
 | Merchant           | `merchant@example.com`                                       | `merchant1234` |
 | Customer           | `customer@example.com`                                       | `customer1234` |
@@ -153,11 +155,11 @@ flowchart LR
 Everything else in this codebase is machinery for that loop. Three actors, three responsibilities:
 
 
-| Actor        | Wants                              | Can do                                                                                                                                                                                    |
-| ------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Customer** | find businesses worth trusting     | register/login, search & browse, view business profiles, rate 1–5, write reviews, upload photos, edit/delete own reviews, like reviews, report reviews                                    |
-| **Merchant** | know what customers actually think | register a business (pending approval), upload logo/storefront/gallery, set address + map pin, set hours & contact, reply publicly to reviews, view analytics dashboard, read AI insights |
-| **Admin**    | keep the platform trustworthy      | approve/suspend businesses, moderate reviews (hide/remove/restore), suspend accounts, view platform analytics, manage categories                                                          |
+| Actor        | Wants                              | Can do                                                                                                                                                                                                                                                                                          |
+| ------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Customer** | find businesses worth trusting     | register/login, search & browse, view business profiles, rate 1–5, write reviews, upload photos, edit/delete own reviews, like reviews, report reviews                                                                                                                                          |
+| **Merchant** | know what customers actually think | register a business (pending approval), upload logo/storefront/gallery, set address + map pin, set hours & contact, reply publicly to reviews, view dashboard KPIs + AI insights (suggestions), **and now time-series charts, rating mix, date range, reply-rate, CSV export (S-033)** |
+| **Admin**    | keep the platform trustworthy      | approve/suspend **businesses**, moderate reviews (hide/remove/restore), five live platform **counts**, **and now platform time-series charts, category create/list, and user suspend/reactivate (S-034)**                                                                              |
 
 
 
@@ -183,13 +185,13 @@ flowchart LR
     subgraph Merchant
         MR[Register business] --> MP[Profile + map pin]
         MP --> MA[Pending admin approval]
-        MA --> MD[Dashboard + analytics]
-        MD --> MI[AI insights + reply to reviews]
+        MA --> MD[Dashboard KPIs + AI insights]
+        MD --> MI[Public reply to reviews]
     end
     subgraph Admin
         AR[Login as admin] --> AA[Approve / suspend businesses]
         AA --> AM[Moderate reviews]
-        AM --> AP[Platform analytics + categories]
+        AM --> AP[Platform counts]
     end
 ```
 
@@ -354,19 +356,22 @@ The rule that keeps this honest: **business logic and external integrations stay
 ## 4. Why this stack
 
 
-| Choice                                               | Why it was chosen                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Alternative rejected                                                                                         |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| **FastAPI + Uvicorn**                                | The hot path (submit review) is I/O-bound: one DB write, one or more LLM round-trips, one cache invalidation. Native `async` handles that without threads. OpenAPI/Swagger is generated from the type hints for free — and interactive API docs were a required deliverable.                                                                                                                                                                                              | Flask (no native async, no generated schema); Django (ORM + admin are heavyweight for a 10-router API)       |
-| **Async SQLAlchemy 2.0 +** `asyncpg`                 | Keeps the async story end-to-end. A sync ORM inside an async framework blocks the event loop and quietly destroys the concurrency FastAPI was chosen for. `Mapped[]`/`mapped_column` typing gives static checking on the model layer.                                                                                                                                                                                                                                     | Sync SQLAlchemy; raw SQL (loses relationship mapping)                                                        |
-| **PostgreSQL**                                       | Genuinely relational domain — users → merchants → businesses → reviews → analyses, plus two M:N joins. Also used for what it's uniquely good at: `JSONB` columns hold AI output whose shape evolves (`ai_positives`, `ai_complaints`, `image_insights`) without a migration per change.                                                                                                                                                                                   | MongoDB (the data is relational, joins would be hand-rolled); SQLite (**incompatible** — see the trap in §1) |
-| **Redis, optional**                                  | Search and business-profile reads are hot and repetitive. Deliberately a *cache*, not a dependency: every helper in `[cache.py](backend/app/services/cache.py)` wraps its call in `try/except` and returns `None` / no-ops on failure, so losing Redis degrades to uncached instead of erroring.                                                                                                                                                                          | In-memory cache (dies on restart, wrong across replicas)                                                     |
-| **AI provider as a** `Protocol` **port**             | `AIProvider` in `[services/ai/base.py](backend/app/services/ai/base.py)` is a structural protocol — implementations need no inheritance. `get_ai_provider()` picks `MockAIProvider` or `OpenAICompatibleProvider` from `AI_PROVIDER`. Two payoffs: the app runs fully offline at **$0 with no API key** on `mock`, and swapping OpenAI → DeepSeek is an `AI_BASE_URL` change, not a code change.                                                                          | Calling the OpenAI SDK inline in routers (welds the app to one vendor, makes tests need network)             |
-| **Storage as a** `Protocol` **port**                 | Same shape: `StorageProvider` with `LocalStorageProvider` and `S3StorageProvider` (both implemented; `AzureBlobStorageProvider` still a stub). Local disk is right for dev; ephemeral container disk is wrong for production, and the port means that swap is a `STORAGE_PROVIDER=s3` config change, no code change. S3 credentials aren't a settings field — `boto3`'s own default chain (env vars, IAM role, `~/.aws/credentials`) covers every real deployment target. | Hardcoded local paths                                                                                        |
-| **Pydantic Settings**                                | One typed `Settings` object loaded from env/`.env`. `Literal["mock","openai","deepseek"]` means a typo in `AI_PROVIDER` fails at **startup**, not at the first review submission in production.                                                                                                                                                                                                                                                                           | `os.getenv` scattered through modules (untyped, fails late)                                                  |
-| **JWT (**`python-jose`**) + bcrypt (**`passlib`**)** | Stateless auth — no session store, so the backend scales horizontally and works across the split Vercel/Render deployment. bcrypt is the deliberately-slow, salted standard for passwords.                                                                                                                                                                                                                                                                                | Server-side sessions (needs sticky sessions or shared store)                                                 |
-| **Next.js 15 App Router + React 19**                 | Hybrid rendering matched to the page: Server Components render public pages (home, search, business profiles) on the server for SEO and fast first paint — these pages must be crawlable. `"use client"` is added only where browser APIs, event handlers, or auth state are needed (login, register, dashboards).                                                                                                                                                        | SPA (public listings invisible to search engines); full SSR (pointless for authenticated dashboards)         |
-| **TypeScript + Tailwind**                            | Types across the API client boundary catch shape drift at compile time. Tailwind keeps styling colocated with markup — no separate CSS files to keep in sync in a small team.                                                                                                                                                                                                                                                                                             | Plain JS; CSS modules                                                                                        |
-| **Docker Compose**                                   | One command reproduces the exact four-service topology on any machine. Also the artifact deployment reuses: Railway builds from the same verified `Dockerfile`s.                                                                                                                                                                                                                                                                                                          | Manual local installs (works-on-my-machine)                                                                  |
+| Choice                                                                 | Why it was chosen                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Alternative rejected                                                                                                                                             |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **FastAPI + Uvicorn**                                                  | The hot path (submit review) is I/O-bound: one DB write, one or more LLM round-trips, one cache invalidation. Native `async` handles that without threads. OpenAPI/Swagger is generated from the type hints for free — and interactive API docs were a required deliverable.                                                                                                                                                                                              | Flask (no native async, no generated schema); Django (ORM + admin are heavyweight for a 10-router API)                                                           |
+| **Async SQLAlchemy 2.0 +** `asyncpg`                                   | Keeps the async story end-to-end. A sync ORM inside an async framework blocks the event loop and quietly destroys the concurrency FastAPI was chosen for. `Mapped[]`/`mapped_column` typing gives static checking on the model layer.                                                                                                                                                                                                                                     | Sync SQLAlchemy; raw SQL (loses relationship mapping)                                                                                                            |
+| **PostgreSQL**                                                         | Genuinely relational domain — users → merchants → businesses → reviews → analyses, plus two M:N joins. Also used for what it's uniquely good at: `JSONB` columns hold AI output whose shape evolves (`ai_positives`, `ai_complaints`, `image_insights`) without a migration per change.                                                                                                                                                                                   | MongoDB (the data is relational, joins would be hand-rolled); SQLite (**incompatible** — see the trap in §1)                                                     |
+| **Redis, optional**                                                    | Search and business-profile reads are hot and repetitive. Deliberately a *cache*, not a dependency: every helper in `[cache.py](backend/app/services/cache.py)` wraps its call in `try/except` and returns `None` / no-ops on failure, so losing Redis degrades to uncached instead of erroring.                                                                                                                                                                          | In-memory cache (dies on restart, wrong across replicas)                                                                                                         |
+| **AI provider as a** `Protocol` **port**                               | `AIProvider` in `[services/ai/base.py](backend/app/services/ai/base.py)` is a structural protocol — implementations need no inheritance. `get_ai_provider()` picks `MockAIProvider` or `OpenAICompatibleProvider` from `AI_PROVIDER`. Two payoffs: the app runs fully offline at **$0 with no API key** on `mock`, and swapping OpenAI → DeepSeek is an `AI_BASE_URL` change, not a code change.                                                                          | Calling the OpenAI SDK inline in routers (welds the app to one vendor, makes tests need network)                                                                 |
+| **Storage as a** `Protocol` **port**                                   | Same shape: `StorageProvider` with `LocalStorageProvider` and `S3StorageProvider` (both implemented; `AzureBlobStorageProvider` still a stub). Local disk is right for dev; ephemeral container disk is wrong for production, and the port means that swap is a `STORAGE_PROVIDER=s3` config change, no code change. S3 credentials aren't a settings field — `boto3`'s own default chain (env vars, IAM role, `~/.aws/credentials`) covers every real deployment target. | Hardcoded local paths                                                                                                                                            |
+| **Email as a** `Protocol` **port; Resend for the real vendor (S-035)** | Third port, same shape as AI/storage: `EmailProvider` with `MockEmailProvider` (logs only, no network) and `ResendEmailProvider` (a single HTTP adapter via `httpx`). Resend is a small typed transactional-send API with no SMTP/TLS/deliverability ops to run for a portfolio deploy, and local/demo/CI stay at $0 with no vendor key on `EMAIL_PROVIDER=mock` (ADR-007).                                                                                               | SMTP / SES / SendGrid (more ops and credentials for the same three transactional sends); vendor SDK inline in routers (welds review/approve/reset to one vendor) |
+| **Pydantic Settings**                                                  | One typed `Settings` object loaded from env/`.env`. `Literal["mock","openai","deepseek"]` means a typo in `AI_PROVIDER` fails at **startup**, not at the first review submission in production.                                                                                                                                                                                                                                                                           | `os.getenv` scattered through modules (untyped, fails late)                                                                                                      |
+| **JWT (**`python-jose`**) + bcrypt (**`passlib`**)**                   | Stateless auth — no session store, so the backend scales horizontally and works across the split Vercel/Render deployment. bcrypt is the deliberately-slow, salted standard for passwords.                                                                                                                                                                                                                                                                                | Server-side sessions (needs sticky sessions or shared store)                                                                                                     |
+| **Next.js 15 App Router + React 19**                                   | Hybrid rendering matched to the page: Server Components render public pages (home, search, business profiles) on the server for SEO and fast first paint — these pages must be crawlable. `"use client"` is added only where browser APIs, event handlers, or auth state are needed (login, register, dashboards).                                                                                                                                                        | SPA (public listings invisible to search engines); full SSR (pointless for authenticated dashboards)                                                             |
+| **TypeScript + Tailwind**                                              | Types across the API client boundary catch shape drift at compile time. Tailwind keeps styling colocated with markup — no separate CSS files to keep in sync in a small team.                                                                                                                                                                                                                                                                                             | Plain JS; CSS modules                                                                                                                                            |
+| **Docker Compose**                                                     | One command reproduces the exact four-service topology on any machine. Also the artifact deployment reuses: Railway builds from the same verified `Dockerfile`s.                                                                                                                                                                                                                                                                                                          | Manual local installs (works-on-my-machine)                                                                                                                      |
+
+
 
 
 ---
@@ -579,6 +584,48 @@ sequenceDiagram
 
 
 
+### Password reset + transactional email (S-035)
+
+Three v1 emails only: password reset, listing approved, new review. All go through the
+`EmailProvider` port (`backend/app/services/email/`) — `mock` (default, logs only) or
+`resend`, selected by `EMAIL_PROVIDER`. Review submit and business approve never fail on
+a send error; email is best-effort and additive to the existing in-app notifications
+(S-008 / S-015).
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant API as FastAPI
+    participant Redis
+    participant Mail as EmailProvider
+
+    User->>Frontend: "Forgot password?" on /login
+    Frontend->>API: POST /auth/forgot-password { email }
+    alt Redis unreachable
+        API-->>Frontend: 503
+    else Redis reachable
+        API->>API: Look up user by email
+        opt Password account exists
+            API->>Redis: SET auth:reset:{sha256(token)} → user_id, EX 3600
+            API->>Mail: send password_reset (best-effort)
+        end
+        API-->>Frontend: 200 generic message (always, known or unknown email)
+    end
+    User->>Frontend: Open emailed link → /reset-password?token=
+    Frontend->>API: POST /auth/reset-password { token, new_password }
+    API->>Redis: GET + DEL token (single-use)
+    API-->>Frontend: 200 (no session tokens) or 400 invalid/expired
+
+    Note over API,Mail: Listing approved (admin approve) and new review (customer submit)<br/>each insert their in-app Notification, then best-effort email the merchant
+```
+
+
+
+Reset tokens are high-entropy, stored in Redis **hashed** (SHA-256) with a 1-hour TTL,
+single-use, and looked up fail-closed — unlike login lockout, a Redis outage returns
+**503** rather than silently skipping the reset (§9 Security has the full rationale).
+
 ### Review submission + AI analysis
 
 The core path of the whole product.
@@ -680,7 +727,7 @@ flowchart TD
 
 
 
-
+`S` is filtered by an optional `range=30|90|all` query param (default `all`); `RAT`/`VOL` and reply-rate move with it, `S`'s totals/sentiment stay all-time. `UI` also offers **Export CSV** — `GET /dashboard/merchant/:id/reviews.csv`, same range, own business only (S-033).
 
 ### Merchant business registration
 
@@ -751,6 +798,8 @@ sequenceDiagram
 ```
 
 
+
+`/admin` also loads `GET /dashboard/admin/platform/series` (`granularity=day|week`, `days` 1-365, default `day`/`90`) for the trend row under the tiles — new users, businesses moved pending→approved (from `audit_logs`, not `Business.updated_at`), new reviews, new reports, all zero-filled and sourced from stored timestamps, never AI. Category create/list (`GET`/`POST /businesses/categories`) and user suspend/reactivate (`GET /admin/users`, `POST /admin/users/:id/suspend|reactivate`) round out the page; suspend/reactivate is refused (400) for the caller's own account or another admin (S-034).
 
 ---
 
@@ -905,18 +954,20 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 ### Authentication — `/auth`
 
 
-| Method | Path                     | Auth             | Description                                                  |
-| ------ | ------------------------ | ---------------- | ------------------------------------------------------------ |
-| POST   | `/auth/register`         | Public           | Create account                                               |
-| POST   | `/auth/login`            | Public           | Password check → MFA challenge or enrollment (`LoginResult`) |
-| POST   | `/auth/mfa/totp/setup`   | MFA enroll token | Start authenticator enrollment (QR + secret)                 |
-| POST   | `/auth/mfa/totp/confirm` | MFA enroll token | Confirm first TOTP code → session tokens                     |
-| POST   | `/auth/mfa/totp/verify`  | MFA verify token | Verify TOTP → session tokens                                 |
-| POST   | `/auth/refresh`          | Public           | Refresh tokens                                               |
-| GET    | `/auth/me`               | Bearer           | Current user                                                 |
-| PATCH  | `/auth/me`               | Bearer           | Update profile (name, avatar, phone, address, national ID)   |
-| POST   | `/auth/google`           | Public           | Google ID-token sign-in (register-or-login; no TOTP)         |
-| POST   | `/auth/logout`           | Bearer           | Blocklist caller's access token (+ optional refresh token)   |
+| Method | Path                     | Auth             | Description                                                                                   |
+| ------ | ------------------------ | ---------------- | --------------------------------------------------------------------------------------------- |
+| POST   | `/auth/register`         | Public           | Create account                                                                                |
+| POST   | `/auth/login`            | Public           | Password check → MFA challenge or enrollment (`LoginResult`)                                  |
+| POST   | `/auth/forgot-password`  | Public           | Request password-reset email; **always 200**, generic copy (no account-existence enumeration) |
+| POST   | `/auth/reset-password`   | Public           | Complete reset with emailed token; no session tokens issued                                   |
+| POST   | `/auth/mfa/totp/setup`   | MFA enroll token | Start authenticator enrollment (QR + secret)                                                  |
+| POST   | `/auth/mfa/totp/confirm` | MFA enroll token | Confirm first TOTP code → session tokens                                                      |
+| POST   | `/auth/mfa/totp/verify`  | MFA verify token | Verify TOTP → session tokens                                                                  |
+| POST   | `/auth/refresh`          | Public           | Refresh tokens                                                                                |
+| GET    | `/auth/me`               | Bearer           | Current user                                                                                  |
+| PATCH  | `/auth/me`               | Bearer           | Update profile (name, avatar, phone, address, national ID)                                    |
+| POST   | `/auth/google`           | Public           | Google ID-token sign-in (register-or-login; no TOTP)                                          |
+| POST   | `/auth/logout`           | Bearer           | Blocklist caller's access token (+ optional refresh token)                                    |
 
 
 ```jsonc
@@ -934,6 +985,16 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 { "mfa_token": "eyJ...", "code": "123456" }
 // →
 { "access_token": "eyJ...", "refresh_token": "eyJ...", "token_type": "bearer" }
+
+// POST /auth/forgot-password  →  always 200, same body for known and unknown addresses
+{ "email": "user@example.com" }
+// →
+{ "message": "If an account exists for that email, we sent password-reset instructions." }
+
+// POST /auth/reset-password  (token comes from the emailed link's ?token= query param)
+{ "token": "raw-url-safe-token", "new_password": "newsecurepass123" }
+// →
+{ "message": "Password updated. Sign in with your new password." }
 ```
 
 
@@ -954,7 +1015,7 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | PATCH  | `/businesses/{id}`           | Merchant/Admin | Update business                                                          |
 | POST   | `/businesses/{id}/approve`   | Admin          | Approve listing                                                          |
 | POST   | `/businesses/{id}/suspend`   | Admin          | Suspend listing                                                          |
-| POST   | `/businesses/categories`     | Admin          | Create category                                                          |
+| POST   | `/businesses/categories`     | Admin          | Create category. `409` if name or slug already exists (S-034)            |
 
 
 Query on `GET /businesses`: `city`, `status_filter` (`approved` default). Listing with any non-`approved` `status_filter` (e.g. `pending`) requires an admin Bearer token; anonymous callers receive `403`.
@@ -962,12 +1023,12 @@ Query on `GET /businesses`: `city`, `status_filter` (`approved` default). Listin
 ### Reviews — `/reviews`
 
 
-| Method | Path                              | Auth   | Description                 |
-| ------ | --------------------------------- | ------ | --------------------------- |
-| GET    | `/reviews/business/{business_id}` | Public | List reviews                |
-| GET    | `/reviews/reported`               | Admin  | List reported reviews       |
+| Method | Path                              | Auth   | Description                                                                       |
+| ------ | --------------------------------- | ------ | --------------------------------------------------------------------------------- |
+| GET    | `/reviews/business/{business_id}` | Public | List reviews                                                                      |
+| GET    | `/reviews/reported`               | Admin  | List reported reviews                                                             |
 | GET    | `/reviews/admin/all`              | Admin  | Browse reviews across every business/status; optional `business_id` scope (S-021) |
-| POST   | `/reviews`                        | User   | Create review (triggers AI) |
+| POST   | `/reviews`                        | User   | Create review (triggers AI)                                                       |
 
 
 **POST** `/reviews` **errors:** `403` if a merchant reviews their own business (`"Cannot review your own business"`); `409` if the author already reviewed that business (`"You have already reviewed this business"`), including concurrent double-submit races caught by `uq_author_business_review`.
@@ -1012,13 +1073,27 @@ Upload form fields: `file`, `business_id`, `review_id`, `photo_type`, `caption`.
 ### Dashboard — `/dashboard`
 
 
-| Method | Path                                | Auth     | Description              |
-| ------ | ----------------------------------- | -------- | ------------------------ |
-| GET    | `/dashboard/merchant/{business_id}` | Merchant | Merchant dashboard stats |
-| GET    | `/dashboard/admin/platform`         | Admin    | Platform analytics       |
+| Method | Path                                            | Auth            | Description                                                                                                                                                                                                                                                                             |
+| ------ | ----------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/dashboard/merchant/{business_id}`             | Merchant, Admin | Merchant dashboard stats. Query `range=30|90|all` (default `all`, 422 if invalid) filters `review_volume_by_month`, `rating_distribution`, `reply_rate` by `Review.created_at` (UTC). `total_reviews`/`average_rating`/`sentiment_breakdown`/`recent_reviews` stay all-time (**S-033**) |
+| GET    | `/dashboard/merchant/{business_id}/reviews.csv` | Merchant, Admin | Export that business's reviews as `text/csv` (same `range`, own business only, never cached) (**S-033**)                                                                                                                                                                                |
+| GET    | `/dashboard/admin/platform`                     | Admin           | Five live `COUNT(*)` tiles — unchanged snapshot                                                                                                                                                                                                                                         |
+| GET    | `/dashboard/admin/platform/series`              | Admin           | Time series: `new_users`, `businesses_approved` (from `audit_logs` `approve`/`business`), `new_reviews`, `new_reports`. Query `granularity=day|week` (default `day`), `days` 1-365 (default `90`), zero-filled buckets (**S-034**)                                                      |
 
 
 
+
+### Admin — `/admin`
+
+
+| Method | Path                           | Auth  | Description                                                                                                                                                       |
+| ------ | ------------------------------ | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/admin/users`                 | Admin | List users, newest first. Optional `page`, `page_size` (cap 100), `q` substring on email/full_name. Never serializes `totp_secret`/`hashed_password`/`google_sub` |
+| POST   | `/admin/users/{id}/suspend`    | Admin | Set `is_active=false` + `audit_logs` row. Idempotent. `400` if `id` is the caller or another admin, `404` unknown id                                              |
+| POST   | `/admin/users/{id}/reactivate` | Admin | Set `is_active=true` + `audit_logs` row. Idempotent. `400` if `id` is the caller or another admin, `404` unknown id                                               |
+
+
+Suspended/reactivated accounts are always `customer` or `merchant` — an admin can never suspend themselves or another admin. Existing login/refresh/`get_current_user` already reject `is_active=false` (S-034).
 
 ### Search — `/search`
 
@@ -1042,13 +1117,15 @@ Query params: `q`, `city`, `category`, `min_rating`, `sentiment`, `lat`, `lng`, 
 
 
 
-### Analytics — `/analytics`
+### Analytics — `/analytics` (deprecated)
+
+Legacy aliases. The frontend must use `/dashboard` and `/ai`, not these routes. **Do not extend.** Removal is a later cleanup, not S-033/S-034.
 
 
-| Method | Path                               | Auth     | Description       |
-| ------ | ---------------------------------- | -------- | ----------------- |
-| GET    | `/analytics/merchant/{id}`         | Merchant | AI insights alias |
-| GET    | `/analytics/merchant/{id}/summary` | Merchant | Quick KPI summary |
+| Method | Path                               | Auth     | Description              |
+| ------ | ---------------------------------- | -------- | ------------------------ |
+| GET    | `/analytics/merchant/{id}`         | Merchant | Unused AI insights alias |
+| GET    | `/analytics/merchant/{id}/summary` | Merchant | Unused KPI summary       |
 
 
 
@@ -1124,12 +1201,12 @@ Props are **inputs passed from a parent component to a child**. They are read-on
 State is **mutable data managed inside a component**. When it changes, React re-renders.
 
 
-| Component           | State it holds                          |
-| ------------------- | --------------------------------------- |
-| `LoginForm`         | `email`, `password`, `error`, `loading` |
-| `RatingWidget`      | `hover` — star preview                  |
-| `PhotoGallery`      | `selected` — lightbox index             |
-| `MerchantDashboard` | `business`, `stats`, `insights`         |
+| Component           | State it holds                                           |
+| ------------------- | -------------------------------------------------------- |
+| `LoginForm`         | `email`, `password`, `error`, `loading`                  |
+| `RatingWidget`      | `hover` — star preview                                   |
+| `PhotoGallery`      | `selected` — lightbox index                              |
+| `MerchantDashboard` | `business`, `stats`, `insights`, `range`, `exportingCsv` |
 
 
 
@@ -1157,6 +1234,8 @@ File-based routing under `frontend/src/app/`. A `page.tsx` file defines a route.
 | `/search`                        | `search/page.tsx`                        | Server Component                 |
 | `/businesses/[slug]`             | `businesses/[slug]/page.tsx`             | Dynamic SSR                      |
 | `/login`                         | `login/page.tsx`                         | Client form page                 |
+| `/forgot-password`               | `forgot-password/page.tsx`               | Client form page (S-035)         |
+| `/reset-password`                | `reset-password/page.tsx`                | Client form page (S-035)         |
 | `/register`                      | `register/page.tsx`                      | Client form page                 |
 | `/profile`                       | `profile/page.tsx`                       | Client                           |
 | `/settings`                      | `settings/page.tsx`                      | Client                           |
@@ -1204,44 +1283,48 @@ export default function LoginPage() {
 All in `frontend/src/components/`. Each file carries a JSDoc comment explaining purpose, props, and state.
 
 
-| Component                  | Description                                                               |
-| -------------------------- | ------------------------------------------------------------------------- |
-| `Navbar.tsx`               | Global nav, auth state, role-aware links                                  |
-| `NotificationBell.tsx`     | Navbar notifications dropdown (S-015)                                     |
-| `Footer.tsx`               | Multi-column site map: Discover, merchants, Account                       |
-| `home/TrustMetrics.tsx`    | Editorial live platform counts on the home page                           |
-| `home/CityIndex.tsx`       | Neighborhood links with listing counts                                    |
-| `home/CategoryIndex.tsx`   | Category search index with counts                                         |
-| `home/FeaturedGrid.tsx`    | Featured cards + optional AI suggestion blurbs                            |
-| `home/ReviewVoices.tsx`    | Real reviews with AI suggestion callouts                                  |
-| `BusinessCard.tsx`         | Compact listing card for search results                                   |
-| `ReviewCard.tsx`           | Review with rating, photos, likes, AI badge                               |
-| `RatingWidget.tsx`         | Interactive star rating input/display                                     |
-| `FavoriteButton.tsx`       | Customer favorite toggle on business detail                               |
-| `BusinessHours.tsx`        | Opening-hours list for business detail                                    |
-| `CategoryBadges.tsx`       | Full category Badge list                                                  |
-| `SearchBar.tsx`            | Query input with debounce                                                 |
-| `FilterPanel.tsx`          | City chips from API + category/rating filters (preserves location params) |
-| `UseLocationButton.tsx`    | Browser geolocation → `/search?lat=&lng=`                                 |
-| `BusinessMap.tsx`          | Leaflet map with OSM tiles for search results                             |
-| `BusinessForm.tsx`         | Merchant create/edit business form + geocode                              |
-| `RequireAuth.tsx`          | Client route guard by role (JWT in localStorage)                          |
-| `PendingBusinessQueue.tsx` | Admin pending-business approval queue                                     |
+| Component                  | Description                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| `Navbar.tsx`               | Global nav, auth state, role-aware links                                       |
+| `NotificationBell.tsx`     | Navbar notifications dropdown (S-015)                                          |
+| `Footer.tsx`               | Multi-column site map: Discover, merchants, Account                            |
+| `home/TrustMetrics.tsx`    | Editorial live platform counts on the home page                                |
+| `home/CityIndex.tsx`       | Neighborhood links with listing counts                                         |
+| `home/CategoryIndex.tsx`   | Category search index with counts                                              |
+| `home/FeaturedGrid.tsx`    | Featured cards + optional AI suggestion blurbs                                 |
+| `home/ReviewVoices.tsx`    | Real reviews with AI suggestion callouts                                       |
+| `BusinessCard.tsx`         | Compact listing card for search results                                        |
+| `ReviewCard.tsx`           | Review with rating, photos, likes, AI badge                                    |
+| `RatingWidget.tsx`         | Interactive star rating input/display                                          |
+| `FavoriteButton.tsx`       | Customer favorite toggle on business detail                                    |
+| `BusinessHours.tsx`        | Opening-hours list for business detail                                         |
+| `CategoryBadges.tsx`       | Full category Badge list                                                       |
+| `SearchBar.tsx`            | Query input with debounce                                                      |
+| `FilterPanel.tsx`          | City chips from API + category/rating filters (preserves location params)      |
+| `UseLocationButton.tsx`    | Browser geolocation → `/search?lat=&lng=`                                      |
+| `BusinessMap.tsx`          | Leaflet map with OSM tiles for search results                                  |
+| `BusinessForm.tsx`         | Merchant create/edit business form + geocode                                   |
+| `RequireAuth.tsx`          | Client route guard by role (JWT in localStorage)                               |
+| `PendingBusinessQueue.tsx` | Admin pending-business approval queue                                          |
 | `ReportedReviewsQueue.tsx` | Admin reported-review moderation queue (shop-name link via `showBusinessLink`) |
-| `AllBusinessesQueue.tsx`   | Admin browse of businesses in every status (S-021)                        |
-| `AllReviewsQueue.tsx`      | Admin browse of reviews across businesses; business-name drill-down (S-021) |
-| `Dashboard.tsx`            | Layout shell for merchant/admin analytics                                 |
-| `Charts.tsx`               | Recharts sentiment / volume / rating charts                               |
-| `PhotoGallery.tsx`         | Image grid + lightbox                                                     |
-| `LoginForm.tsx`            | Login form with validation                                                |
-| `RegisterForm.tsx`         | Registration form with validation                                         |
-| `ProfilePage.tsx`          | User account view                                                         |
-| `SettingsPage.tsx`         | Settings + logout                                                         |
-| `AIInsights.tsx`           | Merchant-facing AI summary panel                                          |
-| `MerchantDashboard.tsx`    | Reviews + analytics + insights composite                                  |
+| `AllBusinessesQueue.tsx`   | Admin browse of businesses in every status (S-021)                             |
+| `AllReviewsQueue.tsx`      | Admin browse of reviews across businesses; business-name drill-down (S-021)    |
+| `AdminCategoryPanel.tsx`   | Admin category create + list panel (S-034)                                     |
+| `AdminUserPanel.tsx`       | Admin user list + suspend/reactivate panel (S-034)                             |
+| `Dashboard.tsx`            | Layout shell for merchant/admin analytics                                      |
+| `Charts.tsx`               | Recharts sentiment / volume / rating charts                                    |
+| `PhotoGallery.tsx`         | Image grid + lightbox                                                          |
+| `LoginForm.tsx`            | Login form with validation                                                     |
+| `RegisterForm.tsx`         | Registration form with validation                                              |
+| `ProfilePage.tsx`          | User account view                                                              |
+| `SettingsPage.tsx`         | Settings + logout                                                              |
+| `AIInsights.tsx`           | Merchant-facing AI summary panel                                               |
+| `MerchantDashboard.tsx`    | Reviews + analytics + insights composite                                       |
 
 
 The API client lives in `[frontend/src/lib/api.ts](frontend/src/lib/api.ts)` and calls the backend directly via `NEXT_PUBLIC_API_URL` / `API_URL_INTERNAL` — there is no BFF or rewrite layer.
+
+**File download pattern (S-033):** `dashboard.reviewsCsv()` is the first non-JSON API call — it can't route through the shared `apiFetch<T>()` JSON helper, so it does a plain authenticated `fetch()` and returns a `Blob`. Callers turn that into a download via `URL.createObjectURL` + a synthetic `<a download>` click (see `MerchantDashboard.tsx`'s `handleExportCsv`), not a direct link to the API URL (would drop the auth header).
 
 ### Design system (Figma)
 
@@ -1342,14 +1425,14 @@ flowchart TD
 Implemented in `[core/security.py](backend/app/core/security.py)`, configured in `[config.py](backend/app/config.py)`.
 
 
-| Property          | Value                                                                            | Why                                                                                                                                                                                                                                                                                                                               |
-| ----------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Algorithm         | HS256 (symmetric)                                                                | One service signs and verifies; no key distribution problem                                                                                                                                                                                                                                                                       |
-| Access token TTL  | 30 minutes                                                                       | Short enough that a leaked token expires quickly                                                                                                                                                                                                                                                                                  |
-| Refresh token TTL | 7 days                                                                           | Keeps users logged in without long-lived access tokens                                                                                                                                                                                                                                                                            |
-| Claims            | `sub` (user UUID), `exp`, `type`, optional `purpose` / `role`                    | —                                                                                                                                                                                                                                                                                                                                 |
-| `type` claim      | `"access"` | `"refresh"` | `"mfa"`                                               | **Load-bearing.** `get_current_user` rejects anything where `type != "access"`, so a stolen refresh or MFA pending token cannot be replayed against protected endpoints. MFA tokens only work on `/auth/mfa/totp/`*. Without this claim the token classes would be interchangeable and the short access TTL would be meaningless. |
-| Password MFA      | Mandatory TOTP (authenticator app) for email/password login; Google OAuth exempt | Secrets Fernet-encrypted at rest; never returned on `UserResponse`                                                                                                                                                                                                                                                                |
+| Property          | Value                                                                            | Why                                                                |
+| ----------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Algorithm         | HS256 (symmetric)                                                                | One service signs and verifies; no key distribution problem        |
+| Access token TTL  | 30 minutes                                                                       | Short enough that a leaked token expires quickly                   |
+| Refresh token TTL | 7 days                                                                           | Keeps users logged in without long-lived access tokens             |
+| Claims            | `sub` (user UUID), `exp`, `type`, optional `purpose` / `role`                    | —                                                                  |
+| `type` claim      | `"access"`                                                                       | `"refresh"`                                                        |
+| Password MFA      | Mandatory TOTP (authenticator app) for email/password login; Google OAuth exempt | Secrets Fernet-encrypted at rest; never returned on `UserResponse` |
 
 
 
@@ -1358,6 +1441,29 @@ Implemented in `[core/security.py](backend/app/core/security.py)`, configured in
 
 `CryptContext(schemes=["bcrypt"], deprecated="auto")` — bcrypt is salted and deliberately slow, which is what makes offline brute-forcing of a leaked table impractical. `deprecated="auto"` means that if a stronger scheme is added to `schemes` later, passlib marks bcrypt hashes as outdated and they can be transparently re-hashed on next successful login — algorithm rotation without a forced password reset.
 
+### Password reset tokens (S-035 / ADR-007)
+
+`POST /auth/forgot-password` never confirms whether an email is registered — known and
+unknown addresses get the same generic 200 message. A high-entropy token is generated,
+stored in Redis as `auth:reset:{sha256(token)}` → `user_id` with a **1-hour TTL**, and
+the **raw** token is only ever placed in the outbound email link — never logged, never
+persisted in Postgres. `POST /auth/reset-password` deletes the key on use (single-use)
+and returns a generic `400` for missing, expired, or already-used tokens alike.
+
+This is the one place in the app that is **fail-closed** rather than fail-open: unlike
+login lockout (`is_login_locked` / `record_login_failure`, which quietly no-ops if Redis
+is down), a Redis outage on forgot/reset returns **503**. The reasoning: silently
+skipping the reset would tell a user we emailed them a link that was never generated,
+and accepting a password change with no stored challenge at all would be worse than
+rejecting the request. `forgot-password` checks Redis reachability with a `PING`
+*before* the account lookup, so the 503 path itself does not distinguish known accounts
+from unknown ones (only whether Redis is up).
+
+Google-only accounts (`hashed_password is None`) never receive a reset email and are not
+converted to password accounts by this flow — there's no password to reset, and forgot
+still returns the same generic 200. A successful reset does not revoke outstanding access
+tokens (≤ 30 min TTL) or disable TOTP; both are accepted v1 trade-offs (ADR-007).
+
 ### Authorisation — two independent layers
 
 Confusing these is the classic RBAC bug, so they are separate mechanisms:
@@ -1365,20 +1471,21 @@ Confusing these is the classic RBAC bug, so they are separate mechanisms:
 **1. Role check** — `require_roles(*roles)` returns a dependency that 403s if `user.role` isn't in the allowed set.
 
 
-| Endpoint group                                  | customer | merchant         | admin  |
-| ----------------------------------------------- | -------- | ---------------- | ------ |
-| Register / login / refresh                      | public   | public           | public |
-| Browse, search, view business, list reviews     | public   | public           | public |
-| List businesses with non-approved status_filter | —        | —                | ✅      |
-| Create / edit / delete own review, like, report | ✅        | ✅                | ✅      |
-| Upload photo                                    | ✅        | ✅                | ✅      |
-| Create / update business                        | —        | ✅                | ✅      |
-| Reply to review                                 | —        | ✅ (own business) | ✅      |
-| Merchant dashboard, AI insights, analytics      | —        | ✅ (own business) | ✅      |
-| Approve / suspend business, create category     | —        | —                | ✅      |
-| Moderate review (hide/restore/remove)           | —        | —                | ✅      |
-| Platform analytics                              | —        | —                | ✅      |
-| Delete photo                                    | —        | ✅ (own)          | ✅      |
+| Endpoint group                                            | customer | merchant         | admin  |
+| --------------------------------------------------------- | -------- | ---------------- | ------ |
+| Register / login / refresh                                | public   | public           | public |
+| Browse, search, view business, list reviews               | public   | public           | public |
+| List businesses with non-approved status_filter           | —        | —                | ✅      |
+| Create / edit / delete own review, like, report           | ✅        | ✅                | ✅      |
+| Upload photo                                              | ✅        | ✅                | ✅      |
+| Create / update business                                  | —        | ✅                | ✅      |
+| Reply to review                                           | —        | ✅ (own business) | ✅      |
+| Merchant dashboard, AI insights                           | —        | ✅ (own business) | ✅      |
+| Approve / suspend business, create category API           | —        | —                | ✅      |
+| Moderate review (hide/restore/remove)                     | —        | —                | ✅      |
+| Platform counts (`GET .../admin/platform`)                | —        | —                | ✅      |
+| User suspend/reactivate, category create, platform series | —        | —                | ✅      |
+| Delete photo                                              | —        | ✅ (own)          | ✅      |
 
 
 **2. Ownership check** — being a merchant is not the same as being *this business's* merchant. `get_merchant_for_user()` and `get_owned_business()` re-query with `Business.merchant_id == merchant.id` in the `WHERE` clause, returning **404** (not 403) so the existence of another merchant's business isn't leaked.
@@ -1388,22 +1495,24 @@ Author-scoped actions (edit/delete review) follow the same principle at the rout
 ### Other controls in place
 
 
-| Control          | Implementation                                                                                                                                                                                                            |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CORS             | `CORSMiddleware` with an explicit origin allowlist from `cors_origin_list`, `allow_credentials=True` ([main.py](backend/app/main.py))                                                                                     |
-| Security headers | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` on FastAPI and Next; `Strict-Transport-Security` only when the request is HTTPS / `X-Forwarded-Proto: https` (local Compose HTTP is unchanged). CSP is deferred so Leaflet / Google GIS keep working. |
-| Input validation | Pydantic request schemas on every endpoint — malformed bodies are rejected with 422 before any handler runs                                                                                                               |
-| Password policy  | Register: min 12 characters, at least one letter and one digit (`UserRegister`). Login does not re-validate complexity.                                                                                                  |
-| Rate limiting    | `slowapi`: `/auth/login` 10/minute per IP, `/auth/register` 5/minute per IP                                                                                                                                               |
-| Account lockout  | After 5 failed **password** logins for an email, Redis lock 15 minutes (`auth:fail:` / `auth:lock:`). Fail-open if Redis is down (same idea as the token blocklist). Google sign-in is not counted.                         |
-| Refresh rotation | `POST /auth/refresh` blocklists the presented refresh `jti` before issuing a new pair                                                                                                                                     |
-| SQL injection    | SQLAlchemy parameterised queries throughout; no string-built SQL                                                                                                                                                          |
-| Slug generation  | `slugify()` strips non-word characters and appends 8 random hex chars — prevents slug collision and enumeration by name                                                                                                   |
-| Upload paths     | Filenames are replaced with a server-generated `uuid4()`; the client-supplied name is used only for its extension, so path traversal via `filename` is not possible ([storage](backend/app/services/storage/__init__.py)) |
-| Upload MIME/size | Photo upload allows image JPEG/PNG/WebP/GIF only and caps at 5 MB ([photos.py](backend/app/routers/photos.py))                                                                                                            |
-| Audit trail      | Admin approve/suspend/moderate actions write `audit_logs` rows                                                                                                                                                            |
-| Logout UX        | Client `performLogout` clears tokens, hard-navigates; `RequireAuth` / profile / settings re-check on bfcache `pageshow`                                                                                                   |
-| TOTP MFA         | Password login requires authenticator app; Google/Gmail path does not                                                                                                                                                     |
+| Control             | Implementation                                                                                                                                                                                                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CORS                | `CORSMiddleware` with an explicit origin allowlist from `cors_origin_list`, `allow_credentials=True` ([main.py](backend/app/main.py))                                                                                                                                                      |
+| Security headers    | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` on FastAPI and Next; `Strict-Transport-Security` only when the request is HTTPS / `X-Forwarded-Proto: https` (local Compose HTTP is unchanged). CSP is deferred so Leaflet / Google GIS keep working. |
+| Input validation    | Pydantic request schemas on every endpoint — malformed bodies are rejected with 422 before any handler runs                                                                                                                                                                                |
+| Password policy     | Register: min 12 characters, at least one letter and one digit (`UserRegister`). Login does not re-validate complexity.                                                                                                                                                                    |
+| Rate limiting       | `slowapi`: `/auth/login` 10/minute per IP, `/auth/register` 5/minute per IP                                                                                                                                                                                                                |
+| Account lockout     | After 5 failed **password** logins for an email, Redis lock 15 minutes (`auth:fail:` / `auth:lock:`). Fail-open if Redis is down (same idea as the token blocklist). Google sign-in is not counted.                                                                                        |
+| Refresh rotation    | `POST /auth/refresh` blocklists the presented refresh `jti` before issuing a new pair                                                                                                                                                                                                      |
+| SQL injection       | SQLAlchemy parameterised queries throughout; no string-built SQL                                                                                                                                                                                                                           |
+| Slug generation     | `slugify()` strips non-word characters and appends 8 random hex chars — prevents slug collision and enumeration by name                                                                                                                                                                    |
+| Upload paths        | Filenames are replaced with a server-generated `uuid4()`; the client-supplied name is used only for its extension, so path traversal via `filename` is not possible ([storage](backend/app/services/storage/__init__.py))                                                                  |
+| Upload MIME/size    | Photo upload allows image JPEG/PNG/WebP/GIF only and caps at 5 MB ([photos.py](backend/app/routers/photos.py))                                                                                                                                                                             |
+| Audit trail         | Admin approve/suspend/moderate actions write `audit_logs` rows, including user suspend/reactivate (`entity_type=user`, distinct from business suspend) (S-034)                                                                                                                             |
+| Logout UX           | Client `performLogout` clears tokens, hard-navigates; `RequireAuth` / profile / settings re-check on bfcache `pageshow`                                                                                                                                                                    |
+| TOTP MFA            | Password login requires authenticator app; Google/Gmail path does not                                                                                                                                                                                                                      |
+| Password reset      | `/auth/forgot-password` + `/auth/reset-password` 5/minute per IP each; hashed single-use Redis token, 1-hour TTL, fail-closed 503 on Redis outage — see below                                                                                                                              |
+| Transactional email | `EmailProvider` port (`mock`/`resend`) — best-effort, never blocks review create or business approve on a send failure; v1 templates carry no AI-generated text (S-035)                                                                                                                    |
 
 
 
@@ -1413,14 +1522,14 @@ Author-scoped actions (edit/delete review) follow the same principle at the rout
 These are real and currently unmitigated. They are acceptable for a local demo, not for a public deployment.
 
 
-| #   | Weakness                                                                                     | Impact                                                                                 | Fix                                                                                                                                                                                                            |
-| --- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Tokens stored in `localStorage`                                                              | Any XSS can exfiltrate both tokens                                                     | Move to `httpOnly` `Secure` `SameSite` cookies — **S-026 / ADR-004**, not this hardening batch (needs a dual-auth story; mobile stays Bearer)                                                                  |
-| 2   | ✅ Fixed — `secret_key` had a hardcoded fallback in `[config.py](backend/app/config.py)`      | If unset in prod, anyone could forge a valid admin JWT                                 | Now a required field with no default — startup fails fast if `SECRET_KEY` is unset. Every documented workflow (Compose, `.env.example`, both CI workflows, the Railway guide below) already sets it explicitly |
-| 3   | ✅ Fixed — rate limiting on `/auth/login` and `/auth/register`                                | Credential stuffing / bcrypt CPU exhaustion                                            | `slowapi` 10/min login, 5/min register per IP; plus per-email lockout (5 failures / 15 min) when Redis is up                                                                                                    |
-| 4   | ✅ Fixed — `debug: bool = True` default, and it wasn't even wired to FastAPI's own debug mode | Verbose tracebacks in HTTP responses can leak internals                                | Default is now `False`; `main.py` passes it to `FastAPI(debug=...)` so the setting actually gates traceback responses, not just SQL echo logging. Compose/`.env.example` opt local dev back in explicitly      |
-| 5   | ✅ Fixed — MIME/size validation on photo upload                                               | Arbitrary file content and size accepted into `/uploads`                               | Image content types only; 5 MB cap in `[photos.py](backend/app/routers/photos.py)`                                                                                                                              |
-| 6   | `/uploads` served as unauthenticated static files                                            | Any uploaded photo is world-readable to anyone with the URL                            | Acceptable for public gallery photos; use signed URLs if private media is ever added                                                                                                                           |
+| #   | Weakness                                                                                     | Impact                                                      | Fix                                                                                                                                                                                                            |
+| --- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Tokens stored in `localStorage`                                                              | Any XSS can exfiltrate both tokens                          | Move to `httpOnly` `Secure` `SameSite` cookies — **S-026 / ADR-004**, not this hardening batch (needs a dual-auth story; mobile stays Bearer)                                                                  |
+| 2   | ✅ Fixed — `secret_key` had a hardcoded fallback in `[config.py](backend/app/config.py)`      | If unset in prod, anyone could forge a valid admin JWT      | Now a required field with no default — startup fails fast if `SECRET_KEY` is unset. Every documented workflow (Compose, `.env.example`, both CI workflows, the Railway guide below) already sets it explicitly |
+| 3   | ✅ Fixed — rate limiting on `/auth/login` and `/auth/register`                                | Credential stuffing / bcrypt CPU exhaustion                 | `slowapi` 10/min login, 5/min register per IP; plus per-email lockout (5 failures / 15 min) when Redis is up                                                                                                   |
+| 4   | ✅ Fixed — `debug: bool = True` default, and it wasn't even wired to FastAPI's own debug mode | Verbose tracebacks in HTTP responses can leak internals     | Default is now `False`; `main.py` passes it to `FastAPI(debug=...)` so the setting actually gates traceback responses, not just SQL echo logging. Compose/`.env.example` opt local dev back in explicitly      |
+| 5   | ✅ Fixed — MIME/size validation on photo upload                                               | Arbitrary file content and size accepted into `/uploads`    | Image content types only; 5 MB cap in `[photos.py](backend/app/routers/photos.py)`                                                                                                                             |
+| 6   | `/uploads` served as unauthenticated static files                                            | Any uploaded photo is world-readable to anyone with the URL | Acceptable for public gallery photos; use signed URLs if private media is ever added                                                                                                                           |
 
 
 
@@ -1623,9 +1732,11 @@ Run tests with `AI_PROVIDER=mock` so no network calls or API costs are incurred.
 ```
 MEngPlat/
 ├── docker-compose.yml          # Local dev: postgres, redis, backend, frontend
-├── README.md                   # ← this file, the single source of truth
+├── README.md                   # ← this file, the single source of truth (business + status)
 ├── AGENTS.md                   # Pointer for AI coding agents
 ├── CLAUDE.md                   # Claude Code config (root) — mirrors .cursor/rules/project.mdc
+├── ANDROID_APP_STRATEGY.md     # Play/AAB/signing strategy (day-to-day mobile is this §12)
+├── CHECKLIST_GAPS.txt          # Scored 13 Aug 2026 matrix — living hold list is §14 (fold, do not treat as a second bible)
 │
 ├── .cursor/rules/              # Cursor AI rules (builder + agent layers)
 ├── .claude/agents/             # Claude Code subagents — mirror .cursor/rules/agents/
@@ -1710,10 +1821,33 @@ MEngPlat/
 
 
 
+### Document map (what to open)
+
+Use **this README** for business summary, site flow, and implemented vs next. Other files are tooling, strategy leftovers, or agent tickets.
+
+
+| Path                                                                     | Purpose                                           | Disposition                                                                           |
+| ------------------------------------------------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `README.md`                                                              | Product, API, security, parity, investor overview | **Keep** — only file to implement business/status against                             |
+| `AGENTS.md`                                                              | Agent onboarding pointer                          | Keep (tooling)                                                                        |
+| `CLAUDE.md` + nested `**/CLAUDE.md` + `.cursor/rules` + `.claude/agents` | Cursor ↔ Claude Code parity                       | Keep (CI-enforced)                                                                    |
+| `ANDROID_APP_STRATEGY.md`                                                | Play/AAB/signing; Railway ≠ Play                  | Keep until Play subsection is enough; day-to-day mobile is this §12                   |
+| `CHECKLIST_GAPS.txt`                                                     | Scored Have/Partial/Missing (13 Aug 2026)         | **Folded** — §14 is the living hold list; do not update the `.txt` as source of truth |
+| `docs/agents/slices`, `adrs`, `test-plans`, `test-reports`               | PM → Architect → Tester tickets                   | Artifact                                                                              |
+| `docs/competitive-analysis-lentlo.md`                                    | Lentlo scrape (2026-08-09)                        | Appendix; 5–8 line box in [§16](#16-industry-and-investor-overview)                   |
+| `docs/pivot-crowdsourced-live-status.md`                                 | Exploratory Waze-style pivot                      | **Not on the roadmap**                                                                |
+| `docs/agents/DEVELOPMENT_HISTORY.md`                                     | Build narrative                                   | Artifact                                                                              |
+| `mobile/README.md`                                                       | Flutter boilerplate                               | Prefer this §12                                                                       |
+| `data/real-businesses/README.md`                                         | Seed note                                         | Leave                                                                                 |
+| `mobile/packages/merchanthub_api/doc/*.md`                               | Generated OpenAPI                                 | Not human docs                                                                        |
+
+
+
+
 ### Mobile client (Flutter)
 
 `mobile/` is a Flutter app -- a third REST client of the same `/api/v1` backend, alongside
-the Next.js frontend. No backend changes were needed; see [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md)
+the Next.js frontend. No backend changes were needed; see `[ANDROID_APP_STRATEGY.md](ANDROID_APP_STRATEGY.md)`
 for architecture, phase status, APK vs AAB, and the Play Store release checklist.
 
 **Dev loop:** Flutter Web (`-d web-server`), not an Android emulator -- avoids Windows
@@ -1791,90 +1925,105 @@ user-facing web capability must have **exactly one row** below. When web ships a
 nav item, or major interaction — or when mobile closes a gap — **update this table in the
 same change** (see docs sync in `.cursor/rules/docs-and-api.mdc`). Use it later for one-shot
 consolidation: walk `unimplemented` / `partial` rows into slices (PM → Architect → Builder →
-Tester). Play Store packaging is tracked separately in [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md)
+Tester). Play Store packaging is tracked separately in `[ANDROID_APP_STRATEGY.md](ANDROID_APP_STRATEGY.md)`
 phase 5, not here.
 
-| Status | Meaning |
-| ------ | ------- |
-| `implemented` | On mobile at roughly web capability |
-| `partial` | On mobile but thinner / different chrome |
-| `unimplemented` | On web, not on mobile yet |
-| `n/a` | Not on web either (shared gap — not mobile-only debt) |
-| `future` | Intentionally deferred (e.g. merchant Phase 4, FCM) |
+
+| Status          | Meaning                                               |
+| --------------- | ----------------------------------------------------- |
+| `implemented`   | On mobile at roughly web capability                   |
+| `partial`       | On mobile but thinner / different chrome              |
+| `unimplemented` | On web, not on mobile yet                             |
+| `n/a`           | Not on web either (shared gap — not mobile-only debt) |
+| `future`        | Intentionally deferred (e.g. merchant Phase 4, FCM)   |
+
 
 **Later build waves:** P0–P4 are on this branch (S-027 chrome, S-028 discovery, S-029
 register/Google/profile edit, S-030 like/report/replies, S-031 merchant/admin dashboards).
 Home marketing (M-13–M-18) is still `unimplemented`. FCM (M-47) remains `future`.
 Combined `flutter analyze` / `flutter test` is deferred until you ask.
 
-**Last reviewed:** 2026-08-14
+**Last reviewed:** 2026-08-15
 
 
-| ID | Area | Feature | Web surface | Mobile surface | Status | Notes / slice |
-| -- | ---- | ------- | ----------- | -------------- | ------ | ------------- |
-| M-01 | Auth | Email/password login | `/login` (`LoginForm`) | `/login` (`LoginScreen`) | `implemented` | S-020 |
-| M-02 | Auth | MFA enroll (TOTP QR + secret) | `/login` enroll step | `/login` enroll step | `implemented` | S-020 |
-| M-03 | Auth | MFA verify (TOTP code) | `/login` verify step | `/login` verify step | `implemented` | S-020 |
-| M-04 | Auth | Google / Gmail sign-in | `/login`, `/register` (`GoogleSignInButton`) | `/login`, `/register` (`GoogleSignInButton`) | `implemented` | S-029; skips MFA; hidden if `GOOGLE_CLIENT_ID` unset |
-| M-05 | Auth | Register (customer / merchant) | `/register` | `/register` | `implemented` | S-029; then TOTP on first password login |
-| M-06 | Auth | Logout | Navbar, `/settings`, already-signed-in gate | Account screen (`/account`) | `implemented` | S-027; was list app-bar only |
-| M-07 | Auth | Session restore + refresh | `ClientLayout` / `auth.me` | `AuthInterceptor` + secure storage | `implemented` | |
-| M-08 | Auth | Role switching (customer ↔ merchant) | — | — | `n/a` | Role fixed at register / Google |
-| M-09 | Auth | Role-aware post-login home | Merchant → dashboard; admin → `/admin` | Customer → Explore; merchant → `/merchant` dashboard; admin → `/admin` | `implemented` | S-027 landing + S-031 dashboards |
-| M-10 | Chrome | Global navbar + footer | `ClientLayout` | Bottom `NavigationBar` + Account brand control | `partial` | S-027; mobile chrome, not a cloned web navbar/footer |
-| M-11 | Chrome | Bottom nav / primary shell | — (web uses top nav) | `AppShell` `NavigationBar` | `implemented` | S-027 / ADR-005 |
-| M-12 | Chrome | Brand / home link | Navbar → `/` | Account `MerchantHub AI` → Explore | `implemented` | S-027 |
-| M-13 | Discovery | Home hero + marketing sections | `/` | — | `unimplemented` | P1 leftover; Explore is the mobile discovery surface (S-028) |
-| M-14 | Discovery | Trust metrics | `/` (`TrustMetrics`) | — | `unimplemented` | |
-| M-15 | Discovery | City index | `/` (`CityIndex`) | — | `unimplemented` | City **filter** is on Explore (M-20); home index is not |
-| M-16 | Discovery | Category index | `/` (`CategoryIndex`) | — | `unimplemented` | Category **filter** is on Explore (M-20); home index is not |
-| M-17 | Discovery | Featured businesses + photos | `/` (`FeaturedGrid`) | — | `unimplemented` | |
-| M-18 | Discovery | Review voices / how-it-works / merchant CTA | `/` | — | `unimplemented` | |
-| M-19 | Discovery | Search page + query `q` | `/search` | Explore search field (`/businesses`) | `implemented` | S-028 |
-| M-20 | Discovery | Filters (city, category, min rating, sort) | `/search` (`FilterPanel`) | Explore Filters sheet | `implemented` | S-028 |
-| M-21 | Discovery | Use my location + radius | `/search` (`UseLocationButton`) | Explore + Filters radius | `implemented` | S-028 |
-| M-22 | Discovery | Results map (OSM) | `/search` Leaflet map | `flutter_map` OSM tiles | `implemented` | S-028 / ADR-006 |
-| M-23 | Discovery | Pagination / infinite scroll UI | `/search` | Infinite scroll on Explore | `implemented` | S-028 |
-| M-24 | Discovery | Business cards with photos | `BusinessCard` | Photo `BusinessCard` | `implemented` | S-028 |
-| M-25 | Business | Public list browse (guest) | `/`, `/search` | `/businesses` + search chrome (ADR-003) | `implemented` | S-028 |
-| M-26 | Business | Detail: name, city/state, rating, count | `/businesses/[slug]` | `/businesses/:slug` | `implemented` | S-023 |
-| M-27 | Business | Detail: description, address, phone, website | Business profile | `/businesses/:slug` | `implemented` | S-028 |
-| M-28 | Business | Detail: categories | `CategoryBadges` | Category chips | `implemented` | S-028 |
-| M-29 | Business | Detail: hours | `BusinessHours` | Hours block | `implemented` | S-028 |
-| M-30 | Business | Detail: photo gallery / lightbox | `PhotoGallery` | Gallery + lightbox | `implemented` | S-028 |
-| M-31 | Business | Detail: map pin | Leaflet on profile | OSM pin (`flutter_map`) | `implemented` | S-028 / ADR-006 |
-| M-32 | Business | Detail: AI overview (suggestion) | Profile AI blurb | Labeled suggestion-only | `implemented` | S-028 |
-| M-33 | Reviews | List reviews + AI suggestion labels | `ReviewsList` / `ReviewCard` | `ReviewCard` | `implemented` | S-023 |
-| M-34 | Reviews | Create review (stars, title, body) | `/businesses/[slug]/review` | `ReviewFormSheet` | `implemented` | S-023 |
-| M-35 | Reviews | Attach review photos (≤5) | `ReviewForm` | `image_picker` in sheet | `implemented` | S-023 |
-| M-36 | Reviews | Show review photo strip | `ReviewCard` | `ReviewCard` | `implemented` | |
-| M-37 | Reviews | Like review | Business page | `ReviewCard` | `implemented` | S-030 |
-| M-38 | Reviews | Report review | Business page | `ReviewCard` | `implemented` | S-030 |
-| M-39 | Reviews | Show merchant reply on card | `ReviewCard` | `ReviewCard` | `implemented` | S-030 |
-| M-40 | Reviews | Edit own review | — | — | `n/a` | No UI on either client |
-| M-41 | Reviews | Delete own review | — | — | `n/a` | No UI on either client |
-| M-42 | Favorites | Favorite toggle (list + detail) | `FavoriteButton` | Heart + `FavoriteToggleButton` | `implemented` | S-024; customer only |
-| M-43 | Favorites | Favorites list | `/profile` section | `/favorites` (Explore shell tab) | `implemented` | S-024 + S-027 tab |
-| M-44 | Notifications | Unread bell + poll | Navbar `NotificationBell` | Notifications tab + badge | `implemented` | S-025 + S-027 shell |
-| M-45 | Notifications | Full list + mark one / mark all | Bell dropdown | `/notifications` | `implemented` | S-025 |
-| M-46 | Notifications | Deep-link to business/review | Weak / none | None | `n/a` | Shared gap |
-| M-47 | Notifications | Push (FCM) | — | — | `future` | Phase 4+; polling today |
-| M-48 | Account | Profile edit | `/profile` | `/account/profile` | `implemented` | S-029; email/role read-only; favorites stay M-43 |
-| M-49 | Account | Settings (profile link + logout) | `/settings` | `/account` + `/account/profile` + logout | `implemented` | S-027; profile edit is M-48 |
-| M-50 | Merchant | Dashboard shell + multi-business | `/merchant/dashboard` | `/merchant` | `implemented` | S-031 |
-| M-51 | Merchant | Stats tiles + sentiment chart | Dashboard | Dashboard tiles + bars | `implemented` | S-031 |
-| M-52 | Merchant | AI insights + refresh | `AIInsights` | `AiInsightsPanel` | `implemented` | S-031; suggestion-only |
-| M-53 | Merchant | Reply to reviews | Dashboard `ReviewCard` | Dashboard `ReviewCard` | `implemented` | S-031 |
-| M-54 | Merchant | Create / edit business | `/merchant/businesses/…` | `/merchant/businesses/new` + `…/:id/edit` | `implemented` | S-031; no hours/gallery UI (M-55/M-56) |
-| M-55 | Merchant | Storefront / logo / gallery upload UI | — | — | `n/a` | API exists; no web form yet |
-| M-56 | Merchant | Business hours editor | — | — | `n/a` | Display-only on web |
-| M-57 | Admin | Admin home + platform stats | `/admin` | `/admin` | `implemented` | S-031 |
-| M-58 | Admin | Pending business approve / suspend | `/admin` queue | `/admin` queue | `implemented` | S-031 |
-| M-59 | Admin | Reported reviews moderate | `/admin` queue | `/admin` queue | `implemented` | S-031 |
-| M-60 | Admin | All businesses / all reviews browse | `/admin/businesses`, `/admin/reviews` | `/admin/businesses`, `/admin/reviews` | `implemented` | S-031 |
+| ID   | Area              | Feature                                                            | Web surface                                     | Mobile surface                                                         | Status          | Notes / slice                                                |
+| ---- | ----------------- | ------------------------------------------------------------------ | ----------------------------------------------- | ---------------------------------------------------------------------- | --------------- | ------------------------------------------------------------ |
+| M-01 | Auth              | Email/password login                                               | `/login` (`LoginForm`)                          | `/login` (`LoginScreen`)                                               | `implemented`   | S-020                                                        |
+| M-02 | Auth              | MFA enroll (TOTP QR + secret)                                      | `/login` enroll step                            | `/login` enroll step                                                   | `implemented`   | S-020                                                        |
+| M-03 | Auth              | MFA verify (TOTP code)                                             | `/login` verify step                            | `/login` verify step                                                   | `implemented`   | S-020                                                        |
+| M-04 | Auth              | Google / Gmail sign-in                                             | `/login`, `/register` (`GoogleSignInButton`)    | `/login`, `/register` (`GoogleSignInButton`)                           | `implemented`   | S-029; skips MFA; hidden if `GOOGLE_CLIENT_ID` unset         |
+| M-05 | Auth              | Register (customer / merchant)                                     | `/register`                                     | `/register`                                                            | `implemented`   | S-029; then TOTP on first password login                     |
+| M-06 | Auth              | Logout                                                             | Navbar, `/settings`, already-signed-in gate     | Account screen (`/account`)                                            | `implemented`   | S-027; was list app-bar only                                 |
+| M-07 | Auth              | Session restore + refresh                                          | `ClientLayout` / `auth.me`                      | `AuthInterceptor` + secure storage                                     | `implemented`   |                                                              |
+| M-08 | Auth              | Role switching (customer ↔ merchant)                               | —                                               | —                                                                      | `n/a`           | Role fixed at register / Google                              |
+| M-09 | Auth              | Role-aware post-login home                                         | Merchant → dashboard; admin → `/admin`          | Customer → Explore; merchant → `/merchant` dashboard; admin → `/admin` | `implemented`   | S-027 landing + S-031 dashboards                             |
+| M-10 | Chrome            | Global navbar + footer                                             | `ClientLayout`                                  | Bottom `NavigationBar` + Account brand control                         | `partial`       | S-027; mobile chrome, not a cloned web navbar/footer         |
+| M-11 | Chrome            | Bottom nav / primary shell                                         | — (web uses top nav)                            | `AppShell` `NavigationBar`                                             | `implemented`   | S-027 / ADR-005                                              |
+| M-12 | Chrome            | Brand / home link                                                  | Navbar → `/`                                    | Account `MerchantHub AI` → Explore                                     | `implemented`   | S-027                                                        |
+| M-13 | Discovery         | Home hero + marketing sections                                     | `/`                                             | —                                                                      | `unimplemented` | P1 leftover; Explore is the mobile discovery surface (S-028) |
+| M-14 | Discovery         | Trust metrics                                                      | `/` (`TrustMetrics`)                            | —                                                                      | `unimplemented` |                                                              |
+| M-15 | Discovery         | City index                                                         | `/` (`CityIndex`)                               | —                                                                      | `unimplemented` | City **filter** is on Explore (M-20); home index is not      |
+| M-16 | Discovery         | Category index                                                     | `/` (`CategoryIndex`)                           | —                                                                      | `unimplemented` | Category **filter** is on Explore (M-20); home index is not  |
+| M-17 | Discovery         | Featured businesses + photos                                       | `/` (`FeaturedGrid`)                            | —                                                                      | `unimplemented` |                                                              |
+| M-18 | Discovery         | Review voices / how-it-works / merchant CTA                        | `/`                                             | —                                                                      | `unimplemented` |                                                              |
+| M-19 | Discovery         | Search page + query `q`                                            | `/search`                                       | Explore search field (`/businesses`)                                   | `implemented`   | S-028                                                        |
+| M-20 | Discovery         | Filters (city, category, min rating, sort)                         | `/search` (`FilterPanel`)                       | Explore Filters sheet                                                  | `implemented`   | S-028                                                        |
+| M-21 | Discovery         | Use my location + radius                                           | `/search` (`UseLocationButton`)                 | Explore + Filters radius                                               | `implemented`   | S-028                                                        |
+| M-22 | Discovery         | Results map (OSM)                                                  | `/search` Leaflet map                           | `flutter_map` OSM tiles                                                | `implemented`   | S-028 / ADR-006                                              |
+| M-23 | Discovery         | Pagination / infinite scroll UI                                    | `/search`                                       | Infinite scroll on Explore                                             | `implemented`   | S-028                                                        |
+| M-24 | Discovery         | Business cards with photos                                         | `BusinessCard`                                  | Photo `BusinessCard`                                                   | `implemented`   | S-028                                                        |
+| M-25 | Business          | Public list browse (guest)                                         | `/`, `/search`                                  | `/businesses` + search chrome (ADR-003)                                | `implemented`   | S-028                                                        |
+| M-26 | Business          | Detail: name, city/state, rating, count                            | `/businesses/[slug]`                            | `/businesses/:slug`                                                    | `implemented`   | S-023                                                        |
+| M-27 | Business          | Detail: description, address, phone, website                       | Business profile                                | `/businesses/:slug`                                                    | `implemented`   | S-028                                                        |
+| M-28 | Business          | Detail: categories                                                 | `CategoryBadges`                                | Category chips                                                         | `implemented`   | S-028                                                        |
+| M-29 | Business          | Detail: hours                                                      | `BusinessHours`                                 | Hours block                                                            | `implemented`   | S-028                                                        |
+| M-30 | Business          | Detail: photo gallery / lightbox                                   | `PhotoGallery`                                  | Gallery + lightbox                                                     | `implemented`   | S-028                                                        |
+| M-31 | Business          | Detail: map pin                                                    | Leaflet on profile                              | OSM pin (`flutter_map`)                                                | `implemented`   | S-028 / ADR-006                                              |
+| M-32 | Business          | Detail: AI overview (suggestion)                                   | Profile AI blurb                                | Labeled suggestion-only                                                | `implemented`   | S-028                                                        |
+| M-33 | Reviews           | List reviews + AI suggestion labels                                | `ReviewsList` / `ReviewCard`                    | `ReviewCard`                                                           | `implemented`   | S-023                                                        |
+| M-34 | Reviews           | Create review (stars, title, body)                                 | `/businesses/[slug]/review`                     | `ReviewFormSheet`                                                      | `implemented`   | S-023                                                        |
+| M-35 | Reviews           | Attach review photos (≤5)                                          | `ReviewForm`                                    | `image_picker` in sheet                                                | `implemented`   | S-023                                                        |
+| M-36 | Reviews           | Show review photo strip                                            | `ReviewCard`                                    | `ReviewCard`                                                           | `implemented`   |                                                              |
+| M-37 | Reviews           | Like review                                                        | Business page                                   | `ReviewCard`                                                           | `implemented`   | S-030                                                        |
+| M-38 | Reviews           | Report review                                                      | Business page                                   | `ReviewCard`                                                           | `implemented`   | S-030                                                        |
+| M-39 | Reviews           | Show merchant reply on card                                        | `ReviewCard`                                    | `ReviewCard`                                                           | `implemented`   | S-030                                                        |
+| M-40 | Reviews           | Edit own review                                                    | —                                               | —                                                                      | `n/a`           | No UI on either client                                       |
+| M-41 | Reviews           | Delete own review                                                  | —                                               | —                                                                      | `n/a`           | No UI on either client                                       |
+| M-42 | Favorites         | Favorite toggle (list + detail)                                    | `FavoriteButton`                                | Heart + `FavoriteToggleButton`                                         | `implemented`   | S-024; customer only                                         |
+| M-43 | Favorites         | Favorites list                                                     | `/profile` section                              | `/favorites` (Explore shell tab)                                       | `implemented`   | S-024 + S-027 tab                                            |
+| M-44 | Notifications     | Unread bell + poll                                                 | Navbar `NotificationBell`                       | Notifications tab + badge                                              | `implemented`   | S-025 + S-027 shell                                          |
+| M-45 | Notifications     | Full list + mark one / mark all                                    | Bell dropdown                                   | `/notifications`                                                       | `implemented`   | S-025                                                        |
+| M-46 | Notifications     | Deep-link to business/review                                       | Weak / none                                     | None                                                                   | `n/a`           | Shared gap                                                   |
+| M-47 | Notifications     | Push (FCM)                                                         | —                                               | —                                                                      | `future`        | Phase 4+; polling today                                      |
+| M-48 | Account           | Profile edit                                                       | `/profile`                                      | `/account/profile`                                                     | `implemented`   | S-029; email/role read-only; favorites stay M-43             |
+| M-49 | Account           | Settings (profile link + logout)                                   | `/settings`                                     | `/account` + `/account/profile` + logout                               | `implemented`   | S-027; profile edit is M-48                                  |
+| M-50 | Merchant          | Dashboard shell + multi-business                                   | `/merchant/dashboard`                           | `/merchant`                                                            | `implemented`   | S-031                                                        |
+| M-51 | Merchant          | Stats tiles + sentiment chart                                      | Dashboard                                       | Dashboard tiles + bars                                                 | `implemented`   | S-031                                                        |
+| M-52 | Merchant          | AI insights + refresh                                              | `AIInsights`                                    | `AiInsightsPanel`                                                      | `implemented`   | S-031; suggestion-only                                       |
+| M-53 | Merchant          | Reply to reviews                                                   | Dashboard `ReviewCard`                          | Dashboard `ReviewCard`                                                 | `implemented`   | S-031                                                        |
+| M-54 | Merchant          | Create / edit business                                             | `/merchant/businesses/…`                        | `/merchant/businesses/new` + `…/:id/edit`                              | `implemented`   | S-031; no hours/gallery UI (M-55/M-56)                       |
+| M-55 | Merchant          | Storefront / logo / gallery upload UI                              | —                                               | —                                                                      | `n/a`           | API exists; no web form yet                                  |
+| M-56 | Merchant          | Business hours editor                                              | —                                               | —                                                                      | `n/a`           | Display-only on web                                          |
+| M-57 | Admin             | Admin home + platform stats                                        | `/admin`                                        | `/admin`                                                               | `implemented`   | S-031                                                        |
+| M-58 | Admin             | Pending business approve / suspend                                 | `/admin` queue                                  | `/admin` queue                                                         | `implemented`   | S-031                                                        |
+| M-59 | Admin             | Reported reviews moderate                                          | `/admin` queue                                  | `/admin` queue                                                         | `implemented`   | S-031                                                        |
+| M-60 | Admin             | All businesses / all reviews browse                                | `/admin/businesses`, `/admin/reviews`           | `/admin/businesses`, `/admin/reviews`                                  | `implemented`   | S-031                                                        |
+| M-61 | Merchant          | Time-series volume, rating mix, date range, reply-rate, CSV        | `/merchant/dashboard`                           | —                                                                      | `unimplemented` | S-033; web built — mobile not yet                            |
+| M-62 | Admin             | Platform time-series charts                                        | `/admin`                                        | —                                                                      | `unimplemented` | S-034; web built — mobile not yet                            |
+| M-63 | Admin             | Category create / list UI                                          | `/admin`                                        | —                                                                      | `unimplemented` | S-034; web built — mobile not yet                            |
+| M-64 | Admin             | User suspend / reactivate                                          | `/admin`                                        | —                                                                      | `unimplemented` | S-034; web built — mobile not yet                            |
+| M-65 | Account           | Forgot / reset password (email)                                    | `/login`, `/forgot-password`, `/reset-password` | —                                                                      | `unimplemented` | S-035; web built — mobile not yet                            |
+| M-66 | Merchant          | Featured listing boost (paid)                                      | Dashboard + search rank (S-036)                 | —                                                                      | `n/a`           | Specified, not built — S-036                                 |
+| M-67 | Notifications     | Listing-approved / new-review **email**                            | Transactional mail (mock/Resend, best-effort)   | —                                                                      | `unimplemented` | S-035; web built — mobile not yet                            |
+| M-68 | Merchant          | Dashboard area/line trend charts + period-over-period delta badges | `/merchant/dashboard`                           | —                                                                      | `n/a`           | Draft — S-037; not yet built                                 |
+| M-69 | Merchant          | Competitor rating benchmarking (category + city median)            | `/merchant/dashboard`                           | —                                                                      | `n/a`           | Draft — S-038; not yet built                                 |
+| M-70 | Merchant          | AI reply drafting ("Draft with AI" button on review cards)         | `/merchant/dashboard`                           | —                                                                      | `n/a`           | Draft — S-039; not yet built                                 |
+| M-71 | Merchant/Customer | Review collection flow (public QR/link wizard, no gating)          | `/collect/[businessId]`                         | —                                                                      | `n/a`           | Draft — S-040; not yet built                                 |
 
 
-**Rollup (2026-08-14):** `implemented` 46 · `partial` 1 · `unimplemented` 6 · `n/a` 6 · `future` 1 · **total 60**.
+
+
+**Rollup (2026-08-15):** `implemented` 46 · `partial` 1 · `unimplemented` 12 · `n/a` 11 · `future` 1 · **total 71**.
 
 This repo is built with both Cursor and Claude Code, so every convention is defined
 **twice, in each tool's native format** — a session started in either tool should
@@ -1913,9 +2062,9 @@ expected to update both sides in the same commit, and the repo checks that autom
 table above as pairs of files that must change together. Given a set of changed files,
 it fails if one side of a pair changed without the other.
 - `[.githooks/pre-commit](.githooks/pre-commit)` runs before every local commit (CLI or IDE):
-  refuses commits on `main`/`master` (use a feature branch + PR); runs the Cursor/Claude sync
-  check on staged files; if any `mobile/` path is staged, runs `flutter analyze && flutter test`.
-  One-time setup per clone: `git config core.hooksPath .githooks`.
+refuses commits on `main`/`master` (use a feature branch + PR); runs the Cursor/Claude sync
+check on staged files; if any `mobile/` path is staged, runs `flutter analyze && flutter test`.
+One-time setup per clone: `git config core.hooksPath .githooks`.
 - `[.github/workflows/agent-config-sync.yml](.github/workflows/agent-config-sync.yml)` runs
 the same sync check over the full diff on every PR and push to `main`. Add it (and the mobile
 `analyze-test` / ideally `emulator-test` jobs) as **required status checks** in GitHub branch
@@ -1946,7 +2095,7 @@ flowchart LR
 
 > Do **not** implement until Status is `Specified` and the Architect checklist is complete.
 
-
+When a slice is **Accepted**, the **same PR** must update this README: §14 implemented vs open (and §16 “built vs next” if the change is investor-visible); §12 parity if user-facing; §6 / §7 if flow or API changed. Do **not** add a new product `.md` / `.txt` checklist — slices, ADRs, and test artifacts stay under `docs/agents/` only.
 
 ### Stages
 
@@ -2004,37 +2153,47 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 ### Slice backlog
 
 
-| ID    | Title                                 | Phase        | Status                                   |
-| ----- | ------------------------------------- | ------------ | ---------------------------------------- |
-| S-001 | Docker + auth + layout                | 1 Foundation | Scaffolded                               |
-| S-002 | Business CRUD + admin approval        | 2 Core       | Scaffolded                               |
-| S-003 | Review CRUD + photos                  | 2 Core       | Scaffolded                               |
-| S-004 | Search + filter                       | 2 Core       | Scaffolded                               |
-| S-005 | AI review analysis pipeline           | 3 AI         | Scaffolded                               |
-| S-006 | Merchant dashboard + AI insights      | 4 Dashboards | Partial                                  |
-| S-007 | Admin moderation + platform analytics | 4 Dashboards | Partial                                  |
-| S-008 | Notifications                         | 4 Dashboards | Accepted (UI wired)                      |
-| S-009 | OAuth + OpenStreetMap maps            | 5 Polish     | Partial (maps done; OAuth callback stub) |
-| S-010 | Test hardening + deploy verification  | 5 Polish     | Open                                     |
-| S-011 | Customer favorites                    | 2 Core       | Accepted                                 |
-| S-012 | Business detail enrichment            | 2 Core       | Accepted                                 |
-| S-013 | Search pagination / sort / categories | 2 Core       | Accepted                                 |
-| S-014 | Home page enrichment                  | 5 Polish     | Accepted                                 |
-| S-015 | Notifications UI                      | 4 Dashboards | Accepted                                 |
-| S-016 | Profile & settings edit               | 5 Polish     | Accepted                                 |
-| S-017 | Design system primitives              | 5 Polish     | Accepted (additive; migration deferred)  |
-| S-018 | Secure logout / session UX            | 1 Foundation | Accepted                                 |
-| S-019 | User profile enrichment               | 5 Polish     | Accepted                                 |
-| S-020 | Mandatory TOTP for password login     | 1 Foundation | Accepted                                 |
-| S-021 | Admin business & review drill-down    | 4 Dashboards | Accepted                                 |
-| S-022 | Merchant dashboard tile interactivity | 4 Dashboards | Accepted                                 |
-| S-026 | httpOnly cookie auth migration (web) + dual Bearer/cookie backend | 1 Foundation | Draft                       |
-| S-023 | Mobile reviews (Flutter)              | 2 Core       | Accepted                                 |
-| S-024 | Mobile favorites (Flutter)            | 2 Core       | Accepted                                 |
-| S-025 | Mobile notifications (Flutter)        | 5 Polish     | Accepted                                 |
-| S-027 | Mobile P0 chrome (shell, role home, account/logout) | 1 Foundation | Accepted |
-| S-028 | Mobile P1 discovery + rich business detail | 2 Core | In Progress |
-| S-029 | Mobile P2 register, Google sign-in, profile edit | 1 Foundation | In Progress |
+| ID    | Title                                                                          | Phase        | Status                                   |
+| ----- | ------------------------------------------------------------------------------ | ------------ | ---------------------------------------- |
+| S-001 | Docker + auth + layout                                                         | 1 Foundation | Scaffolded                               |
+| S-002 | Business CRUD + admin approval                                                 | 2 Core       | Scaffolded                               |
+| S-003 | Review CRUD + photos                                                           | 2 Core       | Scaffolded                               |
+| S-004 | Search + filter                                                                | 2 Core       | Scaffolded                               |
+| S-005 | AI review analysis pipeline                                                    | 3 AI         | Scaffolded                               |
+| S-006 | Merchant dashboard + AI insights                                               | 4 Dashboards | Accepted (closed by S-033)               |
+| S-007 | Admin moderation + platform analytics                                          | 4 Dashboards | Accepted (closed by S-034)               |
+| S-008 | Notifications                                                                  | 4 Dashboards | Accepted (UI wired)                      |
+| S-009 | OAuth + OpenStreetMap maps                                                     | 5 Polish     | Partial (maps done; OAuth callback stub) |
+| S-010 | Test hardening + deploy verification                                           | 5 Polish     | Open                                     |
+| S-011 | Customer favorites                                                             | 2 Core       | Accepted                                 |
+| S-012 | Business detail enrichment                                                     | 2 Core       | Accepted                                 |
+| S-013 | Search pagination / sort / categories                                          | 2 Core       | Accepted                                 |
+| S-014 | Home page enrichment                                                           | 5 Polish     | Accepted                                 |
+| S-015 | Notifications UI                                                               | 4 Dashboards | Accepted                                 |
+| S-016 | Profile & settings edit                                                        | 5 Polish     | Accepted                                 |
+| S-017 | Design system primitives                                                       | 5 Polish     | Accepted (additive; migration deferred)  |
+| S-018 | Secure logout / session UX                                                     | 1 Foundation | Accepted                                 |
+| S-019 | User profile enrichment                                                        | 5 Polish     | Accepted                                 |
+| S-020 | Mandatory TOTP for password login                                              | 1 Foundation | Accepted                                 |
+| S-021 | Admin business & review drill-down                                             | 4 Dashboards | Accepted                                 |
+| S-022 | Merchant dashboard tile interactivity                                          | 4 Dashboards | Accepted                                 |
+| S-026 | httpOnly cookie auth migration (web) + dual Bearer/cookie backend              | 1 Foundation | Draft                                    |
+| S-023 | Mobile reviews (Flutter)                                                       | 2 Core       | Accepted                                 |
+| S-024 | Mobile favorites (Flutter)                                                     | 2 Core       | Accepted                                 |
+| S-025 | Mobile notifications (Flutter)                                                 | 5 Polish     | Accepted                                 |
+| S-027 | Mobile P0 chrome (shell, role home, account/logout)                            | 1 Foundation | Accepted                                 |
+| S-028 | Mobile P1 discovery + rich business detail                                     | 2 Core       | In Progress                              |
+| S-029 | Mobile P2 register, Google sign-in, profile edit                               | 1 Foundation | In Progress                              |
+| S-030 | Mobile P3 like / report / replies                                              | 2 Core       | In Progress                              |
+| S-031 | Mobile P4 merchant / admin                                                     | 4 Dashboards | In Progress                              |
+| S-033 | Merchant analytics (time-series, rating mix, range, reply-rate)                | 4 Dashboards | Accepted (closes S-006)                  |
+| S-034 | Admin platform series + category UI + account suspend                          | 4 Dashboards | Accepted (closes S-007)                  |
+| S-035 | Transactional email (mock + Resend)                                            | 5 Polish     | Testing                                  |
+| S-036 | Featured boost + Razorpay transaction fee                                      | 5 Polish     | Specified                                |
+| S-037 | Merchant dashboard chart upgrade (area/line charts, period-over-period deltas) | 4 Dashboards | Draft                                    |
+| S-038 | Competitor rating benchmarking (category + city median vs. own rating)         | 4 Dashboards | Draft                                    |
+| S-039 | AI reply drafting — surface `suggested_response` in merchant reply UI          | 2 Core       | Draft                                    |
+| S-040 | Review collection flow (public QR/link wizard, no rating gating)               | 2 Core       | Draft                                    |
 
 
 
@@ -2071,17 +2230,18 @@ An honest delta between the original specification and what the code actually do
 ### Built and working
 
 
-| Area            | State                                                                                                                                                                       |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend routers | 11, all wired into `main.py` (includes favorites)                                                                                                                           |
-| Data models     | 19 SQLAlchemy models                                                                                                                                                        |
-| Auth            | JWT access/refresh with refresh `jti` rotation, bcrypt, RBAC, Redis logout blocklist + best-effort login lockout, mandatory TOTP for password login, Google OAuth exempt |
-| AI layer        | Pluggable provider — `mock` (canned, no network) or OpenAI-compatible (works for OpenAI *or* DeepSeek via `AI_BASE_URL`)                                                    |
-| Storage         | `local` disk and `s3` (boto3) providers implemented; `azure` still a stub                                                                                                   |
-| Frontend        | Home, search (map + location), business detail, login (MFA steps), register, enriched profile, settings, merchant dashboard + business create/edit, admin moderation queues |
-| Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine                                                                                               |
-| Seeding         | `scripts/seed.py` — Portland + Chennai + US; gated by `SEED_MODE` / `seed_runs` (Railway: not on boot)                                                                      |
-| Local dev       | `docker compose up --build`                                                                                                                                                 |
+| Area            | State                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend routers | 12, all wired into `main.py` (includes favorites, admin)                                                                                                                                                                                                                                                                                                                                 |
+| Data models     | 19 SQLAlchemy models                                                                                                                                                                                                                                                                                                                                                                     |
+| Auth            | JWT access/refresh with refresh `jti` rotation, bcrypt, RBAC, Redis logout blocklist + best-effort login lockout, mandatory TOTP for password login, Google OAuth exempt                                                                                                                                                                                                                 |
+| AI layer        | **In the product today.** Review submit runs text + photo analysis + merchant rolling summary via `AIProvider`. Default `mock` (no key, no cost). Real vendors are env + key. Output is **suggestions**, never verdicts. `monthly_trends` (mock or real) are AI-estimated, not review dates — shown as a labeled suggestion list only, never charted as fact (S-033).                    |
+| Storage         | `local` disk and `s3` (boto3) providers implemented; `azure` still a stub                                                                                                                                                                                                                                                                                                                |
+| Email           | `mock` (logs only) and `resend` providers implemented via `EmailProvider` port. Three transactional sends: password reset, listing approved, new review — best-effort, never blocks the triggering request (S-035, in Testing)                                                                                                                                                           |
+| Frontend        | Home, search (map + location), business detail, login (MFA steps) + forgot/reset password (S-035, in Testing), register, enriched profile, settings, merchant dashboard (+ time-series volume/rating-mix/reply-rate/CSV export, S-033) + business create/edit, admin moderation queues (+ platform trend charts, category admin, user suspend/reactivate, S-034) |
+| Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine                                                                                                                                                                                                                                                                                                            |
+| Seeding         | `scripts/seed.py` — Portland + Chennai + US; gated by `SEED_MODE` / `seed_runs` (Railway: not on boot)                                                                                                                                                                                                                                                                                   |
+| Local dev       | `docker compose up --build`                                                                                                                                                                                                                                                                                                                                                              |
 
 
 
@@ -2089,17 +2249,17 @@ An honest delta between the original specification and what the code actually do
 ### Not built
 
 
-| Gap                         | Detail                                                                                                                                                                                                                                          |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Azure storage is a stub** | Raises `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). `local` and `s3` both work.                                                                                                                                 |
-| **Thin tests**              | Expanding, but still no full fixture/DB isolation suite. See §11.                                                                                                                                                                               |
-| **Design-system migration** | Complete. `Select` / `StatCard` / `ui/RatingWidget` (S-017) now back every remaining call site — native `<select>`s, inline stat tiles, and the duplicate top-level `RatingWidget` (removed, canonical copy is `ui/RatingWidget`) all migrated. |
-| **Security items 1–6**      | §9: rate limit, upload MIME/size, lockout, refresh rotation, headers, password policy are in. Remaining: `localStorage` tokens (S-026) and world-readable `/uploads`. Commercial SaaS/legal items: [Deferred](#deferred-for-commercial--enterprise). |
-| **No structured logging**   | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                                                                          |
-| **No CI/CD auto-deploy**    | `backend-tests.yml` / `frontend-tests.yml` run pytest/Jest on every PR and push to `main`, but there is still no auto-deploy step to Railway/Vercel.                                                                                            |
-| **Android Play release**    | Signed AAB + Play Console listing / internal-testing track not wired yet (see [`ANDROID_APP_STRATEGY.md`](ANDROID_APP_STRATEGY.md) phase 5). Feature-level web↔mobile gaps live in the [§12 parity tracker](#web--mobile-feature-parity-tracker) — not duplicated here. |
+| Gap                         | Detail                                                                                                                                                                                                                                                                           |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Azure storage is a stub** | Raises `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). `local` and `s3` both work.                                                                                                                                                                  |
+| **Thin tests**              | Expanding, but still no full fixture/DB isolation suite. See §11.                                                                                                                                                                                                                |
+| **Design-system migration** | Complete. `Select` / `StatCard` / `ui/RatingWidget` (S-017) now back every remaining call site — native `<select>`s, inline stat tiles, and the duplicate top-level `RatingWidget` (removed, canonical copy is `ui/RatingWidget`) all migrated.                                  |
+| **Security items 1–6**      | §9: rate limit, upload MIME/size, lockout, refresh rotation, headers, password policy are in. Remaining: `localStorage` tokens (S-026) and world-readable `/uploads`. Commercial SaaS/legal items: [Deferred](#deferred-for-commercial--enterprise).                             |
+| **No structured logging**   | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                                                                                                           |
+| **No CI/CD auto-deploy**    | `backend-tests.yml` / `frontend-tests.yml` run pytest/Jest on every PR and push to `main`, but there is still no auto-deploy step to Railway/Vercel.                                                                                                                             |
+| **Android Play release**    | Signed AAB + Play Console listing / internal-testing track not wired yet (see `[ANDROID_APP_STRATEGY.md](ANDROID_APP_STRATEGY.md)` phase 5). Feature-level web↔mobile gaps live in the [§12 parity tracker](#web--mobile-feature-parity-tracker) — not duplicated here.          |
 | **Mobile web parity**       | P0–P4 (S-023–S-025, S-027–S-031) are on Flutter (analyze/test not run yet). Remaining gaps: home marketing (M-13–M-18), FCM (M-47 `future`), storefront/hours editors (`n/a`). Living checklist: [§12 Web ↔ mobile feature parity tracker](#web--mobile-feature-parity-tracker). |
-| **Optional seed ops**       | Core seed gating is done (`SEED_MODE` / `seed_runs`). Still optional later: a Railway one-shot/cron seed service (never on the web dyno), blue-green app cutover on one DB, or a disposable dual-DB demo reset — not required for normal deploys. |
+| **Optional seed ops**       | Core seed gating is done (`SEED_MODE` / `seed_runs`). Still optional later: a Railway one-shot/cron seed service (never on the web dyno), blue-green app cutover on one DB, or a disposable dual-DB demo reset — not required for normal deploys.                                |
 
 
 
@@ -2112,27 +2272,40 @@ The MVP is complete when: (1) a customer can register, search, and submit a revi
 
 ### Deferred for commercial / enterprise
 
-These are **held off** until product needs them. They are not in-house leftovers of this repo’s MVP bar. The scored checklist lives in [`CHECKLIST_GAPS.txt`](CHECKLIST_GAPS.txt).
+These are **held off** until product needs them. They are not in-house leftovers of this repo’s MVP bar. The scored 13 Aug 2026 matrix still lives in `[CHECKLIST_GAPS.txt](CHECKLIST_GAPS.txt)`; **do not treat that file as the living product plan** — this section and [§16](#16-industry-and-investor-overview) are.
 
-| Held item | Why it waits |
-| --------- | ------------ |
-| **S-026 httpOnly cookies** (ADR-004) | Dedicated slice: dual web cookie + mobile Bearer. Not in the in-house hardening batch so Flutter auth stays untouched. |
-| Managed IdP / enterprise SAML SSO (Auth0, Clerk, WorkOS, Cognito) | Rented identity; rewrite of session ownership |
-| Payments / PCI (Stripe etc.) | No product payments |
-| Error/APM SaaS (Sentry, Datadog, New Relic) | Rented integration |
-| Uptime SaaS (UptimeRobot etc.) | Optional free-tier wiring; not required for local/Compose |
-| CDN / object-storage **accounts** and paid edge (Cloudflare, Cloudinary) | S3 provider **code** exists; a real bucket is ops |
-| Message queues / Celery workers / serverless job platforms | Scale theatre until volume exists |
-| Feature-flag vendors, canary / blue-green platforms | Ops product, not an API gap |
-| Legal: ToS, Privacy, cookie CMP, GDPR program, lawyer-reviewed retention (incl. national ID) | Lawyers, not a PR |
-| Third-party pentest and SOC 2 / ISO audits | External agency |
-| GitHub branch protection / Railway auto-deploy | Settings in GitHub/Railway UI you own, not only code |
+
+| Held item                                                                                    | Why it waits                                                                                                           |
+| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **S-026 httpOnly cookies** (ADR-004)                                                         | Dedicated slice: dual web cookie + mobile Bearer. Not in the in-house hardening batch so Flutter auth stays untouched. |
+| Managed IdP / enterprise SAML SSO (Auth0, Clerk, WorkOS, Cognito)                            | Rented identity; rewrite of session ownership                                                                          |
+| Error/APM SaaS (Sentry, Datadog, New Relic)                                                  | Rented integration                                                                                                     |
+| Uptime SaaS (UptimeRobot etc.)                                                               | Optional free-tier wiring; not required for local/Compose                                                              |
+| CDN / object-storage **accounts** and paid edge (Cloudflare, Cloudinary)                     | S3 provider **code** exists; a real bucket is ops                                                                      |
+| Message queues / Celery workers / serverless job platforms                                   | Scale theatre until volume exists                                                                                      |
+| Feature-flag vendors, canary / blue-green platforms                                          | Ops product, not an API gap                                                                                            |
+| Legal: ToS, Privacy, cookie CMP, GDPR program, lawyer-reviewed retention (incl. national ID) | Lawyers, not a PR                                                                                                      |
+| Third-party pentest and SOC 2 / ISO audits                                                   | External agency                                                                                                        |
+| GitHub branch protection / Railway auto-deploy                                               | Settings in GitHub/Railway UI you own, not only code                                                                   |
+| Event **grants** / merchant show sponsorship                                                 | Needs fee revenue from **S-036** first                                                                                 |
+
+
+**Payments / PCI** are no longer “held forever.” One featured-boost SKU + Razorpay + platform fee ledger is **S-036 (Specified, not built)** — see §16. Stripe and a second gateway stay out of scope.
 
 ### Suggested next steps, in order
 
-1. In-house leftovers that are still open: structured logs, isolated test DB, CSP (without breaking maps/GIS), S-026 when you are ready to dual-stack web cookies and mobile Bearer
-2. Keep the [§12 Web ↔ mobile parity tracker](#web--mobile-feature-parity-tracker) current; remaining mobile waves are P3 (like/report/replies) then P4 (merchant/admin) and Play (phase 5)
-3. Enterprise / SaaS / legal items stay on the [hold list](#deferred-for-commercial--enterprise) until a paying product needs them — they are not implied by this hardening batch
+1. **S-033** and **S-034** are Accepted (closed S-006, S-007). **S-035** (transactional email) is Testing with a Ship recommendation — PM accept next (closes the "no outbound email" gap).
+2. Then **S-036** (Razorpay + ₹499 / 7-day featured week).
+3. **S-037** — merchant dashboard chart upgrade: area/line charts for monthly trends (Recharts already installed), period-over-period delta badges on stat tiles (minor backend extension to `merchant_dashboard.py` + `dashboard.py`).
+4. **S-038** — competitor rating benchmarking: `GET /dashboard/merchant/{id}/benchmark` returns category median + city median from existing Business table. New BenchmarkCard on merchant dashboard — no external APIs needed.
+5. **S-039** — AI reply drafting: `AIAnalysis.suggested_response` is already generated per review but not surfaced. Wire it to a "Draft with AI" button in the merchant reply textarea — near-zero-backend change.
+6. **S-040** — review collection flow: public mobile-web wizard (`/collect/[businessId]`) — star rating → category chips → AI-drafted text → Google Maps deep link. All star ratings route equally (no interception). QR code card on merchant dashboard (`qrcode.react` dependency).
+7. In-house leftovers still open: structured logs, isolated test DB, CSP (without breaking maps/GIS), S-026 when you dual-stack cookies.
+8. **Multi-platform review aggregation** (S-041+) — deferred; Google Business Profile API requires per-merchant OAuth, Zomato has no public API. Revisit after S-026 (merchant OAuth infrastructure).
+9. Keep the [§12 parity tracker](#web--mobile-feature-parity-tracker) current; Play Store is phase 5 in `ANDROID_APP_STRATEGY.md`, not the VC story.
+10. Enterprise SaaS / legal items stay on the hold list until a paying neighborhood needs them.
+
+**Good position today:** working loop **including AI**, one README a VC can read, two slices (S-033, S-034) just Accepted, one slice (S-035) in Testing, one Specified slice to commercial, and four planned slices (S-037–S-040) that turn collected reviews into intelligence. **Bad position:** claiming live fees, live email, or traction — none of those are true until S-035–S-036 are Accepted and a neighborhood is dense.
 
 ---
 
@@ -2145,32 +2318,36 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 ### Backend
 
 
-| Variable                      | Default                                                                  | Purpose                                                                                                                                |
-| ----------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `APP_NAME`                    | `MerchantHub AI`                                                         | Shown in Swagger and `/health`                                                                                                         |
-| `APP_VERSION`                 | `0.1.0`                                                                  | Shown in Swagger and `/health`                                                                                                         |
-| `DEBUG`                       | `true`                                                                   | Verbose errors — set `false` in production                                                                                             |
-| `DATABASE_URL`                | `postgresql+asyncpg://merchanthub:merchanthub@postgres:5432/merchanthub` | **Must** use the `+asyncpg` driver; SQLite is not supported                                                                            |
-| `REDIS_URL`                   | `redis://redis:6379/0`                                                   | Optional — app degrades to uncached if unreachable                                                                                     |
-| `SECRET_KEY`                  | `change-me-in-production-use-openssl-rand`                               | JWT signing key — **always override**                                                                                                  |
-| `ALGORITHM`                   | `HS256`                                                                  | JWT algorithm                                                                                                                          |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30`                                                                     | Access token TTL                                                                                                                       |
-| `REFRESH_TOKEN_EXPIRE_DAYS`   | `7`                                                                      | Refresh token TTL                                                                                                                      |
-| `AI_PROVIDER`                 | `mock`                                                                   | `mock`                                                                                                                                 |
-| `AI_API_KEY`                  | *(empty)*                                                                | Required when `AI_PROVIDER` is not `mock`                                                                                              |
-| `AI_BASE_URL`                 | `https://api.openai.com/v1`                                              | Point at DeepSeek or any OpenAI-compatible endpoint                                                                                    |
-| `AI_MODEL`                    | `gpt-4o-mini`                                                            | Model name passed to the provider                                                                                                      |
-| `STORAGE_PROVIDER`            | `local`                                                                  | `local`                                                                                                                                |
-| `STORAGE_LOCAL_PATH`          | `./uploads`                                                              | Served as static files at `/uploads`                                                                                                   |
-| `STORAGE_S3_BUCKET`           | *(empty)*                                                                | Required when `STORAGE_PROVIDER=s3`                                                                                                    |
-| `STORAGE_S3_REGION`           | `us-east-1`                                                              | AWS region for the bucket                                                                                                              |
-| `STORAGE_S3_ENDPOINT_URL`     | *(empty)*                                                                | S3-compatible services only (MinIO, Cloudflare R2, LocalStack)                                                                         |
-| `STORAGE_S3_PUBLIC_BASE_URL`  | *(empty)*                                                                | CDN/custom domain fronting the bucket; defaults to the bucket's own virtual-hosted-style URL                                           |
-| `CORS_ORIGINS`                | `http://localhost:3000`                                                  | Comma-separated allowlist                                                                                                              |
-| `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap/Nominatim                                                                                              |
-| `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID`                                          |
-| `SEED_MODE`                   | `off`                                                                    | `off` | `if_empty` | `if_outdated` | `force` — gates `scripts/seed.py` (Railway boot leaves default `off`; Compose uses `if_outdated`) |
-| `SEED_VERSION`                | `2026-08-13-password-policy-v1`                                          | Marker written to `seed_runs`; bump when demo seed content changes                                                                     |
+| Variable                      | Default                                                                  | Purpose                                                                                       |
+| ----------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `APP_NAME`                    | `MerchantHub AI`                                                         | Shown in Swagger and `/health`                                                                |
+| `APP_VERSION`                 | `0.1.0`                                                                  | Shown in Swagger and `/health`                                                                |
+| `DEBUG`                       | `true`                                                                   | Verbose errors — set `false` in production                                                    |
+| `DATABASE_URL`                | `postgresql+asyncpg://merchanthub:merchanthub@postgres:5432/merchanthub` | **Must** use the `+asyncpg` driver; SQLite is not supported                                   |
+| `REDIS_URL`                   | `redis://redis:6379/0`                                                   | Optional — app degrades to uncached if unreachable                                            |
+| `SECRET_KEY`                  | `change-me-in-production-use-openssl-rand`                               | JWT signing key — **always override**                                                         |
+| `ALGORITHM`                   | `HS256`                                                                  | JWT algorithm                                                                                 |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30`                                                                     | Access token TTL                                                                              |
+| `REFRESH_TOKEN_EXPIRE_DAYS`   | `7`                                                                      | Refresh token TTL                                                                             |
+| `AI_PROVIDER`                 | `mock`                                                                   | `mock`                                                                                        |
+| `AI_API_KEY`                  | *(empty)*                                                                | Required when `AI_PROVIDER` is not `mock`                                                     |
+| `AI_BASE_URL`                 | `https://api.openai.com/v1`                                              | Point at DeepSeek or any OpenAI-compatible endpoint                                           |
+| `AI_MODEL`                    | `gpt-4o-mini`                                                            | Model name passed to the provider                                                             |
+| `STORAGE_PROVIDER`            | `local`                                                                  | `local`                                                                                       |
+| `STORAGE_LOCAL_PATH`          | `./uploads`                                                              | Served as static files at `/uploads`                                                          |
+| `STORAGE_S3_BUCKET`           | *(empty)*                                                                | Required when `STORAGE_PROVIDER=s3`                                                           |
+| `STORAGE_S3_REGION`           | `us-east-1`                                                              | AWS region for the bucket                                                                     |
+| `STORAGE_S3_ENDPOINT_URL`     | *(empty)*                                                                | S3-compatible services only (MinIO, Cloudflare R2, LocalStack)                                |
+| `STORAGE_S3_PUBLIC_BASE_URL`  | *(empty)*                                                                | CDN/custom domain fronting the bucket; defaults to the bucket's own virtual-hosted-style URL  |
+| `EMAIL_PROVIDER`              | `mock`                                                                   | `mock` (logs only) | `resend`                                                                 |
+| `RESEND_API_KEY`              | *(empty)*                                                                | Required when `EMAIL_PROVIDER=resend` — fails at startup if missing                           |
+| `EMAIL_FROM`                  | *(empty)*                                                                | Required when `EMAIL_PROVIDER=resend` — must be a Resend-verified sending domain              |
+| `PUBLIC_APP_URL`              | `http://localhost:3000`                                                  | Origin used to build password-reset links in email copy — not a secret                        |
+| `CORS_ORIGINS`                | `http://localhost:3000`                                                  | Comma-separated allowlist                                                                     |
+| `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap/Nominatim                                                     |
+| `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
+| `SEED_MODE`                   | `off`                                                                    | `off`                                                                                         |
+| `SEED_VERSION`                | `2026-08-13-password-policy-v1`                                          | Marker written to `seed_runs`; bump when demo seed content changes                            |
 
 
 
@@ -2185,6 +2362,99 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `NEXT_PUBLIC_GOOGLE_MAPS_KEY`  | `placeholder`           | Unused — Leaflet uses OSM tiles directly                                                                                                              |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | *(empty)*               | OAuth client ID for Google sign-in                                                                                                                    |
 
+
+---
+
+
+
+## 16. Industry and investor overview
+
+**Honest position:** we can demo a product loop. We cannot yet claim a funded business (no traction, no live fees, no real analytics UI).
+
+Pitch: **local review capture + merchant operating loop + AI suggestions (already wired)**. Then fees. Do not pitch an analytics company or a payments company until S-033–S-036 ship.
+
+### Problem
+
+Google/Maps reviews are high-friction (find the pin, public identity, permanent-feeling score). Category apps (food vs health vs auto) split the street. Owners get a star average, not themes they can act on the same day.
+
+### Product
+
+One neighborhood graph: cafés, clinics, shops, repair — not five vertical apps. QR / short link at the counter. **AI is already in the loop** as suggestion only (mock locally; live LLM via `AI_PROVIDER` + a key).
+
+### Site flow (high level)
+
+Discover on the map → open a listing → read reviews and photos → write a review → AI labels sentiment/themes (suggestion) → merchant sees dashboard KPIs + draft reply → admin keeps listings and reports honest.
+
+```mermaid
+flowchart LR
+  subgraph shipped [Shipped]
+    Cust[Customer review]
+    AI[AI suggestions]
+    Merch[Merchant reply]
+    Adm[Admin queues]
+  end
+  subgraph next [Specified not built]
+    Charts[Real time series]
+    Email[Transactional email]
+    Fees[Featured boost + fee]
+  end
+  Cust --> AI --> Merch
+  Adm --> Cust
+  Charts --> Email --> Fees
+```
+
+
+
+
+
+### Three roles
+
+
+| Role         | Today                                                                                                                                                           | After specified slices                                                                               |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Customer** | Find nearby, photos, labeled sentiment, write review, favorite, report                                                                                          | Featured listings sort first (paid boost, labeled — S-036); password reset mail (S-035)              |
+| **Merchant** | Own listing after admin approve; KPI tiles, sentiment bar, AI insights panel, public reply                                                                      | Volume/rating over time, date range, reply-rate, CSV (S-033); buy ₹499 / 7-day featured week (S-036) |
+| **Admin**    | Approve/suspend listings, moderate reports, five live counts, browse all, platform trend series, category create/list, user suspend/reactivate (S-034) | Disable/refund placements (S-036)                                                                    |
+
+
+
+
+### AI status (do not tell VCs we lack AI)
+
+Shipped: `AIProvider` port, factory, analysis on review submit, stored `ai_analyses`, review-card labels, merchant `AIInsights`. Default mock so demo/tests cost nothing. OpenAI-compatible and other adapters exist in code; production uses them only with keys.
+
+Shipped as of S-033 (Accepted): DB-backed review volume + rating-mix charts and reply-rate, sourced from `Review.created_at` — not AI JSON. Still not shipped (and not an "add AI" slice): token-billing UI, chatbot, auto-send replies.
+
+### Moat (honest)
+
+Density in a few neighborhoods + merchant workflow + suggestion-grade AI. Not a Google replacement. Not a proprietary model. TAM for the first neighborhood is **to be measured**, not invented.
+
+### Competitor box (Lentlo, scraped 2026-08-09)
+
+Lentlo is a national India directory (listings, reviews, claim, premium packages). MerchantHub is narrower: **capture + merchant action + AI suggestions** in a dense neighborhood, with an admin trust layer. Lentlo’s “business analytics” was not visible beyond claim/reply in that scrape — we will not copy that oversell; our charts wait for S-033/S-034. Full notes: `[docs/competitive-analysis-lentlo.md](docs/competitive-analysis-lentlo.md)`. Crowdsourced live-status (Waze-style) is **not on the roadmap**.
+
+### Monetization (planned, not live)
+
+- **SKU:** featured listing / search boost, **₹499 per 7 days** (inclusive listed price).
+- **Gateway:** Razorpay only (India-first). Never store cards. ~2% + GST recorded as `gateway_fee`; remainder is `platform_fee`.
+- **Later:** recycle a share of take into merchant **event grants** (shows/camps) once a neighborhood has traffic — not v1.
+- **Not v1:** marketplace GMV on food orders.
+
+
+
+### Traction and ask
+
+Demo / seeded listings only. A fundraise ask should be **pre-seed for one neighborhood launch + the fee stack**, not Series A language.
+
+### Built vs next
+
+
+| Built                                                                                                                                                                                                                                                                                                                       | Next (not yet Accepted)                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth (password + TOTP, Google) + forgot/reset password, search + OSM, profiles, reviews + photos, likes/reports/replies, favorites, in-app notifications + best-effort transactional email (reset, listing approved, new review), merchant create/pending, dashboard tiles + AI panel, admin queues + counts, web + Flutter, **S-033** merchant charts, **S-034** admin series + categories + user suspend | **S-035** email — coded, Tester review pending · **S-036** Razorpay + fee (Specified, not coded) · **S-037** area/line charts + delta badges (Draft) · **S-038** competitor benchmarking (Draft) · **S-039** AI reply drafting (Draft) · **S-040** review collection flow / QR (Draft) |
+
+
+Play Store packaging is distribution (`ANDROID_APP_STRATEGY.md` phase 5), not this story.
 
 ---
 

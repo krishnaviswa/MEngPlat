@@ -61,6 +61,7 @@ invoke explicitly, e.g. *"Act as Product Manager for slice S-00X"*, or the Agent
 - [ ] Every AC mapped to a test in test report
 - [ ] If the slice adds or changes a **user-facing web** capability, `README.md` §12 Web ↔ mobile feature parity tracker has a matching row (usually `unimplemented` / `partial` / `future` until mobile follows)
 - [ ] If the slice closes a **mobile** gap, the same §12 tracker row is updated to `implemented` or `partial`
+- [ ] Same PR updates `README.md` §14 (and §16 “built vs next” if investor-visible). No new product `.md` / `.txt` checklist (agent artifacts under `docs/agents/` only)
 - [ ] PM set `Status: Accepted` on slice file
 
 ### Cursor parity

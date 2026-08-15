@@ -157,6 +157,9 @@ export function LoginForm() {
             placeholder="Password"
             className="w-full rounded border px-3 py-2"
           />
+          <a href="/forgot-password" className="block text-right text-xs text-brand-600 underline">
+            Forgot password?
+          </a>
           <p className="text-xs text-gray-500">
             Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.).
             Or continue with Gmail below.

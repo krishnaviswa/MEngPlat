@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import AdminPage from "@/app/admin/page";
-import { auth, apiFetch } from "@/lib/api";
+import { auth, apiFetch, dashboard } from "@/lib/api";
 
 const replaceMock = jest.fn();
 const routerMock = { replace: replaceMock };
@@ -12,6 +12,11 @@ jest.mock("next/navigation", () => ({
 jest.mock("../../../lib/api", () => ({
   auth: { me: jest.fn() },
   apiFetch: jest.fn(),
+  // S-034 added a "Platform trends" chart row that calls dashboard.adminSeries()
+  // on mount; without this the page's useEffect throws synchronously in every
+  // test ("Cannot read properties of undefined") since the mocked module had
+  // no `dashboard` export.
+  dashboard: { adminSeries: jest.fn().mockResolvedValue({ granularity: "day", days: 90, series: {} }) },
 }));
 
 // PendingBusinessQueue / ReportedReviewsQueue each do their own fetching on
@@ -28,6 +33,7 @@ jest.mock("../../../components/admin/ReportedReviewsQueue", () => ({
 
 const meMock = auth.me as jest.Mock;
 const apiFetchMock = apiFetch as jest.Mock;
+const adminSeriesMock = dashboard.adminSeries as jest.Mock;
 
 const STATS = {
   total_users: 12,
@@ -37,9 +43,16 @@ const STATS = {
   reported_reviews: 1,
 };
 
-describe("Admin panel stat tiles (S-021 AC 1 / AC 4 / AC 9)", () => {
+describe("Admin panel stat tiles (S-021 AC 1 / AC 4; S-034 AC 4 / AC 6)", () => {
+  beforeAll(() => {
+    // jsdom doesn't implement scrollIntoView -- stub it on the prototype so
+    // scrollToSection() doesn't throw (same pattern as MerchantDashboard.test.tsx).
+    window.HTMLElement.prototype.scrollIntoView = jest.fn();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
+    (window.HTMLElement.prototype.scrollIntoView as jest.Mock).mockClear();
     localStorage.setItem("access_token", "tok-1");
     meMock.mockResolvedValue({ id: "admin-1", role: "admin", full_name: "Admin" });
     apiFetchMock.mockResolvedValue(STATS);
@@ -61,12 +74,82 @@ describe("Admin panel stat tiles (S-021 AC 1 / AC 4 / AC 9)", () => {
     expect(link).toHaveAttribute("href", "/admin/reviews");
   });
 
-  // AC 9: "Total users" stays non-interactive -- no drill-down is added.
-  it("keeps 'Total users' as a static, non-interactive tile", async () => {
+  // S-034 AC 4/AC 6 (UX notes): "Total users" now doors into the user-admin
+  // panel instead of staying static -- this intentionally supersedes S-021
+  // AC 9's "static, non-interactive tile" behavior (see S-034 slice UX notes
+  // and Builder changelog). Mirrors the click-to-scroll pattern already
+  // asserted for the pending_businesses / reported_reviews tiles below.
+  it("renders 'Total users' as a button that scrolls to #admin-users", async () => {
     render(<AdminPage />);
 
-    expect(await screen.findByText("Total users")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /total users/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /total users/i })).not.toBeInTheDocument();
+    const button = await screen.findByRole("button", { name: /total users/i });
+    expect(button.tagName).toBe("BUTTON");
+
+    fireEvent.click(button);
+    const scrollMock = window.HTMLElement.prototype.scrollIntoView as jest.Mock;
+    await waitFor(() => expect(scrollMock).toHaveBeenCalledTimes(1));
+    expect(scrollMock.mock.instances[0]).toBe(document.getElementById("admin-users"));
+  });
+});
+
+describe("Platform trends chart row (S-034 AC 1 / AC 8)", () => {
+  beforeAll(() => {
+    // jsdom doesn't implement ResizeObserver, which recharts' <ResponsiveContainer>
+    // (rendered for any non-all-zero series) requires.
+    (global as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.setItem("access_token", "tok-1");
+    meMock.mockResolvedValue({ id: "admin-1", role: "admin", full_name: "Admin" });
+    apiFetchMock.mockResolvedValue(STATS);
+  });
+
+  // AC 8: a brand-new platform (all buckets zero across all four series)
+  // renders the dashed empty-chart state, not a Recharts crash or blank error.
+  it("shows a dashed empty-chart state when every series bucket is zero", async () => {
+    adminSeriesMock.mockResolvedValue({
+      granularity: "day",
+      days: 90,
+      series: {
+        new_users: [{ bucket: "2026-08-14", count: 0 }],
+        businesses_approved: [{ bucket: "2026-08-14", count: 0 }],
+        new_reviews: [{ bucket: "2026-08-14", count: 0 }],
+        new_reports: [{ bucket: "2026-08-14", count: 0 }],
+      },
+    });
+
+    render(<AdminPage />);
+
+    expect(await screen.findByText("Platform trends")).toBeInTheDocument();
+    const emptyBoxes = await screen.findAllByText("No data yet for this window");
+    expect(emptyBoxes).toHaveLength(4);
+  });
+
+  // AC 1: real (non-zero) bucket data renders as a chart, not the empty state --
+  // proving new_users/businesses_approved/new_reviews/new_reports are wired to real data.
+  it("does not show the empty-chart state when a series has non-zero data", async () => {
+    adminSeriesMock.mockResolvedValue({
+      granularity: "day",
+      days: 90,
+      series: {
+        new_users: [{ bucket: "2026-08-14", count: 3 }],
+        businesses_approved: [{ bucket: "2026-08-14", count: 0 }],
+        new_reviews: [{ bucket: "2026-08-14", count: 0 }],
+        new_reports: [{ bucket: "2026-08-14", count: 0 }],
+      },
+    });
+
+    render(<AdminPage />);
+
+    expect(await screen.findByText("New users")).toBeInTheDocument();
+    // Only the 3 all-zero series fall back to the dashed empty box.
+    const emptyBoxes = await screen.findAllByText("No data yet for this window");
+    expect(emptyBoxes).toHaveLength(3);
   });
 });

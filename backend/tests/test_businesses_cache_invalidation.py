@@ -20,6 +20,15 @@ class FakeResult:
     def scalar_one(self):
         return self._items[0]
 
+    def scalar_one_or_none(self):
+        # S-035's approve_business added a Merchant lookup (for the new
+        # best-effort approval email) that this fake didn't support --
+        # approve_business's own test below only cares about the search-cache
+        # invalidation and status change, so no Merchant fixture rows are
+        # seeded and this always resolves to "not found", same as it would
+        # for a Business with no matching Merchant row in a real session.
+        return self._items[0] if self._items else None
+
 
 def _clause_matches(obj, clause) -> bool:
     if hasattr(clause, "clauses"):

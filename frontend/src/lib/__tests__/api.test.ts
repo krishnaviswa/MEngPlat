@@ -168,3 +168,52 @@ describe("auth.google", () => {
     );
   });
 });
+
+// S-035: forgot/reset password client calls.
+describe("auth.forgotPassword", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("posts the email to /api/v1/auth/forgot-password", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ message: "If an account exists for that email, we sent password-reset instructions." }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await auth.forgotPassword("someone@example.com");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/auth/forgot-password",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ email: "someone@example.com" }) }),
+    );
+    expect(result.message).toContain("If an account exists");
+  });
+});
+
+describe("auth.resetPassword", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("posts token and new_password (snake_case) to /api/v1/auth/reset-password", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ message: "Password updated. Sign in with your new password." }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await auth.resetPassword("raw-token-123", "brandnewpass123");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/auth/reset-password",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ token: "raw-token-123", new_password: "brandnewpass123" }),
+      }),
+    );
+  });
+});

@@ -42,6 +42,7 @@ from app.services.business_service import (
     update_business_rating,
 )
 from app.services.cache import cache_delete_pattern
+from app.services.email import try_send_new_review
 
 router = APIRouter(prefix="/reviews", tags=["Reviews"])
 
@@ -223,6 +224,9 @@ async def create_review(
                 extra_data={"review_id": str(review.id), "business_id": str(business.id)},
             )
         )
+        merchant_user = await db.get(User, merchant.user_id)
+        if merchant_user:
+            await try_send_new_review(merchant_user.email, business.name, payload.rating)
 
     await update_business_rating(db, business.id)
     await cache_delete_pattern("search:*")

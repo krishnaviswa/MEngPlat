@@ -303,6 +303,17 @@ export const auth = {
       body: JSON.stringify(refreshToken ? { refresh_token: refreshToken } : {}),
     });
   },
+  /** Always resolves with the same generic confirmation, known or unknown address. */
+  forgotPassword: (email: string) =>
+    apiFetch<{ message: string }>("/api/v1/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  resetPassword: (token: string, newPassword: string) =>
+    apiFetch<{ message: string }>("/api/v1/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, new_password: newPassword }),
+    }),
 };
 
 export interface UserProfileUpdateInput {
@@ -345,6 +356,9 @@ export const businesses = {
     return apiFetch<Business[]>(`/api/v1/search/businesses?${qs}`);
   },
   categoriesAll: () => apiFetch<Category[]>("/api/v1/businesses/categories/all"),
+  /** Admin: create a category. 409 if name or slug already exists. */
+  createCategory: (data: { name: string; slug: string; description?: string; icon?: string }) =>
+    apiFetch<Category>("/api/v1/businesses/categories", { method: "POST", body: JSON.stringify(data) }),
   cities: () => apiFetch<string[]>("/api/v1/businesses/cities"),
   stats: () => apiFetch<PublicPlatformStats>("/api/v1/businesses/stats/summary"),
   /** Admin: browse businesses of every status, newest-registered first. */
@@ -418,12 +432,66 @@ export const photos = {
   },
 };
 
+export type DashboardRange = "30" | "90" | "all";
+
+export type AdminSeriesGranularity = "day" | "week";
+
+export interface AdminSeriesBucket {
+  bucket: string;
+  count: number;
+}
+
+export interface PlatformAnalyticsSeries {
+  granularity: AdminSeriesGranularity;
+  days: number;
+  series: Record<string, AdminSeriesBucket[]>;
+}
+
 export const dashboard = {
-  merchant: (businessId: string) => apiFetch<Record<string, unknown>>(`/api/v1/dashboard/merchant/${businessId}`),
+  merchant: (businessId: string, opts?: { range?: DashboardRange }) =>
+    apiFetch<Record<string, unknown>>(
+      `/api/v1/dashboard/merchant/${businessId}${opts?.range ? `?range=${opts.range}` : ""}`
+    ),
   insights: (businessId: string) =>
     apiFetch<Record<string, unknown>>(`/api/v1/ai/businesses/${businessId}/insights`),
   refreshInsights: (businessId: string) =>
     apiFetch<Record<string, unknown>>(`/api/v1/ai/businesses/${businessId}/refresh`, { method: "POST" }),
+  // Blob download (not JSON) -- can't route through apiFetch, but shares its
+  // auth header so the export hits the same ownership check as the dashboard.
+  reviewsCsv: async (businessId: string, opts?: { range?: DashboardRange }): Promise<Blob> => {
+    const token = getToken();
+    const qs = opts?.range ? `?range=${opts.range}` : "";
+    const res = await fetch(`${API_URL}/api/v1/dashboard/merchant/${businessId}/reviews.csv${qs}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || "Export failed");
+    }
+    return res.blob();
+  },
+  /** Admin: platform time series (new users, approvals, reviews, reports) from stored timestamps. */
+  adminSeries: (opts?: { granularity?: AdminSeriesGranularity; days?: number }) => {
+    const params = new URLSearchParams();
+    if (opts?.granularity) params.set("granularity", opts.granularity);
+    if (opts?.days) params.set("days", String(opts.days));
+    const qs = params.toString();
+    return apiFetch<PlatformAnalyticsSeries>(`/api/v1/dashboard/admin/platform/series${qs ? `?${qs}` : ""}`);
+  },
+};
+
+export const admin = {
+  /** Admin: list users newest first; optional q substring on email/full_name. */
+  users: (params?: { page?: number; page_size?: number; q?: string }) => {
+    const qs = params
+      ? new URLSearchParams(
+          Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]),
+        ).toString()
+      : "";
+    return apiFetch<User[]>(`/api/v1/admin/users${qs ? `?${qs}` : ""}`);
+  },
+  suspendUser: (id: string) => apiFetch<User>(`/api/v1/admin/users/${id}/suspend`, { method: "POST" }),
+  reactivateUser: (id: string) => apiFetch<User>(`/api/v1/admin/users/${id}/reactivate`, { method: "POST" }),
 };
 
 export interface Notification {

@@ -4,12 +4,13 @@ import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recha
 
 interface ChartsProps {
   data: { name: string; value: number }[];
+  emptyMessage?: string;
 }
 
-/** Charts — Recharts bar chart for sentiment/volume breakdown. Props: data array. */
-export function Charts({ data }: ChartsProps) {
+/** Charts — Recharts bar chart for sentiment/volume/rating-mix breakdown. Props: data array, optional emptyMessage. */
+export function Charts({ data, emptyMessage }: ChartsProps) {
   if (!data.length) {
-    return <p className="text-sm text-gray-500">No chart data yet.</p>;
+    return <p className="text-sm text-gray-500">{emptyMessage ?? "No chart data yet."}</p>;
   }
 
   return (

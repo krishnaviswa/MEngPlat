@@ -6,6 +6,7 @@ interface AIInsightsProps {
     suggested_responses?: string[];
     monthly_trends?: { month: string; positive: number; neutral: number; negative: number }[];
     sentiment_breakdown?: Record<string, number>;
+    degraded?: boolean;
   };
 }
 
@@ -51,6 +52,23 @@ export function AIInsights({ insights }: AIInsightsProps) {
               {r}
             </blockquote>
           ))}
+        </section>
+      )}
+      {(insights.monthly_trends || []).length > 0 && (
+        <section>
+          <h4 className="font-medium text-gray-800">AI Trend Suggestion</h4>
+          <p className="mt-1 text-xs text-amber-700">
+            {insights.degraded ? "Mock/degraded data. " : ""}
+            Not computed from your review history — a suggestion, not a fact. See the Review volume chart above for
+            actual review dates.
+          </p>
+          <ul className="mt-2 space-y-1 text-sm text-gray-700">
+            {insights.monthly_trends!.map((t) => (
+              <li key={t.month}>
+                {t.month}: {t.positive} positive · {t.neutral} neutral · {t.negative} negative (suggestion)
+              </li>
+            ))}
+          </ul>
         </section>
       )}
     </div>

@@ -102,6 +102,16 @@ class Settings(BaseSettings):
     # bucket's virtual-hosted-style URL when blank.
     storage_s3_public_base_url: str = ""
 
+    # Transactional email (backend/app/services/email/). mock (default) logs
+    # only -- no vendor key needed for local/demo. Unrecognised values and a
+    # resend selection missing its key/from fail at startup (main.py lifespan),
+    # same pattern as ai_provider above.
+    email_provider: str = "mock"
+    resend_api_key: str = ""
+    email_from: str = ""
+    # Origin used to build password-reset links in email copy. Not a secret.
+    public_app_url: str = "http://localhost:3000"
+
     cors_origins: str = "http://localhost:3000"
 
     google_maps_api_key: str = "placeholder"

@@ -6,7 +6,7 @@ import type { Business } from "@/lib/api";
 jest.mock("../../lib/api", () => ({
   auth: { me: jest.fn() },
   businesses: { mine: jest.fn() },
-  dashboard: { merchant: jest.fn(), insights: jest.fn(), refreshInsights: jest.fn() },
+  dashboard: { merchant: jest.fn(), insights: jest.fn(), refreshInsights: jest.fn(), reviewsCsv: jest.fn() },
   reviews: { reply: jest.fn() },
 }));
 
@@ -14,6 +14,7 @@ const meMock = auth.me as jest.Mock;
 const mineMock = businesses.mine as jest.Mock;
 const merchantStatsMock = dashboard.merchant as jest.Mock;
 const insightsMock = dashboard.insights as jest.Mock;
+const reviewsCsvMock = dashboard.reviewsCsv as jest.Mock;
 
 function makeBusiness(overrides: Partial<Business> = {}): Business {
   return {
@@ -159,10 +160,17 @@ describe("MerchantDashboard tile interactivity (S-022)", () => {
     let statusLink = await screen.findByRole("link", { name: /status/i });
     expect(statusLink).toHaveAttribute("href", "/businesses/biz-approved-slug");
 
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: pendingBiz.id } });
+    // S-033 added a second combobox (date-range picker) to the same page, so
+    // the plain `getByRole("combobox")` this test used before S-033 is now
+    // ambiguous -- scope to the "Your businesses" selector by its label.
+    fireEvent.change(screen.getByRole("combobox", { name: /your businesses/i }), {
+      target: { value: pendingBiz.id },
+    });
 
+    // S-033 added a `{ range }` second argument to dashboard.merchant(); the
+    // default range is "all" until the user picks a date-range option.
     await waitFor(() =>
-      expect(merchantStatsMock).toHaveBeenCalledWith(pendingBiz.id),
+      expect(merchantStatsMock).toHaveBeenCalledWith(pendingBiz.id, { range: "all" }),
     );
     statusLink = await screen.findByRole("link", { name: /status/i });
     await waitFor(() =>
@@ -188,5 +196,138 @@ describe("MerchantDashboard tile interactivity (S-022)", () => {
     const scrollMock = window.HTMLElement.prototype.scrollIntoView as jest.Mock;
     await waitFor(() => expect(scrollMock).toHaveBeenCalledTimes(1));
     expect(scrollMock.mock.instances[0]).toBe(document.getElementById("recent-reviews"));
+  });
+});
+
+describe("MerchantDashboard analytics (S-033)", () => {
+  beforeAll(() => {
+    window.HTMLElement.prototype.scrollIntoView = jest.fn();
+    (global as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+    // jsdom doesn't implement these; the Export CSV handler calls them.
+    (URL as unknown as { createObjectURL: unknown }).createObjectURL = jest.fn(() => "blob:mock");
+    (URL as unknown as { revokeObjectURL: unknown }).revokeObjectURL = jest.fn();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
+    insightsMock.mockResolvedValue({});
+  });
+
+  // AC 1 / AC 2: review_volume_by_month and rating_distribution render as
+  // real chart data (not left as unused payload / not a canned AI series).
+  it("charts DB review volume and rating mix from the dashboard payload", async () => {
+    const business = makeBusiness();
+    mineMock.mockResolvedValue([business]);
+    merchantStatsMock.mockResolvedValue(
+      makeStats({
+        review_volume_by_month: [{ month: "2026-07", count: 4 }],
+        rating_distribution: { "1": 0, "2": 0, "3": 1, "4": 2, "5": 3 },
+      }),
+    );
+
+    render(<MerchantDashboardPage />);
+
+    expect(await screen.findByText("Review volume")).toBeInTheDocument();
+    expect(await screen.findByText("Rating mix (1-5 stars)")).toBeInTheDocument();
+    // Charts render an SVG bar chart when data is non-empty (not the emptyMessage copy).
+    expect(screen.queryByText("No reviews in this range yet.")).not.toBeInTheDocument();
+  });
+
+  // AC 3: changing the date-range selector refetches volume/mix/reply-rate
+  // for the newly selected range (not values invented in AI JSON).
+  it("refetches dashboard stats with the newly selected range", async () => {
+    const business = makeBusiness();
+    mineMock.mockResolvedValue([business]);
+    merchantStatsMock.mockResolvedValue(makeStats());
+
+    render(<MerchantDashboardPage />);
+    await waitFor(() => expect(merchantStatsMock).toHaveBeenCalledWith(business.id, { range: "all" }));
+
+    fireEvent.change(screen.getByRole("combobox", { name: /date range/i }), { target: { value: "30" } });
+
+    await waitFor(() => expect(merchantStatsMock).toHaveBeenCalledWith(business.id, { range: "30" }));
+  });
+
+  // AC 5: zero reviews in range -> reply_rate is null, rendered as "--" copy,
+  // never a misleading "0%" as if reviews existed.
+  it("shows '—' (not 0%) for reply rate when reply_rate is null", async () => {
+    const business = makeBusiness();
+    mineMock.mockResolvedValue([business]);
+    merchantStatsMock.mockResolvedValue(makeStats({ reply_rate: null }));
+
+    render(<MerchantDashboardPage />);
+
+    expect(await screen.findByText("Reply rate")).toBeInTheDocument();
+    expect(await screen.findByText("—")).toBeInTheDocument();
+    expect(screen.queryByText("0%")).not.toBeInTheDocument();
+  });
+
+  // AC 5: a real reply_rate renders as a rounded percentage.
+  it("renders reply_rate as a rounded percentage when reviews exist in range", async () => {
+    const business = makeBusiness();
+    mineMock.mockResolvedValue([business]);
+    merchantStatsMock.mockResolvedValue(makeStats({ reply_rate: 0.5 }));
+
+    render(<MerchantDashboardPage />);
+
+    expect(await screen.findByText("50%")).toBeInTheDocument();
+  });
+
+  // AC 8: empty range (zero in-range reviews) shows beginner-friendly copy,
+  // not a crash or a fake series.
+  it("shows empty-range copy when rating_distribution has zero reviews", async () => {
+    const business = makeBusiness();
+    mineMock.mockResolvedValue([business]);
+    merchantStatsMock.mockResolvedValue(
+      makeStats({
+        review_volume_by_month: [],
+        rating_distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 },
+        reply_rate: null,
+      }),
+    );
+
+    render(<MerchantDashboardPage />);
+
+    expect(
+      await screen.findByText(/no reviews in this range yet\. try a wider date range/i),
+    ).toBeInTheDocument();
+  });
+
+  // AC 6: Export CSV downloads a blob for *this* business and the currently selected range.
+  it("exports CSV for the selected business and range on click", async () => {
+    const business = makeBusiness();
+    mineMock.mockResolvedValue([business]);
+    merchantStatsMock.mockResolvedValue(makeStats());
+    reviewsCsvMock.mockResolvedValue(new Blob(["id,rating\n"], { type: "text/csv" }));
+
+    render(<MerchantDashboardPage />);
+    await screen.findByRole("button", { name: /export csv/i });
+
+    fireEvent.click(screen.getByRole("button", { name: /export csv/i }));
+
+    await waitFor(() => expect(reviewsCsvMock).toHaveBeenCalledWith(business.id, { range: "all" }));
+  });
+
+  // AC 4: AI monthly_trends always carry suggestion language and are
+  // additionally flagged when degraded/mock -- never charted as DB fact.
+  it("labels AI monthly_trends as a suggestion and flags degraded data", async () => {
+    const business = makeBusiness();
+    mineMock.mockResolvedValue([business]);
+    merchantStatsMock.mockResolvedValue(makeStats());
+    insightsMock.mockResolvedValue({
+      degraded: true,
+      monthly_trends: [{ month: "2026-06", positive: 2, neutral: 1, negative: 0 }],
+    });
+
+    render(<MerchantDashboardPage />);
+
+    expect(await screen.findByText(/mock\/degraded data/i)).toBeInTheDocument();
+    expect(screen.getByText(/not computed from your review history/i)).toBeInTheDocument();
+    expect(screen.getByText(/\(suggestion\)/i)).toBeInTheDocument();
   });
 });
