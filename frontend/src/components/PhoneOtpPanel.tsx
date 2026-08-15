@@ -13,6 +13,7 @@ export function PhoneOtpPanel({
   role?: string;
   onError: (message: string) => void;
 }) {
+  const [countryCode, setCountryCode] = useState("+91");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
@@ -22,7 +23,7 @@ export function PhoneOtpPanel({
     onError("");
     setBusy(true);
     try {
-      await auth.phoneRequest(phone);
+      await auth.phoneRequest(`${countryCode}${phone}`);
       setSent(true);
     } catch (err) {
       onError(err instanceof Error ? err.message : "Could not send code");
@@ -36,7 +37,7 @@ export function PhoneOtpPanel({
     setBusy(true);
     try {
       const tokens = await auth.phoneVerify({
-        phone,
+        phone: `${countryCode}${phone}`,
         code,
         full_name: fullName,
         role,
@@ -51,16 +52,29 @@ export function PhoneOtpPanel({
   }
 
   return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium text-gray-800">Continue with phone</p>
-      <input
-        type="tel"
-        value={phone}
-        onChange={(e) => setPhone(e.target.value)}
-        placeholder="Mobile number"
-        className="w-full rounded border px-3 py-2"
-        aria-label="Mobile number"
-      />
+    <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <label className="block text-sm font-medium text-gray-800">Continue with phone</label>
+      <div className="flex gap-2">
+        <select
+          value={countryCode}
+          onChange={(e) => setCountryCode(e.target.value)}
+          disabled={sent}
+          className="w-24 rounded border bg-white px-2 py-2.5 text-sm disabled:opacity-50"
+          aria-label="Country code"
+        >
+          <option value="+91">🇮🇳 +91</option>
+          <option value="+1">🇺🇸 +1</option>
+        </select>
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Mobile number"
+          disabled={sent}
+          className="flex-1 rounded border bg-white px-3 py-2.5 disabled:opacity-50"
+          aria-label="Mobile number"
+        />
+      </div>
       {sent && (
         <input
           type="text"
@@ -68,7 +82,7 @@ export function PhoneOtpPanel({
           value={code}
           onChange={(e) => setCode(e.target.value)}
           placeholder="6-digit SMS code"
-          className="w-full rounded border px-3 py-2"
+          className="w-full rounded border bg-white px-3 py-2.5 text-center text-lg tracking-widest"
           aria-label="SMS code"
         />
       )}

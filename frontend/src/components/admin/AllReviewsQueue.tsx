@@ -45,7 +45,7 @@ export function AllReviewsQueue() {
   return (
     <div className="space-y-4">
       {items.map((r) => (
-        <ReviewCard key={r.id} review={r} showActions={false} showBusinessLink />
+        <ReviewCard key={r.id} review={r} showActions={false} showBusinessLink showSentimentBadge />
       ))}
     </div>
   );

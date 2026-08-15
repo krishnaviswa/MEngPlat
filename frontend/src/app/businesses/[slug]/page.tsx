@@ -4,6 +4,7 @@ import { CategoryBadges } from "@/components/CategoryBadges";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { RatingWidget } from "@/components/ui/RatingWidget";
+import { ReviewHighlights } from "@/components/ReviewHighlights";
 import { ReviewsList } from "@/components/ReviewsList";
 import { Card } from "@/components/ui/Card";
 import { API_URL, businesses, photos as photosApi, reviews } from "@/lib/api";
@@ -82,16 +83,18 @@ export default async function BusinessPage({ params }: Props) {
           </div>
           <a
             href={`/businesses/${slug}/review`}
-            className="rounded bg-brand-600 px-4 py-2 text-white hover:bg-brand-700"
+            className="flex flex-col items-center rounded bg-brand-600 px-4 py-2 text-center text-white hover:bg-brand-700"
           >
-            Write a review
+            <span>✏️ Write a review</span>
+            <span className="text-xs font-normal text-brand-100">takes 2 min</span>
           </a>
         </div>
         {business.description && <p className="mt-4 text-gray-700">{business.description}</p>}
         {business.ai_merchant_summary && (
-          <p className="mt-4 rounded bg-brand-50 p-3 text-sm">
-            <strong>AI overview (suggestion):</strong> {business.ai_merchant_summary}
-          </p>
+          <div className="mt-4 rounded border-l-4 border-brand-400 bg-brand-50 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">About this place</p>
+            <p className="mt-1 text-sm text-gray-700">{business.ai_merchant_summary}</p>
+          </div>
         )}
       </div>
 
@@ -168,7 +171,10 @@ export default async function BusinessPage({ params }: Props) {
         {reviewList.length === 0 ? (
           <p className="text-gray-500">No reviews yet — be the first to share your experience.</p>
         ) : (
-          <ReviewsList initialReviews={reviewList} />
+          <>
+            {reviewList.length >= 3 && <ReviewHighlights reviews={reviewList} averageRating={business.average_rating} />}
+            <ReviewsList initialReviews={reviewList} />
+          </>
         )}
       </section>
     </div>

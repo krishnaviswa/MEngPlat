@@ -53,28 +53,34 @@ describe("ReviewCard business link gating (S-021)", () => {
 // reuses ReviewCard's existing rendering, introducing no new AI surface or
 // definitive-judgment language.
 describe("ReviewCard AI disclaimer language (regression, S-021 AC 8)", () => {
-  it("renders the 'AI: {sentiment}' badge when ai_analysis.sentiment is present", () => {
-    render(<ReviewCard review={makeReview({ ai_analysis: { sentiment: "positive" } })} />);
+  it("renders the 'AI: {sentiment}' badge when ai_analysis.sentiment is present and showSentimentBadge is set (internal-audience views only)", () => {
+    render(<ReviewCard review={makeReview({ ai_analysis: { sentiment: "positive" } })} showSentimentBadge />);
 
     expect(screen.getByText("AI: positive")).toBeInTheDocument();
   });
 
-  it("renders the 'AI summary (suggestion)' disclaimer when ai_analysis.summary is present", () => {
+  it("hides the AI sentiment badge by default (customer-facing views)", () => {
+    render(<ReviewCard review={makeReview({ ai_analysis: { sentiment: "positive" } })} />);
+
+    expect(screen.queryByText("AI: positive")).not.toBeInTheDocument();
+  });
+
+  it("renders the 'Quick take' disclaimer when ai_analysis.summary is present", () => {
     render(
       <ReviewCard
         review={makeReview({ ai_analysis: { sentiment: "positive", summary: "Customers love the coffee." } })}
       />,
     );
 
-    expect(screen.getByText("AI summary (suggestion):")).toBeInTheDocument();
+    expect(screen.getByText("Quick take:")).toBeInTheDocument();
     expect(screen.getByText(/Customers love the coffee\./)).toBeInTheDocument();
   });
 
   it("renders no AI badge or summary when ai_analysis is absent", () => {
-    render(<ReviewCard review={makeReview()} />);
+    render(<ReviewCard review={makeReview()} showSentimentBadge />);
 
     expect(screen.queryByText(/^AI:/)).not.toBeInTheDocument();
-    expect(screen.queryByText("AI summary (suggestion):")).not.toBeInTheDocument();
+    expect(screen.queryByText("Quick take:")).not.toBeInTheDocument();
   });
 
   it("fills the reply box from suggested_response as a suggestion", () => {

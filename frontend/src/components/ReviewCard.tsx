@@ -14,6 +14,8 @@ interface ReviewCardProps {
   onReply?: (id: string, body: string) => void;
   /** Admin-only: render review.business as a link to its admin drill-down. */
   showBusinessLink?: boolean;
+  /** Internal-audience views (admin/merchant) only — hidden from anonymous customer-facing pages. */
+  showSentimentBadge?: boolean;
 }
 
 function resolveUrl(url: string): string {
@@ -29,6 +31,7 @@ export function ReviewCard({
   canReply = false,
   onReply,
   showBusinessLink = false,
+  showSentimentBadge = false,
 }: ReviewCardProps) {
   const [reporting, setReporting] = useState(false);
   const [reportReason, setReportReason] = useState("");
@@ -77,7 +80,7 @@ export function ReviewCard({
           <p className="font-medium">{review.author?.full_name || "Customer"}</p>
           <RatingWidget value={review.rating} readonly size="sm" />
         </div>
-        {sentiment && (
+        {showSentimentBadge && sentiment && (
           <span className={`rounded-full px-2 py-0.5 text-xs capitalize ${sentimentColor}`}>
             AI: {sentiment}
           </span>
@@ -87,7 +90,7 @@ export function ReviewCard({
       <p className="mt-1 text-gray-700">{review.body}</p>
       {review.ai_analysis?.summary && (
         <p className="mt-2 rounded bg-brand-50 p-2 text-sm text-brand-900">
-          <span className="font-medium">AI summary (suggestion):</span> {review.ai_analysis.summary}
+          <span className="font-medium">Quick take:</span> {review.ai_analysis.summary}
         </p>
       )}
       {review.photo_urls && review.photo_urls.length > 0 && (

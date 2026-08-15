@@ -367,6 +367,7 @@ export default function MerchantDashboardPage() {
                   key={r.id}
                   review={r}
                   showActions={false}
+                  showSentimentBadge
                   canReply={user?.role === "merchant"}
                   onReply={handleReply}
                 />
