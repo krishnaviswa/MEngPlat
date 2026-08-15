@@ -80,4 +80,12 @@ async def register_and_get_token(
     )
     assert res.status_code == 201, res.text
     tokens = await complete_password_login(client, email, password)
-    return tokens["access_token"]
+    token = tokens["access_token"]
+    if role == "merchant":
+        patch = await client.patch(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"national_id_type": "pan", "national_id_number": "ABCDE1234F"},
+        )
+        assert patch.status_code == 200, patch.text
+    return token

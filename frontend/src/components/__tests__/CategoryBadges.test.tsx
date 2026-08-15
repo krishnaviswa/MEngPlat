@@ -15,6 +15,8 @@ describe("CategoryBadges", () => {
     expect(screen.getByText("Café")).toBeInTheDocument();
     expect(screen.getByText("Bakery")).toBeInTheDocument();
     expect(screen.getByText("Vegan")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Café" })).toHaveAttribute("href", "/search?category=cafe");
+    expect(screen.getByRole("link", { name: "Bakery" })).toHaveAttribute("href", "/search?category=bakery");
   });
 
   it("renders nothing when categories is undefined", () => {

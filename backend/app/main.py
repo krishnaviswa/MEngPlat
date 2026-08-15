@@ -30,6 +30,7 @@ from app.services.ai import validate_startup_config as validate_ai_startup_confi
 from app.services.ai.http_client import close_shared_client
 from app.services.email import validate_startup_config as validate_email_startup_config
 from app.services.payments import validate_startup_config as validate_payments_startup_config
+from app.services.sms import validate_startup_config as validate_sms_startup_config
 
 settings = get_settings()
 
@@ -47,6 +48,7 @@ async def lifespan(app: FastAPI):
     validate_ai_startup_config()
     validate_email_startup_config()
     validate_payments_startup_config()
+    validate_sms_startup_config()
     yield
     await close_shared_client()
 

@@ -1,0 +1,64 @@
+"""Playwright e2e opt-in fixtures (Compose). Skipped unless E2E=1."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+import pytest
+
+from tests.e2e.api_client import Api
+
+E2E_ENABLED = os.environ.get("E2E") == "1"
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+API_URL = os.environ.get("API_URL", "http://localhost:8000/api/v1").rstrip("/")
+TRACE_DIR = Path(__file__).resolve().parent / "test-results"
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    markexpr = config.getoption("markexpr") or ""
+    if E2E_ENABLED or "e2e" in markexpr:
+        return
+    skip = pytest.mark.skip(reason="e2e opt-in: set E2E=1 with Compose up (frontend :3000, API :8000)")
+    for item in items:
+        path = Path(str(item.path if hasattr(item, "path") else item.fspath))
+        if "e2e" in path.parts:
+            item.add_marker(skip)
+
+
+@pytest.fixture(scope="session")
+def frontend_url() -> str:
+    return FRONTEND_URL
+
+
+@pytest.fixture(scope="session")
+def api_url() -> str:
+    return API_URL
+
+
+@pytest.fixture(scope="session")
+def browser_context_args(browser_context_args: dict) -> dict:
+    return {**browser_context_args, "base_url": FRONTEND_URL}
+
+
+@pytest.fixture(scope="session")
+def api(playwright, api_url: str):
+    client = Api(playwright, api_url)
+    yield client
+    client.dispose()
+
+
+@pytest.fixture(autouse=True)
+def e2e_trace(request: pytest.FixtureRequest):
+    if not E2E_ENABLED:
+        yield
+        return
+    if "page" not in getattr(request, "fixturenames", ()):
+        yield
+        return
+    context = request.getfixturevalue("context")
+    TRACE_DIR.mkdir(parents=True, exist_ok=True)
+    context.tracing.start(screenshots=True, snapshots=True, sources=True)
+    yield
+    dest = TRACE_DIR / f"{request.node.name}.zip"
+    context.tracing.stop(path=str(dest))

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Date** | 2026-08-15 |
 | **Slice** | S-010 |
 
@@ -55,13 +55,15 @@ Anonymous browse + gated actions; customer register → review → profile → l
 
 When a **new web capability** ships, extend this pack in the same PR (and §12 parity). Do not rely on a new Jest file alone for cross-page flows.
 
-### 5. CI shape (after the suite exists)
+### 5. CI shape (manual audit, not a merge gate)
 
-1. Re-enable `push`/`pull_request` on `backend-tests.yml` and `frontend-tests.yml`.
-2. New workflow (or job): Compose up (or equivalent service containers + Next production build), migrate, optional seed, `pytest tests/e2e`, upload traces on failure.
-3. Require those checks on `main`. Until then, local `pytest` + `npm test` remains the real gate.
+Playwright is a **second view**, not a required check and not part of deploy.
 
-Cancel **stale** expensive e2e runs when a newer commit supersedes them; never skip the latest commit.
+1. `backend-tests.yml` / `frontend-tests.yml` stay pytest/Jest only. Re-enabling their `push`/`pull_request` triggers is a separate decision and must **not** pull in Chromium.
+2. [`.github/workflows/web-e2e.yml`](../../../.github/workflows/web-e2e.yml) is **`workflow_dispatch` only**: Compose up (mock vendors) → `E2E=1 pytest tests/e2e` → always upload `playwright-traces` (and logs). No `push`, no `pull_request`, no Railway/Vercel step.
+3. Operators download the artifact and open it with `playwright show-trace`. Local `pytest` + `npm test` remains the day-to-day gate.
+
+Do not add this job to branch protection. Cancel a still-running dispatch on the same ref if a newer one is started.
 
 ---
 
@@ -77,13 +79,13 @@ Cancel **stale** expensive e2e runs when a newer commit supersedes them; never s
 
 - Python Playwright, not `@playwright/test` in `frontend/` — frontend engineers run pytest for e2e.
 - SSR needs the dual-call pattern or false “no API traffic” failures.
-- Compose e2e is slower than Jest; keep it on PR for `frontend/**`+`backend/**` or a nightly + `workflow_dispatch` until it is stable, then required.
+- Compose e2e is slower than Jest; it stays **manual** (`workflow_dispatch`) so product commits are not blocked. It is not a required status check.
 
 ### Follow-ups
 
-- Implement `backend/tests/e2e/` per TP-S-010; gitignore traces.
-- Mark this ADR Accepted when S-010 lands and README §11 “intended after S-010” commands work.
-- Optional later: dedicated Railway staging project with the same mock env.
+- Harness + role journeys in `backend/tests/e2e/` (`E2E=1`). Gitignore traces.
+- Manual GitHub job: `web-e2e.yml` (Compose + Chromium + artifact traces).
+- Optional later: dedicated Railway staging with the same mock env (still not production, still not auto-on-PR).
 
 ---
 

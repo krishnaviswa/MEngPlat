@@ -56,6 +56,7 @@ class NotificationType(str, enum.Enum):
 
 class NationalIdType(str, enum.Enum):
     PAN = "pan"
+    AADHAAR = "aadhaar"
     OTHER = "other"
 
 
@@ -70,7 +71,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, index=True, nullable=True)
     # Nullable: Google-only accounts (auth_provider="google") have no password.
     hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -368,8 +369,12 @@ class Payment(Base):
     status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), default=PaymentStatus.CREATED, nullable=False)
     amount_paise: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(String(8), default="INR", nullable=False)
+    sku_code: Mapped[str] = mapped_column(String(32), default="featured_7d", nullable=False, server_default="featured_7d")
+    duration_days: Mapped[int] = mapped_column(Integer, default=7, nullable=False, server_default="7")
     platform_fee_paise: Mapped[int | None] = mapped_column(Integer, nullable=True)
     gateway_fee_paise: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     business: Mapped[Business] = relationship(back_populates="payments")

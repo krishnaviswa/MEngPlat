@@ -217,6 +217,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Playwright e2e traces (S-010)
+backend/tests/e2e/test-results/
+
 # MerchantHub AI
 node_modules/
 frontend/.next/

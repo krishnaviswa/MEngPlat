@@ -6,6 +6,7 @@ import { Charts } from "./Charts";
 import { Dashboard } from "./Dashboard";
 import { ReviewCard } from "./ReviewCard";
 import { FeaturedBoostPanel } from "./FeaturedBoostPanel";
+import { MerchantNationalIdCard } from "./MerchantNationalIdCard";
 import { CollectQrCard } from "./CollectQrCard";
 import { BenchmarkCard } from "./BenchmarkCard";
 import { Select } from "./ui/Select";
@@ -157,17 +158,20 @@ export default function MerchantDashboardPage() {
   if (owned.length === 0) {
     return (
       <Dashboard title="Merchant Dashboard" description="Manage your business" navItems={navItems}>
-        <div className="rounded-xl border bg-white p-8 text-center">
-          <h2 className="text-lg font-semibold text-gray-900">No business yet</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Register your shop or service to see reviews, stats, and AI insights here.
-          </p>
-          <a
-            href="/merchant/businesses/new"
-            className="mt-4 inline-block rounded bg-brand-600 px-4 py-2 text-white hover:bg-brand-700"
-          >
-            Create your business
-          </a>
+        <div className="space-y-6">
+          {user?.role === "merchant" && <MerchantNationalIdCard user={user} onSaved={setUser} />}
+          <div className="rounded-xl border bg-white p-8 text-center">
+            <h2 className="text-lg font-semibold text-gray-900">No business yet</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Register your shop or service to see reviews, stats, and AI insights here.
+            </p>
+            <a
+              href="/merchant/businesses/new"
+              className="mt-4 inline-block rounded bg-brand-600 px-4 py-2 text-white hover:bg-brand-700"
+            >
+              Create your business
+            </a>
+          </div>
         </div>
       </Dashboard>
     );
@@ -253,6 +257,9 @@ export default function MerchantDashboardPage() {
           </a>
         </div>
 
+        {user?.role === "merchant" && (
+          <MerchantNationalIdCard user={user} onSaved={setUser} />
+        )}
         <FeaturedBoostPanel businessId={business.id} listingStatus={status} />
         {status === "approved" && <CollectQrCard businessId={business.id} />}
 

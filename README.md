@@ -355,11 +355,12 @@ These four are **functionally in the product**. Tests and Compose must stay vend
 | AI | `AI_PROVIDER` | `mock` (deterministic suggestions, no network) | OpenAI-compatible HTTP (`AI_BASE_URL` + key) | Yes — review analysis, insights, reply draft |
 | Storage | `STORAGE_PROVIDER` | `local` disk at `/uploads` | `s3` (boto3; optional `STORAGE_S3_PUBLIC_BASE_URL` for a CDN in front of the bucket) | Yes locally; **Azure class is still a stub** |
 | Email | `EMAIL_PROVIDER` | `mock` (logs only) | `resend` | Yes — reset, listing approved, new review (best-effort) |
-| Payments | `PAYMENTS_PROVIDER` | `mock` (no keys; DEBUG mock-complete) | `razorpay` Checkout + webhook HMAC | Yes — ₹499 / 7-day featured SKU |
+| Payments | `PAYMENTS_PROVIDER` | `mock` (no keys; DEBUG mock-complete) | `razorpay` Checkout + webhook HMAC | Yes — three featured SKUs; admin approve after capture |
+| SMS | `SMS_PROVIDER` | `mock` (logs OTP) | `msg91` | Yes — Phone OTP login |
 
 **Staging policy:** spin the same Compose stack (or a Railway “staging” project) with those four defaults. Do not buy Resend/Razorpay/S3 to prove the web loop. Prove the loop against mocks; prove adapters with contract tests (`backend/tests/test_email_provider.py`, `test_payments.py`, `test_storage.py`, `test_ai_*`).
 
-Architecture files for this layer: [ADR-007](docs/agents/adrs/ADR-007-transactional-email-port.md), [ADR-008](docs/agents/adrs/ADR-008-razorpay-featured-fee.md), [ADR-009](docs/agents/adrs/ADR-009-web-functional-e2e.md) (how we *prove* the loop), plus `.cursor/rules/ai-and-integrations.mdc` / `backend/app/services/CLAUDE.md`.
+Architecture files for this layer: [ADR-007](docs/agents/adrs/ADR-007-transactional-email-port.md), [ADR-008](docs/agents/adrs/ADR-008-razorpay-featured-fee.md), [ADR-010](docs/agents/adrs/ADR-010-featured-sku-admin-approve.md), [ADR-011](docs/agents/adrs/ADR-011-phone-otp-sms.md), [ADR-009](docs/agents/adrs/ADR-009-web-functional-e2e.md) (how we *prove* the loop), plus `.cursor/rules/ai-and-integrations.mdc` / `backend/app/services/CLAUDE.md`.
 
 ### Architecture vs original product design (drift)
 
@@ -376,7 +377,7 @@ The **logical loop in §2 is implemented** (customer review → AI suggestion �
 | Merchant hours / gallery forms | Named in early actor table | Display + photo API; no merchant editor | **Deferred**, not abandoned |
 | Google OAuth | Redirect/callback (S-009) | GIS ID-token, no redirect route | Simpler; S-009 “callback stub” is stale wording |
 | Observability | Structured logs as NFR | `/health` only | Open gap (§14) |
-| Web proof | Pytest + RTL + “manual integration” | Same; **no Playwright in CI** | S-010 / ADR-009 |
+| Web proof | Pytest + RTL + “manual integration” | Same + Playwright **manual** GHA (`web-e2e.yml`), not on every PR | S-010 / ADR-009 |
 
 ### Non-functional requirements
 
@@ -533,7 +534,7 @@ erDiagram
 | `review_likes`        | Customer likes on reviews                                           |
 | `review_reports`      | Reported reviews queue                                              |
 | `seed_runs`           | Demo seed version markers (`SEED_VERSION`) — skip re-upsert on boot |
-| `payments`            | Featured-boost charges (paise, fee split, no PAN) — S-036           |
+| `payments`            | Featured-boost charges (SKU, paise, fee split, approve timestamps, no PAN) — S-036/S-042 |
 | `featured_placements` | Time-bounded paid search boost (`starts_at` / `ends_at` / `disabled_at`) |
 
 
@@ -674,9 +675,9 @@ Reset tokens are high-entropy, stored in Redis **hashed** (SHA-256) with a 1-hou
 single-use, and looked up fail-closed — unlike login lockout, a Redis outage returns
 **503** rather than silently skipping the reset (§9 Security has the full rationale).
 
-### Featured listing boost (S-036)
+### Featured listing boost (S-036, S-042)
 
-One SKU: ₹499 / 7 days. Placement activates only after a verified webhook (or DEBUG admin mock-complete). Search ranks active featured listings first. Copy on `/search` states this is a **paid boost**, not an AI quality judgment.
+Three SKUs: ₹299 / 7 days, ₹499 / 15 days, ₹899 / 30 days. Capture records the ledger; **admin approve** creates the placement. Search ranks active featured listings first. Copy on `/search` states this is a **paid boost**, not an AI quality judgment.
 
 ```mermaid
 sequenceDiagram
@@ -684,11 +685,12 @@ sequenceDiagram
     participant Web as Next.js
     participant API as FastAPI
     participant Pay as PaymentProvider
+    participant Admin
     participant DB as PostgreSQL
 
-    Merchant->>Web: Boost CTA on dashboard
-    Web->>API: POST /payments/featured/checkout
-    API->>Pay: create_order 49900 INR
+    Merchant->>Web: Pick SKU tile
+    Web->>API: POST /payments/featured/checkout sku_code
+    API->>Pay: create_order
     API->>DB: payments status=created
     alt razorpay
         Web->>Pay: Checkout.js (PAN never hits our API)
@@ -696,7 +698,9 @@ sequenceDiagram
     else mock DEBUG
         Note over Web,API: Admin POST /payments/mock/complete
     end
-    API->>DB: paid + featured_placements 7d
+    API->>DB: paid fees only no placement
+    Admin->>API: POST /payments/admin/payments/id/approve
+    API->>DB: featured_placements window
     API->>API: invalidate search:*
 ```
 
@@ -1039,8 +1043,10 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | POST   | `/auth/mfa/totp/verify`  | MFA verify token | Verify TOTP → session tokens                                                                  |
 | POST   | `/auth/refresh`          | Public           | Refresh tokens                                                                                |
 | GET    | `/auth/me`               | Bearer           | Current user                                                                                  |
-| PATCH  | `/auth/me`               | Bearer           | Update profile (name, avatar, phone, address, national ID)                                    |
+| PATCH  | `/auth/me`               | Bearer           | Update profile (name, avatar, phone, address, national ID: pan/aadhaar/other). Merchant ID required before `POST /businesses`. Admin user list returns a **masked** number. |
 | POST   | `/auth/google`           | Public           | Google ID-token sign-in (register-or-login; no TOTP)                                          |
+| POST   | `/auth/phone/request`    | Public           | Send SMS OTP (generic 200; mock logs the code). 400 invalid number; 503 if Redis/SMS down     |
+| POST   | `/auth/phone/verify`     | Public           | Verify OTP → JWT (skips TOTP). First visit needs `full_name`; optional `role` customer/merchant |
 | POST   | `/auth/logout`           | Bearer           | Blocklist caller's access token (+ optional refresh token)                                    |
 
 
@@ -1085,7 +1091,7 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | GET    | `/businesses/cities`         | Public         | Distinct cities from approved businesses (search filter chips)           |
 | GET    | `/businesses/stats/summary`  | Public         | Public counts: businesses, reviews, categories, cities (no admin fields) |
 | GET    | `/businesses/{slug}`         | Public         | Get by slug                                                              |
-| POST   | `/businesses`                | Merchant       | Create business (status `pending`)                                       |
+| POST   | `/businesses`                | Merchant       | Create business (status `pending`). 400 if merchant national ID missing  |
 | PATCH  | `/businesses/{id}`           | Merchant/Admin | Update business                                                          |
 | POST   | `/businesses/{id}/approve`   | Admin          | Approve listing                                                          |
 | POST   | `/businesses/{id}/suspend`   | Admin          | Suspend listing                                                          |
@@ -1186,10 +1192,14 @@ Query params: `q`, `city`, `category`, `min_rating`, `sentiment`, `lat`, `lng`, 
 
 | Method | Path | Auth | Description |
 | ------ | ---- | ---- | ----------- |
-| POST | `/payments/featured/checkout` | Merchant | ₹499 / 7-day featured SKU for an owned **approved** listing. 400 not approved; 409 already featured |
-| POST | `/payments/webhooks/razorpay` | HMAC header | Capture/fail; idempotent on `provider_order_id` |
-| POST | `/payments/mock/complete` | Admin | DEBUG-only mock capture/fail. **404** if `DEBUG=false` |
-| GET | `/payments/businesses/{id}/placement` | Merchant (own) or admin | Active/expiry. Admin also sees fee split |
+| GET | `/payments/featured/skus` | Merchant or admin | Catalog: 7d ₹299, 15d ₹499, 30d ₹899 |
+| POST | `/payments/featured/checkout` | Merchant | `{ business_id, sku_code }` for an owned **approved** listing. 400 unknown SKU / not approved; 409 already featured |
+| POST | `/payments/webhooks/razorpay` | HMAC header | Capture/fail; ledger only; idempotent on `provider_order_id` |
+| POST | `/payments/mock/complete` | Admin | DEBUG-only mock capture/fail (does not feature). **404** if `DEBUG=false` |
+| GET | `/payments/businesses/{id}/placement` | Merchant (own) or admin | Active/expiry + SKU catalog. Admin sees fee split; merchant sees awaiting-approval without fees |
+| GET | `/payments/admin/payments` | Admin | Paged ledger: shop, merchant, SKU, counts, approve/reject state |
+| POST | `/payments/admin/payments/{id}/approve` | Admin | Create placement after `paid`. 409 if not paid / rejected / already featured |
+| POST | `/payments/admin/payments/{id}/reject` | Admin | Refuse boost; no refund |
 | POST | `/payments/admin/placements/{id}/disable` | Admin | Drop rank immediately; no refund |
 | POST | `/payments/admin/payments/{id}/refund` | Admin | Provider refund + disable placement. 409 if not `paid` |
 
@@ -1388,7 +1398,7 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | `RatingWidget.tsx`         | Interactive star rating input/display                                          |
 | `FavoriteButton.tsx`       | Customer favorite toggle on business detail                                    |
 | `BusinessHours.tsx`        | Opening-hours list for business detail                                         |
-| `CategoryBadges.tsx`       | Full category Badge list                                                       |
+| `CategoryBadges.tsx`       | Full category Badge list; each badge links to `/search?category={slug}` (S-041) |
 | `SearchBar.tsx`            | Query input with debounce                                                      |
 | `FilterPanel.tsx`          | City chips from API + category/rating filters (preserves location params)      |
 | `UseLocationButton.tsx`    | Browser geolocation → `/search?lat=&lng=`                                      |
@@ -1399,18 +1409,19 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | `ReportedReviewsQueue.tsx` | Admin reported-review moderation queue (shop-name link via `showBusinessLink`) |
 | `AllBusinessesQueue.tsx`   | Admin browse of businesses in every status (S-021)                             |
 | `AllReviewsQueue.tsx`      | Admin browse of reviews across businesses; business-name drill-down (S-021)    |
-| `AdminCategoryPanel.tsx`   | Admin category create + list panel (S-034)                                     |
+| `AdminCategoryPanel.tsx`   | Admin category create + list; chips link to search by slug (S-034, S-041)      |
+| `AdminPaymentPanel.tsx`    | Admin featured payment desk: mock complete, approve/reject, refund (S-042)     |
 | `AdminUserPanel.tsx`       | Admin user list + suspend/reactivate panel (S-034)                             |
 | `Dashboard.tsx`            | Layout shell for merchant/admin analytics                                      |
 | `Charts.tsx`               | Recharts bar / area / line dashboard series                                    |
 | `PhotoGallery.tsx`         | Image grid + lightbox                                                          |
-| `LoginForm.tsx`            | Login form with validation                                                     |
+| `PhoneOtpPanel.tsx`        | Phone OTP request/verify on login and register (S-044)                         |
 | `RegisterForm.tsx`         | Registration form with validation                                              |
 | `ProfilePage.tsx`          | User account view                                                              |
 | `SettingsPage.tsx`         | Settings + logout                                                              |
 | `AIInsights.tsx`           | Merchant-facing AI summary panel                                               |
 | `MerchantDashboard.tsx`    | Reviews + analytics + insights composite                                       |
-| `FeaturedBoostPanel.tsx`   | Merchant ₹499 / 7-day featured checkout + active-until (S-036)                 |
+| `MerchantNationalIdCard.tsx` | Merchant national ID (PAN/Aadhaar/Other); required before listing create (S-043) |
 | `CollectQrCard.tsx`        | QR for `/collect/{id}` review wizard (S-040)                                   |
 | `BenchmarkCard.tsx`        | Category/city rating medians (S-038)                                           |
 
@@ -1602,6 +1613,7 @@ Author-scoped actions (edit/delete review) follow the same principle at the rout
 | Upload paths        | Filenames are replaced with a server-generated `uuid4()`; the client-supplied name is used only for its extension, so path traversal via `filename` is not possible ([storage](backend/app/services/storage/__init__.py))                                                                  |
 | Upload MIME/size    | Photo upload allows image JPEG/PNG/WebP/GIF only and caps at 5 MB ([photos.py](backend/app/routers/photos.py))                                                                                                                                                                             |
 | Audit trail         | Admin approve/suspend/moderate actions write `audit_logs` rows, including user suspend/reactivate (`entity_type=user`, distinct from business suspend) (S-034)                                                                                                                             |
+| National ID PII     | PAN / Aadhaar / Other on `users`. Merchant required before listing create. Admin lists **mask** the number. Not UIDAI/GSTN verified (S-043)                                                                                                                                               |
 | Logout UX           | Client `performLogout` clears tokens, hard-navigates; `RequireAuth` / profile / settings re-check on bfcache `pageshow`                                                                                                                                                                    |
 | TOTP MFA            | Password login requires authenticator app; Google/Gmail path does not                                                                                                                                                                                                                      |
 | Password reset      | `/auth/forgot-password` + `/auth/reset-password` 5/minute per IP each; hashed single-use Redis token, 1-hour TTL, fail-closed 503 on Redis outage — see below                                                                                                                              |
@@ -1787,7 +1799,7 @@ ID-token flow via Google Identity Services — no client secret, no redirect rou
 
 ### CI/CD
 
-GitHub Actions **defines** `pytest` (`[backend-tests.yml](.github/workflows/backend-tests.yml)`, throwaway Postgres/Redis) and `npm test` (`[frontend-tests.yml](.github/workflows/frontend-tests.yml)`). **As of 2026-08-15 those jobs are `workflow_dispatch` only** (PR/push triggers commented out). Re-enable path-filtered `push`/`pull_request`, then add Playwright (S-010) against Compose. Auto-deploy of `main` to Railway/Vercel on green CI is still a recommended next step, not wired up. See [§11](#11-testing).
+GitHub Actions **defines** `pytest` (`[backend-tests.yml](.github/workflows/backend-tests.yml)`, throwaway Postgres/Redis) and `npm test` (`[frontend-tests.yml](.github/workflows/frontend-tests.yml)`). **As of 2026-08-15 those jobs are `workflow_dispatch` only** (PR/push triggers commented out). Playwright is a **separate** dispatch-only workflow ([`web-e2e.yml`](.github/workflows/web-e2e.yml)) — Compose + Chromium, traces as downloadable artifacts; not on push/PR and not a deploy step. Auto-deploy of `main` to Railway/Vercel on green CI is still a recommended next step, not wired up. See [§11](#11-testing).
 
 ---
 
@@ -1795,15 +1807,15 @@ GitHub Actions **defines** `pytest` (`[backend-tests.yml](.github/workflows/back
 
 ## 11. Testing
 
-This section is the **evaluation model** for the web product: what is proven today, what is deliberately mocked, how a new slice stays covered, and the second (browser) view that is specified but not yet coded. Mobile emulator CI is separate (`ANDROID_APP_STRATEGY.md`); this §11 is **web-first**.
+This section is the **evaluation model** for the web product: what is proven today, what is deliberately mocked, how a new slice stays covered, and the second (browser) view. Mobile emulator CI is separate (`ANDROID_APP_STRATEGY.md`); this §11 is **web-first**.
 
-Architecture for the missing browser layer: [ADR-009](docs/agents/adrs/ADR-009-web-functional-e2e.md). Click-through oracles already drafted: [TP-S-010](docs/agents/test-plans/TP-S-010-e2e-flow-verification.md). Slice **S-010** is still **Open** (plan exists; Playwright suite is not in the repo).
+Architecture: [ADR-009](docs/agents/adrs/ADR-009-web-functional-e2e.md) (Accepted). Oracles: [TP-S-010](docs/agents/test-plans/TP-S-010-e2e-flow-verification.md). Slice **S-010**: harness + role journeys in `backend/tests/e2e/` (opt-in `E2E=1`); GitHub run is manual [`web-e2e.yml`](.github/workflows/web-e2e.yml).
 
 ### What “done” means here
 
 The product is **working in place** when the §2 loop can be exercised on Compose with mock vendors: register/login → search → review (+ AI suggestion) → merchant dashboard/reply → admin approve/moderate → optional featured mock checkout and password-reset **log** (not a real inbox).
 
-That is **not** the same as: live Resend, live Razorpay, live S3/CDN, Playwright on every PR, or GitHub branch protection. Those are ops or S-010.
+That is **not** the same as: live Resend, live Razorpay, live S3/CDN, Playwright on every PR, or GitHub branch protection. Live vendors and required checks stay ops; Playwright stays a **manual** second view.
 
 ### Pyramid — what we actually run
 
@@ -1814,7 +1826,7 @@ That is **not** the same as: live Resend, live Razorpay, live S3/CDN, Playwright
 | 2. API integration | pytest + `httpx.AsyncClient` + `ASGITransport` against `app.main:app` | HTTP + DB + Redis for routers that use the real app | Same folder; needs Postgres (Compose or CI service containers) | Same backend workflow (throwaway Postgres/Redis — never Railway) |
 | 3. UI component | Jest + React Testing Library | Visible behaviour of pages/components with mocked `api.ts` | `frontend/src/**/__tests__/` (~29 files; ~102 cases as of TR-S-037–040, growing) | Same: dispatch-only |
 | 4. Slice AC matrix | Tester report | Every numbered AC mapped to A (automated) or M (manual) | `docs/agents/test-plans/`, `test-reports/` | Not a runner — a gate in §13 |
-| 5. Browser functional + technical | Playwright (Python) + Trace Viewer | Real Chromium against a **spun-up** frontend+API; UI `expect()` **and** API schema/status oracles | Specified in TP-S-010 / ADR-009 — **`backend/tests/e2e/` does not exist yet** | Not wired |
+| 5. Browser functional + technical | Playwright (Python) + Trace Viewer | Real Chromium against a **spun-up** frontend+API; UI `expect()` **and** API schema/status oracles | `backend/tests/e2e/` — smoke + role pack; opt-in `E2E=1` | Manual [`web-e2e.yml`](.github/workflows/web-e2e.yml) (`workflow_dispatch` only). Download `playwright-traces`. Not on push/PR, not a deploy step |
 | 6. Hosted staging smoke | Same Playwright against a staging URL | Deployed Next.js + API with mock vendors | Not wired (Railway is production-shaped; no dedicated staging job) | Not wired |
 
 ```mermaid
@@ -1824,15 +1836,15 @@ flowchart TB
         A[pytest ASGI + throwaway Postgres]
         J[Jest RTL]
     end
-    subgraph missing [Specified, not built — S-010]
+    subgraph s010 [S-010 — manual second view]
         P[Playwright role journeys]
-        T[Trace Viewer + timing JSON]
-        S[Staging compose or Railway staging]
+        T[Trace Viewer zips]
+        G[web-e2e.yml dispatch artifact]
     end
     U --> A --> J
     J -.->|does not replace| P
     P --> T
-    S --> P
+    G --> P
 ```
 
 Layers 1–3 catch “easy fix broke a helper or a button.” They **cannot** catch: SSR home/search/detail wiring, MFA click-through, cookie/localStorage session, featured mock checkout in the browser, or “admin approve then merchant dashboard updates.” That is why S-010 is a second view, not more Jest.
@@ -1846,7 +1858,7 @@ Do not invent a second checklist file. Use this sequence every time:
 3. **Builder** — code + this README (§6/§7/§12/§14 as applicable).
 4. **Tester** — `TP-S-XXX` then `TR-S-XXX` with an AC coverage matrix. **Every AC** → pytest and/or RTL **or** an explicit Manual ID.
 5. **Regression pack** — `cd backend && pytest` and `cd frontend && npm test` with `AI_PROVIDER=mock` (and email/payments/storage defaults). This is the pack that must stay green when someone “just fixes” a dashboard tile.
-6. **After S-010 exists** — additionally run the Playwright role journeys against Compose (or staging). A trace.zip per role is the audit artifact; a test with no `expect()` is a recording, not a test.
+6. **Browser layer (S-010)** — local: Compose up, then `E2E=1 pytest tests/e2e`. GitHub: Actions → **Web e2e (Playwright)** → Run workflow → download `playwright-traces`. Not after every fix. A test with no `expect()` is a recording, not a test.
 
 If the change is a **tiny fix** (copy, CSS, one handler): still run layers 1–3 locally. If it touches auth, payments, review create, or SSR data fetching: that is when you need layer 5, even if Jest is green.
 
@@ -1873,9 +1885,11 @@ Treat mocks as **the staging truth** until keys exist. Assertions belong on the 
 | pytest + RTL regression pack | **In place and growing** — still not every router/page |
 | Isolated disposable DB per test process | **Partial** — CI has throwaway Postgres; local pytest often assumes a reachable DB; no fully hermetic fixture story |
 | Slice AC → test reports | **In place** for Accepted slices; quality varies |
-| Playwright role journeys + dual oracle | **Specified only** (TP-S-010) |
-| Playwright Trace Viewer / HTML report as the “enterprise UI” for failures | **Specified** (ADR-009) — tool is Playwright, not a second Cypress/Selenium app |
-| Staging environment that spins, migrates, seeds, runs e2e | **Not built** — Compose is the local stand-in; GitHub Actions app-test workflows are dispatch-only |
+| Playwright harness + Compose smoke (dual oracle) | **In place** (`backend/tests/e2e/`, opt-in `E2E=1`) |
+| Playwright role journeys (anonymous / customer / merchant / admin + RBAC/JWT) | **In place** (opt-in `E2E=1`); needs Compose + seed for admin/listings |
+| Playwright Trace Viewer as the inspection UI | **In place** (gitignored `test-results/*.zip`; GHA artifact `playwright-traces`); not Cypress |
+| Manual Compose e2e on GitHub (`web-e2e.yml`) | **In place** — `workflow_dispatch` only; traces + logs as artifacts. Not a merge or deploy gate |
+| Hosted staging (Railway) that runs the same Playwright | **Not built** — Compose on the runner is the stand-in |
 | Branch protection requiring green CI | **Not set** (known gap) |
 | Live Resend / Razorpay / S3-CDN | **Optional later** — adapters exist |
 | Azure storage | **Stub** |
@@ -1893,17 +1907,21 @@ cd frontend && npm install && npm test
 
 ASGI/DB cases need PostgreSQL (Docker Compose backend + Postgres, or the CI service containers). Redis is required for password-reset tests (fail-closed).
 
-**Intended after S-010 (not runnable until the suite lands):**
+**Playwright (opt-in; Compose must already be up):**
 
 ```bash
 docker compose up --build   # frontend :3000, API :8000, mock vendors
-cd backend && playwright install chromium
-FRONTEND_URL=http://localhost:3000 API_URL=http://localhost:8000/api/v1 \
+cd backend && pip install -r requirements.txt && playwright install chromium
+E2E=1 FRONTEND_URL=http://localhost:3000 API_URL=http://localhost:8000/api/v1 \
   pytest tests/e2e -v
 # Artifacts: tests/e2e/test-results/*.zip → Playwright Trace Viewer
+# Default `pytest` skips these tests (no browser required).
+# PowerShell: $env:E2E=1; pytest tests/e2e -v
 ```
 
-Staging is the same command with `FRONTEND_URL` / `API_URL` pointed at a spun-up staging stack that still uses mock AI/email/payments and local or test-bucket storage.
+**GitHub (manual):** Actions → **Web e2e (Playwright)** → Run workflow. The job starts Compose, runs the same `E2E=1 pytest tests/e2e`, and always uploads artifacts (`playwright-traces`, pytest log, Compose logs; 14-day retention). Download the zip and run `playwright show-trace <test-name>.zip`. This is not tied to push, pull request, or deploy.
+
+A hosted staging URL with the same mock vendors is optional later; point `FRONTEND_URL` / `API_URL` at that stack if it exists.
 
 ### Why Playwright (not another UI test product)
 
@@ -1913,7 +1931,7 @@ SSR caveat (must stay in the e2e design): Home, Search, and Business detail fetc
 
 ### CI honesty
 
-README §10 still describes pytest/Jest on every PR. **Current YAML** (`.github/workflows/backend-tests.yml`, `frontend-tests.yml`) is `workflow_dispatch` only — PR/push blocks are commented as a POC so product work is not blocked. Re-enable those triggers, then add a third job for Playwright against Compose, then require the checks on `main`. Until then, **local pytest + npm test is the real gate.**
+README §10 still describes pytest/Jest on every PR. **Current YAML:** `backend-tests.yml` and `frontend-tests.yml` are `workflow_dispatch` only (PR/push commented as a POC). Playwright is a **third** workflow, [`web-e2e.yml`](.github/workflows/web-e2e.yml), also dispatch-only — it must stay off push/PR and off deploy. Re-enabling pytest/Jest on PR is a separate choice and does **not** make Chromium a required check. Until then, **local pytest + npm test is the day-to-day gate.**
 
 ---
 
@@ -2145,6 +2163,7 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-02 | Auth              | MFA enroll (TOTP QR + secret)                                      | `/login` enroll step                            | `/login` enroll step                                                   | `implemented`   | S-020                                                        |
 | M-03 | Auth              | MFA verify (TOTP code)                                             | `/login` verify step                            | `/login` verify step                                                   | `implemented`   | S-020                                                        |
 | M-04 | Auth              | Google / Gmail sign-in                                             | `/login`, `/register` (`GoogleSignInButton`)    | `/login`, `/register` (`GoogleSignInButton`)                           | `implemented`   | S-029; skips MFA; hidden if `GOOGLE_CLIENT_ID` unset         |
+| M-74 | Auth              | Phone OTP sign-in                                                  | `/login`, `/register` (`PhoneOtpPanel`)         | —                                                                      | `unimplemented` | S-044; web built — mobile not yet                            |
 | M-05 | Auth              | Register (customer / merchant)                                     | `/register`                                     | `/register`                                                            | `implemented`   | S-029; then TOTP on first password login                     |
 | M-06 | Auth              | Logout                                                             | Navbar, `/settings`, already-signed-in gate     | Account screen (`/account`)                                            | `implemented`   | S-027; was list app-bar only                                 |
 | M-07 | Auth              | Session restore + refresh                                          | `ClientLayout` / `auth.me`                      | `AuthInterceptor` + secure storage                                     | `implemented`   |                                                              |
@@ -2168,7 +2187,7 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-25 | Business          | Public list browse (guest)                                         | `/`, `/search`                                  | `/businesses` + search chrome (ADR-003)                                | `implemented`   | S-028                                                        |
 | M-26 | Business          | Detail: name, city/state, rating, count                            | `/businesses/[slug]`                            | `/businesses/:slug`                                                    | `implemented`   | S-023                                                        |
 | M-27 | Business          | Detail: description, address, phone, website                       | Business profile                                | `/businesses/:slug`                                                    | `implemented`   | S-028                                                        |
-| M-28 | Business          | Detail: categories                                                 | `CategoryBadges`                                | Category chips                                                         | `implemented`   | S-028                                                        |
+| M-28 | Business          | Detail: categories                                                 | `CategoryBadges` → `/search?category=`          | Category chips                                                         | `implemented`   | S-028, S-041                                                 |
 | M-29 | Business          | Detail: hours                                                      | `BusinessHours`                                 | Hours block                                                            | `implemented`   | S-028                                                        |
 | M-30 | Business          | Detail: photo gallery / lightbox                                   | `PhotoGallery`                                  | Gallery + lightbox                                                     | `implemented`   | S-028                                                        |
 | M-31 | Business          | Detail: map pin                                                    | Leaflet on profile                              | OSM pin (`flutter_map`)                                                | `implemented`   | S-028 / ADR-006                                              |
@@ -2203,10 +2222,11 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-60 | Admin             | All businesses / all reviews browse                                | `/admin/businesses`, `/admin/reviews`           | `/admin/businesses`, `/admin/reviews`                                  | `implemented`   | S-031                                                        |
 | M-61 | Merchant          | Time-series volume, rating mix, date range, reply-rate, CSV        | `/merchant/dashboard`                           | —                                                                      | `unimplemented` | S-033; web built — mobile not yet                            |
 | M-62 | Admin             | Platform time-series charts                                        | `/admin`                                        | —                                                                      | `unimplemented` | S-034; web built — mobile not yet                            |
-| M-63 | Admin             | Category create / list UI                                          | `/admin`                                        | —                                                                      | `unimplemented` | S-034; web built — mobile not yet                            |
+| M-63 | Admin             | Category create / list UI                                          | `/admin`                                        | —                                                                      | `unimplemented` | S-034; chips link to search (S-041); web built — mobile not yet |
 | M-64 | Admin             | User suspend / reactivate                                          | `/admin`                                        | —                                                                      | `unimplemented` | S-034; web built — mobile not yet                            |
 | M-65 | Account           | Forgot / reset password (email)                                    | `/login`, `/forgot-password`, `/reset-password` | —                                                                      | `unimplemented` | S-035; web built — mobile not yet                            |
-| M-66 | Merchant          | Featured listing boost (paid)                                      | Dashboard + search rank + Featured badge            | —                                                                      | `unimplemented` | S-036; web built — mobile checkout later                     |
+| M-66 | Merchant          | Featured listing boost (paid)                                      | Dashboard SKU tiles + search rank + Featured badge | —                                                                      | `unimplemented` | S-036/S-042; web built — mobile checkout later               |
+| M-73 | Account           | National ID (PAN/Aadhaar/Other); merchant required                 | Profile + merchant dashboard                    | —                                                                      | `unimplemented` | S-043; web built — mobile not yet                            |
 | M-67 | Notifications     | Listing-approved / new-review **email**                            | Transactional mail (mock/Resend, best-effort)   | —                                                                      | `unimplemented` | S-035; web built — mobile not yet                            |
 | M-68 | Merchant          | Dashboard area/line trend charts + period-over-period delta badges | `/merchant/dashboard`                           | —                                                                      | `unimplemented` | S-037; web built — mobile not yet                            |
 | M-69 | Merchant          | Competitor rating benchmarking (category + city median)            | `/merchant/dashboard`                           | —                                                                      | `unimplemented` | S-038; web built — mobile not yet                            |
@@ -2216,7 +2236,7 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 
 
 
-**Rollup (2026-08-15):** `implemented` 46 · `partial` 1 · `unimplemented` 12 · `n/a` 11 · `future` 1 · **total 71**.
+**Rollup (2026-08-15):** `implemented` 46 · `partial` 1 · `unimplemented` 15 · `n/a` 11 · `future` 1 · **total 74**.
 
 This repo is built with both Cursor and Claude Code, so every convention is defined
 **twice, in each tool's native format** — a session started in either tool should
@@ -2357,7 +2377,7 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-007 | Admin moderation + platform analytics                                          | 4 Dashboards | Accepted (closed by S-034)               |
 | S-008 | Notifications                                                                  | 4 Dashboards | Accepted (UI wired)                      |
 | S-009 | OAuth + OpenStreetMap maps                                                     | 5 Polish     | Partial (maps done; OAuth callback stub) |
-| S-010 | Test hardening + deploy verification                                           | 5 Polish     | Open — **Specified** by TP-S-010 + ADR-009; Playwright not implemented |
+| S-010 | Test hardening + deploy verification                                           | 5 Polish     | In Progress — Playwright journeys + dispatch-only `web-e2e.yml`; not a required check |
 | S-011 | Customer favorites                                                             | 2 Core       | Accepted                                 |
 | S-012 | Business detail enrichment                                                     | 2 Core       | Accepted                                 |
 | S-013 | Search pagination / sort / categories                                          | 2 Core       | Accepted                                 |
@@ -2386,7 +2406,8 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-037 | Merchant dashboard chart upgrade (area/line charts, period-over-period deltas) | 4 Dashboards | Accepted                                 |
 | S-038 | Competitor rating benchmarking (category + city median vs. own rating)         | 4 Dashboards | Accepted                                 |
 | S-039 | AI reply drafting — surface `suggested_response` in merchant reply UI          | 2 Core       | Accepted                                 |
-| S-040 | Review collection flow (public QR/link wizard, no rating gating)               | 2 Core       | Accepted                                 |
+| S-041 | Admin category chips open public search                                        | 5 Polish     | Accepted                                 |
+| S-044 | Phone OTP login (mock SMS + Msg91 port)                                        | 1 Foundation | Accepted                                 |
 
 
 
@@ -2427,11 +2448,12 @@ An honest delta between the original specification and what the code actually do
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Backend routers | 13, all wired into `main.py` (includes favorites, admin, payments)                                                                                                                                                                                                                                                                                                                          |
 | Data models     | 22 SQLAlchemy models                                                                                                                                                                                                                                                                                                                                                                     |
-| Auth            | JWT access/refresh with refresh `jti` rotation, bcrypt, RBAC, Redis logout blocklist + best-effort login lockout, mandatory TOTP for password login, Google OAuth exempt                                                                                                                                                                                                                 |
+| Auth            | JWT access/refresh with refresh `jti` rotation, bcrypt, RBAC, Redis logout blocklist + best-effort login lockout, mandatory TOTP for password login, Google OAuth and Phone OTP exempt                                                                                                                                                                                                   |
 | AI layer        | **In the product today.** Review submit runs text + photo analysis + merchant rolling summary via `AIProvider`. Default `mock` (no key, no cost). Real vendors are env + key. Output is **suggestions**, never verdicts. `monthly_trends` (mock or real) are AI-estimated, not review dates — shown as a labeled suggestion list only, never charted as fact (S-033).                    |
 | Storage         | `local` disk and `s3` (boto3) providers implemented; `azure` still a stub                                                                                                                                                                                                                                                                                                                |
 | Email           | `mock` (logs only) and `resend` providers implemented via `EmailProvider` port. Three transactional sends: password reset, listing approved, new review — best-effort, never blocks the triggering request (S-035, Accepted)                                                                                                                                                           |
-| Payments        | `mock` and `razorpay` via `PaymentProvider` port. One SKU: ₹499 / 7-day featured search boost; webhook HMAC; PAN never stored (S-036)                                                                                                                                                                                                                                                   |
+| Payments        | `mock` and `razorpay` via `PaymentProvider` port. Three SKUs (₹299/7d, ₹499/15d, ₹899/30d); capture then admin-approve; PAN never stored (S-042)                                                                                                                                                                        |
+| SMS             | `mock` and `msg91` via `SmsProvider` port. Phone OTP login (S-044)                                                                                                                                                                                                                                                       |
 | Frontend        | Home, search (map + location, paid **Featured** badge), business detail, login (MFA steps) + forgot/reset password (S-035, Accepted), register, enriched profile, settings, merchant dashboard (+ time-series volume/rating-mix/reply-rate/CSV export, S-033; featured boost CTA, S-036) + business create/edit, admin moderation queues (+ platform trend charts, category admin, user suspend/reactivate, S-034; placement disable/refund) |
 | Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine                                                                                                                                                                                                                                                                                                            |
 | Seeding         | `scripts/seed.py` — Portland + Chennai + US; gated by `SEED_MODE` / `seed_runs` (Railway: not on boot)                                                                                                                                                                                                                                                                                   |
@@ -2446,7 +2468,7 @@ An honest delta between the original specification and what the code actually do
 | Gap                         | Detail                                                                                                                                                                                                                                                                           |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Azure storage is a stub** | Raises `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). `local` and `s3` both work.                                                                                                                                                                  |
-| **Thin tests / no browser e2e** | Layers 1–3 (pytest + RTL) are real and growing. **No Playwright suite yet** (S-010). App-test GitHub workflows are **dispatch-only**. See §11. |
+| **Thin tests / incomplete browser e2e** | Layers 1–3 (pytest + RTL) are real. Playwright journeys exist (`E2E=1`); GitHub run is **manual** [`web-e2e.yml`](.github/workflows/web-e2e.yml) (artifact traces). pytest/Jest workflows are also dispatch-only. See §11. |
 | **Design-system migration** | Complete. `Select` / `StatCard` / `ui/RatingWidget` (S-017) now back every remaining call site — native `<select>`s, inline stat tiles, and the duplicate top-level `RatingWidget` (removed, canonical copy is `ui/RatingWidget`) all migrated.                                  |
 | **Security items 1–6**      | §9: rate limit, upload MIME/size, lockout, refresh rotation, headers, password policy are in. Remaining: `localStorage` tokens (S-026) and world-readable `/uploads`. Commercial SaaS/legal items: [Deferred](#deferred-for-commercial--enterprise).                             |
 | **No structured logging**   | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                                                                                                           |
@@ -2484,14 +2506,14 @@ These are **held off** until product needs them. They are not in-house leftovers
 | Event **grants** / merchant show sponsorship                                                 | Needs fee revenue from **S-036** first                                                                                 |
 
 
-**Payments / PCI** for v1 is **S-036** (one featured SKU, Razorpay, no cards stored). Stripe and a second gateway stay out of scope. Event grants still wait on neighborhood traffic.
+**Payments / PCI** for v1 is **S-042** (three featured SKUs, Razorpay, capture then admin-approve, no cards stored). Stripe and a second gateway stay out of scope. Event grants still wait on neighborhood traffic.
 
 ### Suggested next steps (evaluation and leftovers)
 
 Product intel slices S-033–S-040 are **Accepted**. Remaining work is proof, ops, and deferred UI — not another dashboard feature.
 
-1. **S-010 (highest leverage for “nothing breaks”):** implement Playwright e2e per ADR-009 / TP-S-010 against Compose with mock vendors; then a CI job that spins that stack.
-2. **Re-enable** `push`/`pull_request` on `backend-tests.yml` / `frontend-tests.yml`; require status checks on `main`.
+1. **S-010:** run Actions → **Web e2e (Playwright)** when you want the second view; download `playwright-traces`. Keep it off PR/deploy.
+2. Optionally **re-enable** `push`/`pull_request` on `backend-tests.yml` / `frontend-tests.yml` only — do not require Playwright on `main`.
 3. Leftovers: structured logs, hermetic test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity (§12).
 4. Live Resend / Razorpay / S3-CDN when a neighborhood launch needs them — adapters already exist.
 
@@ -2537,6 +2559,9 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `RAZORPAY_KEY_ID`             | *(empty)*                                                                | Required when `PAYMENTS_PROVIDER=razorpay`                                                    |
 | `RAZORPAY_KEY_SECRET`         | *(empty)*                                                                | Required when `PAYMENTS_PROVIDER=razorpay`                                                    |
 | `RAZORPAY_WEBHOOK_SECRET`     | *(empty)*                                                                | HMAC secret; mock uses this or `mock-webhook-secret`                                          |
+| `SMS_PROVIDER`                | `mock`                                                                   | `mock` (logs OTP) or `msg91`                                                                  |
+| `MSG91_AUTH_KEY`              | *(empty)*                                                                | Required when `SMS_PROVIDER=msg91`                                                            |
+| `MSG91_TEMPLATE_ID`           | *(empty)*                                                                | Required when `SMS_PROVIDER=msg91`                                                            |
 | `CORS_ORIGINS`                | `http://localhost:3000`                                                  | Comma-separated allowlist                                                                     |
 | `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap/Nominatim                                                     |
 | `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
@@ -2590,9 +2615,9 @@ flowchart LR
     Email[Transactional email]
     Fees[Featured boost SKU]
     Intel[Area charts, benchmark, AI draft, QR collect]
+    E2E[Manual Playwright audit]
   end
   subgraph later [Later / ops]
-    E2E[Playwright S-010]
     Keys[Live Resend / Razorpay / S3]
   end
   Cust --> AI --> Merch
@@ -2632,13 +2657,13 @@ Density in a few neighborhoods + merchant workflow + suggestion-grade AI. Not a 
 
 Lentlo is a national India directory (listings, reviews, claim, premium packages). MerchantHub is narrower: **capture + merchant action + AI suggestions** in a dense neighborhood, with an admin trust layer. Lentlo’s “business analytics” was not visible beyond claim/reply in that scrape — we will not copy that oversell; our charts wait for S-033/S-034. Full notes: `[docs/competitive-analysis-lentlo.md](docs/competitive-analysis-lentlo.md)`. Crowdsourced live-status (Waze-style) is **not on the roadmap**.
 
-### Fee numbers (S-036)
+### Fee numbers (S-042)
 
-Listed **₹499** = **49900 paise**, **7 days**, INR. `gateway_fee_paise` is Razorpay `fee` (GST typically inside `fee`; do not add `tax`). `platform_fee_paise` = captured − gateway. Mock estimates ~2%+GST when `fee` is absent. Production Checkout needs live Razorpay keys; Compose stays `PAYMENTS_PROVIDER=mock`.
+INR inclusive listed prices: **₹299 / 7 days**, **₹499 / 15 days**, **₹899 / 30 days** (29900 / 49900 / 89900 paise). `gateway_fee_paise` is Razorpay `fee` (GST typically inside `fee`; do not add `tax`). `platform_fee_paise` = captured − gateway. Mock estimates ~2%+GST when `fee` is absent. Capture does **not** feature the listing; admin approve does. Production Checkout needs live Razorpay keys; Compose stays `PAYMENTS_PROVIDER=mock`.
 
 ### Monetization (live SKU in mock; production keys optional)
 
-- **SKU:** featured listing / search boost, **₹499 per 7 days** (inclusive listed price).
+- **SKUs:** featured listing / search boost — ₹299/7d, ₹499/15d, ₹899/30d.
 - **Gateway:** Razorpay only (India-first). Never store cards. ~2% + GST recorded as `gateway_fee`; remainder is `platform_fee`.
 - **Later:** recycle a share of take into merchant **event grants** (shows/camps) once a neighborhood has traffic — not v1.
 - **Not v1:** marketplace GMV on food orders.
@@ -2654,7 +2679,7 @@ Demo / seeded listings only. A fundraise ask should be **pre-seed for one neighb
 
 | Built                                                                                                                                                                                                                                                                                                                       | Next (not yet Accepted)                                                                                                                                                                                                                                                                                                                                                                                                               |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth (password + TOTP, Google) + forgot/reset + email, search + OSM + paid Featured, reviews, favorites, merchant dashboard (S-033 charts, S-037 area/deltas, S-038 benchmark, S-039 AI draft, S-040 QR collect), admin queues (S-034) + placement refund, **S-036** featured SKU (mock/Razorpay port) | **S-010** Playwright staging e2e; leftovers: structured logs, isolated test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity, re-enable CI on PR |
+| Auth (password + TOTP, Google) + forgot/reset + email, search + OSM + paid Featured, reviews, favorites, merchant dashboard (S-033 charts, S-037 area/deltas, S-038 benchmark, S-039 AI draft, S-040 QR collect), admin queues (S-034) + placement refund, **S-036** featured SKU (mock/Razorpay port), **S-010** Playwright journeys + manual `web-e2e.yml` | Leftovers: structured logs, isolated test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity, optional re-enable pytest/Jest on PR |
 
 
 Play Store packaging is distribution (`ANDROID_APP_STRATEGY.md` phase 5), not this story.

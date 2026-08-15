@@ -18,10 +18,12 @@ Full evaluation model (pyramid, mocks, staging, Playwright plan): `README.md` §
 - Colocate under `__tests__/`
 - Test behavior, not implementation
 
-## Web browser e2e (not implemented — S-010)
+## Web browser e2e (S-010 harness)
 - Do not add Cypress/Selenium
-- Playwright (Python) per ADR-009 / TP-S-010 when that slice is built
-- Run against Compose or staging with mock vendors, never live LLM/payment keys
+- Playwright (Python) in `backend/tests/e2e/` per ADR-009 / TP-S-010
+- Opt-in: `E2E=1` with Compose (mock vendors). Default `pytest` skips e2e.
+- GitHub: `.github/workflows/web-e2e.yml` is **`workflow_dispatch` only** — not on push/PR, not a deploy step. Download `playwright-traces`.
+- Run against Compose or staging, never live LLM/payment keys
 
 ## Mobile (Flutter)
 - `flutter analyze` + `flutter test` (unit/widget, `mobile/test/`) — no device needed; enforced by
@@ -44,4 +46,4 @@ Full evaluation model (pyramid, mocks, staging, Playwright plan): `README.md` §
 - Cheap checks (lint/unit) run on every push, never cancelled.
 - Expensive checks (emulator integration) cancel a *stale* run when a newer commit supersedes it on the same PR — the check still always validates the latest commit, never skips it.
 - Manual `workflow_dispatch` exists as an on-demand full-validation override for critical fixes.
-- **Known gap:** backend/frontend app-test workflows are currently dispatch-only (PR triggers commented). `main` has no branch-protection rule requiring CI to pass, and Railway's deploy is not gated on CI status. See `README.md` §11 and `ANDROID_APP_STRATEGY.md`.
+- **Known gap:** backend/frontend app-test workflows are currently dispatch-only (PR triggers commented). Playwright (`web-e2e.yml`) is dispatch-only **by design** (artifact traces; not a merge gate). `main` has no branch-protection rule requiring CI to pass, and Railway's deploy is not gated on CI status. See `README.md` §11 and `ANDROID_APP_STRATEGY.md`.

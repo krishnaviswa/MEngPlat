@@ -24,6 +24,8 @@ from app.schemas import (
     MessageResponse,
     MfaTokenRequest,
     MfaTotpCodeRequest,
+    PhoneOtpRequest,
+    PhoneOtpVerifyRequest,
     ResetPasswordRequest,
     TokenResponse,
     TotpSetupResponse,
@@ -50,7 +52,14 @@ from app.services.mfa import (
     qr_svg_for_uri,
     verify_totp_code,
 )
-from app.services.password_reset import consume_reset_token, create_reset_token
+from app.services.phone_otp import (
+    OTP_GENERIC_MESSAGE,
+    InvalidPhoneError,
+    consume_otp,
+    issue_otp,
+    normalize_phone,
+)
+from app.services.sms import get_sms_provider
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -435,6 +444,78 @@ async def google_auth(payload: GoogleAuthRequest, db: AsyncSession = Depends(get
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
 
+    return _issue_session_tokens(user)
+
+
+@router.post("/phone/request", response_model=MessageResponse)
+@limiter.limit("5/minute")
+async def phone_otp_request(request: Request, payload: PhoneOtpRequest) -> MessageResponse:
+    """Send a 6-digit SMS code. Always the same 200 copy (no user enumeration)."""
+    try:
+        phone = normalize_phone(payload.phone)
+    except InvalidPhoneError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    try:
+        code = await issue_otp(phone)
+        await get_sms_provider().send_otp(phone, code)
+    except Exception:
+        # Fail closed on Redis; still generic if SMS send fails after store.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Sign-in codes are temporarily unavailable. Try again shortly.",
+        ) from None
+    return MessageResponse(message=OTP_GENERIC_MESSAGE)
+
+
+@router.post("/phone/verify", response_model=TokenResponse)
+@limiter.limit("10/minute")
+async def phone_otp_verify(
+    request: Request, payload: PhoneOtpVerifyRequest, db: AsyncSession = Depends(get_db)
+) -> TokenResponse:
+    """Verify SMS code; register-or-login. Skips TOTP (same as Google)."""
+    try:
+        phone = normalize_phone(payload.phone)
+    except InvalidPhoneError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    try:
+        ok = await consume_otp(phone, payload.code)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Sign-in codes are temporarily unavailable. Try again shortly.",
+        ) from None
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired code")
+
+    result = await db.execute(select(User).where(User.phone == phone))
+    user = result.scalar_one_or_none()
+    if user:
+        if not user.is_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
+        return _issue_session_tokens(user)
+
+    role = payload.role or UserRole.CUSTOMER
+    if role == UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot self-register as admin")
+    name = (payload.full_name or "").strip()
+    if not name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Full name is required the first time you sign in with this number",
+        )
+    user = User(
+        email=None,
+        full_name=name,
+        hashed_password=None,
+        role=role,
+        auth_provider="phone",
+        phone=phone,
+        email_verified=False,
+    )
+    db.add(user)
+    await db.flush()
+    if role == UserRole.MERCHANT:
+        db.add(Merchant(user_id=user.id))
     return _issue_session_tokens(user)
 
 

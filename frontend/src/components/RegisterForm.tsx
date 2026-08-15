@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { PhoneOtpPanel } from "@/components/PhoneOtpPanel";
 import { Select } from "@/components/ui/Select";
 import { auth, storeTokens } from "@/lib/api";
 
@@ -98,6 +99,7 @@ export function RegisterForm() {
         <div className="h-px flex-1 bg-gray-200" />
       </div>
       <GoogleSignInButton onCredential={handleGoogleCredential} />
+      <PhoneOtpPanel fullName={form.full_name} role={form.role} onError={setError} />
     </form>
   );
 }

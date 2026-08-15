@@ -80,8 +80,13 @@ export function AdminCategoryPanel() {
       ) : (
         <ul className="flex flex-wrap gap-2">
           {items.map((c) => (
-            <li key={c.id} className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700">
-              {c.name}
+            <li key={c.id}>
+              <a
+                href={`/search?category=${encodeURIComponent(c.slug)}`}
+                className="inline-block rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 hover:bg-gray-200 hover:underline"
+              >
+                {c.name}
+              </a>
             </li>
           ))}
         </ul>

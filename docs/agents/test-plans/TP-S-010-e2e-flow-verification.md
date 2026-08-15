@@ -254,5 +254,6 @@ Directly from `README.md` §9's authorization table — each row becomes one par
 - `docker compose up --build` running (frontend `:3000`, backend `:8000`)
 - `playwright install chromium` (one-time browser binary install)
 - Base URLs: `FRONTEND_URL=http://localhost:3000`, `API_URL=http://localhost:8000/api/v1`
+- GitHub: Actions → **Web e2e (Playwright)** (`web-e2e.yml`) is `workflow_dispatch` only. Download artifact `playwright-traces`; inspect with `playwright show-trace`. Not on push/PR and not a deploy step.
 - `SECRET_KEY` available to the test process if doing real JWT signature verification (must match the backend's — see §9 known weakness #2 on the default secret)
 - Trace/report output → `backend/tests/e2e/test-results/` (add to `.gitignore` if not already covered)

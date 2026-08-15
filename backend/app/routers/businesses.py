@@ -228,6 +228,13 @@ async def create_business(
     user: User = Depends(require_roles(UserRole.MERCHANT)),
 ) -> BusinessResponse:
     """Register a new business (merchant only). Status starts as pending."""
+    from app.services.national_id import merchant_national_id_required
+
+    if merchant_national_id_required(user):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="National ID is required for merchants before creating a listing",
+        )
     merchant = await db.execute(select(Merchant).where(Merchant.user_id == user.id))
     merchant_obj = merchant.scalar_one_or_none()
     if not merchant_obj:
