@@ -30,6 +30,9 @@ jest.mock("../../../components/admin/PendingBusinessQueue", () => ({
 jest.mock("../../../components/admin/ReportedReviewsQueue", () => ({
   ReportedReviewsQueue: () => <div>reported-queue-stub</div>,
 }));
+jest.mock("../../../components/admin/AdminPaymentPanel", () => ({
+  AdminPaymentPanel: () => <div>payments-stub</div>,
+}));
 
 const meMock = auth.me as jest.Mock;
 const apiFetchMock = apiFetch as jest.Mock;

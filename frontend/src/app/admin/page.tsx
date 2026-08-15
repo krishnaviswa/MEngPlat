@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AdminCategoryPanel } from "@/components/admin/AdminCategoryPanel";
+import { AdminPaymentPanel } from "@/components/admin/AdminPaymentPanel";
 import { AdminUserPanel } from "@/components/admin/AdminUserPanel";
 import { PendingBusinessQueue } from "@/components/admin/PendingBusinessQueue";
 import { ReportedReviewsQueue } from "@/components/admin/ReportedReviewsQueue";
@@ -176,6 +177,17 @@ export default function AdminPage() {
           <p className="text-sm text-gray-500">Add browse categories without a developer.</p>
           <div className="mt-4">
             <AdminCategoryPanel />
+          </div>
+        </section>
+
+        <section id="admin-payments" className="mt-10 scroll-mt-20">
+          <h2 className="text-lg font-semibold">Payments</h2>
+          <p className="text-sm text-gray-500">
+            Featured boost charges. Capture records money; approve turns on search placement. Reject does not
+            refund.
+          </p>
+          <div className="mt-4">
+            <AdminPaymentPanel />
           </div>
         </section>
 

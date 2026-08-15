@@ -20,5 +20,6 @@ boto3==1.43.68
 slowapi==0.1.10
 pytest==8.3.4
 pytest-asyncio==0.24.0
+pytest-playwright==0.7.1
 aiosqlite==0.20.0
 respx==0.23.1

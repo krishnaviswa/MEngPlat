@@ -14,7 +14,7 @@ from app.dependencies import require_roles
 from app.models import Payment, PaymentStatus, User, UserRole
 from app.services.payments.hmac_util import parse_razorpay_event, sign_body, signatures_match
 from app.services.payments.mock import MockPaymentProvider
-from app.services.payments.sku import FEATURED_AMOUNT_PAISE, MOCK_GATEWAY_FEE_PAISE, split_fees
+from app.services.payments.sku import get_sku, mock_gateway_fee_paise, split_fees
 
 
 def _make_user(role: UserRole) -> User:
@@ -29,9 +29,10 @@ def _make_user(role: UserRole) -> User:
 
 class TestFeeSplit:
     def test_mock_estimate_sums_to_captured(self):
-        platform, gateway = split_fees(FEATURED_AMOUNT_PAISE, None)
-        assert gateway == MOCK_GATEWAY_FEE_PAISE
-        assert platform + gateway == FEATURED_AMOUNT_PAISE
+        amount = get_sku("featured_7d")["amount_paise"]
+        platform, gateway = split_fees(amount, None)
+        assert gateway == mock_gateway_fee_paise(amount)
+        assert platform + gateway == amount
 
     def test_webhook_fee_not_double_counted(self):
         platform, gateway = split_fees(49900, 1178)
@@ -124,7 +125,7 @@ class FakeFlushDB:
 
 
 class TestApplyCaptured:
-    async def test_paid_creates_placement_and_invalidates_search(self):
+    async def test_paid_records_fees_without_placement(self):
         from app.services.payments.base import WebhookEvent
         from app.services.payments.featured import apply_captured_payment
 
@@ -135,25 +136,27 @@ class TestApplyCaptured:
             provider="mock",
             provider_order_id="order_mock_abc",
             status=PaymentStatus.CREATED,
-            amount_paise=49900,
+            amount_paise=29900,
             currency="INR",
+            sku_code="featured_7d",
+            duration_days=7,
         )
         db = FakeFlushDB()
         event = WebhookEvent(
             event="payment.captured",
             provider_order_id=payment.provider_order_id,
             provider_payment_id="pay_1",
-            amount_captured_paise=49900,
+            amount_captured_paise=29900,
             gateway_fee_paise=None,
             raw={},
         )
         with patch("app.services.payments.featured.cache_delete_pattern", new_callable=AsyncMock) as cache:
             activated = await apply_captured_payment(db, payment, event)
-        assert activated is True
+        assert activated is False
         assert payment.status == PaymentStatus.PAID
-        assert payment.platform_fee_paise + payment.gateway_fee_paise == 49900
-        assert db.added
-        cache.assert_awaited_once_with("search:*")
+        assert payment.platform_fee_paise + payment.gateway_fee_paise == 29900
+        assert db.added == []
+        cache.assert_not_awaited()
 
     async def test_failed_does_not_place(self):
         from app.services.payments.featured import mark_payment_failed
@@ -253,12 +256,15 @@ class TestDisableRefund:
 
 
 class TestSkuAndSchema:
-    def test_sku_is_single_499_7d(self):
-        from app.services.payments.sku import sku_payload
+    def test_catalog_has_three_skus(self):
+        from app.services.payments.sku import catalog, sku_payload
 
-        payload = sku_payload()
-        assert payload == {"code": "featured_7d", "duration_days": 7, "listed_price_inr": 499}
-        assert FEATURED_AMOUNT_PAISE == 49900
+        codes = {s["code"] for s in catalog()}
+        assert codes == {"featured_7d", "featured_15d", "featured_30d"}
+        assert sku_payload("featured_7d")["listed_price_inr"] == 299
+        assert sku_payload("featured_15d")["listed_price_inr"] == 499
+        assert sku_payload("featured_30d")["listed_price_inr"] == 899
+        assert get_sku("featured_30d")["amount_paise"] == 89900
 
     def test_payment_and_placement_tables_store_no_card_pan(self):
         from app.models import FeaturedPlacement, Payment
@@ -348,10 +354,22 @@ class TestFeaturedCheckoutRouter:
         ):
             with pytest.raises(HTTPException) as exc:
                 await featured_checkout(
-                    FeaturedCheckoutRequest(business_id=biz.id),
+                    FeaturedCheckoutRequest(business_id=biz.id, sku_code="featured_7d"),
                     db=FakeFlushDB(),
                     user=_make_user(UserRole.MERCHANT),
                 )
+        assert exc.value.status_code == 400
+
+    async def test_unknown_sku_is_400(self):
+        from app.routers.payments import featured_checkout
+        from app.schemas import FeaturedCheckoutRequest
+
+        with pytest.raises(HTTPException) as exc:
+            await featured_checkout(
+                FeaturedCheckoutRequest(business_id=uuid.uuid4(), sku_code="featured_forever"),
+                db=FakeFlushDB(),
+                user=_make_user(UserRole.MERCHANT),
+            )
         assert exc.value.status_code == 400
 
     async def test_active_placement_is_409(self):
@@ -369,13 +387,13 @@ class TestFeaturedCheckoutRouter:
         ):
             with pytest.raises(HTTPException) as exc:
                 await featured_checkout(
-                    FeaturedCheckoutRequest(business_id=biz.id),
+                    FeaturedCheckoutRequest(business_id=biz.id, sku_code="featured_7d"),
                     db=FakeFlushDB(),
                     user=_make_user(UserRole.MERCHANT),
                 )
         assert exc.value.status_code == 409
 
-    async def test_approved_checkout_uses_fixed_sku(self):
+    async def test_approved_checkout_uses_requested_sku(self):
         from types import SimpleNamespace
 
         from app.models import BusinessStatus
@@ -391,14 +409,14 @@ class TestFeaturedCheckoutRouter:
             patch("app.routers.payments.get_payment_provider", return_value=MockPaymentProvider()),
         ):
             result = await featured_checkout(
-                FeaturedCheckoutRequest(business_id=biz.id),
+                FeaturedCheckoutRequest(business_id=biz.id, sku_code="featured_15d"),
                 db=FakeFlushDB(),
                 user=_make_user(UserRole.MERCHANT),
             )
         assert result.amount_paise == 49900
         assert result.currency == "INR"
-        assert result.sku.code == "featured_7d"
-        assert result.sku.duration_days == 7
+        assert result.sku.code == "featured_15d"
+        assert result.sku.duration_days == 15
         assert result.sku.listed_price_inr == 499
         assert result.checkout.amount == 49900
 
@@ -443,7 +461,8 @@ class TestPlacementLedgerRBAC:
         ):
             resp = await get_placement(business_id, db=FakeFlushDB(), user=_make_user(UserRole.MERCHANT))
         assert resp.payment is None
-        assert resp.sku.listed_price_inr == 499
+        assert {s.code for s in resp.skus} == {"featured_7d", "featured_15d", "featured_30d"}
+        assert resp.sku.listed_price_inr == 299
 
     async def test_admin_response_includes_fee_split(self):
         from types import SimpleNamespace
@@ -496,6 +515,80 @@ class TestPlacementLedgerRBAC:
         assert resp.payment.platform_fee_paise == 48722
         assert resp.payment.gateway_fee_paise == 1178
         assert resp.payment.platform_fee_paise + resp.payment.gateway_fee_paise == 49900
+
+
+class TestApproveReject:
+    async def test_approve_creates_placement_and_invalidates_search(self):
+        from app.services.payments.featured import approve_payment
+
+        payment = Payment(
+            id=uuid.uuid4(),
+            business_id=uuid.uuid4(),
+            merchant_user_id=uuid.uuid4(),
+            provider="mock",
+            provider_order_id="order_ok",
+            status=PaymentStatus.PAID,
+            amount_paise=29900,
+            currency="INR",
+            sku_code="featured_7d",
+            duration_days=7,
+        )
+        db = FakeFlushDB()
+        with patch("app.services.payments.featured.cache_delete_pattern", new_callable=AsyncMock) as cache:
+            with patch(
+                "app.services.payments.featured.get_active_placement_for_business",
+                new_callable=AsyncMock,
+                return_value=None,
+            ):
+                placement = await approve_payment(db, payment)
+        assert payment.approved_at is not None
+        assert placement.payment_id == payment.id
+        assert db.added
+        cache.assert_awaited_once_with("search:*")
+
+    async def test_approve_created_is_not_paid(self):
+        from app.services.payments.featured import approve_payment
+
+        payment = Payment(
+            id=uuid.uuid4(),
+            business_id=uuid.uuid4(),
+            merchant_user_id=uuid.uuid4(),
+            provider="mock",
+            provider_order_id="order_created",
+            status=PaymentStatus.CREATED,
+            amount_paise=29900,
+            currency="INR",
+            sku_code="featured_7d",
+            duration_days=7,
+        )
+        with pytest.raises(ValueError, match="not_paid"):
+            await approve_payment(FakeFlushDB(), payment)
+
+    async def test_reject_does_not_place(self):
+        from app.services.payments.featured import reject_payment
+
+        payment = Payment(
+            id=uuid.uuid4(),
+            business_id=uuid.uuid4(),
+            merchant_user_id=uuid.uuid4(),
+            provider="mock",
+            provider_order_id="order_rej",
+            status=PaymentStatus.PAID,
+            amount_paise=29900,
+            currency="INR",
+            sku_code="featured_7d",
+            duration_days=7,
+        )
+        db = FakeFlushDB()
+        result = await reject_payment(db, payment)
+        assert result.rejected_at is not None
+        assert db.added == []
+
+    async def test_admin_approve_requires_admin(self):
+        checker = require_roles(UserRole.ADMIN)
+        with pytest.raises(HTTPException) as exc:
+            await checker(user=_make_user(UserRole.MERCHANT))
+        assert exc.value.status_code == 403
 
 
 class TestPaymentsStartup:

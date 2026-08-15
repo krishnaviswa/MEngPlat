@@ -4,7 +4,7 @@ import { auth, businesses, dashboard, payments } from "@/lib/api";
 import type { Business } from "@/lib/api";
 
 jest.mock("../../lib/api", () => ({
-  auth: { me: jest.fn() },
+  auth: { me: jest.fn(), updateMe: jest.fn() },
   businesses: { mine: jest.fn() },
   dashboard: { merchant: jest.fn(), insights: jest.fn(), refreshInsights: jest.fn(), reviewsCsv: jest.fn(), benchmark: jest.fn() },
   reviews: { reply: jest.fn() },
@@ -366,7 +366,7 @@ describe("MerchantDashboard analytics (S-033)", () => {
 
     expect(await screen.findByText("Featured listing boost")).toBeInTheDocument();
     expect(screen.getByText(/not an AI quality score/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /boost this listing — ₹499 \/ 7 days/i })).toBeInTheDocument();
+    expect(screen.getByText(/₹299 \/ 7 days/i)).toBeInTheDocument();
     expect(screen.queryByText(/grant|sponsorship/i)).not.toBeInTheDocument();
   });
 });

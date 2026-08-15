@@ -200,6 +200,7 @@ export default function ProfilePage() {
             >
               <option value="">Select type</option>
               <option value="pan">PAN (India)</option>
+              <option value="aadhaar">Aadhaar (India)</option>
               <option value="other">Other national ID</option>
             </Select>
             <Input
@@ -207,7 +208,11 @@ export default function ProfilePage() {
               onChange={(e) => setNationalIdNumber(e.target.value)}
               placeholder="ID number"
             />
-            <p className="text-xs text-gray-500">Stored for your account only — not verified as KYC in this version.</p>
+            <p className="text-xs text-gray-500">
+              {user.role === "merchant"
+                ? "Required for merchants before you can submit a listing. Stored for your account — not verified as government KYC."
+                : "Optional. Stored for your account only — not verified as KYC in this version."}
+            </p>
           </fieldset>
 
           <div className="border-t pt-4">

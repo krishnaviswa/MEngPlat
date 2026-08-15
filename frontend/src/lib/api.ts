@@ -13,11 +13,11 @@ if (
   );
 }
 
-export type NationalIdType = "pan" | "other";
+export type NationalIdType = "pan" | "aadhaar" | "other";
 
 export interface User {
   id: string;
-  email: string;
+  email: string | null;
   full_name: string;
   role: "customer" | "merchant" | "admin";
   is_active: boolean;
@@ -279,6 +279,16 @@ export const auth = {
     apiFetch<LoginResult>("/api/v1/auth/login", { method: "POST", body: JSON.stringify(data) }),
   google: (data: { credential: string }) =>
     apiFetch<TokenResponse>("/api/v1/auth/google", { method: "POST", body: JSON.stringify(data) }),
+  phoneRequest: (phone: string) =>
+    apiFetch<{ message: string }>("/api/v1/auth/phone/request", {
+      method: "POST",
+      body: JSON.stringify({ phone }),
+    }),
+  phoneVerify: (data: { phone: string; code: string; full_name?: string; role?: string }) =>
+    apiFetch<TokenResponse>("/api/v1/auth/phone/verify", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   me: () => apiFetch<User>("/api/v1/auth/me"),
   updateMe: (data: UserProfileUpdateInput) =>
     apiFetch<User>("/api/v1/auth/me", { method: "PATCH", body: JSON.stringify(data) }),
@@ -509,6 +519,7 @@ export interface FeaturedSku {
   code: string;
   duration_days: number;
   listed_price_inr: number;
+  amount_paise?: number;
 }
 
 export interface FeaturedCheckout {
@@ -540,27 +551,72 @@ export interface PlacementResponse {
     payment_id: string;
   } | null;
   sku: FeaturedSku;
+  skus?: FeaturedSku[];
+  awaiting_approval?: boolean;
   payment?: {
     id: string;
     status: string;
     amount_paise: number;
     currency: string;
+    sku_code?: string | null;
+    duration_days?: number | null;
     platform_fee_paise: number | null;
     gateway_fee_paise: number | null;
     provider: string;
     provider_order_id: string;
     created_at: string;
+    approved_at?: string | null;
+    rejected_at?: string | null;
   } | null;
 }
 
+export interface AdminPaymentRow {
+  id: string;
+  status: string;
+  amount_paise: number;
+  currency: string;
+  sku_code: string;
+  duration_days: number;
+  provider: string;
+  provider_order_id: string;
+  created_at: string;
+  approved_at: string | null;
+  rejected_at: string | null;
+  platform_fee_paise: number | null;
+  gateway_fee_paise: number | null;
+  business_id: string;
+  business_name: string;
+  merchant_user_id: string;
+  merchant_email: string;
+  merchant_name: string;
+  merchant_payment_count: number;
+  awaiting_approval: boolean;
+}
+
 export const payments = {
-  checkoutFeatured: (businessId: string) =>
+  checkoutFeatured: (businessId: string, skuCode: string) =>
     apiFetch<FeaturedCheckout>("/api/v1/payments/featured/checkout", {
       method: "POST",
-      body: JSON.stringify({ business_id: businessId }),
+      body: JSON.stringify({ business_id: businessId, sku_code: skuCode }),
     }),
   placement: (businessId: string) =>
     apiFetch<PlacementResponse>(`/api/v1/payments/businesses/${businessId}/placement`),
+  listAdmin: (params?: { page?: number; page_size?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.page_size) qs.set("page_size", String(params.page_size));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return apiFetch<AdminPaymentRow[]>(`/api/v1/payments/admin/payments${suffix}`);
+  },
+  approvePayment: (paymentId: string) =>
+    apiFetch<{ id: string; approved_at: string; placement_id: string; ends_at: string }>(
+      `/api/v1/payments/admin/payments/${paymentId}/approve`,
+      { method: "POST" },
+    ),
+  rejectPayment: (paymentId: string) =>
+    apiFetch<{ id: string; rejected_at: string }>(`/api/v1/payments/admin/payments/${paymentId}/reject`, {
+      method: "POST",
+    }),
   mockComplete: (providerOrderId: string, outcome: "paid" | "failed") =>
     apiFetch<{ ok: boolean; duplicate: boolean }>("/api/v1/payments/mock/complete", {
       method: "POST",

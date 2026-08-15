@@ -17,6 +17,8 @@ jest.mock("../../lib/api", () => ({
     totpConfirm: jest.fn(),
     totpVerify: jest.fn(),
     google: jest.fn(),
+    phoneRequest: jest.fn(),
+    phoneVerify: jest.fn(),
   },
   storeTokens: jest.fn(),
 }));

@@ -22,7 +22,10 @@ async def list_users(db: AsyncSession, page: int, page_size: int, q: str | None 
         stmt = stmt.where(or_(User.email.ilike(like), User.full_name.ilike(like)))
     stmt = stmt.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(stmt)
-    return list(result.scalars().all())
+    users = list(result.scalars().all())
+    from app.services.national_id import apply_admin_national_id_mask
+
+    return [apply_admin_national_id_mask(u) for u in users]
 
 
 async def _load_target(db: AsyncSession, user_id: UUID, admin: User) -> User | None:
@@ -50,7 +53,9 @@ async def suspend_user(db: AsyncSession, user_id: UUID, admin: User) -> User | N
             )
         )
         await db.flush()
-    return target
+    from app.services.national_id import apply_admin_national_id_mask
+
+    return apply_admin_national_id_mask(target)
 
 
 async def reactivate_user(db: AsyncSession, user_id: UUID, admin: User) -> User | None:
@@ -69,4 +74,6 @@ async def reactivate_user(db: AsyncSession, user_id: UUID, admin: User) -> User 
             )
         )
         await db.flush()
-    return target
+    from app.services.national_id import apply_admin_national_id_mask
+
+    return apply_admin_national_id_mask(target)

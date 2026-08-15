@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { PhoneOtpPanel } from "@/components/PhoneOtpPanel";
 import { auth, storeTokens, type TotpSetupResponse } from "@/lib/api";
 
 type Step = "credentials" | "enroll" | "verify";
@@ -177,6 +178,7 @@ export function LoginForm() {
             <div className="h-px flex-1 bg-gray-200" />
           </div>
           <GoogleSignInButton onCredential={handleGoogleCredential} />
+          <PhoneOtpPanel onError={setError} />
         </>
       )}
 

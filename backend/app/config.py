@@ -127,6 +127,10 @@ class Settings(BaseSettings):
     # would accept a token minted for any Google application, not just ours.
     google_client_id: str = ""
 
+    sms_provider: str = "mock"
+    msg91_auth_key: str = ""
+    msg91_template_id: str = ""
+
     # Demo seed gate (scripts/seed.py). Default `off` so production boots never
     # re-upsert; Compose sets `if_outdated`. Manual refresh: SEED_MODE=force.
     seed_mode: Literal["off", "if_empty", "if_outdated", "force"] = "off"

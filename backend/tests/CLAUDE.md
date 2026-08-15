@@ -14,10 +14,12 @@ Full evaluation model (pyramid, mocks, staging, Playwright plan): `README.md` §
 - `AI_PROVIDER=mock` — no network in tests
 - Email/payments/storage stay on mock/local defaults in CI
 
-## Web browser e2e (not implemented — S-010)
+## Web browser e2e (S-010 harness)
 - Do not add Cypress/Selenium
-- Playwright (Python) per ADR-009 / TP-S-010 when that slice is built
-- Run against Compose or staging with mock vendors, never live LLM/payment keys
+- Playwright (Python) in `backend/tests/e2e/` per ADR-009 / TP-S-010
+- Opt-in: `E2E=1` with Compose (mock vendors). Default `pytest` skips e2e.
+- GitHub: `.github/workflows/web-e2e.yml` is **`workflow_dispatch` only** — not on push/PR, not a deploy step. Download `playwright-traces`.
+- Run against Compose or staging, never live LLM/payment keys
 
 ## Before merge
 - `cd backend && pytest`
@@ -30,4 +32,5 @@ Full evaluation model (pyramid, mocks, staging, Playwright plan): `README.md` §
 - If `mobile/` staged: `flutter analyze && flutter test`; emulator stays CI-only
 - Full CI table: `ANDROID_APP_STRATEGY.md` § "Testing & CI flow"
 - **Known gap:** backend/frontend app-test workflows are currently dispatch-only.
-  Branch protection on `main` still must be set in GitHub Settings. See `README.md` §11.
+  Playwright (`web-e2e.yml`) is dispatch-only **by design**. Branch protection on
+  `main` still must be set in GitHub Settings. See `README.md` §11.

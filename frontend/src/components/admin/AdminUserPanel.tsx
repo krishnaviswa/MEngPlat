@@ -72,7 +72,10 @@ export function AdminUserPanel() {
                 <div>
                   <p className="font-semibold">{u.full_name}</p>
                   <p className="text-sm text-gray-600">
-                    {u.email} · {u.role}
+                    {u.email || u.phone || "no email"} · {u.role}
+                    {u.national_id_type
+                      ? ` · ID ${u.national_id_type} ${u.national_id_number || "—"}`
+                      : " · no national ID"}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">

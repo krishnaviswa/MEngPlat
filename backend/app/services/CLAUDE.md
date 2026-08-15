@@ -28,8 +28,12 @@ Defaults for Compose, pytest, and staging are mock/local — see `README.md` §3
 
 ## Payments
 - `get_payment_provider()` — `PAYMENTS_PROVIDER=mock|razorpay` (ADR-008)
-- One SKU: featured listing ₹499 / 7 days; PAN never stored
+- Three SKUs: ₹299/7d, ₹499/15d, ₹899/30d; capture then admin-approve placement; PAN never stored
 - Mock + DEBUG mock-complete for Compose/pytest
+
+## SMS
+- `get_sms_provider()` — `SMS_PROVIDER=mock|msg91` (ADR-011)
+- Mock logs the OTP; Msg91 for live India SMS. Phone OTP login skips TOTP (same as Google).
 
 ## Maps
 - OpenStreetMap tiles + Nominatim (`app/routers/maps.py` + Leaflet). Google Maps env vars are unused leftovers.

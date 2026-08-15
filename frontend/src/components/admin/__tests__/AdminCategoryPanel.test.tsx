@@ -42,6 +42,15 @@ describe("AdminCategoryPanel (S-034 AC 3)", () => {
     expect(await screen.findByText("Bakery")).toBeInTheDocument();
   });
 
+  it("links each category chip to search filtered by slug (S-041)", async () => {
+    categoriesAllMock.mockResolvedValue([{ id: "cat-1", name: "Bakery", slug: "bakery" }]);
+
+    render(<AdminCategoryPanel />);
+
+    const chip = await screen.findByRole("link", { name: "Bakery" });
+    expect(chip).toHaveAttribute("href", "/search?category=bakery");
+  });
+
   // Backend maps duplicate name/slug to 409 -- the panel surfaces that as an inline error, not a crash.
   it("shows an inline error when create fails (e.g. duplicate name/slug 409)", async () => {
     categoriesAllMock.mockResolvedValue([]);

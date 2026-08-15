@@ -35,7 +35,7 @@ Do not commit on `main` — use a feature branch + PR. `.githooks/pre-commit` en
 - Colocate under `__tests__/`
 - Test behavior, not implementation
 - Run: `cd frontend && npm test`
-- Full evaluation model: `README.md` §11. Browser e2e is S-010 (Playwright), not Cypress.
+- Full evaluation model: `README.md` §11. Browser e2e is Playwright in `backend/tests/e2e/` (`E2E=1`), not Cypress. GitHub job `web-e2e.yml` is dispatch-only (artifact traces); not on push/PR.
 
 ## Local git hooks (every commit, IDE included)
 - One-time: `git config core.hooksPath .githooks`

@@ -14,9 +14,13 @@ export function CategoryBadges({ categories }: CategoryBadgesProps) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {categories.map((category) => (
-        <Badge key={category.id ?? category.slug} tone="neutral">
-          {category.name}
-        </Badge>
+        <a
+          key={category.id ?? category.slug}
+          href={`/search?category=${encodeURIComponent(category.slug)}`}
+          className="inline-block"
+        >
+          <Badge tone="neutral">{category.name}</Badge>
+        </a>
       ))}
     </div>
   );

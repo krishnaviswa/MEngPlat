@@ -83,10 +83,12 @@ class ResetPasswordRequest(BaseModel):
         return _require_letter_and_digit(value)
 
 
-class UserResponse(UserBase):
+class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    email: EmailStr | None = None
+    full_name: str
     role: UserRole
     is_active: bool
     avatar_url: str | None = None
@@ -377,6 +379,17 @@ class GeocodeResponse(BaseModel):
     display_name: str | None = None
 
 
+class PhoneOtpRequest(BaseModel):
+    phone: str = Field(min_length=10, max_length=20)
+
+
+class PhoneOtpVerifyRequest(BaseModel):
+    phone: str = Field(min_length=10, max_length=20)
+    code: str = Field(min_length=4, max_length=8)
+    full_name: str | None = Field(default=None, max_length=255)
+    role: UserRole | None = None
+
+
 class GoogleAuthRequest(BaseModel):
     # The ID token JWT ("credential") returned client-side by Google Identity
     # Services -- not an authorization code, so there's no redirect_uri or
@@ -401,12 +414,14 @@ class FavoriteResponse(BaseModel):
 
 class FeaturedCheckoutRequest(BaseModel):
     business_id: UUID
+    sku_code: str
 
 
 class FeaturedSku(BaseModel):
     code: str
     duration_days: int
     listed_price_inr: int
+    amount_paise: int | None = None
 
 
 class CheckoutFields(BaseModel):
@@ -452,11 +467,15 @@ class PaymentLedger(BaseModel):
     status: str
     amount_paise: int
     currency: str
+    sku_code: str | None = None
+    duration_days: int | None = None
     platform_fee_paise: int | None = None
     gateway_fee_paise: int | None = None
     provider: str
     provider_order_id: str
     created_at: datetime
+    approved_at: datetime | None = None
+    rejected_at: datetime | None = None
 
 
 class PlacementResponse(BaseModel):
@@ -464,7 +483,44 @@ class PlacementResponse(BaseModel):
     active: bool
     placement: PlacementWindow | None = None
     sku: FeaturedSku
+    skus: list[FeaturedSku] = []
+    awaiting_approval: bool = False
     payment: PaymentLedger | None = None
+
+
+class AdminPaymentRow(BaseModel):
+    id: UUID
+    status: str
+    amount_paise: int
+    currency: str
+    sku_code: str
+    duration_days: int
+    provider: str
+    provider_order_id: str
+    created_at: datetime
+    approved_at: datetime | None = None
+    rejected_at: datetime | None = None
+    platform_fee_paise: int | None = None
+    gateway_fee_paise: int | None = None
+    business_id: UUID
+    business_name: str
+    merchant_user_id: UUID
+    merchant_email: str
+    merchant_name: str
+    merchant_payment_count: int
+    awaiting_approval: bool
+
+
+class PaymentApproveResponse(BaseModel):
+    id: UUID
+    approved_at: datetime
+    placement_id: UUID
+    ends_at: datetime
+
+
+class PaymentRejectResponse(BaseModel):
+    id: UUID
+    rejected_at: datetime
 
 
 class PlacementDisableResponse(BaseModel):
