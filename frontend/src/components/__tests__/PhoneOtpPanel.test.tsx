@@ -27,12 +27,12 @@ describe("PhoneOtpPanel", () => {
     render(<PhoneOtpPanel fullName="Ada" role="customer" onError={jest.fn()} />);
     fireEvent.change(screen.getByLabelText(/mobile number/i), { target: { value: "9876543210" } });
     fireEvent.click(screen.getByRole("button", { name: /send sms code/i }));
-    await waitFor(() => expect(requestMock).toHaveBeenCalledWith("9876543210"));
+    await waitFor(() => expect(requestMock).toHaveBeenCalledWith("+919876543210"));
     fireEvent.change(screen.getByLabelText(/sms code/i), { target: { value: "123456" } });
     fireEvent.click(screen.getByRole("button", { name: /verify and sign in/i }));
     await waitFor(() =>
       expect(verifyMock).toHaveBeenCalledWith({
-        phone: "9876543210",
+        phone: "+919876543210",
         code: "123456",
         full_name: "Ada",
         role: "customer",

@@ -131,7 +131,7 @@ export default function AdminBusinessDrilldownPage({ params }: { params: Promise
               ) : (
                 <div className="space-y-4">
                   {reviewList.map((r) => (
-                    <ReviewCard key={r.id} review={r} showActions={false} />
+                    <ReviewCard key={r.id} review={r} showActions={false} showSentimentBadge />
                   ))}
                 </div>
               )}

@@ -39,7 +39,7 @@ export function FeaturedGrid({
               <BusinessCard business={b} />
               {b.ai_merchant_summary && (
                 <p className="px-1 text-sm text-slate-600">
-                  <span className="font-medium text-brand-800">AI suggestion: </span>
+                  <span className="font-medium text-brand-800">Why locals love it: </span>
                   <span className="line-clamp-2">{b.ai_merchant_summary}</span>
                 </p>
               )}

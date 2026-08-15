@@ -37,7 +37,7 @@ export function ReviewVoices({ items }: ReviewVoicesProps) {
             <p className="mt-2 line-clamp-4 text-slate-700">{review.body}</p>
             {review.ai_analysis?.summary && (
               <p className="mt-4 border-l-2 border-brand-400 pl-3 text-sm text-slate-600">
-                <span className="font-medium text-brand-800">AI suggestion: </span>
+                <span className="font-medium text-brand-800">In a nutshell: </span>
                 {review.ai_analysis.summary}
               </p>
             )}
