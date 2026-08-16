@@ -349,8 +349,8 @@ export interface PublicPlatformStats {
 }
 
 export const businesses = {
-  /** Public list; pass status_filter (e.g. "pending") and/or city for admin/filtered views. */
-  list: (params?: { status_filter?: string; city?: string }) => {
+  /** Public list; pass status_filter (e.g. "pending"), city, and/or comma-separated slugs. */
+  list: (params?: { status_filter?: string; city?: string; slugs?: string }) => {
     const qs = params ? new URLSearchParams(Object.entries(params).filter(([, v]) => v != null) as [string, string][]).toString() : "";
     return apiFetch<Business[]>(`/api/v1/businesses${qs ? `?${qs}` : ""}`);
   },
@@ -529,17 +529,9 @@ export const dashboard = {
     }),
   createWhatsAppLink: (businessId: string) =>
     apiFetch<WhatsAppLink>(`/api/v1/dashboard/merchant/${businessId}/whatsapp/link`, { method: "POST" }),
+  /** All statuses, read-only -- apply/discard now happens only via the admin queue (S-053). */
   listWhatsAppDrafts: (businessId: string) =>
     apiFetch<WhatsAppDraft[]>(`/api/v1/dashboard/merchant/${businessId}/whatsapp/drafts`),
-  applyWhatsAppDraft: (businessId: string, draftId: string, fields?: string[]) =>
-    apiFetch<WhatsAppDraft>(`/api/v1/dashboard/merchant/${businessId}/whatsapp/drafts/${draftId}/apply`, {
-      method: "POST",
-      body: JSON.stringify({ fields: fields ?? null }),
-    }),
-  discardWhatsAppDraft: (businessId: string, draftId: string) =>
-    apiFetch<WhatsAppDraft>(`/api/v1/dashboard/merchant/${businessId}/whatsapp/drafts/${draftId}/discard`, {
-      method: "POST",
-    }),
 };
 
 // --- S-048 review aggregator (Google Places) ---------------------------------
@@ -593,6 +585,18 @@ export interface WhatsAppDraft {
   created_at: string;
 }
 
+export interface AdminWhatsAppDraft extends WhatsAppDraft {
+  business_id: string;
+  business_name: string;
+}
+
+export interface AdminWhatsAppDraftQueue {
+  items: AdminWhatsAppDraft[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export const externalReviews = {
   /** Public, no auth header needed -- same shape as reviews.list. */
   list: (businessId: string) => apiFetch<ExternalReview[]>(`/api/v1/businesses/${businessId}/external-reviews`),
@@ -610,6 +614,23 @@ export const admin = {
   },
   suspendUser: (id: string) => apiFetch<User>(`/api/v1/admin/users/${id}/suspend`, { method: "POST" }),
   reactivateUser: (id: string) => apiFetch<User>(`/api/v1/admin/users/${id}/reactivate`, { method: "POST" }),
+  /** Admin: global, cross-business queue of pending WhatsApp drafts, oldest first (S-053). */
+  whatsappDrafts: (params?: { page?: number; page_size?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.page_size) qs.set("page_size", String(params.page_size));
+    const suffix = qs.toString();
+    return apiFetch<AdminWhatsAppDraftQueue>(`/api/v1/admin/whatsapp/drafts${suffix ? `?${suffix}` : ""}`);
+  },
+  /** Admin: approve a draft; omitted fields fall back to the raw AI extraction. */
+  approveWhatsAppDraft: (draftId: string, fields?: Record<string, unknown>) =>
+    apiFetch<WhatsAppDraft>(`/api/v1/admin/whatsapp/drafts/${draftId}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ fields: fields ?? null }),
+    }),
+  /** Admin: reject a draft; the live listing is left untouched. */
+  rejectWhatsAppDraft: (draftId: string) =>
+    apiFetch<WhatsAppDraft>(`/api/v1/admin/whatsapp/drafts/${draftId}/reject`, { method: "POST" }),
 };
 
 export interface FeaturedSku {

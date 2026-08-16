@@ -30,6 +30,7 @@ from app.models import (
 )
 from app.services.mfa import enable_demo_totp
 from scripts.seed_chennai import CHENNAI_CUSTOMER_PASSWORD, seed_chennai
+from scripts.seed_social_proof import seed_social_proof
 from scripts.seed_us import seed_us
 
 SeedMode = Literal["off", "if_empty", "if_outdated", "force"]
@@ -220,6 +221,14 @@ async def seed() -> None:
         counts_chennai = await seed_chennai(db, merchant, categories)
         await db.commit()
 
+        counts_social: dict[str, Any] | None = None
+        try:
+            counts_social = await seed_social_proof(db, merchant, categories)
+            await db.commit()
+        except Exception as exc:  # noqa: BLE001 — never wipe Chennai for a social-proof seed failure
+            await db.rollback()
+            print(f"WARNING: social proof seed skipped ({type(exc).__name__}: {exc})")
+
         counts_us: dict[str, Any] | None = None
         try:
             counts_us = await seed_us(db, merchant, categories)
@@ -234,6 +243,7 @@ async def seed() -> None:
                 marker_db,
                 version,
                 notes=f"mode={mode}; chennai={counts_chennai.get('businesses')}; "
+                f"social_proof={None if counts_social is None else counts_social.get('businesses')}; "
                 f"us={None if counts_us is None else counts_us.get('businesses')}",
             )
             await marker_db.commit()
@@ -253,6 +263,13 @@ async def seed() -> None:
             f"(created={counts_chennai.get('created', 0)}, refreshed={counts_chennai.get('refreshed', 0)}), "
             f"new reviews this run={counts_chennai['reviews']}"
         )
+        if counts_social is not None:
+            print(
+                f"  Social proof rail: {counts_social['businesses']} businesses "
+                f"(created={counts_social.get('created', 0)}, refreshed={counts_social.get('refreshed', 0)})"
+            )
+        else:
+            print("  Social proof rail: skipped (see WARNING above)")
         if counts_us is not None:
             print(
                 f"  US real businesses: {counts_us['businesses']} businesses across "

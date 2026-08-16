@@ -30,7 +30,6 @@ from app.models import (
 )
 from app.routers import dashboard as dashboard_router
 from app.routers import webhooks as webhooks_router
-from app.schemas import WhatsAppDraftApplyRequest
 from app.services import whatsapp_ingest_service
 from app.services.whatsapp import get_whatsapp_provider
 
@@ -93,13 +92,13 @@ class InMemoryDB:
             return FakeResult(scalar=self.business)
 
         if "business_update_drafts" in compiled:
-            pending = [
-                d
-                for d in self.drafts
-                if d.status == DraftStatus.PENDING
-                and (self.business is None or d.business_id == self.business.id)
-            ]
-            return FakeResult(scalar=pending[0] if pending else None, rows=pending)
+            rows = [d for d in self.drafts if self.business is None or d.business_id == self.business.id]
+            # S-053: only filter to PENDING when the compiled query actually asks for
+            # it (admin queue) -- the merchant-facing list query has no status filter
+            # and must return every status (S-053 AC5).
+            if DraftStatus.PENDING in params:
+                rows = [d for d in rows if d.status == DraftStatus.PENDING]
+            return FakeResult(scalar=rows[0] if rows else None, rows=rows)
 
         if "whatsapp_sessions" in compiled:
             token = next((v for v in params if isinstance(v, str) and str(v).upper().startswith("MH-")), None)
@@ -341,7 +340,7 @@ class TestInboundBindAndAck:
             "sha256=mock",
         )
         assert res["ok"] is True
-        drafts = await whatsapp_ingest_service.list_pending_drafts(db, business.id)
+        drafts = await whatsapp_ingest_service.list_business_drafts(db, business.id)
         assert len(drafts) == 1
         assert drafts[0].status == DraftStatus.PENDING
         fields = drafts[0].extracted_fields
@@ -367,7 +366,7 @@ class TestInboundBindAndAck:
         await whatsapp_ingest_service.handle_inbound(
             db, _meta_text("1555222", "open 9am near the street"), "sha256=mock"
         )
-        drafts = await whatsapp_ingest_service.list_pending_drafts(db, business.id)
+        drafts = await whatsapp_ingest_service.list_business_drafts(db, business.id)
         assert len(drafts) >= 1
 
 
@@ -446,49 +445,77 @@ class TestDrafts:
             _meta_text("1555777", f"{payload['token']} open 9-9 near the bus stand friendly cafe"),
             "sha256=mock",
         )
-        drafts = await whatsapp_ingest_service.list_pending_drafts(db, business.id)
+        drafts = await whatsapp_ingest_service.list_business_drafts(db, business.id)
         assert drafts
         return user, db, drafts[0]
 
-    async def test_apply_writes_live_fields(self, monkeypatch):
+    async def test_admin_approve_writes_live_fields_and_notifies(self, monkeypatch):
         async def _noop(*_a, **_k):
             return None
 
         monkeypatch.setattr("app.services.whatsapp_ingest_service.cache_delete_pattern", _noop)
-        user, db, draft = await self._pending()
+        _user, db, draft = await self._pending()
+        admin = _make_user(UserRole.ADMIN)
         before_desc = db.business.description
-        body = await dashboard_router.apply_whatsapp_draft(
-            db.business.id, draft.id, WhatsAppDraftApplyRequest(), db, user
-        )
-        assert body.status == DraftStatus.APPLIED
+        updated = await whatsapp_ingest_service.admin_approve_draft(db, draft.id, admin.id, None)
+        assert updated.status == DraftStatus.APPLIED
         fields = draft.extracted_fields
         if fields.get("description"):
             assert db.business.description == fields["description"]
             assert db.business.description != before_desc or before_desc == fields["description"]
         if fields.get("address"):
             assert db.business.address == fields["address"]
+        # AuditLog + Notification were written (S-053 AC3).
+        assert any(getattr(o, "action", None) == "approve" for o in db.photos)
+        assert any(getattr(o, "title", None) == "WhatsApp update applied" for o in db.photos)
 
-    async def test_discard_does_not_change_listing(self):
-        user, db, draft = await self._pending()
+    async def test_admin_approve_uses_edited_field_over_ai_value(self, monkeypatch):
+        async def _noop(*_a, **_k):
+            return None
+
+        monkeypatch.setattr("app.services.whatsapp_ingest_service.cache_delete_pattern", _noop)
+        _user, db, draft = await self._pending()
+        admin = _make_user(UserRole.ADMIN)
+        await whatsapp_ingest_service.admin_approve_draft(
+            db, draft.id, admin.id, {"description": "Admin-corrected description"}
+        )
+        assert db.business.description == "Admin-corrected description"
+
+    async def test_admin_reject_does_not_change_listing(self):
+        _user, db, draft = await self._pending()
+        admin = _make_user(UserRole.ADMIN)
         before_addr = db.business.address
-        body = await dashboard_router.discard_whatsapp_draft(db.business.id, draft.id, db, user)
-        assert body.status == DraftStatus.DISCARDED
+        updated = await whatsapp_ingest_service.admin_reject_draft(db, draft.id, admin.id)
+        assert updated.status == DraftStatus.DISCARDED
         assert db.business.address == before_addr
-        remaining = await whatsapp_ingest_service.list_pending_drafts(db, db.business.id)
-        assert remaining == []
+        remaining_pending = [d for d in await whatsapp_ingest_service.list_business_drafts(db, db.business.id) if d.status == DraftStatus.PENDING]
+        assert remaining_pending == []
 
-    async def test_customer_cannot_list_or_apply_drafts(self):
+    async def test_double_approve_is_rejected(self, monkeypatch):
+        async def _noop(*_a, **_k):
+            return None
+
+        monkeypatch.setattr("app.services.whatsapp_ingest_service.cache_delete_pattern", _noop)
+        _user, db, draft = await self._pending()
+        admin = _make_user(UserRole.ADMIN)
+        await whatsapp_ingest_service.admin_approve_draft(db, draft.id, admin.id, None)
+        with pytest.raises(HTTPException) as exc_info:
+            await whatsapp_ingest_service.admin_approve_draft(db, draft.id, admin.id, None)
+        assert exc_info.value.status_code == 409
+
+    async def test_customer_cannot_list_drafts(self):
         checker = require_roles(UserRole.MERCHANT, UserRole.ADMIN)
         with pytest.raises(HTTPException) as exc_info:
             await checker(user=_make_user(UserRole.CUSTOMER))
         assert exc_info.value.status_code == 403
 
-    async def test_admin_can_list_drafts(self):
-        _user, db, _draft = await self._pending()
+    async def test_merchant_and_admin_list_endpoint_shows_all_statuses(self):
+        _user, db, draft = await self._pending()
         admin = _make_user(UserRole.ADMIN)
+        await whatsapp_ingest_service.admin_reject_draft(db, draft.id, admin.id)
         rows = await dashboard_router.list_whatsapp_drafts(db.business.id, db, admin)
         assert rows
-        assert rows[0].status == DraftStatus.PENDING
+        assert rows[0].status == DraftStatus.DISCARDED
 
 
 class TestMockProvider:

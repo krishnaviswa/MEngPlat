@@ -25,6 +25,15 @@ def listing_approved_email(business_name: str) -> tuple[str, str]:
     return subject, text
 
 
+def whatsapp_draft_approved_email(business_name: str) -> tuple[str, str]:
+    subject = f"Your WhatsApp update for {business_name} is live"
+    text = (
+        f'An admin reviewed and approved the profile update you sent over WhatsApp for "{business_name}". '
+        "It's now live on your listing."
+    )
+    return subject, text
+
+
 def new_review_email(business_name: str, rating: int | None = None) -> tuple[str, str]:
     subject = f"New review for {business_name}"
     rating_note = f" ({rating}-star)" if rating is not None else ""

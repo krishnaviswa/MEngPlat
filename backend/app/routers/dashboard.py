@@ -25,7 +25,6 @@ from app.schemas import (
     PlatformAnalyticsSeries,
     ReviewResponse,
     UserResponse,
-    WhatsAppDraftApplyRequest,
     WhatsAppDraftResponse,
     WhatsAppLinkResponse,
 )
@@ -296,35 +295,8 @@ async def list_whatsapp_drafts(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> list[WhatsAppDraftResponse]:
-    """Pending AI-extracted profile suggestions from WhatsApp (S-052)."""
+    """Read-only status of every WhatsApp-derived suggestion for this business, any status,
+    newest first -- apply/discard now happens exclusively via the admin queue (S-053)."""
     await _load_owned_business(db, business_id, user)
-    drafts = await whatsapp_ingest_service.list_pending_drafts(db, business_id)
+    drafts = await whatsapp_ingest_service.list_business_drafts(db, business_id)
     return [WhatsAppDraftResponse.model_validate(d) for d in drafts]
-
-
-@router.post("/merchant/{business_id}/whatsapp/drafts/{draft_id}/apply", response_model=WhatsAppDraftResponse)
-async def apply_whatsapp_draft(
-    business_id: UUID,
-    draft_id: UUID,
-    payload: WhatsAppDraftApplyRequest | None = None,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
-) -> WhatsAppDraftResponse:
-    """Write confirmed suggestion fields onto the live Business row."""
-    business = await _load_owned_business(db, business_id, user)
-    fields = payload.fields if payload else None
-    draft = await whatsapp_ingest_service.apply_draft(db, business, draft_id, fields)
-    return WhatsAppDraftResponse.model_validate(draft)
-
-
-@router.post("/merchant/{business_id}/whatsapp/drafts/{draft_id}/discard", response_model=WhatsAppDraftResponse)
-async def discard_whatsapp_draft(
-    business_id: UUID,
-    draft_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
-) -> WhatsAppDraftResponse:
-    """Drop a pending WhatsApp suggestion without changing the live listing."""
-    business = await _load_owned_business(db, business_id, user)
-    draft = await whatsapp_ingest_service.discard_draft(db, business, draft_id)
-    return WhatsAppDraftResponse.model_validate(draft)

@@ -9,14 +9,25 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
-from app.models import Business, BusinessUpdateDraft, DraftStatus, WhatsAppSession
+from app.models import (
+    AuditLog,
+    Business,
+    BusinessUpdateDraft,
+    DraftStatus,
+    Merchant,
+    Notification,
+    NotificationType,
+    User,
+    WhatsAppSession,
+)
 from app.services.ai import get_ai_provider
 from app.services.cache import cache_delete_pattern
+from app.services.email import try_send_whatsapp_draft_approved
 from app.services.photo_service import ALLOWED_CONTENT_TYPES, save_business_photo
 from app.services.whatsapp import get_whatsapp_provider
 from app.services.whatsapp.base import InboundMessage
@@ -27,6 +38,10 @@ TOKEN_RE = re.compile(r"\bMH-[A-F0-9]{8}\b", re.I)
 ACK_OK = "Got it, thanks!"
 ACK_PHOTO_FAIL = "We couldn't save that photo. Please send a JPG or PNG under 5MB."
 ACK_UNSUPPORTED = "Please send a photo (image) or a text note about your shop — not a video or document."
+
+# Fields an admin may approve onto the live Business row (S-052/S-053) -- same
+# set the AI extraction prompt is scoped to.
+ALLOWED_DRAFT_FIELDS = {"description", "address", "business_hours", "phone", "website"}
 
 
 def _utcnow() -> datetime:
@@ -65,46 +80,123 @@ async def create_link(db: AsyncSession, business: Business) -> dict:
     }
 
 
-async def list_pending_drafts(db: AsyncSession, business_id: UUID) -> list[BusinessUpdateDraft]:
+async def list_business_drafts(db: AsyncSession, business_id: UUID) -> list[BusinessUpdateDraft]:
+    """All WhatsApp drafts for a business, any status, newest first (S-053: merchant read-only view)."""
     result = await db.execute(
         select(BusinessUpdateDraft)
-        .where(
-            BusinessUpdateDraft.business_id == business_id,
-            BusinessUpdateDraft.status == DraftStatus.PENDING,
-        )
+        .where(BusinessUpdateDraft.business_id == business_id)
         .order_by(BusinessUpdateDraft.created_at.desc())
     )
     return list(result.scalars().all())
 
 
-async def apply_draft(db: AsyncSession, business: Business, draft_id: UUID, fields: list[str] | None) -> BusinessUpdateDraft:
-    draft = await _load_pending(db, business.id, draft_id)
+async def list_pending_drafts_admin(
+    db: AsyncSession, page: int, page_size: int
+) -> tuple[list[tuple[BusinessUpdateDraft, str]], int]:
+    """Global, cross-business pending-drafts queue for the admin review UI (S-053), FIFO."""
+    total_result = await db.execute(
+        select(func.count()).select_from(BusinessUpdateDraft).where(BusinessUpdateDraft.status == DraftStatus.PENDING)
+    )
+    total = total_result.scalar_one()
+
+    result = await db.execute(
+        select(BusinessUpdateDraft, Business.name)
+        .join(Business, Business.id == BusinessUpdateDraft.business_id)
+        .where(BusinessUpdateDraft.status == DraftStatus.PENDING)
+        .order_by(BusinessUpdateDraft.created_at.asc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    return list(result.all()), total
+
+
+async def admin_approve_draft(
+    db: AsyncSession, draft_id: UUID, admin_id: UUID, fields: dict[str, object] | None
+) -> BusinessUpdateDraft:
+    """Admin approves a draft, writing the (possibly edited) fields to the live Business (S-053)."""
+    draft = await _load_pending_any(db, draft_id)
+    business = await db.get(Business, draft.business_id)
+    if not business:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
+
     extracted = dict(draft.extracted_fields or {})
-    keys = fields or [k for k, v in extracted.items() if v not in (None, "", {})]
-    allowed = {"description", "address", "business_hours", "phone", "website"}
-    for key in keys:
-        if key not in allowed or key not in extracted:
-            continue
-        value = extracted[key]
+    overrides = fields or {}
+    applied_fields: dict[str, object] = {}
+    for key in ALLOWED_DRAFT_FIELDS:
+        value = overrides[key] if key in overrides else extracted.get(key)
         if value in (None, "", {}):
             continue
         setattr(business, key, value)
+        applied_fields[key] = value
+
     draft.status = DraftStatus.APPLIED
+    db.add(
+        AuditLog(
+            admin_id=admin_id,
+            action="approve",
+            entity_type="business_update_draft",
+            entity_id=str(draft.id),
+            details={"business_id": str(business.id), "ai_fields": extracted, "applied_fields": applied_fields},
+        )
+    )
+
+    merchant_result = await db.execute(select(Merchant).where(Merchant.id == business.merchant_id))
+    merchant = merchant_result.scalar_one_or_none()
+    if merchant:
+        db.add(
+            Notification(
+                user_id=merchant.user_id,
+                type=NotificationType.APPROVAL,
+                title="WhatsApp update applied",
+                message=f"Your WhatsApp suggestion for {business.name} was approved and is now live.",
+                extra_data={"business_id": str(business.id), "draft_id": str(draft.id)},
+            )
+        )
+        merchant_user = await db.get(User, merchant.user_id)
+        if merchant_user and merchant_user.email:
+            await try_send_whatsapp_draft_approved(merchant_user.email, business.name)
+
     await cache_delete_pattern("search:*")
     await db.flush()
     return draft
 
 
-async def discard_draft(db: AsyncSession, business: Business, draft_id: UUID) -> BusinessUpdateDraft:
-    draft = await _load_pending(db, business.id, draft_id)
+async def admin_reject_draft(db: AsyncSession, draft_id: UUID, admin_id: UUID) -> BusinessUpdateDraft:
+    """Admin rejects a draft; the live Business row is untouched (S-053)."""
+    draft = await _load_pending_any(db, draft_id)
     draft.status = DraftStatus.DISCARDED
+    db.add(
+        AuditLog(
+            admin_id=admin_id,
+            action="reject",
+            entity_type="business_update_draft",
+            entity_id=str(draft.id),
+            details={"business_id": str(draft.business_id)},
+        )
+    )
+
+    business = await db.get(Business, draft.business_id)
+    if business:
+        merchant_result = await db.execute(select(Merchant).where(Merchant.id == business.merchant_id))
+        merchant = merchant_result.scalar_one_or_none()
+        if merchant:
+            db.add(
+                Notification(
+                    user_id=merchant.user_id,
+                    type=NotificationType.SYSTEM,
+                    title="WhatsApp suggestion not applied",
+                    message=f"Your WhatsApp suggestion for {business.name} was reviewed and not applied.",
+                    extra_data={"business_id": str(business.id), "draft_id": str(draft.id)},
+                )
+            )
+
     await db.flush()
     return draft
 
 
-async def _load_pending(db: AsyncSession, business_id: UUID, draft_id: UUID) -> BusinessUpdateDraft:
+async def _load_pending_any(db: AsyncSession, draft_id: UUID) -> BusinessUpdateDraft:
     draft = await db.get(BusinessUpdateDraft, draft_id)
-    if not draft or draft.business_id != business_id:
+    if not draft:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft not found")
     if draft.status != DraftStatus.PENDING:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Draft is no longer pending")
