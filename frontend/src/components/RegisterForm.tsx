@@ -76,6 +76,7 @@ export function RegisterForm() {
         className="w-full rounded border px-3 py-2"
       />
       <Select
+        aria-label="Account type"
         value={form.role}
         onChange={(e) => setForm({ ...form, role: e.target.value })}
       >

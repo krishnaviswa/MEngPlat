@@ -26,7 +26,9 @@ from app.services.ai.base import (
     MerchantSummaryResult,
     ReviewAnalysisResult,
     TokenUsage,
+    TopicClusterResult,
     coerce_sentiment,
+    coerce_topic_sentiment,
 )
 from app.services.ai.http_client import get_shared_client
 from app.services.ai.provider_config import resolve_provider_config
@@ -213,6 +215,21 @@ class OpenAICompatibleProvider(AIProvider):
             raw_response=data,
             meta=meta,
         )
+
+    async def generate_topic_clusters(
+        self, reviews: list[dict[str, Any]], context: dict[str, Any] | None = None
+    ) -> TopicClusterResult:
+        data, meta = await self._chat(prompts.TOPIC_CLUSTERING_SYSTEM, json.dumps(reviews))
+        topics = [
+            {
+                "label": t.get("label", ""),
+                "count": t.get("count", 0),
+                "sentiment": coerce_topic_sentiment(t.get("sentiment")),
+                "example_quote": t.get("example_quote", ""),
+            }
+            for t in data.get("topics", [])
+        ]
+        return TopicClusterResult(topics=topics, raw_response=data, meta=meta)
 
 
 def _extract_json(content: str) -> dict[str, Any]:

@@ -38,6 +38,11 @@ See also `[AGENTS.md](AGENTS.md)` for the repo map and where each tool's config 
    `git config core.hooksPath .githooks`). See `.cursor/rules/testing.mdc` and, for mobile CI
    specifics, `ANDROID_APP_STRATEGY.md` § "Testing & CI flow" (includes a known gap: `main`
    isn't yet branch-protection-gated on CI passing, so Railway can still deploy a failing build).
+9. Claude Code subagents (Agent tool — `product-manager`, `architect`, `tester`, `Explore`, `Plan`,
+   or any other subagent type) must always be launched with `model: "sonnet"` (Sonnet 5 or
+   Sonnet 4.6) explicitly set — never a different tier. **This is Claude Code-specific**: it is a
+   deliberate exception to the Cursor ↔ Claude Code parity-sync rule below and must NOT be ported
+   into `.cursor/rules/agents/workflow.mdc` or any other Cursor rule.
 
 ## Multi-agent workflow
 

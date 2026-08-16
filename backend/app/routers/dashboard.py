@@ -14,6 +14,12 @@ from app.models import Business, BusinessStatus, Merchant, Review, ReviewStatus,
 from app.schemas import (
     BenchmarkResponse,
     DashboardStats,
+    GooglePlaceLinkRequest,
+    GooglePlaceLinkResponse,
+    GooglePlacesSearchRequest,
+    GooglePlacesSearchResponse,
+    GoogleReviewsStatusResponse,
+    GoogleReviewsSyncResponse,
     PlatformAnalytics,
     PlatformAnalyticsSeries,
     ReviewResponse,
@@ -23,6 +29,7 @@ from app.routers.reviews import _review_response
 from app.services import benchmark as benchmark_service
 from app.services import merchant_dashboard as merchant_dashboard_service
 from app.services import platform_analytics as platform_analytics_service
+from app.services import review_sync_service
 from app.services.merchant_dashboard import DateRange
 from app.services.platform_analytics import Granularity
 
@@ -178,3 +185,89 @@ async def platform_analytics_series(
     """
     series = await platform_analytics_service.get_platform_series(db, granularity, days)
     return PlatformAnalyticsSeries(granularity=granularity, days=days, series=series)
+
+
+# --- S-048 review aggregator (Google Places) ---------------------------------
+
+
+@router.post("/merchant/{business_id}/google-reviews/search", response_model=GooglePlacesSearchResponse)
+async def search_google_places(
+    business_id: UUID,
+    payload: GooglePlacesSearchRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
+) -> GooglePlacesSearchResponse:
+    """
+    Search Google Places for candidates to link (AC1-5). Lat/lng bias comes
+    from the loaded `Business`, not the client.
+
+    **Response:** `candidates` (empty list is a valid 200 -- AC4);
+    `502` on provider timeout/error, existing linked state untouched (AC5).
+    """
+    business = await _load_owned_business(db, business_id, user)
+    try:
+        candidates = await review_sync_service.search_google_places(business, payload.query)
+    except review_sync_service.GoogleReviewsProviderError:
+        raise HTTPException(status_code=502, detail="Couldn't reach Google Places right now") from None
+    return GooglePlacesSearchResponse(candidates=candidates)
+
+
+@router.get("/merchant/{business_id}/google-reviews", response_model=GoogleReviewsStatusResponse)
+async def get_google_reviews_status(
+    business_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
+) -> GoogleReviewsStatusResponse:
+    """Link/sync status powering the dashboard card's unlinked/linked/synced states (AC3, AC6, AC7)."""
+    business = await _load_owned_business(db, business_id, user)
+    status = await review_sync_service.get_google_reviews_status(db, business)
+    return GoogleReviewsStatusResponse(**status.__dict__)
+
+
+@router.post("/merchant/{business_id}/google-reviews/link", response_model=GooglePlaceLinkResponse)
+async def link_google_place(
+    business_id: UUID,
+    payload: GooglePlaceLinkRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
+) -> GooglePlaceLinkResponse:
+    """
+    Link a Google Place ID to this business (AC3). `name`/`address` in the
+    payload are UI-confirmation echoes only, not persisted.
+
+    **Response:** `409` if already linked (v1 supports linking once).
+    """
+    business = await _load_owned_business(db, business_id, user)
+    try:
+        await review_sync_service.link_google_place(db, business, payload.place_id)
+    except review_sync_service.GooglePlaceAlreadyLinkedError:
+        raise HTTPException(
+            status_code=409, detail="Business is already linked to a Google Business Profile"
+        ) from None
+    await db.commit()
+    return GooglePlaceLinkResponse(linked=True, place_id=payload.place_id)
+
+
+@router.post("/merchant/{business_id}/google-reviews/sync", response_model=GoogleReviewsSyncResponse)
+async def sync_google_reviews(
+    business_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
+) -> GoogleReviewsSyncResponse:
+    """
+    Fetch up to 5 reviews from Google and upsert them (AC7, AC8). Debounced
+    via a Redis lock (AC9) -- a concurrent/duplicate click returns the
+    current state with `debounced: true` instead of erroring or duplicating.
+
+    **Response:** `400` if unlinked; `502` on provider failure, existing
+    `ExternalReview` rows left untouched.
+    """
+    business = await _load_owned_business(db, business_id, user)
+    try:
+        result = await review_sync_service.sync_google_reviews(db, business)
+    except review_sync_service.GooglePlaceNotLinkedError:
+        raise HTTPException(status_code=400, detail="Link a Google Business Profile first") from None
+    except review_sync_service.GoogleReviewsProviderError:
+        raise HTTPException(status_code=502, detail="Couldn't reach Google Places right now") from None
+    await db.commit()
+    return GoogleReviewsSyncResponse(**result.__dict__)

@@ -169,6 +169,12 @@ class Business(Base):
     # Mirrors AIAnalysis.degraded for the aggregate merchant summary, which
     # isn't backed by an ai_analyses row of its own.
     ai_degraded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+    # S-048: {"google": "<google_place_id>"} once linked; NULL (not {}) when
+    # unlinked -- no default so an unlinked business reads as NULL, not {}.
+    # Deliberately excluded from BusinessResponse/_to_response(): this column
+    # must never leak into a surface that also carries average_rating/
+    # review_count (AC12 -- external reviews never blend into those fields).
+    external_platform_refs: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -181,6 +187,7 @@ class Business(Base):
     favorites: Mapped[list["Favorite"]] = relationship(back_populates="business")
     payments: Mapped[list["Payment"]] = relationship(back_populates="business")
     featured_placements: Mapped[list["FeaturedPlacement"]] = relationship(back_populates="business")
+    external_reviews: Mapped[list["ExternalReview"]] = relationship(back_populates="business")
 
 
 class BusinessCategory(Base):
@@ -395,3 +402,38 @@ class FeaturedPlacement(Base):
 
     business: Mapped[Business] = relationship(back_populates="featured_placements")
     payment: Mapped[Payment] = relationship(back_populates="placement")
+
+
+class ExternalReview(Base):
+    """A third-party review pulled in via a `review_sources` provider (S-048).
+
+    Never blended into `Business.average_rating` / `review_count` -- see
+    `app/services/review_sync_service.py` and README §5. `source` is a plain
+    string, not an enum, so a future provider ships without a migration.
+    """
+
+    __tablename__ = "external_reviews"
+    __table_args__ = (
+        UniqueConstraint("business_id", "source", "external_review_id", name="uq_external_review_source_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"), index=True)
+    source: Mapped[str] = mapped_column(String(50), nullable=False)
+    external_review_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    author_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    author_photo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Google allows rating-only, textless reviews.
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    language: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    # Link back to the Google listing (AC10).
+    source_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    external_posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    raw_response: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    business: Mapped[Business] = relationship(back_populates="external_reviews")

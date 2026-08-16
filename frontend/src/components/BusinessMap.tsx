@@ -24,6 +24,10 @@ interface BusinessMapProps {
   zoom?: number;
   className?: string;
   height?: string;
+  /** S-048: fired on marker click, in addition to the default popup toggle.
+   * Lets callers like GooglePlacePicker share one selection state between a
+   * pin click and a list-row click, without introducing a second map stack. */
+  onMarkerClick?: (marker: MapMarker) => void;
 }
 
 /** BusinessMap — Leaflet + OpenStreetMap markers; click navigates when slug is set. */
@@ -33,6 +37,7 @@ export function BusinessMap({
   zoom = 13,
   className = "",
   height = "320px",
+  onMarkerClick,
 }: BusinessMapProps) {
   if (markers.length === 0) {
     return null;
@@ -55,7 +60,12 @@ export function BusinessMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {markers.map((m) => (
-          <Marker key={m.id} position={[m.latitude, m.longitude]} icon={markerIcon}>
+          <Marker
+            key={m.id}
+            position={[m.latitude, m.longitude]}
+            icon={markerIcon}
+            eventHandlers={onMarkerClick ? { click: () => onMarkerClick(m) } : undefined}
+          >
             <Popup>
               {m.slug ? (
                 <a href={`/businesses/${m.slug}`} className="font-medium text-brand-700 hover:underline">

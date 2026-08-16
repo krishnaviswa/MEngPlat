@@ -58,8 +58,9 @@ def test_anonymous_browse_and_redirect(page: Page, api: Api) -> None:
     posted.clear()
     detail.write_review_link().click()
     expect(page.get_by_text("Sign in to write a review.")).to_be_visible()
-    expect(page.get_by_role("link", name="Sign in")).to_have_attribute("href", "/login")
+    sign_in_link = page.get_by_role("main").get_by_role("link", name="Sign in")
+    expect(sign_in_link).to_have_attribute("href", "/login")
     assert not any("POST" in u and "/reviews" in u for u in posted)
 
-    page.get_by_role("link", name="Sign in").click()
+    sign_in_link.click()
     LoginPage(page).expect_form()

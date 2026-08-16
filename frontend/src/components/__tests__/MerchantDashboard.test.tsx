@@ -6,7 +6,18 @@ import type { Business } from "@/lib/api";
 jest.mock("../../lib/api", () => ({
   auth: { me: jest.fn(), updateMe: jest.fn() },
   businesses: { mine: jest.fn() },
-  dashboard: { merchant: jest.fn(), insights: jest.fn(), refreshInsights: jest.fn(), reviewsCsv: jest.fn(), benchmark: jest.fn() },
+  dashboard: {
+    merchant: jest.fn(),
+    insights: jest.fn(),
+    topics: jest.fn(),
+    refreshInsights: jest.fn(),
+    reviewsCsv: jest.fn(),
+    benchmark: jest.fn(),
+    getGoogleReviewsStatus: jest.fn(),
+    searchGooglePlaces: jest.fn(),
+    linkGooglePlace: jest.fn(),
+    syncGoogleReviews: jest.fn(),
+  },
   reviews: { reply: jest.fn() },
   payments: { placement: jest.fn(), checkoutFeatured: jest.fn() },
 }));
@@ -15,9 +26,14 @@ const meMock = auth.me as jest.Mock;
 const mineMock = businesses.mine as jest.Mock;
 const merchantStatsMock = dashboard.merchant as jest.Mock;
 const insightsMock = dashboard.insights as jest.Mock;
+const topicsMock = dashboard.topics as jest.Mock;
 const reviewsCsvMock = dashboard.reviewsCsv as jest.Mock;
 const placementMock = payments.placement as jest.Mock;
 const benchmarkMock = dashboard.benchmark as jest.Mock;
+const googleReviewsStatusMock = dashboard.getGoogleReviewsStatus as jest.Mock;
+// Unlinked by default (S-048) -- individual tests override when the Google
+// reviews card's linked/synced states matter to them.
+googleReviewsStatusMock.mockResolvedValue({ linked: false, place_id: null, review_count: 0, last_synced_at: null });
 
 function makeBusiness(overrides: Partial<Business> = {}): Business {
   return {
@@ -65,6 +81,7 @@ describe("MerchantDashboard tile interactivity (S-022)", () => {
     (window.HTMLElement.prototype.scrollIntoView as jest.Mock).mockClear();
     meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
     insightsMock.mockResolvedValue({});
+    topicsMock.mockResolvedValue(null);
     placementMock.mockResolvedValue({
       business_id: "biz-1",
       active: false,
@@ -231,6 +248,7 @@ describe("MerchantDashboard analytics (S-033)", () => {
     jest.clearAllMocks();
     meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
     insightsMock.mockResolvedValue({});
+    topicsMock.mockResolvedValue(null);
     placementMock.mockResolvedValue({
       business_id: "biz-1",
       active: false,
@@ -385,6 +403,7 @@ describe("MerchantDashboard chart upgrade + deltas (S-037)", () => {
     jest.clearAllMocks();
     meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
     insightsMock.mockResolvedValue({});
+    topicsMock.mockResolvedValue(null);
     placementMock.mockResolvedValue({
       business_id: "biz-1",
       active: false,
@@ -487,6 +506,7 @@ describe("MerchantDashboard benchmark + collect QR (S-038 / S-040)", () => {
     jest.clearAllMocks();
     meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
     insightsMock.mockResolvedValue({});
+    topicsMock.mockResolvedValue(null);
     placementMock.mockResolvedValue({
       business_id: "biz-1",
       active: false,

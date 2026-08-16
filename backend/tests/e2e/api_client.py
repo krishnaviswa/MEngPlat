@@ -30,10 +30,10 @@ class Api:
         return self._ctx.get(path.lstrip("/"), headers=self._headers(token))
 
     def post(self, path: str, token: str | None = None, json: Any = None):
-        return self._ctx.post(path.lstrip("/"), headers=self._headers(token), json=json)
+        return self._ctx.post(path.lstrip("/"), headers=self._headers(token), data=json)
 
     def patch(self, path: str, token: str | None = None, json: Any = None):
-        return self._ctx.patch(path.lstrip("/"), headers=self._headers(token), json=json)
+        return self._ctx.patch(path.lstrip("/"), headers=self._headers(token), data=json)
 
     def register(
         self,

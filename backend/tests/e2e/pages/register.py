@@ -18,7 +18,7 @@ class RegisterPage:
         self.page.get_by_placeholder("Password (min 12 chars, include a letter and a digit)").fill(
             PASSWORD
         )
-        self.page.get_by_role("combobox").select_option(role)
+        self.page.get_by_role("combobox", name="Account type").select_option(role)
         self.page.get_by_role("button", name="Sign up").click()
         self.page.wait_for_url(lambda url: "/login" in url, timeout=20_000)
         LoginPage(self.page).login(email, PASSWORD)

@@ -27,9 +27,11 @@ from app.schemas import (
     BusinessUpdate,
     CategoryCreate,
     CategoryResponse,
+    ExternalReviewResponse,
     MessageResponse,
     PublicPlatformStats,
 )
+from app.services import review_sync_service
 from app.services.cache import cache_delete_pattern
 from app.services.email import try_send_listing_approved
 from app.services.payments.featured import load_active_featured_ends
@@ -366,3 +368,21 @@ async def suspend_business(
     db.add(AuditLog(admin_id=admin.id, action="suspend", entity_type="business", entity_id=str(business_id)))
     await cache_delete_pattern("search:*")
     return MessageResponse(message="Business suspended")
+
+
+@router.get("/{business_id}/external-reviews", response_model=list[ExternalReviewResponse])
+async def list_external_reviews(
+    business_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> list[ExternalReviewResponse]:
+    """
+    Public: up to 5 synced third-party (Google) reviews for a business (S-048
+    AC10, AC11). Two path segments, so this cannot collide with the
+    single-segment `GET /{slug}` above regardless of registration order.
+
+    **Response:** `[]` when the business has never linked/synced (AC11) --
+    callers should not render an "Also reviewed on Google" section for an
+    empty list.
+    """
+    rows = await review_sync_service.list_external_reviews(db, business_id)
+    return [ExternalReviewResponse.model_validate(row) for row in rows]

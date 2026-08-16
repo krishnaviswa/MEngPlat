@@ -3,7 +3,7 @@
 import pytest
 
 from app.models import Sentiment
-from app.services.ai.base import AIProvider, coerce_sentiment
+from app.services.ai.base import AIProvider, coerce_sentiment, coerce_topic_sentiment
 from app.services.ai.providers.mock import MockAIProvider
 
 
@@ -50,6 +50,45 @@ class TestCoerceSentiment:
     def test_result_always_constructs_a_Sentiment(self, raw):
         """The actual failure condition: Sentiment(...) must never raise."""
         assert Sentiment(coerce_sentiment(raw)) in Sentiment
+
+
+class TestCoerceTopicSentiment:
+    """S-049: the topic-aggregate sentiment domain is deliberately 3-value
+    (positive|negative|mixed), not the DB Sentiment enum -- "mixed" is a
+    sharper signal for a topic than "neutral" is for a single review. Same
+    never-raise non-negotiable as coerce_sentiment.
+    """
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("positive", "positive"),
+            ("negative", "negative"),
+            ("mixed", "mixed"),
+            ("Positive", "positive"),
+            ("NEGATIVE", "negative"),
+            ("  Mixed  ", "mixed"),
+            ("mostly positive", "positive"),
+            ("very negative", "negative"),
+            # Ambiguous/unrecognized free-form output defaults to "mixed",
+            # not "neutral" -- there is no neutral in this domain.
+            ("neutral", "mixed"),
+            ("unknown", "mixed"),
+            ("", "mixed"),
+            (None, "mixed"),
+            (0, "mixed"),
+            ([], "mixed"),
+        ],
+    )
+    def test_coerces_to_the_three_value_domain(self, raw, expected):
+        assert coerce_topic_sentiment(raw) == expected
+
+    @pytest.mark.parametrize(
+        "raw",
+        ["Positive", "NEGATIVE", "", None, "very mixed signals", "n/a", "🙂", 42, {"a": 1}],
+    )
+    def test_never_raises(self, raw):
+        assert coerce_topic_sentiment(raw) in {"positive", "negative", "mixed"}
 
 
 class TestProviderContract:

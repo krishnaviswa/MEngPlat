@@ -2,7 +2,9 @@ import { SearchBar } from "@/components/SearchBar";
 import { CategoryIndex } from "@/components/home/CategoryIndex";
 import { CityIndex } from "@/components/home/CityIndex";
 import { FeaturedGrid } from "@/components/home/FeaturedGrid";
+import { ProblemSection } from "@/components/home/ProblemSection";
 import { ReviewVoices, type ReviewVoiceItem } from "@/components/home/ReviewVoices";
+import { SocialProofRail } from "@/components/home/SocialProofRail";
 import { TrustMetrics } from "@/components/home/TrustMetrics";
 import {
   API_URL,
@@ -173,6 +175,10 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      <SocialProofRail />
+
+      <ProblemSection />
 
       {stats && <TrustMetrics stats={stats} />}
 

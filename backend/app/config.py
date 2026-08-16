@@ -89,6 +89,16 @@ class Settings(BaseSettings):
     # one summary refresh, not one per review.
     ai_summary_debounce_seconds: int = 300
 
+    # Topic clustering (app/routers/ai.py, S-049). A business is eligible once
+    # it has this many ACTIVE reviews with non-trivial body text; below that,
+    # the endpoint returns insufficient_data=True without paying for an LLM call.
+    ai_topics_min_reviews: int = 5
+    ai_topics_min_review_chars: int = 20
+    # Cache-aside TTL for a business's computed topic clusters (not persisted --
+    # see the slice's Architect spec for why this differs from the summary's
+    # background+debounce+persisted-column pattern).
+    ai_topics_cache_ttl_seconds: int = 900
+
     storage_provider: Literal["local", "s3", "azure"] = "local"
     storage_local_path: str = "./uploads"
     # S3 credentials are NOT settings fields on purpose -- boto3's default
@@ -122,6 +132,15 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
 
     google_maps_api_key: str = "placeholder"
+    # S-048 review aggregator. Default "" (not "placeholder" like the leftover
+    # above, which is truthy and would silently defeat a bool(...) check) --
+    # get_review_source_provider() falls back to the mock provider when blank.
+    google_places_api_key: str = ""
+    # Redis SET NX EX debounce TTL for "Sync now" (AC9). Also the crash/timeout
+    # safety net after which a stuck lock self-expires -- see
+    # review_sync_service.sync_google_reviews, which releases the lock early
+    # in the common case via cache.release_lock.
+    google_reviews_sync_debounce_seconds: int = 20
     # OAuth 2.0 client ID (not secret -- it's public, embedded in frontend JS)
     # for Google Identity Services. Verifying an ID token without this set
     # would accept a token minted for any Google application, not just ours.
