@@ -13,7 +13,7 @@ from app.services.whatsapp.registry import register_provider
 
 logger = logging.getLogger(__name__)
 
-MOCK_NUMBER = "15551234567"
+MOCK_NUMBER = "15105126325"
 MOCK_VERIFY_TOKEN = "mock-verify-token"
 MOCK_WEBHOOK_SECRET = "mock-webhook-secret"
 
