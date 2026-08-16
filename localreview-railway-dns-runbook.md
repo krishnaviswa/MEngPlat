@@ -90,7 +90,141 @@ Until TXT is green, the chain stops at Railway edge (station 404).
 
 ---
 
+## Next.js ↔ backend (how each call works)
+
+There is **no proxy** in Next.js that rewrites `/api` to FastAPI. `frontend/src/lib/api.ts` always calls the **backend public HTTPS URL**. The website origin and the API origin are **two different hosts**.
+
+```text
+Browser  →  https://www.localreview.co.in     →  Next.js  (frontend service, :8080)
+Browser  →  https://<backend>.up.railway.app  →  FastAPI  (backend service, :8080)
+Next.js server (SSR)  →  same backend URL via API_URL_INTERNAL
+```
+
+Those two **8080**s are not the same port. Each Railway service has its own container and its own `$PORT` (often both show 8080). The browser never dials 8080; it uses **443** on each hostname.
+
+### Which URL Next.js uses (`api.ts`)
+
+| Who is running the fetch | Variable | When it is set |
+| --- | --- | --- |
+| **Browser** (login, dashboard, collect, `"use client"`) | `NEXT_PUBLIC_API_URL` | Baked in at `npm run build`. Change it → **redeploy frontend**. |
+| **Next.js server** (home, search, business profile SSR) | `API_URL_INTERNAL`, else `NEXT_PUBLIC_API_URL` | Read at **runtime** in the frontend container. |
+
+Code: if `window` is undefined → server; else → client. Production SSR that still hits `localhost:8000` logs an error and Featured stays empty.
+
+Both should be:
+
+```text
+https://<backend>.up.railway.app
+```
+
+No path, no `/api/v1`, no port. Paths are appended in code (`/api/v1/auth/login`, etc.).
+
+### Path A — first paint (SSR: home / search)
+
+The HTML is built **on the frontend server**, then sent to the browser. The browser does **not** show `GET /api/v1/businesses` for that first paint.
+
+```text
+1. User → https://www.localreview.co.in/
+2. Namecheap CNAME → Railway frontend :443 → Next :8080
+3. Next Server Component fetch
+      API_URL_INTERNAL + /api/v1/businesses/...
+      → Railway backend :443 → uvicorn :8080
+4. FastAPI JSON → Next renders HTML
+5. HTML/JS/CSS → browser
+```
+
+CORS does **not** apply here. This is server-to-server (Next container → API container). No `Origin` from the user’s browser.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Browser
+    participant Next as Next.js server
+    participant API as FastAPI
+
+    User->>Browser: GET https://www.localreview.co.in/
+    Browser->>Next: HTTPS :443 (Railway maps to :8080)
+    Next->>API: GET https://backend.../api/v1/businesses<br/>(API_URL_INTERNAL)
+    API-->>Next: JSON
+    Next-->>Browser: HTML
+```
+
+### Path B — in-page actions (browser → API)
+
+Login, merchant dashboard, reviews, WhatsApp card, etc. run in the **browser**. JS calls FastAPI **directly**.
+
+```text
+1. Page already loaded from www.localreview.co.in
+2. Browser JS: fetch(NEXT_PUBLIC_API_URL + /api/v1/...)
+   Header Origin: https://www.localreview.co.in
+   Header Authorization: Bearer <access_token> when logged in
+3. Browser may send OPTIONS first (CORS preflight)
+4. FastAPI checks CORS_ORIGINS for that Origin
+   Allow → JSON
+   Deny → browser blocks; Network tab shows CORS error
+5. JSON → React updates the page
+```
+
+If the user opened **`https://mengplat.up.railway.app`** instead, `Origin` is that Railway URL. It must also be in `CORS_ORIGINS`. Same backend, different allowed website.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Browser
+    participant Next as Next.js (already loaded)
+    participant API as FastAPI
+
+    User->>Browser: Click Sign in
+    Note over Browser,Next: Page came from www (or mengplat)
+    Browser->>API: OPTIONS /api/v1/auth/login
+    API-->>Browser: CORS allow if Origin is listed
+    Browser->>API: POST /api/v1/auth/login
+    API-->>Browser: tokens JSON
+    Browser->>Browser: localStorage access_token
+    Browser->>API: GET /api/v1/auth/me  Authorization Bearer
+    API-->>Browser: user JSON
+```
+
+Tokens live in **localStorage** on the frontend origin. They are sent to the API as headers, not as cookies (MVP). Changing website host (`www` vs `mengplat`) is a **different origin**, so storage is separate — you log in again on the other URL.
+
+### Path C — email links (backend → user, no Next in the middle)
+
+Forgot-password email is built on the **backend**:
+
+```text
+PUBLIC_APP_URL + /reset-password?token=...
+```
+
+That is why `PUBLIC_APP_URL` is a **single** frontend origin (`https://www.localreview.co.in`). The API does not know which of the two website URLs the user had open.
+
+### What FastAPI does with a request
+
+1. TLS ends at Railway (443) → process on `$PORT` (8080).
+2. CORS middleware: is `Origin` in `CORS_ORIGINS`? (browser calls only)
+3. Router under `/api/v1/...`
+4. If the route needs a user: JWT from `Authorization`
+5. Service layer + Postgres/Redis
+6. JSON back the same path
+
+The frontend never “listens” for the backend. The backend only **answers** HTTP. Next.js answers **page** HTTP; FastAPI answers **API** HTTP.
+
+### Two website URLs, one API
+
+```text
+www.localreview.co.in  ──┐
+                         ├── Next.js (one service, one :8080) ─┐
+mengplat.up.railway.app ─┘                                      │
+                                                                ▼
+                                              FastAPI (other service, other :8080)
+                                              public: https://<backend>.up.railway.app
+```
+
+Validate features on **one** website URL. The API is always the backend host. Do not point `localreview.co.in` at the backend.
+
+---
+
 ## Why `www` vs apex
+
 
 - `www.localreview.co.in` — CNAME (what we provisioned).
 - `localreview.co.in` (`@`) — optional; needs ALIAS + a second Railway custom domain. Not required if everyone uses `www`.
