@@ -1167,7 +1167,7 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | POST   | `/businesses/categories`     | Admin          | Create category. `409` if name or slug already exists (S-034)            |
 
 
-Query on `GET /businesses`: `city`, `status_filter` (`approved` default). Listing with any non-`approved` `status_filter` (e.g. `pending`) requires an admin Bearer token; anonymous callers receive `403`.
+Query on `GET /businesses`: `city`, `slugs` (comma-separated exact-slug filter, used by the homepage social-proof rail), `status_filter` (`approved` default). Listing with any non-`approved` `status_filter` (e.g. `pending`) requires an admin Bearer token; anonymous callers receive `403`.
 
 ### Reviews — `/reviews`
 

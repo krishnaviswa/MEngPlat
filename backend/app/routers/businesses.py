@@ -75,11 +75,12 @@ async def _to_responses(db: AsyncSession, rows: list[Business]) -> list[Business
 @router.get("", response_model=list[BusinessResponse])
 async def list_businesses(
     city: str | None = None,
+    slugs: str | None = None,
     status_filter: BusinessStatus | None = BusinessStatus.APPROVED,
     db: AsyncSession = Depends(get_db),
     user: User | None = Depends(get_optional_user),
 ) -> list[BusinessResponse]:
-    """List businesses with optional city filter. Non-approved status filters require admin."""
+    """List businesses with optional city/slugs filter. Non-approved status filters require admin."""
     if status_filter and status_filter != BusinessStatus.APPROVED:
         if not user or user.role != UserRole.ADMIN:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
@@ -88,6 +89,10 @@ async def list_businesses(
         query = query.where(Business.status == status_filter)
     if city:
         query = query.where(Business.city.ilike(f"%{city}%"))
+    if slugs:
+        slug_list = [s.strip() for s in slugs.split(",") if s.strip()]
+        if slug_list:
+            query = query.where(Business.slug.in_(slug_list))
     query = query.order_by(Business.average_rating.desc()).limit(50)
     result = await db.execute(query)
     return await _to_responses(db, list(result.scalars().all()))
