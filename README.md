@@ -357,10 +357,12 @@ These four are **functionally in the product**. Tests and Compose must stay vend
 | Email | `EMAIL_PROVIDER` | `mock` (logs only) | `resend` | Yes — reset, listing approved, new review (best-effort) |
 | Payments | `PAYMENTS_PROVIDER` | `mock` (no keys; DEBUG mock-complete) | `razorpay` Checkout + webhook HMAC | Yes — three featured SKUs; admin approve after capture |
 | SMS | `SMS_PROVIDER` | `mock` (logs OTP) | `msg91` | Yes — Phone OTP login |
+| Review sources | `GOOGLE_PLACES_API_KEY` | unset → `mock` (deterministic fixtures, no network) | Google Places Text Search + Place Details | Yes — merchant link/sync + public sample (**S-048**). Empty key must stay `""`, not `"placeholder"` |
+| WhatsApp | `WHATSAPP_PROVIDER` | `mock` (HMAC + fixture media; no Meta calls) | `meta_cloud` (`app/services/whatsapp/providers/meta_cloud.py`) | **Not Accepted** (S-050..052 Testing). Mock + Jest; pytest still required — [§14 cutover](#going-live-with-meta-whatsapp-cloud-api) |
 
 **Staging policy:** spin the same Compose stack (or a Railway “staging” project) with those four defaults. Do not buy Resend/Razorpay/S3 to prove the web loop. Prove the loop against mocks; prove adapters with contract tests (`backend/tests/test_email_provider.py`, `test_payments.py`, `test_storage.py`, `test_ai_*`).
 
-Architecture files for this layer: [ADR-007](docs/agents/adrs/ADR-007-transactional-email-port.md), [ADR-008](docs/agents/adrs/ADR-008-razorpay-featured-fee.md), [ADR-010](docs/agents/adrs/ADR-010-featured-sku-admin-approve.md), [ADR-011](docs/agents/adrs/ADR-011-phone-otp-sms.md), [ADR-009](docs/agents/adrs/ADR-009-web-functional-e2e.md) (how we *prove* the loop), plus `.cursor/rules/ai-and-integrations.mdc` / `backend/app/services/CLAUDE.md`.
+Architecture files for this layer: [ADR-007](docs/agents/adrs/ADR-007-transactional-email-port.md), [ADR-008](docs/agents/adrs/ADR-008-razorpay-featured-fee.md), [ADR-010](docs/agents/adrs/ADR-010-featured-sku-admin-approve.md), [ADR-011](docs/agents/adrs/ADR-011-phone-otp-sms.md), [ADR-012](docs/agents/adrs/ADR-012-whatsapp-cloud-api-port.md), [ADR-009](docs/agents/adrs/ADR-009-web-functional-e2e.md) (how we *prove* the loop), plus `.cursor/rules/ai-and-integrations.mdc` / `backend/app/services/CLAUDE.md`.
 
 ### Architecture vs original product design (drift)
 
@@ -444,6 +446,7 @@ erDiagram
     businesses ||--o{ payments : "featured checkout"
     payments ||--o| featured_placements : "activates"
     users ||--o{ payments : "merchant buyer"
+    businesses ||--o{ external_reviews : "google sample"
 
     users {
         uuid id PK
@@ -477,6 +480,7 @@ erDiagram
         int review_count
         jsonb ai_positives
         jsonb ai_complaints
+        jsonb external_platform_refs
     }
     categories {
         uuid id PK
@@ -508,6 +512,14 @@ erDiagram
         string url
         string photo_type
     }
+    external_reviews {
+        uuid id PK
+        uuid business_id FK
+        string source
+        string external_review_id
+        int rating
+        text body
+    }
 ```
 
 
@@ -536,9 +548,12 @@ erDiagram
 | `seed_runs`           | Demo seed version markers (`SEED_VERSION`) — skip re-upsert on boot |
 | `payments`            | Featured-boost charges (SKU, paise, fee split, approve timestamps, no PAN) — S-036/S-042 |
 | `featured_placements` | Time-bounded paid search boost (`starts_at` / `ends_at` / `disabled_at`) |
+| `external_reviews`    | Third-party review sample (Google Places). **Never** blended into `average_rating` / `review_count` (**S-048**) |
+| `whatsapp_sessions`   | Short-lived `MH-XXXXXXXX` token binding a WhatsApp phone to a business (**S-050**, mock default) |
+| `business_update_drafts` | AI-extracted profile fields (`pending`/`applied`/`discarded`) — never auto-live (**S-052**) |
 
 
-22 SQLAlchemy models live in a single file: `[backend/app/models/__init__.py](backend/app/models/__init__.py)`.
+SQLAlchemy models live in a single file: `[backend/app/models/__init__.py](backend/app/models/__init__.py)`. `Business.external_platform_refs` is nullable JSONB (`{"google": "<place_id>"}` once linked; `NULL` when not).
 
 ### Relationships
 
@@ -560,6 +575,7 @@ erDiagram
 | User → AuditLog     | 1:N         | Admin actions are logged                             |
 | Business → Payment  | 1:N         | Featured-boost checkout rows                         |
 | Payment → Placement | 1:0..1      | Successful capture may create one 7-day window       |
+| Business → ExternalReview | 1:N   | Google sample rows; unique `(business_id, source, external_review_id)` (**S-048**) |
 
 
 
@@ -573,6 +589,7 @@ erDiagram
 | `BusinessStatus` | `pending`, `approved`, `rejected`, `suspended` |
 | `ReviewStatus`   | `active`, `hidden`, `reported`, `removed`      |
 | `PaymentStatus`  | `created`, `paid`, `failed`, `refunded`        |
+| `DraftStatus`    | `pending`, `applied`, `discarded` (WhatsApp AI drafts, **S-052**) |
 
 
 
@@ -580,7 +597,7 @@ erDiagram
 ### Indexes & constraints
 
 - Unique: `users.email`, `businesses.slug`, `categories.slug`
-- Unique pairs: `(user_id, business_id)` on `favorites`, `(user_id, review_id)` on `review_likes`, `(author_id, business_id)` on `reviews` (`uq_author_business_review` — one review per user per business)
+- Unique pairs: `(user_id, business_id)` on `favorites`, `(user_id, review_id)` on `review_likes`, `(author_id, business_id)` on `reviews` (`uq_author_business_review` — one review per user per business), `(business_id, source, external_review_id)` on `external_reviews`
 - Foreign keys with `CASCADE` on delete for reviews, photos, etc.
 
 ---
@@ -801,11 +818,62 @@ flowchart TD
     S --> UI[MerchantDashboard component]
     I --> UI
     UI --> CH[Charts + AIInsights panel]
+    UI --> G[Google reviews card]
+    G --> LINK["POST .../google-reviews/search + /link"]
+    G --> SYNC["POST .../google-reviews/sync"]
 ```
 
 
 
 `S` is filtered by an optional `range=30|90|all` query param (default `all`); `RAT`/`VOL` and reply-rate move with it, `S`'s totals/sentiment stay all-time. `UI` also offers **Export CSV** — `GET /dashboard/merchant/:id/reviews.csv`, same range, own business only (S-033).
+
+**Google reviews (S-048):** owning merchant (or admin) links a Place ID once, then **Sync now** pulls Google's cap of 5 most-relevant reviews into `external_reviews`. Native `average_rating` / `review_count` do not change. Public profiles show a separate "Also reviewed on Google" section only when rows exist. No scheduler — manual sync only. Local/CI uses a mock provider unless `GOOGLE_PLACES_API_KEY` is set.
+
+```mermaid
+sequenceDiagram
+    participant Merchant
+    participant Dash as MerchantDashboard
+    participant API as FastAPI
+    participant Provider as mock or Google Places
+    participant Visitor
+
+    Merchant->>Dash: Link Google Business Profile
+    Dash->>API: POST /dashboard/merchant/:id/google-reviews/search
+    API->>Provider: Text Search
+    Provider-->>Dash: candidates
+    Merchant->>Dash: Confirm place
+    Dash->>API: POST .../google-reviews/link
+    Merchant->>Dash: Sync now
+    Dash->>API: POST .../google-reviews/sync
+    API->>Provider: Place Details reviews
+    Visitor->>API: GET /businesses/:id/external-reviews
+    API-->>Visitor: up to 5 rows (or [])
+```
+
+**WhatsApp shop updates (S-050..052, mock default, not Accepted):** approved listings get a second QR beside collect. Inbound webhook binds `MH-XXXXXXXX`, stores photos as `general`, and parks AI-extracted text as pending drafts until Apply.
+
+```mermaid
+sequenceDiagram
+    participant Merchant
+    participant Dash as MerchantDashboard
+    participant API as FastAPI
+    participant WA as WhatsAppProvider mock or meta_cloud
+    participant AI as AIProvider
+
+    Merchant->>Dash: Open approved listing
+    Dash->>API: POST .../whatsapp/link
+    API-->>Dash: wa.me + session token
+    Note over API,WA: POST /webhooks/whatsapp HMAC
+    API->>WA: parse inbound
+    alt image on bound session
+        API->>WA: download_media
+        API->>API: save_business_photo general
+    else text on bound session
+        API->>AI: extract_business_profile
+        API->>API: pending business_update_drafts
+    end
+    Merchant->>Dash: Apply or Discard draft
+```
 
 ### Merchant business registration
 
@@ -1091,6 +1159,7 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | GET    | `/businesses/cities`         | Public         | Distinct cities from approved businesses (search filter chips)           |
 | GET    | `/businesses/stats/summary`  | Public         | Public counts: businesses, reviews, categories, cities (no admin fields) |
 | GET    | `/businesses/{slug}`         | Public         | Get by slug                                                              |
+| GET    | `/businesses/{business_id}/external-reviews` | Public | Synced Google review sample, max 5, `[]` if none (**S-048**). Does not affect `average_rating` / `review_count` |
 | POST   | `/businesses`                | Merchant       | Create business (status `pending`). 400 if merchant national ID missing  |
 | PATCH  | `/businesses/{id}`           | Merchant/Admin | Update business                                                          |
 | POST   | `/businesses/{id}/approve`   | Admin          | Approve listing                                                          |
@@ -1159,6 +1228,14 @@ Upload form fields: `file`, `business_id`, `review_id`, `photo_type`, `caption`.
 | GET    | `/dashboard/merchant/{business_id}`             | Merchant, Admin | Merchant dashboard stats. Query `range=30|90|all` (default `all`, 422 if invalid) filters `review_volume_by_month`, `rating_distribution`, `reply_rate`, plus S-037 previous-window counts. `total_reviews`/`average_rating`/`sentiment_breakdown`/`recent_reviews` stay all-time (**S-033**) |
 | GET    | `/dashboard/merchant/{business_id}/benchmark`   | Merchant, Admin | Category + city rating medians from approved listings; null if fewer than 3 peers. Not an AI judgment (**S-038**) |
 | GET    | `/dashboard/merchant/{business_id}/reviews.csv` | Merchant, Admin | Export that business's reviews as `text/csv` (same `range`, own business only, never cached) (**S-033**)                                                                                                                                                                                |
+| POST   | `/dashboard/merchant/{business_id}/google-reviews/search` | Merchant, Admin | Places Text Search proxy; body `{query}` (min 2). `200` empty list is valid; `502` readable error (**S-048**) |
+| GET    | `/dashboard/merchant/{business_id}/google-reviews` | Merchant, Admin | Link/sync status: `linked`, `place_id`, `review_count`, `last_synced_at` (**S-048**) |
+| POST   | `/dashboard/merchant/{business_id}/google-reviews/link` | Merchant, Admin | Set `external_platform_refs.google`. `409` if already linked (**S-048**) |
+| POST   | `/dashboard/merchant/{business_id}/google-reviews/sync` | Merchant, Admin | Fetch/upsert up to 5 reviews. `400` if unlinked; `200` `{debounced: true}` if a sync is in flight; `502` leaves rows untouched (**S-048**) |
+| POST   | `/dashboard/merchant/{business_id}/whatsapp/link` | Merchant, Admin | Short-lived `wa.me` URL + session token (**S-050**). Mock is always `available` |
+| GET    | `/dashboard/merchant/{business_id}/whatsapp/drafts` | Merchant, Admin | Pending AI profile suggestions from WhatsApp (**S-052**) |
+| POST   | `/dashboard/merchant/{business_id}/whatsapp/drafts/{id}/apply` | Merchant, Admin | Write confirmed fields to the live `Business` row |
+| POST   | `/dashboard/merchant/{business_id}/whatsapp/drafts/{id}/discard` | Merchant, Admin | Drop the draft; listing unchanged |
 | GET    | `/dashboard/admin/platform`                     | Admin           | Five live `COUNT(*)` tiles — unchanged snapshot                                                                                                                                                                                                                                         |
 | GET    | `/dashboard/admin/platform/series`              | Admin           | Time series: `new_users`, `businesses_approved` (from `audit_logs` `approve`/`business`), `new_reviews`, `new_reports`. Query `granularity=day|week` (default `day`), `days` 1-365 (default `90`), zero-filled buckets (**S-034**)                                                      |
 
@@ -1203,6 +1280,15 @@ Query params: `q`, `city`, `category`, `min_rating`, `sentiment`, `lat`, `lng`, 
 | POST | `/payments/admin/payments/{id}/reject` | Admin | Refuse boost; no refund |
 | POST | `/payments/admin/placements/{id}/disable` | Admin | Drop rank immediately; no refund |
 | POST | `/payments/admin/payments/{id}/refund` | Admin | Provider refund + disable placement. 409 if not `paid` |
+
+
+### Webhooks — `/webhooks`
+
+
+| Method | Path | Auth | Description |
+| ------ | ---- | ---- | ----------- |
+| GET | `/webhooks/whatsapp` | Meta verify token | Subscription handshake — echoes `hub.challenge` (**S-050**) |
+| POST | `/webhooks/whatsapp` | `X-Hub-Signature-256` HMAC | Inbound messages. `400` missing/invalid sig. Mock accepts `sha256=mock`. Photos + drafts; text never auto-publishes |
 
 
 ### Favorites — `/favorites`
@@ -1424,7 +1510,11 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | `MerchantDashboard.tsx`    | Reviews + analytics + insights composite                                       |
 | `MerchantNationalIdCard.tsx` | Merchant national ID (PAN/Aadhaar/Other); required before listing create (S-043) |
 | `CollectQrCard.tsx`        | QR for `/collect/{id}` review wizard (S-040)                                   |
+| `WhatsAppUpdateCard.tsx`   | `wa.me` QR to send shop details (S-050, mock; **not Accepted**)                |
+| `WhatsAppDraftsPanel.tsx`  | Apply/Discard AI profile suggestions from WhatsApp (S-052, **not Accepted**)   |
 | `BenchmarkCard.tsx`        | Category/city rating medians (S-038)                                           |
+| `GooglePlacePicker.tsx`    | Search + Leaflet/OSM pins to link a Google Place ID (S-048)                    |
+| `ExternalReviews.tsx`      | Public "Also reviewed on Google" sample; hidden when empty (S-048)             |
 
 
 The API client lives in `[frontend/src/lib/api.ts](frontend/src/lib/api.ts)` and calls the backend directly via `NEXT_PUBLIC_API_URL` / `API_URL_INTERNAL` — there is no BFF or rewrite layer.
@@ -1608,6 +1698,7 @@ Confusing these is the classic RBAC bug, so they are separate mechanisms:
 | Create / update business                                  | —        | ✅                | ✅      |
 | Reply to review                                           | —        | ✅ (own business) | ✅      |
 | Merchant dashboard, AI insights                           | —        | ✅ (own business) | ✅      |
+| Google review search / link / sync                        | —        | ✅ (own business) | ✅      |
 | Approve / suspend business, create category API           | —        | —                | ✅      |
 | Moderate review (hide/restore/remove)                     | —        | —                | ✅      |
 | Platform counts (`GET .../admin/platform`)                | —        | —                | ✅      |
@@ -2177,7 +2268,7 @@ register/Google/profile edit, S-030 like/report/replies, S-031 merchant/admin da
 Home marketing (M-13–M-18) is still `unimplemented`. FCM (M-47) remains `future`.
 Combined `flutter analyze` / `flutter test` is deferred until you ask.
 
-**Last reviewed:** 2026-08-15
+**Last reviewed:** 2026-08-16
 
 
 | ID   | Area              | Feature                                                            | Web surface                                     | Mobile surface                                                         | Status          | Notes / slice                                                |
@@ -2260,11 +2351,13 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-76 | Home              | Social proof rail (businesses-using-MerchantHub strip)             | `/` (`SocialProofRail`)                         | —                                                                      | `unimplemented` | S-047; web built — mobile not yet                            |
 | M-77 | Home              | Problem section (three named product gaps, numbered layout)        | `/` (`ProblemSection`)                          | —                                                                      | `unimplemented` | S-047; web built — mobile not yet                            |
 | M-78 | Merchant          | AI topic clustering (named themes, count + sentiment, "Common Themes" panel) | `/merchant/dashboard` (`AIInsights`)  | —                                                                      | `unimplemented` | S-049; web built — mobile not yet                            |
+| M-80 | Merchant/Customer | External review sync (Google) — dashboard link/sync + public sample | `/merchant/dashboard` Google card + `/businesses/[slug]` (`ExternalReviews`) | —                                              | `unimplemented` | S-048; web built — mobile not yet; no auto-polling           |
+| M-79 | Merchant          | WhatsApp shop-data ingestion (link/QR, photos, AI text drafts)     | `/merchant/dashboard` card + inbound webhook | —                                                               | `unimplemented` | S-050..052 Testing — mock code + Jest; **pytest not run / not Accepted**; Meta cutover in §14 |
 
 
 
 
-**Rollup (2026-08-16):** `implemented` 46 · `partial` 1 · `unimplemented` 20 · `n/a` 11 · `future` 1 · **total 79**.
+**Rollup (2026-08-16):** `implemented` 46 · `partial` 1 · `unimplemented` 26 · `n/a` 6 · `future` 1 · **total 80**.
 
 This repo is built with both Cursor and Claude Code, so every convention is defined
 **twice, in each tool's native format** — a session started in either tool should
@@ -2436,6 +2529,12 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-039 | AI reply drafting — surface `suggested_response` in merchant reply UI          | 2 Core       | Accepted                                 |
 | S-041 | Admin category chips open public search                                        | 5 Polish     | Accepted                                 |
 | S-044 | Phone OTP login (mock SMS + Msg91 port)                                        | 1 Foundation | Accepted                                 |
+| S-047 | Home marketing sections (social proof + problem)                               | 5 Polish     | Accepted                                 |
+| S-048 | Multi-platform review aggregator foundation (Google Places)                    | 2 Core       | Accepted                                 |
+| S-049 | AI topic clustering for merchant reviews                                       | 3 AI         | Accepted                                 |
+| S-050 | WhatsApp link foundation (session + inbound webhook + dashboard QR)            | 4 Dashboards | Testing (Jest pass; pytest not run; not Accepted) |
+| S-051 | WhatsApp photo ingestion (reuse existing photo/storage pipeline)               | 2 Core       | Testing (pytest not run; not Accepted)   |
+| S-052 | WhatsApp AI text drafts (extract → merchant Apply/Discard)                     | 3 AI         | Testing (Jest pass; pytest not run; not Accepted) |
 
 
 
@@ -2475,14 +2574,14 @@ An honest delta between the original specification and what the code actually do
 | Area            | State                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Backend routers | 13, all wired into `main.py` (includes favorites, admin, payments)                                                                                                                                                                                                                                                                                                                          |
-| Data models     | 22 SQLAlchemy models                                                                                                                                                                                                                                                                                                                                                                     |
+| Data models     | SQLAlchemy models in `app/models/__init__.py` (incl. `external_reviews`, S-048)                                                                                                                                                                                                                                                                                                           |
 | Auth            | JWT access/refresh with refresh `jti` rotation, bcrypt, RBAC, Redis logout blocklist + best-effort login lockout, mandatory TOTP for password login, Google OAuth and Phone OTP exempt                                                                                                                                                                                                   |
 | AI layer        | **In the product today.** Review submit runs text + photo analysis + merchant rolling summary via `AIProvider`. Default `mock` (no key, no cost). Real vendors are env + key. Output is **suggestions**, never verdicts. `monthly_trends` (mock or real) are AI-estimated, not review dates — shown as a labeled suggestion list only, never charted as fact (S-033).                    |
 | Storage         | `local` disk and `s3` (boto3) providers implemented; `azure` still a stub                                                                                                                                                                                                                                                                                                                |
 | Email           | `mock` (logs only) and `resend` providers implemented via `EmailProvider` port. Three transactional sends: password reset, listing approved, new review — best-effort, never blocks the triggering request (S-035, Accepted)                                                                                                                                                           |
 | Payments        | `mock` and `razorpay` via `PaymentProvider` port. Three SKUs (₹299/7d, ₹499/15d, ₹899/30d); capture then admin-approve; PAN never stored (S-042)                                                                                                                                                                        |
 | SMS             | `mock` and `msg91` via `SmsProvider` port. Phone OTP login (S-044)                                                                                                                                                                                                                                                       |
-| Frontend        | Home (+ social proof rail, problem section, S-047), search (map + location, paid **Featured** badge), business detail, login (MFA steps) + forgot/reset password (S-035, Accepted), register, enriched profile, settings, merchant dashboard (+ time-series volume/rating-mix/reply-rate/CSV export, S-033; featured boost CTA, S-036; AI topic clustering "Common Themes" panel, S-049) + business create/edit, admin moderation queues (+ platform trend charts, category admin, user suspend/reactivate, S-034; placement disable/refund) |
+| Frontend        | Home (+ social proof rail, problem section, S-047), search (map + location, paid **Featured** badge), business detail (+ "Also reviewed on Google", S-048), login (MFA steps) + forgot/reset password (S-035, Accepted), register, enriched profile, settings, merchant dashboard (+ time-series volume/rating-mix/reply-rate/CSV export, S-033; featured boost CTA, S-036; AI topic clustering "Common Themes" panel, S-049; Google reviews link/sync card, S-048) + business create/edit, admin moderation queues (+ platform trend charts, category admin, user suspend/reactivate, S-034; placement disable/refund) |
 | Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine                                                                                                                                                                                                                                                                                                            |
 | Seeding         | `scripts/seed.py` — Portland + Chennai + US; gated by `SEED_MODE` / `seed_runs` (Railway: not on boot)                                                                                                                                                                                                                                                                                   |
 | Local dev       | `docker compose up --build`                                                                                                                                                                                                                                                                                                                                                              |
@@ -2505,6 +2604,8 @@ An honest delta between the original specification and what the code actually do
 | **Mobile web parity**       | P0–P4 (S-023–S-025, S-027–S-031) are on Flutter (analyze/test not run yet). Remaining gaps: home marketing (M-13–M-18), FCM (M-47 `future`), storefront/hours editors (`n/a`). Living checklist: [§12 Web ↔ mobile feature parity tracker](#web--mobile-feature-parity-tracker). |
 | **Optional seed ops**       | Core seed gating is done (`SEED_MODE` / `seed_runs`). Still optional later: a Railway one-shot/cron seed service (never on the web dyno), blue-green app cutover on one DB, or a disposable dual-DB demo reset — not required for normal deploys.                                |
 | **Dark mode hex values are placeholder** | Dark mode itself is shipped (S-045, Accepted — `next-themes`, class-based Tailwind, 5 semantic tokens, ~65-file sweep). What's still open: every dark-mode hex (`globals.css` `--mh-*` vars, `Charts.tsx` `CHART_COLORS.dark`, Badge/RatingWidget `dark:` pairs) is a contrast-checked, Material-3-grounded placeholder — the real Figma `Color` collection (`X0XXhJiwW8SxFdMf39n2t3`, 99 variables, Light+Dark) is local/unpublished and unreachable via Figma MCP tooling this session. A human needs to open the file directly, diff the real values against the table in the S-045 slice spec, and file a follow-up patch if they drift. |
+| **WhatsApp shop-data ingestion** | **Not Accepted.** S-050..052 are `Testing`. Mock-first code + RTL exist; Tester reports recommend **Rework** because `pytest tests/test_whatsapp.py` was not executed on the Builder host (no Docker). Live Meta is a later **env/ops cutover**: [Going live with Meta WhatsApp](#going-live-with-meta-whatsapp-cloud-api). |
+| **No automatic Google review polling** | **S-048** ships merchant-triggered Sync now only (Google's Place Details cap of 5 most-relevant reviews). Scheduled polling is backlog. Native `average_rating` / `review_count` stay first-party only. |
 
 
 
@@ -2537,16 +2638,27 @@ These are **held off** until product needs them. They are not in-house leftovers
 
 **Payments / PCI** for v1 is **S-042** (three featured SKUs, Razorpay, capture then admin-approve, no cards stored). Stripe and a second gateway stay out of scope. Event grants still wait on neighborhood traffic.
 
+### Going live with Meta WhatsApp Cloud API
+
+The product code talks to WhatsApp only through `get_whatsapp_provider()` ([ADR-012](docs/agents/adrs/ADR-012-whatsapp-cloud-api-port.md)). **Do not add Meta HTTP calls in routers.** Compose/pytest stay on `WHATSAPP_PROVIDER=mock`. When a neighborhood launch needs real chats, this is the rework — env + Meta console, not a new ingest pipeline:
+
+1. Finish S-050..052 against **mock** (pytest + RTL + Tester report + PM `Accepted`) before flipping production. The live adapter is unproven until that gate.
+2. Create a Meta app with **WhatsApp Cloud API**, a business phone number, and a webhook. Subscribe to `messages`. Callback URL: `https://<api-host>/api/v1/webhooks/whatsapp` (GET handshake + POST inbound). Verify token must match `META_WHATSAPP_VERIFY_TOKEN`.
+3. Set production env (empty defaults — never `"placeholder"`): `WHATSAPP_PROVIDER=meta_cloud`, `WHATSAPP_BUSINESS_NUMBER` (digits for `wa.me`), `META_WHATSAPP_ACCESS_TOKEN`, `META_WHATSAPP_PHONE_NUMBER_ID`, `META_WHATSAPP_VERIFY_TOKEN`, `META_WHATSAPP_APP_SECRET` (HMAC for `X-Hub-Signature-256` — this is the **app secret**, not the access token). Optional: `WHATSAPP_SESSION_TTL_HOURS` (default 24).
+4. Factory already falls back to mock if `meta_cloud` is selected but the access token is blank — a missing token must not take production “live” silently. After keys are set, smoke: GET challenge, signed POST of a token-bearing text, one image, one Apply/Discard on the dashboard. HMAC failures must stay 400.
+5. **Do not rewrite** session bind, photo `save_business_photo`, or draft Apply/Discard for Meta. If Graph payloads or media URLs drift, change only `providers/meta_cloud.py` (and add a contract test with a recorded fixture). AI text still never auto-publishes.
+
 ### Suggested next steps (evaluation and leftovers)
 
-Product intel slices S-033–S-040 are **Accepted**. Remaining work is proof, ops, and deferred UI — not another dashboard feature.
+Product intel slices S-033–S-040 are **Accepted**. WhatsApp S-050..052 are **Testing** — mock code + Jest; **not** PM-Accepted (pytest still required). Remaining proof/ops leftovers still apply.
 
-1. **S-010:** run Actions → **Web e2e (Playwright)** when you want the second view; download `playwright-traces`. Keep it off PR/deploy.
-2. Optionally **re-enable** `push`/`pull_request` on `backend-tests.yml` / `frontend-tests.yml` only — do not require Playwright on `main`.
-3. Leftovers: structured logs, hermetic test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity (§12).
-4. Live Resend / Razorpay / S3-CDN when a neighborhood launch needs them — adapters already exist.
+1. **WhatsApp:** run `pytest tests/test_whatsapp.py` with Postgres, close Tester rework items, then PM Accept. Only then run the Meta cutover above.
+2. **S-010:** run Actions → **Web e2e (Playwright)** when you want the second view; download `playwright-traces`. Keep it off PR/deploy.
+3. Optionally **re-enable** `push`/`pull_request` on `backend-tests.yml` / `frontend-tests.yml` only — do not require Playwright on `main`.
+4. Leftovers: structured logs, hermetic test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity (§12).
+5. Live Resend / Razorpay / S3-CDN when a neighborhood launch needs them — adapters already exist; WhatsApp Cloud API follows the cutover list above.
 
-**Good position today:** working loop **including AI**, transactional email (S-035), featured fee SKU (S-036), merchant intel (S-037–S-040), with vendor mocks. **Bad position:** claiming Playwright-on-staging, live Razorpay traffic, or neighborhood traction.
+**Good position today:** working loop **including AI**, transactional email (S-035), featured fee SKU (S-036), merchant intel (S-037–S-040), Google review sample (S-048, mock by default), with vendor mocks. **Bad position:** claiming Playwright-on-staging, live Razorpay traffic, live Places quota, or neighborhood traction.
 
 ---
 
@@ -2591,9 +2703,17 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `SMS_PROVIDER`                | `mock`                                                                   | `mock` (logs OTP) or `msg91`                                                                  |
 | `MSG91_AUTH_KEY`              | *(empty)*                                                                | Required when `SMS_PROVIDER=msg91`                                                            |
 | `MSG91_TEMPLATE_ID`           | *(empty)*                                                                | Required when `SMS_PROVIDER=msg91`                                                            |
+| `WHATSAPP_PROVIDER`           | `mock`                                                                   | `mock` (no Meta calls) or `meta_cloud`. Compose/CI stay `mock`. Cutover: §14                   |
+| `WHATSAPP_BUSINESS_NUMBER`    | *(empty)*                                                                | Public click-to-chat digits for `wa.me`. Mock uses a demo number if empty                     |
+| `WHATSAPP_SESSION_TTL_HOURS`  | `24`                                                                     | How long a dashboard QR token / bound phone stays valid                                       |
+| `META_WHATSAPP_ACCESS_TOKEN`  | *(empty)*                                                                | Cloud API token when `WHATSAPP_PROVIDER=meta_cloud` — never commit a real value               |
+| `META_WHATSAPP_PHONE_NUMBER_ID` | *(empty)*                                                              | Meta phone-number ID for send/ack when using the live provider                                |
+| `META_WHATSAPP_VERIFY_TOKEN`  | *(empty)*                                                                | Shared secret for the webhook GET handshake (`hub.verify_token`)                              |
+| `META_WHATSAPP_APP_SECRET`    | *(empty)*                                                                | HMAC for `X-Hub-Signature-256` (app secret, not the access token). Mock uses `mock-webhook-secret` if empty |
 | `CORS_ORIGINS`                | `http://localhost:3000`                                                  | Comma-separated allowlist                                                                     |
 | `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap/Nominatim                                                     |
 | `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
+| `GOOGLE_PLACES_API_KEY`       | *(empty)*                                                                | Places Text Search + Place Details. Empty → mock review-source provider (**S-048**). Must stay `""`, not `"placeholder"` |
 | `SEED_MODE`                   | `off`                                                                    | `off`                                                                                         |
 | `SEED_VERSION`                | `2026-08-13-password-policy-v1`                                          | Marker written to `seed_runs`; bump when demo seed content changes                            |
 
@@ -2708,7 +2828,7 @@ Demo / seeded listings only. A fundraise ask should be **pre-seed for one neighb
 
 | Built                                                                                                                                                                                                                                                                                                                       | Next (not yet Accepted)                                                                                                                                                                                                                                                                                                                                                                                                               |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth (password + TOTP, Google) + forgot/reset + email, search + OSM + paid Featured, reviews, favorites, merchant dashboard (S-033 charts, S-037 area/deltas, S-038 benchmark, S-039 AI draft, S-040 QR collect), admin queues (S-034) + placement refund, **S-036** featured SKU (mock/Razorpay port), **S-045** dark mode (system default + toggle, ~65-file sweep), **S-046** review-list sort/filter/truncate/lightbox + half-star ratings, **S-047** home social proof rail + problem section, **S-049** AI topic clustering ("Common Themes" panel), **S-010** Playwright journeys + manual `web-e2e.yml` | Leftovers: structured logs, isolated test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity (incl. dark mode, review-list interactivity), optional re-enable pytest/Jest on PR; **S-048** Google review aggregator (in progress) |
+| Auth (password + TOTP, Google) + forgot/reset + email, search + OSM + paid Featured, reviews, favorites, merchant dashboard (S-033 charts, S-037 area/deltas, S-038 benchmark, S-039 AI draft, S-040 QR collect), admin queues (S-034) + placement refund, **S-036** featured SKU (mock/Razorpay port), **S-045** dark mode (system default + toggle, ~65-file sweep), **S-046** review-list sort/filter/truncate/lightbox + half-star ratings, **S-047** home social proof rail + problem section, **S-048** Google review sample (link + Sync now, native ratings unchanged), **S-049** AI topic clustering ("Common Themes" panel), **S-010** Playwright journeys + manual `web-e2e.yml` | Leftovers: structured logs, isolated test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity (incl. dark mode, review-list interactivity, Google review sync), optional re-enable pytest/Jest on PR; **S-050..052** WhatsApp (Testing, **not Accepted** — mock + Jest; pytest still required; Meta cutover in §14) |
 
 
 Play Store packaging is distribution (`ANDROID_APP_STRATEGY.md` phase 5), not this story.

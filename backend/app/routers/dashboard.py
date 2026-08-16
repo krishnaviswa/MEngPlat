@@ -1,6 +1,7 @@
 import csv
 import io
 from datetime import timezone
+from dataclasses import asdict
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -24,12 +25,16 @@ from app.schemas import (
     PlatformAnalyticsSeries,
     ReviewResponse,
     UserResponse,
+    WhatsAppDraftApplyRequest,
+    WhatsAppDraftResponse,
+    WhatsAppLinkResponse,
 )
 from app.routers.reviews import _review_response
 from app.services import benchmark as benchmark_service
 from app.services import merchant_dashboard as merchant_dashboard_service
 from app.services import platform_analytics as platform_analytics_service
 from app.services import review_sync_service
+from app.services import whatsapp_ingest_service
 from app.services.merchant_dashboard import DateRange
 from app.services.platform_analytics import Granularity
 
@@ -209,7 +214,7 @@ async def search_google_places(
         candidates = await review_sync_service.search_google_places(business, payload.query)
     except review_sync_service.GoogleReviewsProviderError:
         raise HTTPException(status_code=502, detail="Couldn't reach Google Places right now") from None
-    return GooglePlacesSearchResponse(candidates=candidates)
+    return GooglePlacesSearchResponse(candidates=[asdict(c) for c in candidates])
 
 
 @router.get("/merchant/{business_id}/google-reviews", response_model=GoogleReviewsStatusResponse)
@@ -271,3 +276,55 @@ async def sync_google_reviews(
         raise HTTPException(status_code=502, detail="Couldn't reach Google Places right now") from None
     await db.commit()
     return GoogleReviewsSyncResponse(**result.__dict__)
+
+
+@router.post("/merchant/{business_id}/whatsapp/link", response_model=WhatsAppLinkResponse)
+async def create_whatsapp_link(
+    business_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
+) -> WhatsAppLinkResponse:
+    """Generate a short-lived wa.me link that binds inbound WhatsApp to this listing (S-050)."""
+    business = await _load_owned_business(db, business_id, user)
+    payload = await whatsapp_ingest_service.create_link(db, business)
+    return WhatsAppLinkResponse(**payload)
+
+
+@router.get("/merchant/{business_id}/whatsapp/drafts", response_model=list[WhatsAppDraftResponse])
+async def list_whatsapp_drafts(
+    business_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
+) -> list[WhatsAppDraftResponse]:
+    """Pending AI-extracted profile suggestions from WhatsApp (S-052)."""
+    await _load_owned_business(db, business_id, user)
+    drafts = await whatsapp_ingest_service.list_pending_drafts(db, business_id)
+    return [WhatsAppDraftResponse.model_validate(d) for d in drafts]
+
+
+@router.post("/merchant/{business_id}/whatsapp/drafts/{draft_id}/apply", response_model=WhatsAppDraftResponse)
+async def apply_whatsapp_draft(
+    business_id: UUID,
+    draft_id: UUID,
+    payload: WhatsAppDraftApplyRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
+) -> WhatsAppDraftResponse:
+    """Write confirmed suggestion fields onto the live Business row."""
+    business = await _load_owned_business(db, business_id, user)
+    fields = payload.fields if payload else None
+    draft = await whatsapp_ingest_service.apply_draft(db, business, draft_id, fields)
+    return WhatsAppDraftResponse.model_validate(draft)
+
+
+@router.post("/merchant/{business_id}/whatsapp/drafts/{draft_id}/discard", response_model=WhatsAppDraftResponse)
+async def discard_whatsapp_draft(
+    business_id: UUID,
+    draft_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
+) -> WhatsAppDraftResponse:
+    """Drop a pending WhatsApp suggestion without changing the live listing."""
+    business = await _load_owned_business(db, business_id, user)
+    draft = await whatsapp_ingest_service.discard_draft(db, business, draft_id)
+    return WhatsAppDraftResponse.model_validate(draft)

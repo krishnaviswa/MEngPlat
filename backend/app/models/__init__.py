@@ -67,6 +67,12 @@ class PaymentStatus(str, enum.Enum):
     REFUNDED = "refunded"
 
 
+class DraftStatus(str, enum.Enum):
+    PENDING = "pending"
+    APPLIED = "applied"
+    DISCARDED = "discarded"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -94,7 +100,16 @@ class User(Base):
     state: Mapped[str | None] = mapped_column(String(100), nullable=True)
     postal_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     country: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    national_id_type: Mapped[NationalIdType | None] = mapped_column(Enum(NationalIdType), nullable=True)
+    # Persist enum *values* (`pan`), matching Alembic's nationalidtype.
+    # SQLAlchemy's default is member *names* (`PAN`), which Postgres rejects.
+    national_id_type: Mapped[NationalIdType | None] = mapped_column(
+        Enum(
+            NationalIdType,
+            name="nationalidtype",
+            values_callable=lambda members: [m.value for m in members],
+        ),
+        nullable=True,
+    )
     national_id_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # Fernet-encrypted TOTP secret; never expose via API. Mandatory for password login.
     totp_secret: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -188,6 +203,8 @@ class Business(Base):
     payments: Mapped[list["Payment"]] = relationship(back_populates="business")
     featured_placements: Mapped[list["FeaturedPlacement"]] = relationship(back_populates="business")
     external_reviews: Mapped[list["ExternalReview"]] = relationship(back_populates="business")
+    whatsapp_sessions: Mapped[list["WhatsAppSession"]] = relationship(back_populates="business")
+    update_drafts: Mapped[list["BusinessUpdateDraft"]] = relationship(back_populates="business")
 
 
 class BusinessCategory(Base):
@@ -437,3 +454,40 @@ class ExternalReview(Base):
     )
 
     business: Mapped[Business] = relationship(back_populates="external_reviews")
+
+
+class WhatsAppSession(Base):
+    """Short-lived token that binds a WhatsApp phone to a business (S-050)."""
+
+    __tablename__ = "whatsapp_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"), index=True)
+    token: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    phone_e164: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    redeemed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    business: Mapped[Business] = relationship(back_populates="whatsapp_sessions")
+
+
+class BusinessUpdateDraft(Base):
+    """AI-extracted profile fields awaiting merchant Apply/Discard (S-052)."""
+
+    __tablename__ = "business_update_drafts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"), index=True)
+    source: Mapped[str] = mapped_column(String(50), nullable=False, default="whatsapp")
+    extracted_fields: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    status: Mapped[DraftStatus] = mapped_column(
+        Enum(DraftStatus), default=DraftStatus.PENDING, nullable=False
+    )
+    degraded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    business: Mapped[Business] = relationship(back_populates="update_drafts")

@@ -1,5 +1,12 @@
-from app.models import User, UserRole
+from app.models import NationalIdType, User, UserRole
 from app.services.national_id import has_national_id, mask_national_id_number, merchant_national_id_required
+
+
+def test_national_id_type_persists_values_not_names():
+    """Postgres nationalidtype is pan/aadhaar/other; names like PAN 500 the PATCH."""
+    col = User.__table__.c.national_id_type
+    assert set(col.type.enums) == {member.value for member in NationalIdType}
+    assert "PAN" not in col.type.enums
 
 
 def test_mask_keeps_last_four():

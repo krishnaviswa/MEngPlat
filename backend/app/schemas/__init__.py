@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from app.models import BusinessStatus, NationalIdType, ReviewStatus, Sentiment, UserRole
+from app.models import BusinessStatus, DraftStatus, NationalIdType, ReviewStatus, Sentiment, UserRole
 
 
 class TokenResponse(BaseModel):
@@ -603,3 +603,31 @@ class ExternalReviewResponse(BaseModel):
     source: str
     source_url: str | None = None
     external_posted_at: datetime | None = None
+
+
+class WhatsAppLinkResponse(BaseModel):
+    available: bool
+    wa_url: str | None = None
+    token: str | None = None
+    expires_at: datetime | None = None
+    display_number: str | None = None
+
+
+class WhatsAppDraftResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    source: str
+    extracted_fields: dict[str, Any]
+    status: DraftStatus
+    degraded: bool = False
+    created_at: datetime
+
+
+class WhatsAppDraftApplyRequest(BaseModel):
+    fields: list[str] | None = None
+
+
+class WhatsAppWebhookAck(BaseModel):
+    ok: bool = True
+    processed: int = 0

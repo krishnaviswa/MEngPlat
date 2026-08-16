@@ -150,6 +150,18 @@ class Settings(BaseSettings):
     msg91_auth_key: str = ""
     msg91_template_id: str = ""
 
+    # WhatsApp Cloud API (app/services/whatsapp/). mock (default) needs no
+    # Meta keys. Defaults are empty strings -- never "placeholder" (truthy
+    # leftovers would defeat availability checks). HMAC uses the *app secret*,
+    # not the access token (ADR-012).
+    whatsapp_provider: str = "mock"
+    whatsapp_business_number: str = ""
+    whatsapp_session_ttl_hours: int = 24
+    meta_whatsapp_access_token: str = ""
+    meta_whatsapp_phone_number_id: str = ""
+    meta_whatsapp_verify_token: str = ""
+    meta_whatsapp_app_secret: str = ""
+
     # Demo seed gate (scripts/seed.py). Default `off` so production boots never
     # re-upsert; Compose sets `if_outdated`. Manual refresh: SEED_MODE=force.
     seed_mode: Literal["off", "if_empty", "if_outdated", "force"] = "off"

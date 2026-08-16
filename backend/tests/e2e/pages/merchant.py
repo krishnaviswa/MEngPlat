@@ -1,3 +1,5 @@
+import re
+
 from playwright.sync_api import Page, expect
 
 
@@ -29,4 +31,4 @@ class NewBusinessPage:
         self.page.get_by_label("Street address *").fill(address)
         self.page.get_by_label("City *").fill(city)
         self.page.get_by_role("button", name="Submit for approval").click()
-        self.page.wait_for_url(lambda url: "/merchant/dashboard" in url, timeout=20_000)
+        expect(self.page).to_have_url(re.compile(r"/merchant/dashboard"), timeout=20_000)

@@ -31,6 +31,7 @@ def test_merchant_full_journey(page: Page, api: Api) -> None:
     page.get_by_label("National ID type").select_option("pan")
     page.get_by_label("National ID number").fill("ABCDE1234F")
     page.get_by_role("button", name="Save national ID").click()
+    expect(page.get_by_text("Add PAN, Aadhaar, or another national ID")).not_to_be_visible()
     mine = api.get("businesses/mine", token=page.evaluate("() => localStorage.getItem('access_token')"))
     assert mine.status == 200
     assert mine.json() == []

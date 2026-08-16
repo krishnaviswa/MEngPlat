@@ -16,6 +16,7 @@ class Operation(str, enum.Enum):
     IMAGE = "image"
     MERCHANT_SUMMARY = "merchant_summary"
     TOPIC_CLUSTERING = "topic_clustering"
+    BUSINESS_PROFILE_EXTRACT = "business_profile_extract"
 
 
 @dataclass
@@ -81,6 +82,17 @@ class MerchantSummaryResult:
 class TopicClusterResult:
     #: each item: {label: str, count: int, sentiment: str, example_quote: str}
     topics: list[dict[str, Any]]
+    raw_response: dict[str, Any] = field(default_factory=dict)
+    meta: AICallMeta = field(default_factory=AICallMeta)
+
+
+@dataclass
+class BusinessProfileExtractResult:
+    description: str | None = None
+    address: str | None = None
+    business_hours: dict[str, Any] | None = None
+    phone: str | None = None
+    website: str | None = None
     raw_response: dict[str, Any] = field(default_factory=dict)
     meta: AICallMeta = field(default_factory=AICallMeta)
 
@@ -166,3 +178,8 @@ class AIProvider(abc.ABC):
     async def generate_topic_clusters(
         self, reviews: list[dict[str, Any]], context: dict[str, Any] | None = None
     ) -> TopicClusterResult: ...
+
+    @abc.abstractmethod
+    async def extract_business_profile(
+        self, text: str, context: dict[str, Any] | None = None
+    ) -> BusinessProfileExtractResult: ...
