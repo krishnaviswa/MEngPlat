@@ -624,8 +624,24 @@ class WhatsAppDraftResponse(BaseModel):
     created_at: datetime
 
 
-class WhatsAppDraftApplyRequest(BaseModel):
-    fields: list[str] | None = None
+class AdminWhatsAppDraftResponse(WhatsAppDraftResponse):
+    """Same as WhatsAppDraftResponse plus the business context an admin needs (S-053)."""
+
+    business_id: UUID
+    business_name: str
+
+
+class AdminWhatsAppDraftQueueResponse(BaseModel):
+    items: list[AdminWhatsAppDraftResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class AdminWhatsAppDraftApproveRequest(BaseModel):
+    """Optional admin-edited field values; omitted keys fall back to the AI extraction (S-053)."""
+
+    fields: dict[str, Any] | None = None
 
 
 class WhatsAppWebhookAck(BaseModel):

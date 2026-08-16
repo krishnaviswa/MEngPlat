@@ -172,6 +172,21 @@ export default function AdminPage() {
           </div>
         </section>
 
+        <section id="whatsapp-drafts" className="mt-10 scroll-mt-20">
+          <h2 className="text-lg font-semibold">WhatsApp updates</h2>
+          <p className="text-sm text-muted">
+            Review AI-extracted profile suggestions submitted by merchants over WhatsApp.
+          </p>
+          <div className="mt-4">
+            <a
+              href="/admin/whatsapp"
+              className="inline-block rounded-lg border border-border bg-surface-raised px-4 py-2 text-sm font-medium transition hover:border-brand-300 hover:shadow-sm"
+            >
+              Open review queue →
+            </a>
+          </div>
+        </section>
+
         <section id="admin-categories" className="mt-10 scroll-mt-20">
           <h2 className="text-lg font-semibold">Categories</h2>
           <p className="text-sm text-muted">Add browse categories without a developer.</p>

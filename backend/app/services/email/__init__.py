@@ -6,7 +6,12 @@ from app.config import get_settings
 from app.services.email.base import EmailProvider
 from app.services.email.mock import MockEmailProvider
 from app.services.email.resend import ResendEmailProvider
-from app.services.email.templates import listing_approved_email, new_review_email, password_reset_email
+from app.services.email.templates import (
+    listing_approved_email,
+    new_review_email,
+    password_reset_email,
+    whatsapp_draft_approved_email,
+)
 
 logger = logging.getLogger("app.email")
 
@@ -61,6 +66,11 @@ async def try_send_new_review(to: str, business_name: str, rating: int | None = 
     await _try_send(to, subject, text)
 
 
+async def try_send_whatsapp_draft_approved(to: str, business_name: str) -> None:
+    subject, text = whatsapp_draft_approved_email(business_name)
+    await _try_send(to, subject, text)
+
+
 __all__ = [
     "EmailProvider",
     "get_email_provider",
@@ -68,4 +78,5 @@ __all__ = [
     "try_send_password_reset",
     "try_send_listing_approved",
     "try_send_new_review",
+    "try_send_whatsapp_draft_approved",
 ]
