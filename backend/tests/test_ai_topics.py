@@ -93,6 +93,9 @@ class _AlwaysFailsProvider(AIProvider):
     async def generate_topic_clusters(self, reviews, context=None):
         raise RuntimeError("simulated provider outage")
 
+    async def extract_business_profile(self, text, context=None):
+        raise RuntimeError("simulated provider outage")
+
 
 def _make_business(**overrides) -> Business:
     defaults = dict(

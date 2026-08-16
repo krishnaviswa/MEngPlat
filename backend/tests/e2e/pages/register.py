@@ -1,3 +1,5 @@
+import re
+
 from playwright.sync_api import Page, expect
 
 from tests.e2e.api_client import PASSWORD
@@ -20,5 +22,5 @@ class RegisterPage:
         )
         self.page.get_by_role("combobox", name="Account type").select_option(role)
         self.page.get_by_role("button", name="Sign up").click()
-        self.page.wait_for_url(lambda url: "/login" in url, timeout=20_000)
+        expect(self.page).to_have_url(re.compile(r"/login"), timeout=20_000)
         LoginPage(self.page).login(email, PASSWORD)

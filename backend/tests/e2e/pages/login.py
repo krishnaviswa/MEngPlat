@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import pyotp
 from playwright.sync_api import Page, expect
 
@@ -28,7 +30,7 @@ class LoginPage:
         verify = self.page.get_by_role("heading", name="Authenticator code")
         expect(enroll.or_(verify)).to_be_visible(timeout=15_000)
         if enroll.is_visible():
-            secret_el = self.page.locator("p.font-mono")
+            secret_el = self.page.locator("form p.font-mono")
             expect(secret_el).to_be_visible()
             secret = secret_el.inner_text().strip()
             self.page.get_by_placeholder("6-digit code").fill(pyotp.TOTP(secret).now())
@@ -41,4 +43,6 @@ class LoginPage:
         self.goto()
         self.submit_credentials(email, password)
         self.complete_totp()
-        self.page.wait_for_url(lambda url: "/login" not in url, timeout=20_000)
+        # Poll the URL — do not wait_for_url(load), which misses a redirect that
+        # already completed between the TOTP click and the wait.
+        expect(self.page).not_to_have_url(re.compile(r"/login"), timeout=20_000)

@@ -27,3 +27,10 @@ TOPIC_CLUSTERING_SYSTEM = (
     "Group these customer reviews into 3-6 common themes. Return JSON: topics (array of "
     "{label, count, sentiment: positive|negative|mixed, example_quote}). Frame as suggestions, not facts."
 )
+
+BUSINESS_PROFILE_EXTRACT_SYSTEM = (
+    "Extract local-business profile fields from a merchant's freeform WhatsApp note. "
+    "Return JSON with keys description, address, business_hours (object of day->hours or null), "
+    "phone, website. Use null when a field is not clearly present. "
+    "These are suggestions for the merchant to confirm, not facts to publish."
+)

@@ -15,8 +15,16 @@ jest.mock("../../lib/api", () => ({
 // This is the same fake-map technique the S-036 search page tests use for
 // BusinessMapClient.
 jest.mock("../BusinessMapClient", () => ({
-  BusinessMap: ({ markers, onMarkerClick }: { markers: MapMarker[]; onMarkerClick?: (m: MapMarker) => void }) => (
-    <div data-testid="fake-map">
+  BusinessMap: ({
+    markers,
+    onMarkerClick,
+    center,
+  }: {
+    markers: MapMarker[];
+    onMarkerClick?: (m: MapMarker) => void;
+    center?: [number, number];
+  }) => (
+    <div data-testid="fake-map" data-center={center ? center.join(",") : ""}>
       {markers.map((m) => (
         <button key={m.id} type="button" onClick={() => onMarkerClick?.(m)}>
           pin: {m.name}
@@ -51,7 +59,12 @@ describe("GooglePlacePicker (S-048 AC1-5)", () => {
   it("renders search results as list rows and map pins sharing one selection", async () => {
     searchMock.mockResolvedValue({ candidates: CANDIDATES });
     render(
-      <GooglePlacePicker businessId="biz-1" businessName="Cafe Aroma" center={null} onLinked={jest.fn()} />,
+      <GooglePlacePicker
+        businessId="biz-1"
+        businessName="Cafe Aroma"
+        center={[13.0827, 80.2707]}
+        onLinked={jest.fn()}
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
@@ -59,6 +72,7 @@ describe("GooglePlacePicker (S-048 AC1-5)", () => {
     expect(await screen.findByText("Cafe Aroma (Demo Location)")).toBeInTheDocument();
     expect(screen.getByText("Nearby Cafe (Demo)")).toBeInTheDocument();
     expect(screen.getByText("pin: Cafe Aroma (Demo Location)")).toBeInTheDocument();
+    expect(screen.getByTestId("fake-map")).toHaveAttribute("data-center", "13.0827,80.2707");
 
     const confirmBtn = screen.getByRole("button", { name: /link this business/i });
     expect(confirmBtn).toBeDisabled();

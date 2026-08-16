@@ -527,6 +527,19 @@ export const dashboard = {
     apiFetch<GoogleReviewsSyncResult>(`/api/v1/dashboard/merchant/${businessId}/google-reviews/sync`, {
       method: "POST",
     }),
+  createWhatsAppLink: (businessId: string) =>
+    apiFetch<WhatsAppLink>(`/api/v1/dashboard/merchant/${businessId}/whatsapp/link`, { method: "POST" }),
+  listWhatsAppDrafts: (businessId: string) =>
+    apiFetch<WhatsAppDraft[]>(`/api/v1/dashboard/merchant/${businessId}/whatsapp/drafts`),
+  applyWhatsAppDraft: (businessId: string, draftId: string, fields?: string[]) =>
+    apiFetch<WhatsAppDraft>(`/api/v1/dashboard/merchant/${businessId}/whatsapp/drafts/${draftId}/apply`, {
+      method: "POST",
+      body: JSON.stringify({ fields: fields ?? null }),
+    }),
+  discardWhatsAppDraft: (businessId: string, draftId: string) =>
+    apiFetch<WhatsAppDraft>(`/api/v1/dashboard/merchant/${businessId}/whatsapp/drafts/${draftId}/discard`, {
+      method: "POST",
+    }),
 };
 
 // --- S-048 review aggregator (Google Places) ---------------------------------
@@ -561,6 +574,23 @@ export interface ExternalReview {
   source: "google";
   source_url: string | null;
   external_posted_at: string | null;
+}
+
+export interface WhatsAppLink {
+  available: boolean;
+  wa_url: string | null;
+  token: string | null;
+  expires_at: string | null;
+  display_number: string | null;
+}
+
+export interface WhatsAppDraft {
+  id: string;
+  source: string;
+  extracted_fields: Record<string, unknown>;
+  status: "pending" | "applied" | "discarded";
+  degraded: boolean;
+  created_at: string;
 }
 
 export const externalReviews = {

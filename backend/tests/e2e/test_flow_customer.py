@@ -53,7 +53,7 @@ def test_customer_full_journey(page: Page, api: Api) -> None:
     page.get_by_role("button", name="Post review").click()
     expect(page).to_have_url(re.compile(rf"/businesses/{re.escape(business.slug)}"), timeout=20_000)
     expect(page.get_by_text(body)).to_be_visible()
-    expect(page.get_by_text("AI:", exact=False).first).to_be_visible()
+    expect(page.get_by_text("Quick take:")).to_be_visible()
 
     listed = api.get(f"reviews/business/{business.id}")
     assert listed.status == 200

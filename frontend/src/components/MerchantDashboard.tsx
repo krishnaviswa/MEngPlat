@@ -9,6 +9,8 @@ import { ReviewCard } from "./ReviewCard";
 import { FeaturedBoostPanel } from "./FeaturedBoostPanel";
 import { MerchantNationalIdCard } from "./MerchantNationalIdCard";
 import { CollectQrCard } from "./CollectQrCard";
+import { WhatsAppDraftsPanel } from "./WhatsAppDraftsPanel";
+import { WhatsAppUpdateCard } from "./WhatsAppUpdateCard";
 import { BenchmarkCard } from "./BenchmarkCard";
 import { Select } from "./ui/Select";
 import { StatCard } from "./ui/StatCard";
@@ -308,7 +310,13 @@ export default function MerchantDashboardPage() {
           <MerchantNationalIdCard user={user} onSaved={setUser} />
         )}
         <FeaturedBoostPanel businessId={business.id} listingStatus={status} />
-        {status === "approved" && <CollectQrCard businessId={business.id} businessName={business.name} />}
+        {status === "approved" && (
+          <div className="grid gap-4 md:grid-cols-2">
+            <CollectQrCard businessId={business.id} businessName={business.name} />
+            <WhatsAppUpdateCard businessId={business.id} businessName={business.name} />
+          </div>
+        )}
+        {status === "approved" && <WhatsAppDraftsPanel businessId={business.id} />}
 
         <div id="review-analytics" className="scroll-mt-20 rounded-xl border bg-surface-raised p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">

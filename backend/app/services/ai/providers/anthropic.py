@@ -20,6 +20,7 @@ from app.services.ai import prompts
 from app.services.ai.base import (
     AICallMeta,
     AIProvider,
+    BusinessProfileExtractResult,
     ImageAnalysisResult,
     MerchantSummaryResult,
     ReviewAnalysisResult,
@@ -159,3 +160,20 @@ class AnthropicProvider(AIProvider):
             for t in data.get("topics", [])
         ]
         return TopicClusterResult(topics=topics, raw_response=data, meta=meta)
+
+    async def extract_business_profile(
+        self, text: str, context: dict[str, Any] | None = None
+    ) -> BusinessProfileExtractResult:
+        data, meta = await self._messages(prompts.BUSINESS_PROFILE_EXTRACT_SYSTEM, text)
+        hours = data.get("business_hours")
+        if hours is not None and not isinstance(hours, dict):
+            hours = None
+        return BusinessProfileExtractResult(
+            description=data.get("description") or None,
+            address=data.get("address") or None,
+            business_hours=hours,
+            phone=data.get("phone") or None,
+            website=data.get("website") or None,
+            raw_response=data,
+            meta=meta,
+        )

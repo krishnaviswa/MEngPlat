@@ -17,6 +17,10 @@ jest.mock("../../lib/api", () => ({
     searchGooglePlaces: jest.fn(),
     linkGooglePlace: jest.fn(),
     syncGoogleReviews: jest.fn(),
+    createWhatsAppLink: jest.fn(),
+    listWhatsAppDrafts: jest.fn(),
+    applyWhatsAppDraft: jest.fn(),
+    discardWhatsAppDraft: jest.fn(),
   },
   reviews: { reply: jest.fn() },
   payments: { placement: jest.fn(), checkoutFeatured: jest.fn() },
@@ -34,6 +38,23 @@ const googleReviewsStatusMock = dashboard.getGoogleReviewsStatus as jest.Mock;
 // Unlinked by default (S-048) -- individual tests override when the Google
 // reviews card's linked/synced states matter to them.
 googleReviewsStatusMock.mockResolvedValue({ linked: false, place_id: null, review_count: 0, last_synced_at: null });
+
+function stubWhatsAppAndGoogle() {
+  googleReviewsStatusMock.mockResolvedValue({
+    linked: false,
+    place_id: null,
+    review_count: 0,
+    last_synced_at: null,
+  });
+  (dashboard.createWhatsAppLink as jest.Mock).mockResolvedValue({
+    available: true,
+    wa_url: "https://wa.me/15551234567?text=MH-DEADBEEF",
+    token: "MH-DEADBEEF",
+    expires_at: "2026-08-17T00:00:00Z",
+    display_number: "15551234567",
+  });
+  (dashboard.listWhatsAppDrafts as jest.Mock).mockResolvedValue([]);
+}
 
 function makeBusiness(overrides: Partial<Business> = {}): Business {
   return {
@@ -78,6 +99,7 @@ describe("MerchantDashboard tile interactivity (S-022)", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    stubWhatsAppAndGoogle();
     (window.HTMLElement.prototype.scrollIntoView as jest.Mock).mockClear();
     meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
     insightsMock.mockResolvedValue({});
@@ -246,6 +268,7 @@ describe("MerchantDashboard analytics (S-033)", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    stubWhatsAppAndGoogle();
     meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
     insightsMock.mockResolvedValue({});
     topicsMock.mockResolvedValue(null);
@@ -401,6 +424,7 @@ describe("MerchantDashboard chart upgrade + deltas (S-037)", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    stubWhatsAppAndGoogle();
     meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
     insightsMock.mockResolvedValue({});
     topicsMock.mockResolvedValue(null);
@@ -504,6 +528,7 @@ describe("MerchantDashboard benchmark + collect QR (S-038 / S-040)", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    stubWhatsAppAndGoogle();
     meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
     insightsMock.mockResolvedValue({});
     topicsMock.mockResolvedValue(null);
@@ -548,6 +573,8 @@ describe("MerchantDashboard benchmark + collect QR (S-038 / S-040)", () => {
     const { unmount } = render(<MerchantDashboardPage />);
     expect(await screen.findByText("Review collection QR")).toBeInTheDocument();
     expect(screen.getByText(`${window.location.origin}/collect/biz-ok`)).toBeInTheDocument();
+    expect(await screen.findByText("Update shop via WhatsApp")).toBeInTheDocument();
+    expect(screen.getByText("https://wa.me/15551234567?text=MH-DEADBEEF")).toBeInTheDocument();
     unmount();
 
     const pending = makeBusiness({ id: "biz-pend", slug: "pend", status: "pending" });
@@ -555,5 +582,83 @@ describe("MerchantDashboard benchmark + collect QR (S-038 / S-040)", () => {
     render(<MerchantDashboardPage />);
     await screen.findByText("Awaiting approval");
     expect(screen.queryByText("Review collection QR")).not.toBeInTheDocument();
+    expect(screen.queryByText("Update shop via WhatsApp")).not.toBeInTheDocument();
+  });
+});
+
+describe("MerchantDashboard Google reviews card (S-048)", () => {
+  beforeAll(() => {
+    window.HTMLElement.prototype.scrollIntoView = jest.fn();
+    (global as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    stubWhatsAppAndGoogle();
+    meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
+    insightsMock.mockResolvedValue({});
+    topicsMock.mockResolvedValue(null);
+    placementMock.mockResolvedValue({
+      business_id: "biz-1",
+      active: false,
+      placement: null,
+      sku: { code: "featured_7d", duration_days: 7, listed_price_inr: 499 },
+    });
+    benchmarkMock.mockResolvedValue({
+      own_rating: 4.5,
+      category_median: null,
+      city_median: null,
+      disclaimer: "Directory medians from MerchantHub listings — not an AI judgment.",
+    });
+    mineMock.mockResolvedValue([makeBusiness()]);
+    merchantStatsMock.mockResolvedValue(makeStats());
+  });
+
+  it("prompts to link Google and hides Sync now when unlinked (AC6)", async () => {
+    googleReviewsStatusMock.mockResolvedValue({
+      linked: false,
+      place_id: null,
+      review_count: 0,
+      last_synced_at: null,
+    });
+
+    render(<MerchantDashboardPage />);
+
+    expect(await screen.findByText("Link your Google Business Profile to sync reviews.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /link google business profile/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /sync now/i })).not.toBeInTheDocument();
+  });
+
+  it("shows linked state, review count, last synced, and Sync now (AC3, AC7)", async () => {
+    googleReviewsStatusMock.mockResolvedValue({
+      linked: true,
+      place_id: "mock-place-1",
+      review_count: 3,
+      last_synced_at: "2026-08-16T12:00:00Z",
+    });
+
+    render(<MerchantDashboardPage />);
+
+    expect(await screen.findByText("3 reviews synced")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sync now/i })).toBeEnabled();
+    expect(screen.queryByText("Link your Google Business Profile to sync reviews.")).not.toBeInTheDocument();
+  });
+
+  it("states the up-to-5 curated-sample caveat on the dashboard card (AC15)", async () => {
+    googleReviewsStatusMock.mockResolvedValue({
+      linked: false,
+      place_id: null,
+      review_count: 0,
+      last_synced_at: null,
+    });
+
+    render(<MerchantDashboardPage />);
+
+    expect(await screen.findByText(/up to 5 most-relevant google reviews/i)).toBeInTheDocument();
+    expect(screen.getByText(/not a full review history/i)).toBeInTheDocument();
   });
 });

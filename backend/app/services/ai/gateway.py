@@ -21,6 +21,7 @@ import httpx
 
 from app.services.ai.base import (
     AIProvider,
+    BusinessProfileExtractResult,
     ImageAnalysisResult,
     MerchantSummaryResult,
     ReviewAnalysisResult,
@@ -32,7 +33,12 @@ logger = logging.getLogger(__name__)
 _RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 
 _ResultT = TypeVar(
-    "_ResultT", ReviewAnalysisResult, ImageAnalysisResult, MerchantSummaryResult, TopicClusterResult
+    "_ResultT",
+    ReviewAnalysisResult,
+    ImageAnalysisResult,
+    MerchantSummaryResult,
+    TopicClusterResult,
+    BusinessProfileExtractResult,
 )
 
 
@@ -165,4 +171,13 @@ class AIGateway(AIProvider):
             "topic_clustering",
             lambda: self._primary.generate_topic_clusters(reviews, context),
             lambda: self._fallback.generate_topic_clusters(reviews, context),
+        )
+
+    async def extract_business_profile(
+        self, text: str, context: dict | None = None
+    ) -> BusinessProfileExtractResult:
+        return await self._run(
+            "business_profile_extract",
+            lambda: self._primary.extract_business_profile(text, context),
+            lambda: self._fallback.extract_business_profile(text, context),
         )

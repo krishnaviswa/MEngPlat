@@ -25,6 +25,7 @@ from app.routers import (
     photos,
     reviews,
     search,
+    webhooks,
 )
 from app.services.ai import validate_startup_config as validate_ai_startup_config
 from app.services.ai.http_client import close_shared_client
@@ -91,6 +92,7 @@ app.include_router(notifications.router, prefix=api_prefix)
 app.include_router(favorites.router, prefix=api_prefix)
 app.include_router(admin.router, prefix=api_prefix)
 app.include_router(payments.router, prefix=api_prefix)
+app.include_router(webhooks.router, prefix=api_prefix)
 
 uploads_path = Path(settings.storage_local_path)
 uploads_path.mkdir(parents=True, exist_ok=True)

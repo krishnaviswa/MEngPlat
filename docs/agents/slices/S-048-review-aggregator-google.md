@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-048 |
 | **Phase** | 2 Core |
-| **Status** | Specified |
+| **Status** | Accepted |
 | **Role(s)** | merchant \| admin \| customer |
 | **Owner** | PM / 2026-08-16 |
 
@@ -110,15 +110,15 @@ on end-to-end (real-API) verification, not a blocker on starting the slice.
 
 ## Definition of done (PM)
 
-- [ ] All 16 AC verified in test report (`docs/agents/test-reports/TR-S-048.md`), including the mock-provider path and, if the API key is available, at least one real-provider smoke check
-- [ ] UX matches notes above — Leaflet/OSM map reused for the picker, no second map stack introduced
-- [ ] `README.md` §5 Domain model updated (new `ExternalReview` table, `Business.external_platform_refs`)
-- [ ] `README.md` §7 API reference updated (search-proxy + sync endpoints)
-- [ ] `README.md` §6 Feature flows updated if a new flow diagram is warranted
-- [ ] `README.md` §12 Web ↔ mobile feature parity tracker — new row for "External review sync (Google)" on `/merchant/dashboard` + business profile, mobile status `unimplemented`
-- [ ] `README.md` §14 Known gaps (and §16 "built vs next" if investor-visible) updated in the same PR to reflect this feature's scope and the "no auto-polling yet" caveat
-- [ ] No new product `.md`/`.txt` checklist created outside `docs/agents/`
-- [ ] PM Status set to **Accepted**
+- [x] All 16 AC verified in test report (`docs/agents/test-reports/TR-S-048.md`), including the mock-provider path. Real-provider smoke **blocked** until `GOOGLE_PLACES_API_KEY` exists (M-006)
+- [x] UX matches notes above — Leaflet/OSM map reused for the picker, no second map stack introduced
+- [x] `README.md` §5 Domain model updated (new `ExternalReview` table, `Business.external_platform_refs`)
+- [x] `README.md` §7 API reference updated (search-proxy + sync endpoints)
+- [x] `README.md` §6 Feature flows updated if a new flow diagram is warranted
+- [x] `README.md` §12 Web ↔ mobile feature parity tracker — new row for "External review sync (Google)" on `/merchant/dashboard` + business profile, mobile status `unimplemented`
+- [x] `README.md` §14 Known gaps (and §16 "built vs next" if investor-visible) updated in the same PR to reflect this feature's scope and the "no auto-polling yet" caveat
+- [x] No new product `.md`/`.txt` checklist created outside `docs/agents/`
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -510,7 +510,7 @@ sequenceDiagram
 
 ## Links
 
-- Test plan: `docs/agents/test-plans/TP-S-048-*.md`
+- Test plan: `docs/agents/test-plans/TP-S-048-review-aggregator-google.md`
 - Test report: `docs/agents/test-reports/TR-S-048.md`
 - ADR: `docs/agents/adrs/ADR-006-mobile-osm-flutter-map.md` (map-stack precedent; no new ADR expected for this slice unless Architect decides otherwise)
 
@@ -522,3 +522,5 @@ sequenceDiagram
 |------|-------|--------|
 | 2026-08-16 | PM | Created slice |
 | 2026-08-16 | Architect | Filled technical specification; resolved all 4 open questions inline (see Data model impact, RBAC matrix, Provider abstraction sections); Status → Specified. Signaling Builder to implement. |
+| 2026-08-16 | Tester | TP-S-048 + TR-S-048. All 16 AC pass on mock path. Search response `asdict` fix. ASGI+Postgres tests rewritten to fake DB. Recommendation: Ship. |
+| 2026-08-16 | PM | README §5/§6/§7/§12/§14/§15/§16 updated. Status → Accepted (real Places smoke still blocked on API key). |

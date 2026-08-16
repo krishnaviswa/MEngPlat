@@ -45,6 +45,9 @@ class FakeProvider(AIProvider):
     async def generate_topic_clusters(self, reviews, context=None):
         raise NotImplementedError
 
+    async def extract_business_profile(self, text, context=None):
+        raise NotImplementedError
+
 
 def _ok_result(sentiment="positive"):
     return ReviewAnalysisResult(sentiment=sentiment, summary="s", meta=AICallMeta(provider="fake"))

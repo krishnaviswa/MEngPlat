@@ -11,6 +11,7 @@ from typing import Any
 from app.services.ai.base import (
     AICallMeta,
     AIProvider,
+    BusinessProfileExtractResult,
     ImageAnalysisResult,
     MerchantSummaryResult,
     ReviewAnalysisResult,
@@ -160,5 +161,22 @@ class MockAIProvider(AIProvider):
         return TopicClusterResult(
             topics=topics,
             raw_response={"provider": self.provider_name, "review_count": len(reviews)},
+            meta=self._meta(),
+        )
+
+    async def extract_business_profile(
+        self, text: str, context: dict[str, Any] | None = None
+    ) -> BusinessProfileExtractResult:
+        lower = text.lower()
+        hours = {"mon-sat": "9-9"} if any(w in lower for w in ("open", "am", "pm", "hours")) else None
+        address = text if any(w in lower for w in ("near", "street", "road", "stand", "nagar")) else None
+        description = text[:500] if text.strip() else None
+        return BusinessProfileExtractResult(
+            description=description,
+            address=address[:512] if address else None,
+            business_hours=hours,
+            phone=None,
+            website=None,
+            raw_response={"provider": self.provider_name, "text_length": len(text)},
             meta=self._meta(),
         )

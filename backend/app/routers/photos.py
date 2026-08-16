@@ -7,15 +7,12 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_roles
-from app.models import AIAnalysis, Business, Merchant, Photo, Review, Sentiment, User, UserRole
+from app.models import Merchant, Photo, User, UserRole
 from app.schemas import PhotoResponse
-from app.services.ai import get_ai_provider
+from app.services.photo_service import save_business_photo
 from app.services.storage import get_storage_provider
 
 router = APIRouter(prefix="/photos", tags=["Photos"])
-
-_ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-_MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 
 @router.post("/upload", response_model=PhotoResponse, status_code=status.HTTP_201_CREATED)
@@ -37,64 +34,64 @@ async def upload_photo(
     if not business_id and not review_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="business_id or review_id required")
 
-    if file.content_type not in _ALLOWED_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file type '{file.content_type}'. Allowed: {', '.join(sorted(_ALLOWED_CONTENT_TYPES))}",
+    if review_id and not business_id:
+        # Review attachments stay on the original inline path (WhatsApp ingest
+        # only writes business gallery photos).
+        from app.services.photo_service import ALLOWED_CONTENT_TYPES, MAX_UPLOAD_BYTES
+
+        if file.content_type not in ALLOWED_CONTENT_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsupported file type '{file.content_type}'. Allowed: {', '.join(sorted(ALLOWED_CONTENT_TYPES))}",
+            )
+        content = await file.read()
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File too large. Max size is {MAX_UPLOAD_BYTES // (1024 * 1024)}MB.",
+            )
+        await file.seek(0)
+        storage = get_storage_provider()
+        url = await storage.save(file, f"reviews/{review_id}")
+        from app.models import AIAnalysis
+        from app.services.ai import get_ai_provider
+
+        photo = Photo(
+            business_id=None,
+            review_id=review_id,
+            uploaded_by=user.id,
+            url=url,
+            caption=caption,
+            photo_type=photo_type,
         )
-    # Read once to enforce the size cap, then rewind -- storage.save() does its
-    # own read() and an UploadFile is backed by a SpooledTemporaryFile, so a
-    # seek(0) here is cheap and leaves it exactly as save() expects it.
+        db.add(photo)
+        await db.flush()
+        image_result = await get_ai_provider().analyze_image(url, {"photo_type": photo_type})
+        db.add(
+            AIAnalysis(
+                photo_id=photo.id,
+                analysis_type="image",
+                image_insights=image_result.insights,
+                provider=image_result.meta.provider,
+                raw_response=image_result.raw_response,
+                degraded=image_result.meta.degraded,
+            )
+        )
+        result = await db.execute(select(Photo).options(selectinload(Photo.ai_analysis)).where(Photo.id == photo.id))
+        return PhotoResponse.model_validate(result.scalar_one())
+
     content = await file.read()
-    if len(content) > _MAX_UPLOAD_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File too large. Max size is {_MAX_UPLOAD_BYTES // (1024 * 1024)}MB.",
-        )
-    await file.seek(0)
-
-    storage = get_storage_provider()
-    folder = f"businesses/{business_id}" if business_id else f"reviews/{review_id}"
-    url = await storage.save(file, folder)
-
-    photo = Photo(
+    photo = await save_business_photo(
+        db,
         business_id=business_id,
-        review_id=review_id,
+        data=content,
+        content_type=file.content_type or "application/octet-stream",
+        filename=file.filename or "upload.jpg",
         uploaded_by=user.id,
-        url=url,
-        caption=caption,
         photo_type=photo_type,
+        caption=caption,
     )
-    db.add(photo)
-    await db.flush()
-
-    provider = get_ai_provider()
-    image_result = await provider.analyze_image(url, {"photo_type": photo_type})
-    ai = AIAnalysis(
-        photo_id=photo.id,
-        analysis_type="image",
-        image_insights=image_result.insights,
-        # meta.provider is who actually answered -- the configured provider's
-        # name after a gateway fallback would misattribute this analysis.
-        provider=image_result.meta.provider,
-        raw_response=image_result.raw_response,
-        degraded=image_result.meta.degraded,
-    )
-    db.add(ai)
-
-    if photo_type == "logo" and business_id:
-        business = await db.get(Business, business_id)
-        if business:
-            business.logo_url = url
-    elif photo_type == "storefront" and business_id:
-        business = await db.get(Business, business_id)
-        if business:
-            business.storefront_url = url
-
-    result = await db.execute(
-        select(Photo).options(selectinload(Photo.ai_analysis)).where(Photo.id == photo.id)
-    )
-    return PhotoResponse.model_validate(result.scalar_one())
+    return PhotoResponse.model_validate(photo)
 
 
 @router.get("/business/{business_id}", response_model=list[PhotoResponse])
@@ -123,6 +120,8 @@ async def delete_photo(
     if user.role == UserRole.MERCHANT and photo.business_id:
         m_result = await db.execute(select(Merchant).where(Merchant.user_id == user.id))
         merchant_obj = m_result.scalar_one_or_none()
+        from app.models import Business
+
         business = await db.get(Business, photo.business_id)
         if not merchant_obj or not business or business.merchant_id != merchant_obj.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
