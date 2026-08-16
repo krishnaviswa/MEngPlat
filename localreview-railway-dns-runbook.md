@@ -2,16 +2,18 @@
 
 Personal reference from the 2026-08-16 custom-domain pass. Not product docs (`README.md` stays the source of truth for the app).
 
-## Current status (confirm)
+## Current status (2026-08-17 ~00:14 IST)
 
 | Check | Status | Meaning |
 | --- | --- | --- |
-| CNAME `www` → `5vtkfdlq.up.railway.app` | **OK** (Railway green; public DNS matches) | Traffic reaches Railway. That is why you see the purple “train has not arrived” page, not Namecheap parking. |
-| TXT `_railway-verify.www` | **Not OK** (Railway yellow; Google DNS: name does not exist) | Ownership not proven. No cert, **Not secure**, station 404, AV often blocks the first visit. |
-| Internal port **8080** on frontend | **OK** | Railway `$PORT`. Public HTTPS is still **443**. Do not put 8080/3000/8000 in Namecheap. |
-| `https://mengplat.up.railway.app` | **OK** to use now | Same frontend service. Use this until `www` is **Active**. |
+| CNAME `www` → `5vtkfdlq.up.railway.app` | **OK** | Public DNS (8.8.8.8 / 1.1.1.1). |
+| TXT `_railway-verify.www` | **OK** | `railway-verify=8c2937…` (single prefix). |
+| TLS on `:443` | **OK on the wire** | Let’s Encrypt `CN=www.localreview.co.in`, issuer `YR1`, valid 2026-08-16 → 2026-11-14. |
+| Browser | **App loads** | `https://www.localreview.co.in` shows MerchantHub AI (not Railway station 404). Red **Not secure** in an old tab is cache or antivirus, not a missing cert. |
+| Internal port **8080** on frontend | **OK** | Railway `$PORT`. Public HTTPS is still **443**. |
+| Backend `CORS_ORIGINS` / `PUBLIC_APP_URL` | **Still to do** | Login from www needs www in CORS. |
 
-**Is the yellow TXT an issue?** Yes, **for the custom domain only**. The app on the Railway URL can work. `www.localreview.co.in` will not be a real HTTPS site until that TXT exists and Railway shows **Active**.
+**How this was known:** nothing was read from Namecheap or Railway’s UI. Checks were **public DNS** (`nslookup`) then a **TLS handshake** to port 443 (PowerShell `SslStream`). Details below.
 
 ---
 
@@ -33,9 +35,127 @@ Personal reference from the 2026-08-16 custom-domain pass. Not product docs (`RE
 
 6. Public DNS check: `www.localreview.co.in` CNAME = `5vtkfdlq.up.railway.app`. TXT `_railway-verify.www.localreview.co.in` was still **missing**.
 7. Browser: `https://www.localreview.co.in` → Railway 404 + Not secure. Expected until TXT verifies.
-8. Antivirus block: typical for new domain + missing cert + old parking reputation. Should ease after padlock is green.
+8. Antivirus block: typical for new domain + missing cert + old parking reputation.
 
-**Still to do:** paste TXT host `_railway-verify.www` + full token → Save → wait minutes–hours → Railway **Active** → padlock on `https://www.localreview.co.in`.
+**Still to do (app, not DNS):** set backend `CORS_ORIGINS` to include `https://www.localreview.co.in` (and apex / `mengplat` if you still use them). Set `PUBLIC_APP_URL` to `https://www.localreview.co.in`. If the padlock stays red, use incognito or allow the domain in antivirus.
+
+---
+
+## Trail of DNS / TLS changes (what we actually observed)
+
+Namecheap **Host** is only the left labels. The zone `localreview.co.in` is always appended. Railway’s **www** check looks up one exact name; a record on a sibling name does not count.
+
+| When | Query | Result | What it meant |
+| --- | --- | --- | --- |
+| Early | `CNAME www.localreview.co.in` | → `5vtkfdlq.up.railway.app` | Routing OK. Browser hit Railway (station 404), not Namecheap parking. |
+| Early | `TXT _railway-verify.www.localreview.co.in` | **NXDOMAIN** | www ownership not published. No cert. |
+| Early | `TXT _railway-verify.localreview.co.in` | `railway-verify=8c2937…` | Token was on **apex** (Host `_railway-verify`), not www (Host `_railway-verify.www`). |
+| After first TXT fix | `TXT _railway-verify.www…` @ 1.1.1.1 | `railway-verify=railway-verify=8c2937…` | **Name** existed; **value** doubled the prefix. Railway string-compares; mismatch. |
+| Same time | Apex TXT | **NXDOMAIN** | Apex verify row was removed or moved. |
+| After second TXT fix | `TXT _railway-verify.www…` @ 1.1.1.1 and 8.8.8.8 | `railway-verify=8c2937…` (one prefix) | DNS shape Railway needs. |
+| After Railway issued cert | TLS `:443` `www.localreview.co.in` | `CN=www.localreview.co.in`, Let’s Encrypt `YR1` | Edge has a real cert. Browser **Not secure** ≠ missing cert. |
+| Same time | Browser | MerchantHub AI title | Custom domain attached to the frontend service. |
+
+### Why NXDOMAIN vs “wrong value” vs “wrong name”
+
+- **NXDOMAIN** — that FQDN is not in the zone. Waiting does not create it.
+- **Wrong Host** — `_railway-verify` publishes `_railway-verify.localreview.co.in`. Railway www wants `_railway-verify.www.localreview.co.in`.
+- **Doubled prefix** — Railway modal already includes `railway-verify=`. Pasting that into a field that also prepends `railway-verify=` yields `railway-verify=railway-verify=…`.
+- **TLS vs browser** — a Let’s Encrypt cert on the wire can coexist with a red address bar if the tab cached the old failure or AV intercepts HTTPS.
+
+---
+
+## Validation steps (repeat these)
+
+Use **public resolvers** (`8.8.8.8` Google, `1.1.1.1` Cloudflare) so you are not looking at a stale local cache. `nslookup` is a DNS client: UDP query for **name + type**. It does not talk to HTTP, Railway, or Namecheap’s website.
+
+### 1. Routing — CNAME
+
+```powershell
+nslookup -type=CNAME www.localreview.co.in 8.8.8.8
+```
+
+Expect: `canonical name = 5vtkfdlq.up.railway.app` (must match **this** frontend’s Railway hostname).
+
+### 2. Ownership — TXT for **www** (not apex)
+
+```powershell
+nslookup -type=TXT _railway-verify.www.localreview.co.in 1.1.1.1
+nslookup -type=TXT _railway-verify.www.localreview.co.in 8.8.8.8
+```
+
+Expect exactly one prefix:
+
+```text
+_railway-verify.www.localreview.co.in  text =
+    "railway-verify=<hex from the Railway www modal>"
+```
+
+Interpret:
+
+| Answer | Conclusion |
+| --- | --- |
+| Non-existent domain / NXDOMAIN | Namecheap Host is not `_railway-verify.www` (or not saved / not propagated). |
+| `railway-verify=railway-verify=…` | Doubled prefix; edit the TXT value. |
+| `railway-verify=<hex>` but Railway stays yellow | Hex may be the **apex** token. Copy from the **www** modal. |
+| Same TXT on both 1.1.1.1 and 8.8.8.8 | Not a single-resolver cache issue. |
+
+Apex (only if you also added `localreview.co.in` in Railway):
+
+```powershell
+nslookup -type=TXT _railway-verify.localreview.co.in 8.8.8.8
+```
+
+That name does **not** satisfy the www check.
+
+### 3. TLS — what is on port 443 (not what the tab cached)
+
+`openssl s_client` was not on PATH. Equivalent in PowerShell: TCP connect to **443**, TLS handshake with SNI `www.localreview.co.in`, read the peer certificate.
+
+```powershell
+$tcp = New-Object System.Net.Sockets.TcpClient("www.localreview.co.in", 443)
+$ssl = New-Object System.Net.Security.SslStream($tcp.GetStream(), $false, ({ $true }))
+$ssl.AuthenticateAsClient("www.localreview.co.in")
+$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($ssl.RemoteCertificate)
+"Subject: $($cert.Subject)"
+"Issuer: $($cert.Issuer)"
+"NotBefore: $($cert.NotBefore)"
+"NotAfter: $($cert.NotAfter)"
+$ssl.Close(); $tcp.Close()
+```
+
+Observed 2026-08-16:
+
+```text
+Subject: CN=www.localreview.co.in
+Issuer:  CN=YR1, O=Let's Encrypt, C=US
+NotBefore: 08/16/2026 23:13:26
+NotAfter:  11/14/2026 23:13:25
+```
+
+Notes:
+
+- `({ $true })` **accepts any cert** so the handshake still runs when the OS distrusts the chain. It answers “what did the server present?”, not “does Windows trust it?”.
+- **SNI** (`AuthenticateAsClient("www.localreview.co.in")`) is required; Railway serves many hostnames on one IP.
+- Browser **Not secure** after this result: open **incognito**. If the padlock is fine there, the old tab cached the failure. If still red, click the badge: issuer should be Let’s Encrypt; an antivirus product as issuer means TLS interception.
+
+If `openssl` is installed later:
+
+```text
+openssl s_client -connect www.localreview.co.in:443 -servername www.localreview.co.in
+```
+
+Look at `subject=`, `issuer=`, `Verify return code`.
+
+### 4. Where you are (map)
+
+| You see | Stage |
+| --- | --- |
+| CNAME OK, TXT NXDOMAIN, station 404 | Routing only |
+| TXT doubled prefix | Name OK, value wrong |
+| TXT single prefix, station 404 | Wait for Railway to attach + issue cert |
+| MerchantHub AI + Let’s Encrypt on :443 | Domain live; padlock/cache/AV leftover |
+| Login CORS errors from www | Backend `CORS_ORIGINS` missing www |
 
 ---
 
@@ -86,7 +206,7 @@ User → https://www.localreview.co.in
      → backend CORS must allow that page's origin
 ```
 
-Until TXT is green, the chain stops at Railway edge (station 404).
+Until TXT is correct, the chain stops at Railway edge (station 404). After TXT + Let’s Encrypt, the chain reaches Next.js; remaining work is CORS / `PUBLIC_APP_URL` and a clean browser trust path.
 
 ---
 

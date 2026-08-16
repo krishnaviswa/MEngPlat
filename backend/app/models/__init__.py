@@ -481,8 +481,16 @@ class BusinessUpdateDraft(Base):
     business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"), index=True)
     source: Mapped[str] = mapped_column(String(50), nullable=False, default="whatsapp")
     extracted_fields: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    # Persist enum *values* (`pending`), matching Alembic's draftstatus.
+    # SQLAlchemy's default is member *names* (`PENDING`), which Postgres rejects.
     status: Mapped[DraftStatus] = mapped_column(
-        Enum(DraftStatus), default=DraftStatus.PENDING, nullable=False
+        Enum(
+            DraftStatus,
+            name="draftstatus",
+            values_callable=lambda members: [m.value for m in members],
+        ),
+        default=DraftStatus.PENDING,
+        nullable=False,
     )
     degraded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

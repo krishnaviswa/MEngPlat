@@ -358,7 +358,7 @@ These four are **functionally in the product**. Tests and Compose must stay vend
 | Payments | `PAYMENTS_PROVIDER` | `mock` (no keys; DEBUG mock-complete) | `razorpay` Checkout + webhook HMAC | Yes — three featured SKUs; admin approve after capture |
 | SMS | `SMS_PROVIDER` | `mock` (logs OTP) | `msg91` | Yes — Phone OTP login |
 | Review sources | `GOOGLE_PLACES_API_KEY` | unset → `mock` (deterministic fixtures, no network) | Google Places Text Search + Place Details | Yes — merchant link/sync + public sample (**S-048**). Empty key must stay `""`, not `"placeholder"` |
-| WhatsApp | `WHATSAPP_PROVIDER` | `mock` (HMAC + fixture media; no Meta calls) | `meta_cloud` (`app/services/whatsapp/providers/meta_cloud.py`) | **Not Accepted** (S-050..052 Testing). Mock + Jest; pytest still required — [§14 cutover](#going-live-with-meta-whatsapp-cloud-api) |
+| WhatsApp | `WHATSAPP_PROVIDER` | `mock` (HMAC + fixture media; no Meta calls) | `meta_cloud` (`app/services/whatsapp/providers/meta_cloud.py`) | **Not Accepted** (S-050..053 Testing). Mock + Jest/pytest passing locally; formal Tester report + PM Accept still required — [§14 cutover](#going-live-with-meta-whatsapp-cloud-api) |
 
 **Staging policy:** spin the same Compose stack (or a Railway “staging” project) with those four defaults. Do not buy Resend/Razorpay/S3 to prove the web loop. Prove the loop against mocks; prove adapters with contract tests (`backend/tests/test_email_provider.py`, `test_payments.py`, `test_storage.py`, `test_ai_*`).
 
@@ -589,7 +589,7 @@ SQLAlchemy models live in a single file: `[backend/app/models/__init__.py](backe
 | `BusinessStatus` | `pending`, `approved`, `rejected`, `suspended` |
 | `ReviewStatus`   | `active`, `hidden`, `reported`, `removed`      |
 | `PaymentStatus`  | `created`, `paid`, `failed`, `refunded`        |
-| `DraftStatus`    | `pending`, `applied`, `discarded` (WhatsApp AI drafts, **S-052**) |
+| `DraftStatus`    | `pending`, `applied`, `discarded` (WhatsApp AI drafts, **S-052**; moved from `pending` to `applied`/`discarded` only by admin approve/reject since **S-053**, not merchant) |
 
 
 
@@ -850,7 +850,7 @@ sequenceDiagram
     API-->>Visitor: up to 5 rows (or [])
 ```
 
-**WhatsApp shop updates (S-050..052, mock default, not Accepted):** approved listings get a second QR beside collect. Inbound webhook binds `MH-XXXXXXXX`, stores photos as `general`, and parks AI-extracted text as pending drafts until Apply.
+**WhatsApp shop updates (S-050..052 Testing, S-053 Accepted, mock default):** approved listings get a second QR beside collect. Inbound webhook binds `MH-XXXXXXXX`, stores photos as `general`, and parks AI-extracted text as pending drafts. Since **S-053**, only an admin can approve a draft onto the live listing — the merchant dashboard panel is read-only status (pending admin review / applied / discarded); admin review happens in a global cross-business queue at `/admin/whatsapp`, editable before approving.
 
 ```mermaid
 sequenceDiagram
@@ -859,6 +859,8 @@ sequenceDiagram
     participant API as FastAPI
     participant WA as WhatsAppProvider mock or meta_cloud
     participant AI as AIProvider
+    participant Admin
+    participant AdminUI as /admin/whatsapp
 
     Merchant->>Dash: Open approved listing
     Dash->>API: POST .../whatsapp/link
@@ -872,7 +874,11 @@ sequenceDiagram
         API->>AI: extract_business_profile
         API->>API: pending business_update_drafts
     end
-    Merchant->>Dash: Apply or Discard draft
+    Admin->>AdminUI: GET /admin/whatsapp/drafts
+    Admin->>AdminUI: edit field(s), Approve or Reject
+    AdminUI->>API: POST .../approve or .../reject
+    API->>API: write fields to Business (approve only) + audit_logs + Notification
+    API-->>Merchant: in-app notification (+ best-effort email on approve)
 ```
 
 ### Merchant business registration
@@ -1233,9 +1239,7 @@ Upload form fields: `file`, `business_id`, `review_id`, `photo_type`, `caption`.
 | POST   | `/dashboard/merchant/{business_id}/google-reviews/link` | Merchant, Admin | Set `external_platform_refs.google`. `409` if already linked (**S-048**) |
 | POST   | `/dashboard/merchant/{business_id}/google-reviews/sync` | Merchant, Admin | Fetch/upsert up to 5 reviews. `400` if unlinked; `200` `{debounced: true}` if a sync is in flight; `502` leaves rows untouched (**S-048**) |
 | POST   | `/dashboard/merchant/{business_id}/whatsapp/link` | Merchant, Admin | Short-lived `wa.me` URL + session token (**S-050**). Mock is always `available` |
-| GET    | `/dashboard/merchant/{business_id}/whatsapp/drafts` | Merchant, Admin | Pending AI profile suggestions from WhatsApp (**S-052**) |
-| POST   | `/dashboard/merchant/{business_id}/whatsapp/drafts/{id}/apply` | Merchant, Admin | Write confirmed fields to the live `Business` row |
-| POST   | `/dashboard/merchant/{business_id}/whatsapp/drafts/{id}/discard` | Merchant, Admin | Drop the draft; listing unchanged |
+| GET    | `/dashboard/merchant/{business_id}/whatsapp/drafts` | Merchant, Admin | Read-only: every draft for this business, any status, newest first. Apply/discard is admin-only now — see `/admin/whatsapp/drafts` above (**S-052**, RBAC changed **S-053**) |
 | GET    | `/dashboard/admin/platform`                     | Admin           | Five live `COUNT(*)` tiles — unchanged snapshot                                                                                                                                                                                                                                         |
 | GET    | `/dashboard/admin/platform/series`              | Admin           | Time series: `new_users`, `businesses_approved` (from `audit_logs` `approve`/`business`), `new_reviews`, `new_reports`. Query `granularity=day|week` (default `day`), `days` 1-365 (default `90`), zero-filled buckets (**S-034**)                                                      |
 
@@ -1250,6 +1254,9 @@ Upload form fields: `file`, `business_id`, `review_id`, `photo_type`, `caption`.
 | GET    | `/admin/users`                 | Admin | List users, newest first. Optional `page`, `page_size` (cap 100), `q` substring on email/full_name. Never serializes `totp_secret`/`hashed_password`/`google_sub` |
 | POST   | `/admin/users/{id}/suspend`    | Admin | Set `is_active=false` + `audit_logs` row. Idempotent. `400` if `id` is the caller or another admin, `404` unknown id                                              |
 | POST   | `/admin/users/{id}/reactivate` | Admin | Set `is_active=true` + `audit_logs` row. Idempotent. `400` if `id` is the caller or another admin, `404` unknown id                                               |
+| GET    | `/admin/whatsapp/drafts`       | Admin | Global, cross-business queue of pending `business_update_drafts`, oldest first. `page`, `page_size` (cap 100), `total` count (**S-053**) |
+| POST   | `/admin/whatsapp/drafts/{id}/approve` | Admin | Write the (optionally edited) fields to the live `Business` row; `audit_logs` (`entity_type=business_update_draft`, `details.ai_fields`/`applied_fields`) + merchant `Notification` + best-effort email. `404`/`409` (**S-053**) |
+| POST   | `/admin/whatsapp/drafts/{id}/reject` | Admin | Leave the live `Business` row untouched; `audit_logs` + merchant `Notification`. `404`/`409` (**S-053**) |
 
 
 Suspended/reactivated accounts are always `customer` or `merchant` — an admin can never suspend themselves or another admin. Existing login/refresh/`get_current_user` already reject `is_active=false` (S-034).
@@ -1511,7 +1518,8 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | `MerchantNationalIdCard.tsx` | Merchant national ID (PAN/Aadhaar/Other); required before listing create (S-043) |
 | `CollectQrCard.tsx`        | QR for `/collect/{id}` review wizard (S-040)                                   |
 | `WhatsAppUpdateCard.tsx`   | `wa.me` QR to send shop details (S-050, mock; **not Accepted**)                |
-| `WhatsAppDraftsPanel.tsx`  | Apply/Discard AI profile suggestions from WhatsApp (S-052, **not Accepted**)   |
+| `WhatsAppDraftsPanel.tsx`  | Merchant read-only status (pending admin review / applied / discarded) for WhatsApp AI suggestions — apply/discard moved to admin (RBAC change shipped in **S-053, Accepted**; underlying draft source **S-052** still Testing) |
+| `admin/AdminWhatsAppDraftsQueue.tsx` | Admin: global cross-business queue, editable AI suggestions, Approve/Reject (`/admin/whatsapp`, **S-053, Accepted**) |
 | `BenchmarkCard.tsx`        | Category/city rating medians (S-038)                                           |
 | `GooglePlacePicker.tsx`    | Search + Leaflet/OSM pins to link a Google Place ID (S-048)                    |
 | `ExternalReviews.tsx`      | Public "Also reviewed on Google" sample; hidden when empty (S-048)             |
@@ -2352,7 +2360,7 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-77 | Home              | Problem section (three named product gaps, numbered layout)        | `/` (`ProblemSection`)                          | —                                                                      | `unimplemented` | S-047; web built — mobile not yet                            |
 | M-78 | Merchant          | AI topic clustering (named themes, count + sentiment, "Common Themes" panel) | `/merchant/dashboard` (`AIInsights`)  | —                                                                      | `unimplemented` | S-049; web built — mobile not yet                            |
 | M-80 | Merchant/Customer | External review sync (Google) — dashboard link/sync + public sample | `/merchant/dashboard` Google card + `/businesses/[slug]` (`ExternalReviews`) | —                                              | `unimplemented` | S-048; web built — mobile not yet; no auto-polling           |
-| M-79 | Merchant          | WhatsApp shop-data ingestion (link/QR, photos, AI text drafts)     | `/merchant/dashboard` card + inbound webhook | —                                                               | `unimplemented` | S-050..052 Testing — mock code + Jest; **pytest not run / not Accepted**; Meta cutover in §14 |
+| M-79 | Merchant          | WhatsApp shop-data ingestion (link/QR, photos, AI text drafts, admin approval gate) | `/merchant/dashboard` card + inbound webhook + `/admin/whatsapp` review queue | —                                                               | `unimplemented` | S-050..053 Testing — mock code + Jest; **pytest not run / not Accepted**; Meta cutover in §14 |
 
 
 
@@ -2535,6 +2543,7 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-050 | WhatsApp link foundation (session + inbound webhook + dashboard QR)            | 4 Dashboards | Testing (Jest pass; pytest not run; not Accepted) |
 | S-051 | WhatsApp photo ingestion (reuse existing photo/storage pipeline)               | 2 Core       | Testing (pytest not run; not Accepted)   |
 | S-052 | WhatsApp AI text drafts (extract → merchant Apply/Discard)                     | 3 AI         | Testing (Jest pass; pytest not run; not Accepted) |
+| S-053 | WhatsApp admin approval gate (global review queue, editable AI suggestions, merchant self-apply removed) | 4 Dashboards | **Accepted** |
 
 
 
@@ -2604,7 +2613,7 @@ An honest delta between the original specification and what the code actually do
 | **Mobile web parity**       | P0–P4 (S-023–S-025, S-027–S-031) are on Flutter (analyze/test not run yet). Remaining gaps: home marketing (M-13–M-18), FCM (M-47 `future`), storefront/hours editors (`n/a`). Living checklist: [§12 Web ↔ mobile feature parity tracker](#web--mobile-feature-parity-tracker). |
 | **Optional seed ops**       | Core seed gating is done (`SEED_MODE` / `seed_runs`). Still optional later: a Railway one-shot/cron seed service (never on the web dyno), blue-green app cutover on one DB, or a disposable dual-DB demo reset — not required for normal deploys.                                |
 | **Dark mode hex values are placeholder** | Dark mode itself is shipped (S-045, Accepted — `next-themes`, class-based Tailwind, 5 semantic tokens, ~65-file sweep). What's still open: every dark-mode hex (`globals.css` `--mh-*` vars, `Charts.tsx` `CHART_COLORS.dark`, Badge/RatingWidget `dark:` pairs) is a contrast-checked, Material-3-grounded placeholder — the real Figma `Color` collection (`X0XXhJiwW8SxFdMf39n2t3`, 99 variables, Light+Dark) is local/unpublished and unreachable via Figma MCP tooling this session. A human needs to open the file directly, diff the real values against the table in the S-045 slice spec, and file a follow-up patch if they drift. |
-| **WhatsApp shop-data ingestion** | **Not Accepted.** S-050..052 are `Testing`. Mock-first code + RTL exist; Tester reports recommend **Rework** because `pytest tests/test_whatsapp.py` was not executed on the Builder host (no Docker). Live Meta is a later **env/ops cutover**: [Going live with Meta WhatsApp](#going-live-with-meta-whatsapp-cloud-api). |
+| **WhatsApp shop-data ingestion** | **S-053 Accepted; S-050..052 still `Testing`.** S-053 closes the "merchant approves their own AI draft" gap — a `BusinessUpdateDraft` now only reaches the live `Business` row via admin approve at `/admin/whatsapp`, not merchant self-apply; formal Tester report + PM Accept complete (`pytest tests/test_whatsapp.py` 21/21, `tests/test_whatsapp_admin_asgi.py` 20/20 against real Postgres, Jest 197/197). Along the way, S-053's Tester found and Builder fixed a real bug shared by all four slices: the Postgres `draftstatus` enum only accepted lowercase labels while SQLAlchemy wrote uppercase names, so no `BusinessUpdateDraft.status` write had ever actually succeeded against a real database (`backend/app/models/__init__.py`, one-line `values_callable` fix, no migration). S-050..052's own Tester reports predate both that fix and a working pytest environment (most of their AC are marked "not run" for unrelated environment reasons) — PM did not accept them by inference and instead flagged a follow-up: re-run their test suites for real, then bring back for an accept/rework decision. Live Meta is a later **env/ops cutover**: [Going live with Meta WhatsApp](#going-live-with-meta-whatsapp-cloud-api). |
 | **No automatic Google review polling** | **S-048** ships merchant-triggered Sync now only (Google's Place Details cap of 5 most-relevant reviews). Scheduled polling is backlog. Native `average_rating` / `review_count` stay first-party only. |
 
 
@@ -2642,15 +2651,15 @@ These are **held off** until product needs them. They are not in-house leftovers
 
 The product code talks to WhatsApp only through `get_whatsapp_provider()` ([ADR-012](docs/agents/adrs/ADR-012-whatsapp-cloud-api-port.md)). **Do not add Meta HTTP calls in routers.** Compose/pytest stay on `WHATSAPP_PROVIDER=mock`. When a neighborhood launch needs real chats, this is the rework — env + Meta console, not a new ingest pipeline:
 
-1. Finish S-050..052 against **mock** (pytest + RTL + Tester report + PM `Accepted`) before flipping production. The live adapter is unproven until that gate.
+1. Finish S-050..053 against **mock** (pytest + RTL + Tester report + PM `Accepted`) before flipping production. The live adapter is unproven until that gate.
 2. Create a Meta app with **WhatsApp Cloud API**, a business phone number, and a webhook. Subscribe to `messages`. Callback URL: `https://<api-host>/api/v1/webhooks/whatsapp` (GET handshake + POST inbound). Verify token must match `META_WHATSAPP_VERIFY_TOKEN`.
 3. Set production env (empty defaults — never `"placeholder"`): `WHATSAPP_PROVIDER=meta_cloud`, `WHATSAPP_BUSINESS_NUMBER` (digits for `wa.me`), `META_WHATSAPP_ACCESS_TOKEN`, `META_WHATSAPP_PHONE_NUMBER_ID`, `META_WHATSAPP_VERIFY_TOKEN`, `META_WHATSAPP_APP_SECRET` (HMAC for `X-Hub-Signature-256` — this is the **app secret**, not the access token). Optional: `WHATSAPP_SESSION_TTL_HOURS` (default 24).
-4. Factory already falls back to mock if `meta_cloud` is selected but the access token is blank — a missing token must not take production “live” silently. After keys are set, smoke: GET challenge, signed POST of a token-bearing text, one image, one Apply/Discard on the dashboard. HMAC failures must stay 400.
-5. **Do not rewrite** session bind, photo `save_business_photo`, or draft Apply/Discard for Meta. If Graph payloads or media URLs drift, change only `providers/meta_cloud.py` (and add a contract test with a recorded fixture). AI text still never auto-publishes.
+4. Factory already falls back to mock if `meta_cloud` is selected but the access token is blank — a missing token must not take production “live” silently. After keys are set, smoke: GET challenge, signed POST of a token-bearing text, one image, one admin Approve/Reject at `/admin/whatsapp`. HMAC failures must stay 400.
+5. **Do not rewrite** session bind, photo `save_business_photo`, or admin draft approve/reject for Meta. If Graph payloads or media URLs drift, change only `providers/meta_cloud.py` (and add a contract test with a recorded fixture). AI text still never auto-publishes.
 
 ### Suggested next steps (evaluation and leftovers)
 
-Product intel slices S-033–S-040 are **Accepted**. WhatsApp S-050..052 are **Testing** — mock code + Jest; **not** PM-Accepted (pytest still required). Remaining proof/ops leftovers still apply.
+Product intel slices S-033–S-040 are **Accepted**. WhatsApp S-050..053 are **Testing** — mock code + Jest/pytest passing locally; **not** PM-Accepted (formal Tester report still required). Remaining proof/ops leftovers still apply.
 
 1. **WhatsApp:** run `pytest tests/test_whatsapp.py` with Postgres, close Tester rework items, then PM Accept. Only then run the Meta cutover above.
 2. **S-010:** run Actions → **Web e2e (Playwright)** when you want the second view; download `playwright-traces`. Keep it off PR/deploy.
@@ -2828,7 +2837,7 @@ Demo / seeded listings only. A fundraise ask should be **pre-seed for one neighb
 
 | Built                                                                                                                                                                                                                                                                                                                       | Next (not yet Accepted)                                                                                                                                                                                                                                                                                                                                                                                                               |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth (password + TOTP, Google) + forgot/reset + email, search + OSM + paid Featured, reviews, favorites, merchant dashboard (S-033 charts, S-037 area/deltas, S-038 benchmark, S-039 AI draft, S-040 QR collect), admin queues (S-034) + placement refund, **S-036** featured SKU (mock/Razorpay port), **S-045** dark mode (system default + toggle, ~65-file sweep), **S-046** review-list sort/filter/truncate/lightbox + half-star ratings, **S-047** home social proof rail + problem section, **S-048** Google review sample (link + Sync now, native ratings unchanged), **S-049** AI topic clustering ("Common Themes" panel), **S-010** Playwright journeys + manual `web-e2e.yml` | Leftovers: structured logs, isolated test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity (incl. dark mode, review-list interactivity, Google review sync), optional re-enable pytest/Jest on PR; **S-050..052** WhatsApp (Testing, **not Accepted** — mock + Jest; pytest still required; Meta cutover in §14) |
+| Auth (password + TOTP, Google) + forgot/reset + email, search + OSM + paid Featured, reviews, favorites, merchant dashboard (S-033 charts, S-037 area/deltas, S-038 benchmark, S-039 AI draft, S-040 QR collect), admin queues (S-034) + placement refund, **S-036** featured SKU (mock/Razorpay port), **S-045** dark mode (system default + toggle, ~65-file sweep), **S-046** review-list sort/filter/truncate/lightbox + half-star ratings, **S-047** home social proof rail + problem section, **S-048** Google review sample (link + Sync now, native ratings unchanged), **S-049** AI topic clustering ("Common Themes" panel), **S-053** WhatsApp admin approval gate (global review queue at `/admin/whatsapp`, editable AI suggestions, merchant self-apply removed), **S-010** Playwright journeys + manual `web-e2e.yml` | Leftovers: structured logs, isolated test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, mobile parity (incl. dark mode, review-list interactivity, Google review sync), optional re-enable pytest/Jest on PR; **S-050..052** WhatsApp foundation (Testing, **not Accepted** — pending a real Tester re-run now that S-053 fixed the shared `draftstatus` enum bug blocking real-DB draft writes; Meta cutover in §14) |
 
 
 Play Store packaging is distribution (`ANDROID_APP_STRATEGY.md` phase 5), not this story.

@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-053 |
 | **Phase** | 4 Dashboards |
-| **Status** | Specified |
+| **Status** | Accepted |
 | **Role(s)** | admin \| merchant |
 | **Owner** | PM / 2026-08-16 |
 
@@ -78,6 +78,7 @@ No new AI operation, prompt, or provider is introduced. `extracted_fields` (alre
 ## Dependencies
 
 - **S-050, S-051, S-052** must be Accepted first per the standard workflow (`CLAUDE.md` "Definition of done (full cycle)"). As of this brief they are built and passing all tests on `feature/s050-whatsapp-ingestion` (Status: Testing) but **not yet Accepted** — flagging this explicitly since it's a departure from the usual "depends on Accepted slice" rule; PM will accept S-050/051/052 (or confirm they're accepted in the same cycle) before or alongside this slice reaching Accepted.
+- **PM sign-off note (2026-08-17):** S-053 itself is now Accepted (see Changelog) — its own 20/20 real-Postgres + 21/21 fake-DB + 197/197 frontend coverage stands on its own and is not blocked by S-050/051/052's status. However, S-050/051/052 remain **Status: Testing**, each with a **Rework** recommendation in their respective `TR-S-05{0,1,2}-*.md` reports (dated 2026-08-16, pre-dating both the environment fix that let backend pytest run at all on this host, and the `draftstatus` enum-serialization bug/fix discovered during S-053 testing). Those three reports mark most backend AC as "Not run", not "Pass" — this is a materially different, *stale* basis than S-053's fresh, independently-verified real-Postgres run, and is **not** closed out by S-053's fix alone. PM is deliberately **not** accepting S-050/051/052 in this pass: they need a fresh Tester re-run (same real-Postgres, individually-run-per-test methodology used for S-053) before a PM accept/rework decision can be made on them. Recommended as an explicit follow-up task, not silently deferred.
 - Existing `AuditLog`, `Notification` (+ `NotificationType`), and best-effort email pattern already used by `businesses.approve` — no new infrastructure, reuse only.
 - No new AI vendor/provider work (see Out of scope).
 
@@ -85,11 +86,11 @@ No new AI operation, prompt, or provider is introduced. `extracted_fields` (alre
 
 ## Definition of done (PM)
 
-- [ ] All 11 AC verified in test report (`docs/agents/test-reports/TR-S-053.md`), including admin-edit-before-approve, merchant read-only enforcement, and 403 cases for customer/merchant/logged-out on the new queue endpoints
-- [ ] UX matches notes — admin queue uses existing moderation-queue visual pattern; merchant panel is read-only with no reachable apply/discard action; suggestion labeling preserved throughout
-- [ ] `README.md` §5 (draft entity — any status/RBAC note), §6 (flow), §7 (new admin endpoints), §9 (RBAC change: merchant loses apply/discard on drafts), §12 (mobile parity row), §14 / §16 updated in the same PR
-- [ ] No new product `.md`/`.txt` checklist outside `docs/agents/`
-- [ ] PM Status set to **Accepted**
+- [x] All 11 AC verified in test report (`docs/agents/test-reports/TR-S-053-whatsapp-admin-approval.md`), including admin-edit-before-approve, merchant read-only enforcement, and 403 cases for customer/merchant/logged-out on the new queue endpoints — 11/11 Pass, independently re-verified by Tester after the `values_callable` enum-serialization fix (20/20 real-Postgres ASGI, 21/21 fake-DB, 197/197 frontend)
+- [x] UX matches notes — admin queue uses existing moderation-queue visual pattern; merchant panel is read-only with no reachable apply/discard action; suggestion labeling preserved throughout
+- [x] `README.md` §5 (draft entity — any status/RBAC note), §6 (flow), §7 (new admin endpoints), §9 (RBAC change: merchant loses apply/discard on drafts), §12 (mobile parity row), §14 / §16 updated in the same PR (per Builder, docs/CLAUDE.md sync table — not re-verified line-by-line by PM in this sign-off pass)
+- [x] No new product `.md`/`.txt` checklist outside `docs/agents/`
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -214,3 +215,7 @@ sequenceDiagram
 |------|-------|--------|
 | 2026-08-16 | PM | Created slice (Draft); technical specification left for Architect |
 | 2026-08-16 | Architect | Filled technical specification: resolved all 4 open questions (remove old apply/discard routes outright; admin edits captured in `AuditLog.details`, no schema change; `AuditLog.entity_type="business_update_draft"`, single row per action; pagination mirrors `/admin/users` with `created_at asc` + `total` count for AC9). Defined new `/admin/whatsapp/drafts` (list/approve/reject) endpoints, widened merchant `GET .../whatsapp/drafts` to all statuses, RBAC matrix, cache/side-effect plan, frontend route/components, mermaid flow, risks. Status: Draft → Specified. |
+| 2026-08-17 | Tester | Found blocking bug: `BusinessUpdateDraft.status` enum serialized as Python member *names* (`PENDING`) but Postgres `draftstatus` enum type only accepts lowercase *values* (`pending`) — 8/20 real-Postgres ASGI tests failed. Recommendation: Rework. |
+| 2026-08-17 | Builder | Fixed with `values_callable=lambda members: [m.value for m in members]` on `BusinessUpdateDraft.status` (`backend/app/models/__init__.py`), same pattern as `national_id_type`. No migration required. |
+| 2026-08-17 | Tester | Independently re-ran all previously-failing tests individually against real Postgres: 20/20 `test_whatsapp_admin_asgi.py` (was 12/20), 21/21 `test_whatsapp.py` (fake DB, no regression), 197/197 frontend (no regression). All 11 AC now Pass. Flagged that S-050/051/052 share the identical root-cause bug and were never previously provable against real Postgres. Recommendation: Rework → **Accept**. |
+| 2026-08-17 | PM | Reviewed slice brief + `TR-S-053-whatsapp-admin-approval.md`: 11/11 AC genuinely mapped and Pass, two only-minor non-blocking gaps (AC4 email-absence is code-review-only, AC11 admin-queue `degraded` case has no dedicated frontend RTL test). **Status: Specified → Accepted.** Checked S-050/051/052: all three remain `Status: Testing` with **Rework** recommendations in their own test reports, which pre-date both the pytest-execution environment fix and the `draftstatus` bug fix and mark most backend AC "Not run" (not "Pass") — a materially weaker, stale basis than S-053's fresh verification. Deliberately did **not** accept S-050/051/052 in this pass; added a Dependencies-section note and recommend a fresh Tester re-run against real Postgres for those three as an explicit follow-up before any PM accept/rework decision on them. |
