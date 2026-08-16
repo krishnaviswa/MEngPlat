@@ -24,13 +24,16 @@ from app.services.ai.base import (
     ImageAnalysisResult,
     MerchantSummaryResult,
     ReviewAnalysisResult,
+    TopicClusterResult,
 )
 
 logger = logging.getLogger(__name__)
 
 _RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 
-_ResultT = TypeVar("_ResultT", ReviewAnalysisResult, ImageAnalysisResult, MerchantSummaryResult)
+_ResultT = TypeVar(
+    "_ResultT", ReviewAnalysisResult, ImageAnalysisResult, MerchantSummaryResult, TopicClusterResult
+)
 
 
 def _is_retryable(exc: Exception) -> bool:
@@ -153,4 +156,13 @@ class AIGateway(AIProvider):
             "merchant_summary",
             lambda: self._primary.generate_merchant_summary(reviews, context),
             lambda: self._fallback.generate_merchant_summary(reviews, context),
+        )
+
+    async def generate_topic_clusters(
+        self, reviews: list[dict], context: dict | None = None
+    ) -> TopicClusterResult:
+        return await self._run(
+            "topic_clustering",
+            lambda: self._primary.generate_topic_clusters(reviews, context),
+            lambda: self._fallback.generate_topic_clusters(reviews, context),
         )

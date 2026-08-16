@@ -1,3 +1,10 @@
+interface TopicItem {
+  label: string;
+  count: number;
+  sentiment: "positive" | "negative" | "mixed";
+  example_quote: string;
+}
+
 interface AIInsightsProps {
   insights: {
     merchant_summary?: string | null;
@@ -7,6 +14,10 @@ interface AIInsightsProps {
     monthly_trends?: { month: string; positive: number; neutral: number; negative: number }[];
     sentiment_breakdown?: Record<string, number>;
     degraded?: boolean;
+    topics?: TopicItem[];
+    topics_degraded?: boolean;
+    topics_insufficient_data?: boolean;
+    topics_unavailable?: boolean;
   };
 }
 
@@ -52,6 +63,28 @@ export function AIInsights({ insights }: AIInsightsProps) {
               {r}
             </blockquote>
           ))}
+        </section>
+      )}
+      {(insights.topics_insufficient_data || insights.topics_unavailable || (insights.topics || []).length > 0) && (
+        <section>
+          <h4 className="font-medium text-ink">Common Themes</h4>
+          {insights.topics_insufficient_data ? (
+            <p className="mt-1 text-sm text-muted">Not enough reviews yet to identify common themes.</p>
+          ) : insights.topics_unavailable ? (
+            <p className="mt-1 text-sm text-muted">Common themes are temporarily unavailable.</p>
+          ) : (
+            <ul className="mt-2 flex flex-wrap gap-2 text-sm text-muted">
+              {insights.topics!.map((t) => (
+                <li
+                  key={t.label}
+                  className="rounded-full border-l-4 border-brand-400 bg-surface-raised px-3 py-1"
+                >
+                  {insights.topics_degraded ? "Mock/degraded data. " : ""}
+                  {t.label} — {t.count} mentions · {t.sentiment} (suggestion)
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
       {(insights.monthly_trends || []).length > 0 && (

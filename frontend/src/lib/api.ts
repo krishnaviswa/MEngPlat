@@ -477,6 +477,14 @@ export const dashboard = {
     apiFetch<Record<string, unknown>>(`/api/v1/ai/businesses/${businessId}/insights`),
   refreshInsights: (businessId: string) =>
     apiFetch<Record<string, unknown>>(`/api/v1/ai/businesses/${businessId}/refresh`, { method: "POST" }),
+  topics: (businessId: string) =>
+    apiFetch<{
+      business_id: string;
+      topics: { label: string; count: number; sentiment: "positive" | "negative" | "mixed"; example_quote: string }[];
+      degraded: boolean;
+      insufficient_data: boolean;
+      unavailable: boolean;
+    }>(`/api/v1/ai/businesses/${businessId}/topics`),
   // Blob download (not JSON) -- can't route through apiFetch, but shares its
   // auth header so the export hits the same ownership check as the dashboard.
   reviewsCsv: async (businessId: string, opts?: { range?: DashboardRange }): Promise<Blob> => {
@@ -499,6 +507,65 @@ export const dashboard = {
     const qs = params.toString();
     return apiFetch<PlatformAnalyticsSeries>(`/api/v1/dashboard/admin/platform/series${qs ? `?${qs}` : ""}`);
   },
+  /** S-048: proxy a Google Places Text Search, biased by the business's stored lat/lng. */
+  searchGooglePlaces: (businessId: string, query: string) =>
+    apiFetch<{ candidates: GooglePlaceCandidate[] }>(
+      `/api/v1/dashboard/merchant/${businessId}/google-reviews/search`,
+      { method: "POST", body: JSON.stringify({ query }) },
+    ),
+  /** S-048: link/sync status powering the dashboard card's unlinked/linked/synced states. */
+  getGoogleReviewsStatus: (businessId: string) =>
+    apiFetch<GoogleReviewsStatus>(`/api/v1/dashboard/merchant/${businessId}/google-reviews`),
+  /** S-048: link a Google Place ID. name/address are UI-confirmation echoes only. */
+  linkGooglePlace: (businessId: string, placeId: string, name?: string, address?: string) =>
+    apiFetch<{ linked: true; place_id: string }>(`/api/v1/dashboard/merchant/${businessId}/google-reviews/link`, {
+      method: "POST",
+      body: JSON.stringify({ place_id: placeId, name, address }),
+    }),
+  /** S-048: fetch up to 5 reviews from Google and upsert them. Debounced server-side. */
+  syncGoogleReviews: (businessId: string) =>
+    apiFetch<GoogleReviewsSyncResult>(`/api/v1/dashboard/merchant/${businessId}/google-reviews/sync`, {
+      method: "POST",
+    }),
+};
+
+// --- S-048 review aggregator (Google Places) ---------------------------------
+
+export interface GooglePlaceCandidate {
+  place_id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface GoogleReviewsStatus {
+  linked: boolean;
+  place_id: string | null;
+  review_count: number;
+  last_synced_at: string | null;
+}
+
+export interface GoogleReviewsSyncResult {
+  synced_count: number;
+  last_synced_at: string;
+  debounced: boolean;
+}
+
+export interface ExternalReview {
+  id: string;
+  author_name: string;
+  author_photo_url?: string | null;
+  rating: number;
+  body: string | null;
+  source: "google";
+  source_url: string | null;
+  external_posted_at: string | null;
+}
+
+export const externalReviews = {
+  /** Public, no auth header needed -- same shape as reviews.list. */
+  list: (businessId: string) => apiFetch<ExternalReview[]>(`/api/v1/businesses/${businessId}/external-reviews`),
 };
 
 export const admin = {

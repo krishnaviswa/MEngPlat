@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AIInsights } from "./AIInsights";
 import { Charts } from "./Charts";
 import { Dashboard } from "./Dashboard";
+import { GooglePlacePicker } from "./GooglePlacePicker";
 import { ReviewCard } from "./ReviewCard";
 import { FeaturedBoostPanel } from "./FeaturedBoostPanel";
 import { MerchantNationalIdCard } from "./MerchantNationalIdCard";
@@ -12,7 +13,7 @@ import { BenchmarkCard } from "./BenchmarkCard";
 import { Select } from "./ui/Select";
 import { StatCard } from "./ui/StatCard";
 import { auth, businesses, dashboard, reviews as reviewsApi } from "@/lib/api";
-import type { Business, BusinessStatus, DashboardRange, Review, User } from "@/lib/api";
+import type { Business, BusinessStatus, DashboardRange, GoogleReviewsStatus, Review, User } from "@/lib/api";
 
 const RANGE_LABEL: Record<DashboardRange, string> = {
   "30": "Last 30 days",
@@ -58,6 +59,10 @@ export default function MerchantDashboardPage() {
     city_median: number | null;
     disclaimer: string;
   } | null>(null);
+  const [googleStatus, setGoogleStatus] = useState<GoogleReviewsStatus | null>(null);
+  const [showGooglePicker, setShowGooglePicker] = useState(false);
+  const [syncingGoogle, setSyncingGoogle] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
 
   useEffect(() => {
     auth.me().then(setUser).catch(() => setUser(null));
@@ -77,7 +82,16 @@ export default function MerchantDashboardPage() {
   const loadBusiness = useCallback(async (b: Business) => {
     setBusiness(b);
     const ins = await dashboard.insights(b.id);
-    setInsights(ins);
+    const topics = await dashboard.topics(b.id).catch(() => null);
+    setInsights({
+      ...ins,
+      ...(topics && {
+        topics: topics.topics,
+        topics_degraded: topics.degraded,
+        topics_insufficient_data: topics.insufficient_data,
+        topics_unavailable: topics.unavailable,
+      }),
+    });
   }, []);
 
   useEffect(() => {
@@ -101,6 +115,16 @@ export default function MerchantDashboardPage() {
       .benchmark(business.id)
       .then(setBenchmark)
       .catch(() => setBenchmark(null));
+  }, [business]);
+
+  useEffect(() => {
+    if (!business) return;
+    setShowGooglePicker(false);
+    setGoogleError(null);
+    dashboard
+      .getGoogleReviewsStatus(business.id)
+      .then(setGoogleStatus)
+      .catch(() => setGoogleStatus(null));
   }, [business]);
 
   async function handleExportCsv() {
@@ -138,6 +162,29 @@ export default function MerchantDashboardPage() {
       setInsights(ins);
     } finally {
       setRefreshingAi(false);
+    }
+  }
+
+  async function handleGoogleLinked() {
+    if (!business) return;
+    setShowGooglePicker(false);
+    const status = await dashboard.getGoogleReviewsStatus(business.id).catch(() => null);
+    setGoogleStatus(status);
+  }
+
+  async function handleSyncGoogleReviews() {
+    if (!business) return;
+    setSyncingGoogle(true);
+    setGoogleError(null);
+    try {
+      await dashboard.syncGoogleReviews(business.id);
+      const status = await dashboard.getGoogleReviewsStatus(business.id);
+      setGoogleStatus(status);
+    } catch (err) {
+      // AC5's "leave existing state untouched" principle applied to sync too.
+      setGoogleError(err instanceof Error ? err.message : "Couldn't sync Google reviews right now");
+    } finally {
+      setSyncingGoogle(false);
     }
   }
 
@@ -261,7 +308,7 @@ export default function MerchantDashboardPage() {
           <MerchantNationalIdCard user={user} onSaved={setUser} />
         )}
         <FeaturedBoostPanel businessId={business.id} listingStatus={status} />
-        {status === "approved" && <CollectQrCard businessId={business.id} />}
+        {status === "approved" && <CollectQrCard businessId={business.id} businessName={business.name} />}
 
         <div id="review-analytics" className="scroll-mt-20 rounded-xl border bg-surface-raised p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -337,6 +384,68 @@ export default function MerchantDashboardPage() {
         <div id="sentiment-breakdown" className="scroll-mt-20 rounded-xl border bg-surface-raised p-4">
           <h3 className="font-semibold">Sentiment breakdown</h3>
           <Charts data={sentimentData} />
+        </div>
+
+        <div className="rounded-xl border bg-surface-raised p-4">
+          <h3 className="font-semibold">Google reviews</h3>
+          <p className="mt-1 text-sm text-muted">
+            Showing up to 5 most-relevant Google reviews on your public profile -- not a full review history.
+          </p>
+
+          {!googleStatus?.linked ? (
+            <div className="mt-3">
+              {!showGooglePicker ? (
+                <>
+                  <p className="text-sm text-muted">Link your Google Business Profile to sync reviews.</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowGooglePicker(true)}
+                    className="mt-2 rounded border border-brand-300 bg-surface-raised px-3 py-1.5 text-sm text-brand-700 hover:bg-brand-50"
+                  >
+                    Link Google Business Profile
+                  </button>
+                </>
+              ) : (
+                <div className="mt-2">
+                  <GooglePlacePicker
+                    businessId={business.id}
+                    businessName={business.name}
+                    center={business.latitude != null && business.longitude != null ? [business.latitude, business.longitude] : null}
+                    onLinked={handleGoogleLinked}
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-ink">
+                  {googleStatus.review_count > 0
+                    ? `${googleStatus.review_count} review${googleStatus.review_count === 1 ? "" : "s"} synced`
+                    : "Linked -- not yet synced"}
+                </p>
+                {googleStatus.last_synced_at && (
+                  <p className="text-xs text-muted">
+                    Last synced {new Date(googleStatus.last_synced_at).toLocaleString()}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleSyncGoogleReviews}
+                disabled={syncingGoogle}
+                className="rounded border border-brand-300 bg-surface-raised px-3 py-1.5 text-sm text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+              >
+                {syncingGoogle ? "Syncing..." : "Sync now"}
+              </button>
+            </div>
+          )}
+
+          {googleError && (
+            <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+              {googleError}
+            </p>
+          )}
         </div>
 
         {insights && (

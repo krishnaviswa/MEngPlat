@@ -65,6 +65,21 @@ async def try_acquire_lock(key: str, ttl: int) -> bool:
         return False
 
 
+async def release_lock(key: str) -> None:
+    """Best-effort early release of a `try_acquire_lock` lock.
+
+    Fail-open (mirrors `cache_delete_pattern`'s convention), unlike
+    `try_acquire_lock`'s fail-closed acquire: a failed release just means the
+    lock's TTL becomes the fallback expiry, which is acceptable -- unlike a
+    failed *acquire*, nothing here needs to block the caller's own work.
+    """
+    try:
+        client = await get_redis()
+        await client.delete(key)
+    except Exception:
+        pass
+
+
 LOGIN_FAIL_LIMIT = 5
 LOGIN_LOCK_SECONDS = 15 * 60
 

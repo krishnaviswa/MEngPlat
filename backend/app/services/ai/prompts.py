@@ -22,3 +22,8 @@ MERCHANT_SUMMARY_SYSTEM = (
     "Summarize merchant reviews. Return JSON: summary, positives (array), complaints (array), "
     "monthly_trends (array of {month, positive, neutral, negative}), suggested_responses (array)."
 )
+
+TOPIC_CLUSTERING_SYSTEM = (
+    "Group these customer reviews into 3-6 common themes. Return JSON: topics (array of "
+    "{label, count, sentiment: positive|negative|mixed, example_quote}). Frame as suggestions, not facts."
+)

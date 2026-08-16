@@ -319,6 +319,21 @@ class MerchantInsightsResponse(BaseModel):
     degraded: bool = False
 
 
+class TopicItem(BaseModel):
+    label: str
+    count: int
+    sentiment: Literal["positive", "negative", "mixed"]
+    example_quote: str
+
+
+class TopicClusterResponse(BaseModel):
+    business_id: UUID
+    topics: list[TopicItem] = []
+    degraded: bool = False
+    insufficient_data: bool = False
+    unavailable: bool = False
+
+
 class BenchmarkResponse(BaseModel):
     business_id: UUID
     own_rating: float
@@ -531,3 +546,60 @@ class PlacementDisableResponse(BaseModel):
 class PaymentRefundResponse(BaseModel):
     id: UUID
     status: str
+
+
+# --- S-048 review aggregator (Google Places) ---------------------------------
+
+
+class GooglePlaceCandidateResponse(BaseModel):
+    place_id: str
+    name: str
+    address: str
+    latitude: float
+    longitude: float
+
+
+class GooglePlacesSearchRequest(BaseModel):
+    query: str = Field(min_length=2)
+
+
+class GooglePlacesSearchResponse(BaseModel):
+    candidates: list[GooglePlaceCandidateResponse]
+
+
+class GoogleReviewsStatusResponse(BaseModel):
+    linked: bool
+    place_id: str | None = None
+    review_count: int
+    last_synced_at: datetime | None = None
+
+
+class GooglePlaceLinkRequest(BaseModel):
+    place_id: str
+    # UI-confirmation echoes only -- not persisted.
+    name: str | None = None
+    address: str | None = None
+
+
+class GooglePlaceLinkResponse(BaseModel):
+    linked: bool
+    place_id: str
+
+
+class GoogleReviewsSyncResponse(BaseModel):
+    synced_count: int
+    last_synced_at: datetime
+    debounced: bool
+
+
+class ExternalReviewResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    author_name: str
+    author_photo_url: str | None = None
+    rating: int
+    body: str | None = None
+    source: str
+    source_url: str | None = None
+    external_posted_at: datetime | None = None

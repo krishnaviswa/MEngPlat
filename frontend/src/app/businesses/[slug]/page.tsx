@@ -1,13 +1,14 @@
 import { BusinessHours } from "@/components/BusinessHours";
 import { BusinessMap } from "@/components/BusinessMapClient";
 import { CategoryBadges } from "@/components/CategoryBadges";
+import { ExternalReviews } from "@/components/ExternalReviews";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { RatingWidget } from "@/components/ui/RatingWidget";
 import { ReviewHighlights } from "@/components/ReviewHighlights";
 import { ReviewsList } from "@/components/ReviewsList";
 import { Card } from "@/components/ui/Card";
-import { API_URL, businesses, photos as photosApi, reviews } from "@/lib/api";
+import { API_URL, businesses, externalReviews, photos as photosApi, reviews } from "@/lib/api";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -33,6 +34,7 @@ export default async function BusinessPage({ params }: Props) {
     );
   }
 
+  const externalReviewList = await externalReviews.list(business.id).catch(() => []);
   const galleryPhotos = await photosApi.listForBusiness(business.id).catch(() => []);
   const photos = galleryPhotos.length
     ? galleryPhotos.map((p) => p.url)
@@ -177,6 +179,8 @@ export default async function BusinessPage({ params }: Props) {
           </>
         )}
       </section>
+
+      <ExternalReviews reviews={externalReviewList} />
     </div>
   );
 }

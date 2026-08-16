@@ -14,6 +14,7 @@ from app.services.ai.base import (
     ImageAnalysisResult,
     MerchantSummaryResult,
     ReviewAnalysisResult,
+    TopicClusterResult,
     coerce_sentiment,
 )
 from app.services.ai.registry import register_provider
@@ -115,6 +116,49 @@ class MockAIProvider(AIProvider):
                 "Thank you for supporting our local business!",
                 "We appreciate your honest feedback and are always improving.",
             ],
+            raw_response={"provider": self.provider_name, "review_count": len(reviews)},
+            meta=self._meta(),
+        )
+
+    async def generate_topic_clusters(
+        self, reviews: list[dict[str, Any]], context: dict[str, Any] | None = None
+    ) -> TopicClusterResult:
+        buckets = [
+            ("Service speed", ["slow", "fast", "wait"]),
+            ("Staff friendliness", ["friendly", "rude", "helpful"]),
+            ("Cleanliness", ["clean", "dirty"]),
+            ("Value for money", ["expensive", "cheap", "value"]),
+        ]
+        topics: list[dict[str, Any]] = []
+        for label, keywords in buckets:
+            matches = [
+                r for r in reviews if any(k in str(r.get("body", "")).lower() for k in keywords)
+            ]
+            if not matches:
+                continue
+            neg = sum(1 for r in matches if r.get("sentiment") == "negative")
+            pos = sum(1 for r in matches if r.get("sentiment") == "positive")
+            sentiment = "mixed" if neg and pos else ("negative" if neg else "positive")
+            example = next((str(r.get("body", "")) for r in matches if r.get("body")), "")
+            topics.append(
+                {
+                    "label": label,
+                    "count": len(matches),
+                    "sentiment": sentiment,
+                    "example_quote": example[:200],
+                }
+            )
+        if not topics:
+            topics = [
+                {
+                    "label": "General experience",
+                    "count": len(reviews),
+                    "sentiment": "mixed",
+                    "example_quote": next((str(r.get("body", "")) for r in reviews if r.get("body")), ""),
+                }
+            ]
+        return TopicClusterResult(
+            topics=topics,
             raw_response={"provider": self.provider_name, "review_count": len(reviews)},
             meta=self._meta(),
         )

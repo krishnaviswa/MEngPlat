@@ -78,6 +78,7 @@ jobs:
           FRONTEND_URL: http://localhost:3000
           API_URL: http://localhost:8000/api/v1
           PYTHONPATH: .
+          SECRET_KEY: ci-only-secret
         run: |
           set -o pipefail
           pytest tests/e2e -v 2>&1 | tee pytest-e2e.log

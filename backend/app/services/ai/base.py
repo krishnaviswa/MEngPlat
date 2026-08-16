@@ -10,11 +10,12 @@ from typing import Any, ClassVar
 
 
 class Operation(str, enum.Enum):
-    """The three things this application asks a model to do."""
+    """The things this application asks a model to do."""
 
     REVIEW_TEXT = "review_text"
     IMAGE = "image"
     MERCHANT_SUMMARY = "merchant_summary"
+    TOPIC_CLUSTERING = "topic_clustering"
 
 
 @dataclass
@@ -76,6 +77,35 @@ class MerchantSummaryResult:
     meta: AICallMeta = field(default_factory=AICallMeta)
 
 
+@dataclass
+class TopicClusterResult:
+    #: each item: {label: str, count: int, sentiment: str, example_quote: str}
+    topics: list[dict[str, Any]]
+    raw_response: dict[str, Any] = field(default_factory=dict)
+    meta: AICallMeta = field(default_factory=AICallMeta)
+
+
+_VALID_TOPIC_SENTIMENTS = frozenset({"positive", "negative", "mixed"})
+
+
+def coerce_topic_sentiment(value: object) -> str:
+    """Map free-form model output onto the 3-value topic-sentiment domain.
+
+    Deliberately not `coerce_sentiment` -- "mixed" (this topic draws both
+    praise and complaints) is a sharper signal for a topic aggregate than
+    "neutral" (nobody had a strong opinion) is for a single review. Never
+    raises, same non-negotiable as `coerce_sentiment`.
+    """
+    text = str(value or "").strip().lower()
+    if text in _VALID_TOPIC_SENTIMENTS:
+        return text
+    if "pos" in text:
+        return "positive"
+    if "neg" in text:
+        return "negative"
+    return "mixed"
+
+
 _VALID_SENTIMENTS = frozenset({"positive", "neutral", "negative"})
 
 
@@ -131,3 +161,8 @@ class AIProvider(abc.ABC):
     async def generate_merchant_summary(
         self, reviews: list[dict[str, Any]], context: dict[str, Any] | None = None
     ) -> MerchantSummaryResult: ...
+
+    @abc.abstractmethod
+    async def generate_topic_clusters(
+        self, reviews: list[dict[str, Any]], context: dict[str, Any] | None = None
+    ) -> TopicClusterResult: ...

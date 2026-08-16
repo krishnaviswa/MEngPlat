@@ -9,4 +9,9 @@ describe("CollectQrCard (S-040)", () => {
     expect(screen.getByText(/no low-score intercept/i)).toBeInTheDocument();
     expect(document.querySelector("svg")).toBeTruthy();
   });
+
+  it("offers a print button for a shop-counter sign", () => {
+    render(<CollectQrCard businessId="biz-1" businessName="Joe's Cafe" />);
+    expect(screen.getByRole("button", { name: /print for shop/i })).toBeInTheDocument();
+  });
 });
