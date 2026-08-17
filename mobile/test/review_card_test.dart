@@ -15,6 +15,8 @@ ReviewResponse _review({
   String? summary,
   String? replyBody,
   int likeCount = 0,
+  String? body,
+  List<String>? photoUrls,
 }) {
   return ReviewResponse((b) {
     b
@@ -23,10 +25,13 @@ ReviewResponse _review({
       ..authorId = 'author-1'
       ..rating = 5
       ..title = title
-      ..body = 'Really enjoyed the visit, would recommend to others.'
+      ..body = body ?? 'Really enjoyed the visit, would recommend to others.'
       ..status = ReviewStatus.active
       ..likeCount = likeCount
       ..createdAt = DateTime.utc(2026, 1, 1);
+    if (photoUrls != null) {
+      b.photoUrls.addAll(photoUrls);
+    }
     if (fullName != null) {
       b.author.replace(UserResponse((u) => u
         ..id = 'author-1'
@@ -204,5 +209,84 @@ void main() {
     await tester.pump();
     expect(login, isTrue);
     expect(find.byKey(const Key('reviewReportReason')), findsNothing);
+  });
+
+  group('S-058 AC4: truncation + Read more/less toggle', () {
+    final longBody = 'A' * 281; // exceeds the 280-char threshold
+
+    testWidgets('a long body renders clamped to 3 lines with a Read more toggle', (tester) async {
+      await _pump(tester, _review(body: longBody));
+
+      final bodyFinder = find.byWidgetPredicate((w) => w is Text && w.data == longBody);
+      final textWidget = tester.widget<Text>(bodyFinder);
+      expect(textWidget.maxLines, 3);
+      expect(textWidget.overflow, TextOverflow.ellipsis);
+      expect(find.byKey(const Key('reviewReadMoreToggle')), findsOneWidget);
+      expect(find.text('Read more'), findsOneWidget);
+    });
+
+    testWidgets('tapping Read more expands the body and flips the label to Read less', (tester) async {
+      await _pump(tester, _review(body: longBody));
+
+      await tester.tap(find.byKey(const Key('reviewReadMoreToggle')));
+      await tester.pump();
+
+      final bodyFinder = find.byWidgetPredicate((w) => w is Text && w.data == longBody);
+      final expanded = tester.widget<Text>(bodyFinder);
+      expect(expanded.maxLines, isNull);
+      expect(expanded.overflow, TextOverflow.visible);
+      expect(find.text('Read less'), findsOneWidget);
+      expect(find.text('Read more'), findsNothing);
+
+      // Tapping again collapses it back.
+      await tester.tap(find.byKey(const Key('reviewReadMoreToggle')));
+      await tester.pump();
+      final collapsed = tester.widget<Text>(bodyFinder);
+      expect(collapsed.maxLines, 3);
+      expect(find.text('Read more'), findsOneWidget);
+    });
+
+    testWidgets('a short body renders with no Read more toggle', (tester) async {
+      await _pump(tester, _review(body: 'A short review body.'));
+
+      expect(find.byKey(const Key('reviewReadMoreToggle')), findsNothing);
+    });
+  });
+
+  group('S-058 AC5: photo thumbnail opens a full-screen lightbox', () {
+    testWidgets('tapping a review photo thumbnail opens photoLightbox', (tester) async {
+      // ReviewCard's `Image.network` thumbnails (unlike PhotoGallery's) have
+      // no `errorBuilder`, so the test environment's expected-to-fail
+      // NetworkImage requests (no real network access under flutter_test)
+      // surface as unhandled FlutterError zone errors rather than a widget
+      // fallback. That's orthogonal to what AC5 tests (does tapping a
+      // thumbnail open the lightbox), so ignore just that expected class of
+      // error for this test.
+      final originalOnError = FlutterError.onError;
+      FlutterError.onError = (details) {
+        if (details.exception is NetworkImageLoadException) return;
+        originalOnError?.call(details);
+      };
+      addTearDown(() => FlutterError.onError = originalOnError);
+
+      await _pump(
+        tester,
+        _review(photoUrls: ['https://example.com/photo1.jpg', 'https://example.com/photo2.jpg']),
+      );
+
+      expect(find.byKey(const Key('reviewPhotoThumb_0')), findsOneWidget);
+      expect(find.byKey(const Key('photoLightbox')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('reviewPhotoThumb_0')));
+      await tester.pump();
+
+      expect(find.byKey(const Key('photoLightbox')), findsOneWidget);
+    });
+
+    testWidgets('no photo strip is rendered when a review has no photos', (tester) async {
+      await _pump(tester, _review());
+
+      expect(find.byKey(const Key('reviewPhotoThumb_0')), findsNothing);
+    });
   });
 }

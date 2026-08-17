@@ -7,7 +7,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/auth_provider.dart';
 import '../favorites/favorite_toggle_button.dart';
+import '../reviews/rating_stars.dart';
 import '../reviews/review_card.dart';
+import '../reviews/review_filter_sheet.dart';
 import '../reviews/review_form_sheet.dart';
 import '../reviews/review_providers.dart';
 import 'business_hours.dart';
@@ -50,13 +52,42 @@ class BusinessDetailScreen extends ConsumerWidget {
   }
 }
 
-class _BusinessDetailBody extends ConsumerWidget {
+class _BusinessDetailBody extends ConsumerStatefulWidget {
   const _BusinessDetailBody({required this.business});
 
   final BusinessResponse business;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_BusinessDetailBody> createState() => _BusinessDetailBodyState();
+}
+
+class _BusinessDetailBodyState extends ConsumerState<_BusinessDetailBody> {
+  ReviewListFilter _filter = const ReviewListFilter();
+
+  BusinessResponse get business => widget.business;
+
+  List<ReviewResponse> _visibleReviews(List<ReviewResponse> reviews) {
+    final filtered = _filter.minRating > 0
+        ? reviews.where((r) => r.rating >= _filter.minRating).toList()
+        : reviews;
+    final sorted = List<ReviewResponse>.of(filtered);
+    sorted.sort((a, b) => switch (_filter.sortBy) {
+          ReviewSortOption.newest => b.createdAt.compareTo(a.createdAt),
+          ReviewSortOption.oldest => a.createdAt.compareTo(b.createdAt),
+          ReviewSortOption.highest => b.rating.compareTo(a.rating),
+          ReviewSortOption.lowest => a.rating.compareTo(b.rating),
+        });
+    return sorted;
+  }
+
+  Future<void> _openFilters() async {
+    final result = await showReviewFilterSheet(context: context, initial: _filter);
+    if (result == null || !mounted) return;
+    setState(() => _filter = result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final reviewsAsync = ref.watch(reviewsControllerProvider(business.id));
     final user = ref.watch(authControllerProvider).valueOrNull;
     final isLoggedIn = user != null;
@@ -98,11 +129,23 @@ class _BusinessDetailBody extends ConsumerWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(Icons.star, size: 18, color: Colors.amber),
+                      RatingStars(rating: business.averageRating),
                       const SizedBox(width: 4),
                       Text(business.averageRating.toStringAsFixed(1)),
                       const SizedBox(width: 8),
                       Text('${business.reviewCount} reviews', style: Theme.of(context).textTheme.bodySmall),
+                      const Spacer(),
+                      if (reviews.isNotEmpty)
+                        IconButton(
+                          key: const Key('reviewFiltersButton'),
+                          onPressed: _openFilters,
+                          tooltip: 'Sort & filter reviews',
+                          icon: Badge(
+                            isLabelVisible: _filter.hasActiveFilter,
+                            smallSize: 8,
+                            child: const Icon(Icons.tune),
+                          ),
+                        ),
                     ],
                   ),
                   if (business.description != null && business.description!.trim().isNotEmpty) ...[
@@ -161,17 +204,47 @@ class _BusinessDetailBody extends ConsumerWidget {
                   child: Center(child: Text('No reviews yet — be the first to review')),
                 );
               }
+              final visible = _visibleReviews(reviews);
+              if (visible.isEmpty) {
+                return SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Container(
+                      key: const Key('reviewFiltersEmptyState'),
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Theme.of(context).colorScheme.outline),
+                        borderRadius: BorderRadius.circular(8),
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('No reviews match these filters'),
+                          const SizedBox(height: 8),
+                          TextButton(
+                            key: const Key('clearReviewFiltersButton'),
+                            onPressed: () => setState(() => _filter = ReviewListFilter(sortBy: _filter.sortBy)),
+                            child: const Text('Clear filters'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
               return SliverList.builder(
-                itemCount: reviews.length,
+                itemCount: visible.length,
                 itemBuilder: (context, index) => Column(
                   children: [
                     ReviewCard(
-                      review: reviews[index],
-                      reported: reviewsController.reportedIds.contains(reviews[index].id),
+                      review: visible[index],
+                      reported: reviewsController.reportedIds.contains(visible[index].id),
                       onLike: isLoggedIn
                           ? () async {
                               try {
-                                await reviewsController.likeReview(reviews[index].id);
+                                await reviewsController.likeReview(visible[index].id);
                               } catch (error) {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
@@ -181,13 +254,13 @@ class _BusinessDetailBody extends ConsumerWidget {
                           : () => context.push('/login'),
                       onReport: isLoggedIn
                           ? (reason) => reviewsController.reportReview(
-                                reviewId: reviews[index].id,
+                                reviewId: visible[index].id,
                                 reason: reason,
                               )
                           : null,
                       onRequireLogin: isLoggedIn ? null : () => context.push('/login'),
                     ),
-                    if (index != reviews.length - 1) const Divider(height: 1),
+                    if (index != visible.length - 1) const Divider(height: 1),
                   ],
                 ),
               );

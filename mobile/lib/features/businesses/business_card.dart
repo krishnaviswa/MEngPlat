@@ -3,6 +3,7 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../../core/media_url.dart';
 import '../favorites/favorite_toggle_button.dart';
+import '../reviews/rating_stars.dart';
 
 /// Listing card with storefront/logo (or placeholder), name, place, rating.
 /// Shared by Explore and Favorites so photo treatment stays consistent (M-24).
@@ -77,7 +78,7 @@ class BusinessCard extends StatelessWidget {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.star, size: 16, color: Colors.amber),
+                          RatingStars(rating: business.averageRating, size: 14),
                           const SizedBox(width: 4),
                           Text(business.averageRating.toStringAsFixed(1)),
                         ],

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../../core/config/app_config.dart';
+import '../businesses/photo_gallery.dart';
 import 'rating_stars.dart';
+
+const _truncateThreshold = 280;
 
 /// Single review list item: reviewer name, star rating, title/body, an AI
 /// sentiment badge (clearly labeled as AI, never a verified fact -- S-023
@@ -41,6 +44,7 @@ class _ReviewCardState extends State<ReviewCard> {
   bool _replying = false;
   bool _submittingReply = false;
   bool _submittingReport = false;
+  bool _expanded = false;
   String? _actionError;
   final _reportController = TextEditingController();
   final _replyController = TextEditingController();
@@ -147,7 +151,21 @@ class _ReviewCardState extends State<ReviewCard> {
             Text(review.title!, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
           ],
           const SizedBox(height: 4),
-          Text(review.body),
+          Text(
+            review.body,
+            maxLines: _expanded ? null : 3,
+            overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+          ),
+          if (review.body.length > _truncateThreshold)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: TextButton(
+                key: const Key('reviewReadMoreToggle'),
+                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 32)),
+                onPressed: () => setState(() => _expanded = !_expanded),
+                child: Text(_expanded ? 'Read less' : 'Read more'),
+              ),
+            ),
           if (review.aiAnalysis?.summary != null) ...[
             const SizedBox(height: 8),
             Text.rich(
@@ -173,15 +191,22 @@ class _ReviewCardState extends State<ReviewCard> {
                 scrollDirection: Axis.horizontal,
                 itemCount: photoUrls.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 8),
-                itemBuilder: (context, index) => ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    ReviewCard._resolveUrl(photoUrls[index]),
-                    width: 64,
-                    height: 64,
-                    fit: BoxFit.cover,
-                  ),
-                ),
+                itemBuilder: (context, index) {
+                  final resolvedUrls = photoUrls.map(ReviewCard._resolveUrl).toList();
+                  return GestureDetector(
+                    key: Key('reviewPhotoThumb_$index'),
+                    onTap: () => PhotoGallery.openLightbox(context, urls: resolvedUrls, initialIndex: index),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        resolvedUrls[index],
+                        width: 64,
+                        height: 64,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ],
