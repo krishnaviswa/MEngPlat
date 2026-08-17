@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-054 |
 | **Phase** | 1 Foundation |
-| **Status** | Specified |
+| **Status** | Accepted |
 | **Role(s)** | customer, merchant, admin |
 | **Owner** | PM / 2026-08-17 |
 
@@ -61,11 +61,11 @@ No deep-link infrastructure (App Links / Universal Links) exists in the Android/
 
 ## Definition of done (PM)
 
-- [ ] All AC verified in test report
-- [ ] UX matches notes above (request-only scope; no in-app reset screen)
-- [ ] `mobile/openapi.json` regenerated to include `/auth/forgot-password`; `merchanthub_api` client rebuilt
-- [ ] `README.md` §12 mobile parity row for M-65 updated from `unimplemented` to `implemented` (request half) — note the reset-step scope decision in the row or §14 if relevant
-- [ ] PM Status set to **Accepted**
+- [x] All AC verified in test report (`TR-S-054-mobile-forgot-reset-password.md`: 7/7 AC mapped, 6 automated + 1 code-review, `flutter analyze` clean, `flutter test` 149/149)
+- [x] UX matches notes above (request-only scope; no in-app reset screen)
+- [x] `mobile/openapi.json` regenerated to include `/auth/forgot-password`; `merchanthub_api` client rebuilt
+- [x] `README.md` §12 mobile parity row for M-65 updated from `unimplemented` to `partial` (request half only — reflects the reset-step scope decision directly in the row; also noted in §14)
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -234,3 +234,4 @@ sequenceDiagram
 |------|-------|--------|
 | 2026-08-17 | PM | Created slice. Mobile parity for M-65 (forgot/reset password), Tier 1 of the mobile parity roadmap. Backend (`/auth/forgot-password`, `/auth/reset-password`) already Accepted via S-035, no backend changes. Scoped to the request half only — mobile calls `forgot-password` and shows the generic confirmation; the reset step is explicitly punted to "open the emailed link in your phone's browser" since no deep-link infra exists and the email always targets the web app. In-app reset screen and deep linking (App Links/Universal Links) are out of scope, flagged as future work. Requires `mobile/openapi.json` regeneration to add the missing endpoint to the generated Dart client. Status: **Draft**. Handoff: Architect to fill Technical specification, then Status → Specified. |
 | 2026-08-17 | Architect | Filled Technical specification: API contract (`POST /auth/forgot-password` only, verified against `backend/app/routers/auth.py` and `app/schemas/__init__.py`), RBAC matrix (public/unauthenticated, all roles), data model impact (None), cache/side effects (none new), Mobile route/components (`/forgot-password` go_router entry + `ForgotPasswordScreen` + `AuthRepository.forgotPassword`, router redirect carve-out at `router.dart` ~line 104-127), mandatory OpenAPI-regen-first build sequence (`python mobile/scripts/generate_api_client.py`, existing script — confirmed no separate regen command needed), mermaid flow, and risks/tradeoffs. No ADR needed (no new backend pattern). Status: **Draft → Specified**. Handoff: Builder to implement. |
+| 2026-08-17 | PM | Reviewed `TR-S-054-mobile-forgot-reset-password.md` against this slice's ACs: 7/7 mapped, AC 7's code-review-only coverage justified (widget tests fake `AuthController` above the repository layer by design, so `flutter analyze` clean + confirmed generated-method usage is the correct proof, not a gap). Spot-checked `forgot_password_screen_test.dart` and `AuthRepository.forgotPassword` directly — both genuinely exercise/implement the AC behavior, not rubber-stamped. `README.md` §12 M-65 row updated to `partial` (request half only, reset step opens web `/reset-password`) and §14/§16 reconciled in the same pass. Status: **Specified → Accepted**. |

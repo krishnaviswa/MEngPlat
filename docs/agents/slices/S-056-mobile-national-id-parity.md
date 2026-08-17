@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-056 |
 | **Phase** | 1 Foundation |
-| **Status** | Specified |
+| **Status** | Accepted |
 | **Role(s)** | customer, merchant, admin |
 | **Owner** | PM / 2026-08-17 |
 
@@ -54,10 +54,10 @@
 
 ## Definition of done (PM)
 
-- [ ] All AC verified in test report
-- [ ] UX matches notes above (Aadhaar option added; role-conditional helper text added; nothing else changed)
-- [ ] `README.md` §12 mobile parity row for M-73 updated from `unimplemented` to `implemented`
-- [ ] PM Status set to **Accepted**
+- [x] All AC verified in test report (`TR-S-056-mobile-national-id-parity.md`: 5/5 AC mapped, 4 automated + 1 code-review, `flutter analyze` clean, `flutter test` 149/149)
+- [x] UX matches notes above (Aadhaar option added; role-conditional helper text added; nothing else changed)
+- [x] `README.md` §12 mobile parity row for M-73 updated from `unimplemented` to `implemented`
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -192,3 +192,4 @@ sequenceDiagram
 |------|-------|--------|
 | 2026-08-17 | PM | Created slice. Mobile parity for M-73 (National ID), Tier 1 of the mobile parity roadmap. Narrow scope: mobile's `profile_screen.dart` already has a National ID fieldset (wired to `PATCH /auth/me`, backend/web already Accepted via S-043) but ships two parity bugs — the "aadhaar" dropdown option is missing entirely despite the enum and backend supporting it, and helper copy is a single generic string regardless of role instead of web's merchant-specific "Required..." wording. This slice fixes both; no new screens, no repository changes, no client regeneration needed. `business_editor_screen.dart`'s existing generic 400 handling is explicitly unchanged. Status: **Draft**. Handoff: Architect to fill Technical specification, then Status → Specified. |
 | 2026-08-17 | Architect | Filled Technical specification: API contract documented as unchanged (`PATCH /auth/me`, verified against `backend/app/routers/auth.py`/`app/schemas/__init__.py`/`app/models/__init__.py`'s `NationalIdType` enum), RBAC matrix (client-side copy branching by `UserResponse.role`, no new server authorization), data model impact (None), cache/side effects (none), Mobile section confirming the fix is confined to `profile_screen.dart`'s dropdown `items` list (add `NationalIdType.aadhaar`) and a new role-conditional `_nationalIdHelperText` helper mirroring the existing `_securityCopy` pattern, with verbatim copy for both branches, mermaid flow, and risks/tradeoffs (scope-creep and copy-drift risk called out explicitly). Confirmed no OpenAPI regeneration needed — `aadhaar` already exists in the generated client. No ADR needed (bug fix within an already-Accepted feature). Status: **Draft → Specified**. Handoff: Builder to implement. |
+| 2026-08-17 | PM | Reviewed `TR-S-056-mobile-national-id-parity.md` against this slice's ACs: 5/5 mapped, AC 5's code-review-only coverage (git-log proof `business_editor_screen.dart` is untouched) is a legitimate "unchanged" claim, not a gap. Spot-checked `profile_screen_test.dart` directly — the AC1-4 tests genuinely assert the four-option dropdown and verbatim role-conditional copy, not rubber-stamped. Noted the Tester's **spec correction**: the Architect's "no OpenAPI regen needed" claim was factually wrong (the checked-in client was stale and missing the `aadhaar` enum value) — this is process feedback for future Architect specs, not a defect in the shipped code; ACs pass because the Builder caught it and regenerated anyway. Also noted the same regen's incidental nullable-`UserResponse.email` fix (see S-055's changelog) touches this slice's own file but is outside its ACs. `README.md` §12 M-73 row updated to `implemented` and §14 reconciled in the same pass. Status: **Specified → Accepted**. |

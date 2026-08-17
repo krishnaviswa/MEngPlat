@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-055 |
 | **Phase** | 1 Foundation |
-| **Status** | Specified |
+| **Status** | Accepted |
 | **Role(s)** | customer, merchant |
 | **Owner** | PM / 2026-08-17 |
 
@@ -59,11 +59,11 @@
 
 ## Definition of done (PM)
 
-- [ ] All AC verified in test report
-- [ ] UX matches notes above (panel placement/behavior mirrors web exactly, including the login-omits-fullName / register-supplies-fullName asymmetry)
-- [ ] `mobile/openapi.json` regenerated to include `/auth/phone/request` and `/auth/phone/verify`; `merchanthub_api` client rebuilt
-- [ ] `README.md` §12 mobile parity row for M-74 updated from `unimplemented` to `implemented`
-- [ ] PM Status set to **Accepted**
+- [x] All AC verified in test report (`TR-S-055-mobile-phone-otp.md`: 8/8 AC mapped, 7 automated + 1 code-review, `flutter analyze` clean, `flutter test` 149/149)
+- [x] UX matches notes above (panel placement/behavior mirrors web exactly, including the login-omits-fullName / register-supplies-fullName asymmetry)
+- [x] `mobile/openapi.json` regenerated to include `/auth/phone/request` and `/auth/phone/verify`; `merchanthub_api` client rebuilt
+- [x] `README.md` §12 mobile parity row for M-74 updated from `unimplemented` to `implemented`
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -241,3 +241,4 @@ sequenceDiagram
 |------|-------|--------|
 | 2026-08-17 | PM | Created slice. Mobile parity for M-74 (phone OTP sign-in), Tier 1 of the mobile parity roadmap. Backend (`/auth/phone/request`, `/auth/phone/verify`) and web already Accepted via S-044/ADR-011, no backend changes. Mirrors web placement/behavior exactly: phone panel next to Google on both login and register screens, login omits `full_name`/`role` (so a brand-new number hits the backend's 400 as on web), register supplies them from the in-progress form. Explicitly does not add a name-prompt fallback beyond what web does — that would be scope creep. Requires `mobile/openapi.json` regeneration to add the two missing endpoints to the generated Dart client. Status: **Draft**. Handoff: Architect to fill Technical specification, then Status → Specified. |
 | 2026-08-17 | Architect | Filled Technical specification: API contract for both `POST /auth/phone/request` and `POST /auth/phone/verify` (verified against `backend/app/routers/auth.py` ~line 453-522 and `app/services/phone_otp.py`, including the lenient `normalize_phone()` behavior), target-role-based RBAC matrix (both endpoints pre-auth), data model impact (None), cache/side effects (none new), Mobile route/components (shared `PhoneOtpPanel` widget embedded in `login_screen.dart`/`register_screen.dart`, new `AuthRepository.requestPhoneOtp`/`verifyPhoneOtp` + `AuthController.signInWithPhone` mirroring the existing `signInWithGoogle` pattern), mandatory OpenAPI-regen-first build sequence, mermaid flow covering all four verify branches, and risks/tradeoffs. No ADR needed (reuses ADR-011, no new backend pattern). Status: **Draft → Specified**. Handoff: Builder to implement. |
+| 2026-08-17 | PM | Reviewed `TR-S-055-mobile-phone-otp.md` against this slice's ACs: 8/8 mapped, AC 8's code-review-only coverage justified for the same reason as S-054's AC 7. Spot-checked `AuthRepository.requestPhoneOtp`/`verifyPhoneOtp` directly — genuinely call the generated `phoneOtpRequestApiV1AuthPhoneRequestPost`/`phoneOtpVerifyApiV1AuthPhoneVerifyPost` methods, not hand-rolled calls. Noted the Tester's flagged (non-AC) latent nullable-`UserResponse.email` fix surfaced by this slice's own regen — genuine pre-existing bug, correctly fixed, tracked as a follow-up regression-test gap rather than a slice defect. `README.md` §12 M-74 row updated to `implemented` and §14 reconciled in the same pass. Status: **Specified → Accepted**. |
