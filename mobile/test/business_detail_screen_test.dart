@@ -60,16 +60,22 @@ BusinessResponse _business({
   });
 }
 
-ReviewResponse _review({required String id, required String authorId}) {
+ReviewResponse _review({
+  required String id,
+  required String authorId,
+  int rating = 5,
+  DateTime? createdAt,
+  String? body,
+}) {
   return ReviewResponse((b) => b
     ..id = id
     ..businessId = 'biz-1'
     ..authorId = authorId
-    ..rating = 5
-    ..body = 'A perfectly fine review body for testing purposes.'
+    ..rating = rating
+    ..body = body ?? 'A perfectly fine review body for testing purposes.'
     ..status = ReviewStatus.active
     ..likeCount = 0
-    ..createdAt = DateTime.utc(2026, 1, 1));
+    ..createdAt = createdAt ?? DateTime.utc(2026, 1, 1));
 }
 
 UserResponse _user({required String id, required UserRole role}) {
@@ -411,6 +417,131 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await _pumpDetailScreen(tester, user: _user(id: 'cust-1', role: UserRole.customer));
     expect(find.byKey(const Key('detailMapPin')), findsNothing);
+  });
+
+  group('S-058 AC1/AC2/AC3: review sort + min-rating filter (bottom sheet)', () {
+    // Widen the test viewport so all review cards in the SliverList are
+    // built (not just those in a default 800x600 surface's visible area) --
+    // otherwise find.textContaining below only sees whatever the lazy
+    // SliverList happened to lay out.
+    Future<void> widenSurface(WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(500, 2000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+    }
+
+    List<ReviewResponse> threeReviews() => [
+          _review(id: 'r-low', authorId: 'a', rating: 2, createdAt: DateTime.utc(2026, 1, 1), body: 'Low rated, oldest review body.'),
+          _review(id: 'r-high', authorId: 'b', rating: 5, createdAt: DateTime.utc(2026, 1, 3), body: 'High rated, newest review body.'),
+          _review(id: 'r-mid', authorId: 'c', rating: 3, createdAt: DateTime.utc(2026, 1, 2), body: 'Mid rated, middle review body.'),
+        ];
+
+    testWidgets('reviewFiltersButton is shown only when reviews exist, and opens reviewFilterSheet', (tester) async {
+      await widenSurface(tester);
+      await _pumpDetailScreen(tester, user: _user(id: 'cust-1', role: UserRole.customer), reviews: const []);
+      expect(find.byKey(const Key('reviewFiltersButton')), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _pumpDetailScreen(tester, user: _user(id: 'cust-1', role: UserRole.customer), reviews: threeReviews());
+      expect(find.byKey(const Key('reviewFiltersButton')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('reviewFiltersButton')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('reviewFilterSheet')), findsOneWidget);
+    });
+
+    testWidgets('AC1: default order is newest first; selecting Oldest re-orders with no refetch', (tester) async {
+      await widenSurface(tester);
+      final reviewRepository = await _pumpDetailScreen(
+        tester,
+        user: _user(id: 'cust-1', role: UserRole.customer),
+        reviews: threeReviews(),
+      );
+
+      // Default (Newest): High, Mid, Low.
+      final bodies = tester.widgetList<Text>(find.textContaining('review body.')).map((t) => t.data).toList();
+      expect(bodies, [
+        'High rated, newest review body.',
+        'Mid rated, middle review body.',
+        'Low rated, oldest review body.',
+      ]);
+
+      await tester.tap(find.byKey(const Key('reviewFiltersButton')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('reviewSortField')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Oldest').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('applyReviewFiltersButton')));
+      await tester.pumpAndSettle();
+
+      expect(reviewRepository.listCalls, 1, reason: 'sort is an in-memory re-order, no refetch');
+      final reordered = tester.widgetList<Text>(find.textContaining('review body.')).map((t) => t.data).toList();
+      expect(reordered, [
+        'Low rated, oldest review body.',
+        'Mid rated, middle review body.',
+        'High rated, newest review body.',
+      ]);
+    });
+
+    testWidgets('AC2: a min-rating filter combined with sort narrows and re-orders the list', (tester) async {
+      await widenSurface(tester);
+      await _pumpDetailScreen(
+        tester,
+        user: _user(id: 'cust-1', role: UserRole.customer),
+        reviews: threeReviews(),
+      );
+
+      await tester.tap(find.byKey(const Key('reviewFiltersButton')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('reviewMinRatingField')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('3 stars & up').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('reviewSortField')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Oldest').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('applyReviewFiltersButton')));
+      await tester.pumpAndSettle();
+
+      // Only the rating>=3 reviews remain (Mid=3, High=5), oldest first.
+      final visible = tester.widgetList<Text>(find.textContaining('review body.')).map((t) => t.data).toList();
+      expect(visible, [
+        'Mid rated, middle review body.',
+        'High rated, newest review body.',
+      ]);
+      expect(find.textContaining('Low rated'), findsNothing);
+    });
+
+    testWidgets('AC3: a filter matching zero reviews shows a distinct empty state with Clear filters', (tester) async {
+      await widenSurface(tester);
+      // Reviews all below 5 stars so the "5 stars" filter matches nothing.
+      await _pumpDetailScreen(
+        tester,
+        user: _user(id: 'cust-1', role: UserRole.customer),
+        reviews: [
+          _review(id: 'r1', authorId: 'a', rating: 2, body: 'Only a two-star review body.'),
+        ],
+      );
+      await tester.tap(find.byKey(const Key('reviewFiltersButton')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('reviewMinRatingField')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('5 stars').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('applyReviewFiltersButton')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('reviewFiltersEmptyState')), findsOneWidget);
+      expect(find.text('No reviews match these filters'), findsOneWidget);
+      expect(find.textContaining('No reviews yet'), findsNothing, reason: 'must be distinct from the zero-reviews empty state');
+      expect(find.byKey(const Key('clearReviewFiltersButton')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('clearReviewFiltersButton')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Only a two-star review body.'), findsOneWidget);
+      expect(find.byKey(const Key('reviewFiltersEmptyState')), findsNothing);
+    });
   });
 
   testWidgets('S-028 AC18: AI overview is labeled a suggestion; omitted when null', (tester) async {
