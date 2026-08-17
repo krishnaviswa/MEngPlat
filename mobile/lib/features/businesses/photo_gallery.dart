@@ -47,10 +47,13 @@ class PhotoGallery extends StatelessWidget {
                     width: 96,
                     height: 96,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const SizedBox(
+                    errorBuilder: (context, _, _) => SizedBox(
                       width: 96,
                       height: 96,
-                      child: ColoredBox(color: Color(0xFFE0E0E0), child: Icon(Icons.broken_image)),
+                      child: ColoredBox(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        child: Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
                     ),
                   ),
                 ),
@@ -103,10 +106,13 @@ class FallbackPhotoStrip extends StatelessWidget {
                   width: 96,
                   height: 96,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox(
+                  errorBuilder: (context, _, _) => SizedBox(
                     width: 96,
                     height: 96,
-                    child: ColoredBox(color: Color(0xFFE0E0E0), child: Icon(Icons.broken_image)),
+                    child: ColoredBox(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    ),
                   ),
                 ),
               ),

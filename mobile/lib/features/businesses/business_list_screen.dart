@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../theme/theme_toggle_button.dart';
 import 'business_card.dart';
 import 'business_list_provider.dart';
 import 'location_service.dart';
@@ -62,7 +63,7 @@ class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
     final query = search.valueOrNull?.query ?? const SearchQuery();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Businesses')),
+      appBar: AppBar(title: const Text('Businesses'), actions: const [ThemeToggleButton()]),
       body: Column(
         children: [
           Padding(

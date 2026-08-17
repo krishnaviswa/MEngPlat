@@ -50,6 +50,8 @@ dependencies:
   latlong2: ^0.9.1
   geolocator: ^14.0.2
   url_launcher: ^6.3.2
+  # S-054: local-device dark mode preference (not a secret, unlike TokenStorage).
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:

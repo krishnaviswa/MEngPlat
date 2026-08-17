@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/auth_provider.dart';
+import '../theme/theme_toggle_button.dart';
 
 /// Identity + logout (S-027 / M-49). Profile edit is S-029 / M-48.
 class AccountScreen extends ConsumerWidget {
@@ -16,6 +17,7 @@ class AccountScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Account'),
         actions: [
+          const ThemeToggleButton(),
           TextButton(
             key: const Key('brandHomeLink'),
             onPressed: () => context.go('/businesses'),
