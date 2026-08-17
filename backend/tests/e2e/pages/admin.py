@@ -11,7 +11,7 @@ class AdminPage:
     def expect_loaded(self) -> None:
         expect(self.page.get_by_role("heading", name="Admin Panel")).to_be_visible()
         expect(self.page.get_by_text("Total users")).to_be_visible()
-        expect(self.page.get_by_text("Pending businesses")).to_be_visible()
+        expect(self.page.get_by_role("heading", name="Pending businesses")).to_be_visible()
 
     def approve_named(self, name: str) -> None:
         row = self.page.locator("div").filter(has_text=name).filter(has=self.page.get_by_role("button", name="Approve"))
