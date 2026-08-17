@@ -30,7 +30,16 @@ describe("Collect review wizard (S-040)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (businesses.list as jest.Mock).mockResolvedValue([
-      { id: "b1", name: "Cafe", city: "Chennai", slug: "cafe", address: "1", average_rating: 4, review_count: 1 },
+      {
+        id: "b1",
+        name: "Cafe",
+        city: "Chennai",
+        slug: "cafe",
+        address: "12 MG Road",
+        logo_url: "/uploads/cafe-logo.png",
+        average_rating: 4,
+        review_count: 1,
+      },
     ]);
     (reviews.list as jest.Mock).mockResolvedValue([]);
   });
@@ -39,6 +48,10 @@ describe("Collect review wizard (S-040)", () => {
     render(<CollectReviewPage params={resolvedParams({ businessId: "b1" })} />);
     expect(await screen.findByText(/Your review takes/i)).toBeInTheDocument();
     expect(await screen.findByText("Cafe")).toBeInTheDocument();
+    expect(screen.getByText("12 MG Road, Chennai")).toBeInTheDocument();
+    expect(screen.getByText("Cafe").closest("div")).toHaveStyle(
+      "background-image: linear-gradient(to top, rgba(15,23,42,0.75), rgba(15,23,42,0.15)), url(http://localhost:8000/uploads/cafe-logo.png)",
+    );
     clickStar(1);
     fireEvent.click(screen.getByRole("button", { name: /continue/i }));
     expect(screen.getByPlaceholderText(/share what made your visit memorable/i)).toBeInTheDocument();
