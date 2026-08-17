@@ -113,9 +113,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         key: Key('forgotPasswordConfirmation'),
       ),
       const SizedBox(height: 12),
-      const Text(
+      Text(
         'Open the link from that email in your phone\'s browser to finish resetting your password.',
-        style: TextStyle(fontSize: 12, color: Colors.grey),
+        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
       const SizedBox(height: 16),
       TextButton(

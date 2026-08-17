@@ -141,10 +141,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     onChanged: _loading ? null : (value) => setState(() => _role = value ?? UserRole.customer),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'After sign-up you will set up an authenticator app (required for email/password sign-in). '
                     'Gmail sign-in below skips that step.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 12),
                   FilledButton(

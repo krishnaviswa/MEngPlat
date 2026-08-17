@@ -269,10 +269,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
       ),
       const SizedBox(height: 12),
-      const Text(
+      Text(
         'Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.). '
         'Gmail sign-in below skips that step.',
-        style: TextStyle(fontSize: 12, color: Colors.grey),
+        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
     ];
   }
