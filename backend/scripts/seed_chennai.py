@@ -15,6 +15,7 @@ from app.models import (
     Category,
     Merchant,
     Photo,
+    Reply,
     Review,
     Sentiment,
     User,
@@ -27,6 +28,10 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 CHENNAI_CUSTOMER_PASSWORD = "demo12345abc"
+
+# Kept in PENDING status (never force-approved on refresh) to demonstrate the admin
+# approval queue without needing a separate business just for that purpose.
+_PENDING_SLUG = "sunshine-cafe-radha-nagar"
 
 # Chrompet corridor anchor (~12.95°N, 80.14°E) with small per-business jitter.
 _CHENNAI_BASE_LAT = 12.9516
@@ -235,115 +240,68 @@ _CHENNAI_BUSINESSES: list[dict] = [
     },
 ]
 
-# Hand-authored synthetic reviews per business slug (3–5 each, varied sentiment).
+# Hand-authored synthetic reviews per business slug (1 each — enough to exercise the
+# review + AI-analysis + photo-upload pipeline per business without duplicate noise).
 _CHENNAI_REVIEWS: dict[str, list[dict]] = {
     "saravana-bhavan-chrompet": [
         {"rating": 5, "title": "Consistently good meals", "body": "The mini meals are filling and the sambar tastes fresh every visit."},
-        {"rating": 4, "title": "Busy but worth it", "body": "Queue moves quickly even on weekends. Filter coffee after lunch is a nice touch."},
-        {"rating": 3, "title": "Crowded at peak hours", "body": "Food quality is fine but seating is tight during the lunch rush near Chrompet."},
-        {"rating": 5, "title": "Reliable vegetarian spot", "body": "We order parcels for office lunch often and portions are always generous."},
     ],
     "krishna-sweets-chrompet": [
         {"rating": 5, "title": "Fresh mysore pak", "body": "Sweets are made daily and the cashew burfi melts in your mouth."},
-        {"rating": 4, "title": "Good festival orders", "body": "Placed a Diwali mix box last year and everything arrived neatly packed."},
-        {"rating": 4, "title": "Nice evening snacks", "body": "Murukku and mixture are crisp. Staff helped pick a combo for guests."},
     ],
     "radha-nagar-medical-store": [
         {"rating": 4, "title": "Helpful pharmacist", "body": "They explained dosage clearly and had the generic option in stock."},
-        {"rating": 5, "title": "Quick service", "body": "Walked in with a prescription and was out in ten minutes."},
-        {"rating": 3, "title": "Limited parking", "body": "Medicines were available but finding a spot on the narrow lane took time."},
-        {"rating": 4, "title": "Fair prices", "body": "Basic OTC items are priced reasonably compared to bigger chains."},
     ],
     "lakshmi-hair-studio-chrompet": [
         {"rating": 5, "title": "Great trim", "body": "Stylist listened to what I wanted and the layered cut looks natural."},
-        {"rating": 4, "title": "Clean salon", "body": "Tools looked sanitized and the waiting area is comfortable."},
-        {"rating": 4, "title": "Bridal trial went well", "body": "They did a trial bun and flowers arrangement ahead of our function."},
     ],
     "murugan-coffee-bar": [
         {"rating": 5, "title": "Best filter coffee", "body": "Strong decoction and they serve it piping hot even at 6 AM."},
-        {"rating": 4, "title": "Classic bun butter", "body": "Simple menu but everything tastes fresh. Good stop before the train."},
-        {"rating": 5, "title": "Friendly owner", "body": "Remembers regular orders and the vadai is crispy when it is hot."},
-        {"rating": 3, "title": "Small seating", "body": "Coffee is excellent but only a few chairs inside."},
     ],
     "chrompet-fresh-mart": [
         {"rating": 4, "title": "Fresh vegetables", "body": "Morning produce looks good and they weigh accurately at the counter."},
-        {"rating": 4, "title": "Convenient location", "body": "Easy to pick up staples on the way back from GST Road."},
-        {"rating": 3, "title": "Billing queue", "body": "Quality is fine but checkout can slow down after office hours."},
-        {"rating": 5, "title": "Good monthly packs", "body": "They assembled a ration bundle with brands we requested."},
     ],
     "anna-pharmacy-chrompet": [
         {"rating": 4, "title": "Home delivery works", "body": "Ordered medicines for my parents and delivery reached Radha Nagar same day."},
-        {"rating": 5, "title": "Stocked well", "body": "Found the inhaler refill without visiting multiple shops."},
-        {"rating": 3, "title": "Wait on phone orders", "body": "Had to call twice to confirm availability but pickup was smooth."},
     ],
     "sree-anandha-bhavan-chrompet": [
         {"rating": 4, "title": "Value meals", "body": "Thali price is fair and they refill rice once without fuss."},
-        {"rating": 5, "title": "Crispy dosas", "body": "Paper roast dosa was thin and served with flavorful chutney."},
-        {"rating": 4, "title": "Quick parcels", "body": "Office parcel boxes are packed tight and do not leak."},
-        {"rating": 3, "title": "Noisy at noon", "body": "Food is good but the dining hall gets loud when schools break for lunch."},
     ],
     "style-zone-salon-radha-nagar": [
         {"rating": 4, "title": "Kids cut done well", "body": "They were patient with my son and the fade looks neat."},
-        {"rating": 5, "title": "Walk-in friendly", "body": "Got a slot within twenty minutes on a weekday evening."},
-        {"rating": 4, "title": "Reasonable rates", "body": "Basic cut price is lower than malls and quality matched expectations."},
     ],
     "radha-nagar-tea-stall": [
         {"rating": 5, "title": "Perfect morning tea", "body": "Strong tea and hot vadai before the bus to Tambaram."},
-        {"rating": 4, "title": "Reliable stop", "body": "Open early and the owner keeps the counter clean."},
-        {"rating": 4, "title": "Good value", "body": "Two teas and a snack for less than a café chain charges."},
     ],
     "chennai-biryani-house-chrompet": [
         {"rating": 5, "title": "Flavorful biryani", "body": "Chicken pieces were tender and the rice had a nice aroma."},
-        {"rating": 4, "title": "Large portions", "body": "Single serving was enough for two light eaters."},
-        {"rating": 3, "title": "Spicy for some", "body": "Taste is authentic Chettinad heat; ask for mild if you prefer less spice."},
-        {"rating": 5, "title": "Late parcel service", "body": "Ordered after 9 PM and the parcel was still hot at home."},
     ],
     "ganesh-provision-store": [
         {"rating": 4, "title": "Monthly ration easy", "body": "They keep our usual rice and dal brands in stock."},
-        {"rating": 4, "title": "Credit for regulars", "body": "Neighborhood shop trust — settle at month end as promised."},
-        {"rating": 5, "title": "Home delivery", "body": "Heavy bags delivered to our flat without extra charge nearby."},
     ],
     "metro-electronics-chrompet": [
         {"rating": 4, "title": "Fixed my charging port", "body": "Phone charging issue resolved same day at a fair repair quote."},
-        {"rating": 3, "title": "Accessory selection", "body": "Covers available for popular models but fewer options for older phones."},
-        {"rating": 4, "title": "Honest advice", "body": "Suggested a cable instead of pushing a costly replacement."},
     ],
     "priya-boutique-radha-nagar": [
         {"rating": 5, "title": "Beautiful saree drape", "body": "Staff helped pick a cotton saree and altered the blouse in two days."},
-        {"rating": 4, "title": "Good collection", "body": "Decent range for daily wear at prices suited to the neighborhood."},
-        {"rating": 4, "title": "Alterations on time", "body": "Churidar stitching finished before the promised date."},
     ],
     "nataraja-bakery-chrompet": [
         {"rating": 5, "title": "Fresh puffs", "body": "Vegetable puff straight from the oven in the evening is excellent."},
-        {"rating": 4, "title": "Birthday cake", "body": "Ordered a small chocolate cake and writing matched our note."},
-        {"rating": 4, "title": "Morning bread", "body": "Milk bread is soft and stays fresh through the next morning."},
     ],
     "royal-spice-restaurant": [
         {"rating": 4, "title": "Family dinner spot", "body": "Naan and paneer butter masala were crowd pleasers for our group."},
-        {"rating": 5, "title": "Chettinad chicken", "body": "Spicy and flavorful — one of the better versions on GST Road."},
-        {"rating": 3, "title": "Service delay", "body": "Food quality good but mains arrived ten minutes apart."},
-        {"rating": 4, "title": "Clean dining room", "body": "Tables wiped promptly and air conditioning worked well."},
     ],
     "green-leaf-organic-chrompet": [
         {"rating": 5, "title": "Good organic greens", "body": "Spinach and greens looked fresh with clear sourcing labels."},
-        {"rating": 4, "title": "Millet selection", "body": "Found foxtail and kodo millet packs not available at regular stores."},
-        {"rating": 4, "title": "Premium but worth it", "body": "Prices are higher than market but quality matches for organic."},
     ],
     "chrompet-dental-care": [
         {"rating": 4, "title": "Gentle cleaning", "body": "Hygienist explained each step and the scaling was not painful."},
-        {"rating": 5, "title": "Clear billing", "body": "Estimate shared before treatment with no surprise add-ons."},
-        {"rating": 3, "title": "Appointment wait", "body": "Walk-in took forty minutes but the consult itself was thorough."},
     ],
     "vel-murugan-tiffin-centre": [
         {"rating": 5, "title": "Soft idlis", "body": "Morning idli plate with chutney and sambar is consistently good."},
-        {"rating": 4, "title": "Quick breakfast", "body": "In and out in fifteen minutes before work."},
-        {"rating": 4, "title": "Crisp vada", "body": "Medhu vada was hot and not oily."},
-        {"rating": 3, "title": "Limited menu", "body": "Few items after 10 AM but what they serve is tasty."},
     ],
     "sunshine-cafe-radha-nagar": [
         {"rating": 4, "title": "Nice cold coffee", "body": "Frappe was balanced and not overly sweet."},
-        {"rating": 5, "title": "Study friendly", "body": "Quiet corner tables and Wi‑Fi worked fine for an hour of work."},
-        {"rating": 4, "title": "Good sandwiches", "body": "Grilled veg sandwich portion was filling for the price."},
     ],
 }
 
@@ -446,7 +404,7 @@ async def seed_chennai(
     ).scalars().all()
     customers: list[User] = list(existing_customers)
 
-    target_customers = 10
+    target_customers = 2
     for n in range(len(customers) + 1, target_customers + 1):
         customer = User(
             email=f"demo.customer{n}@example.com",
@@ -501,7 +459,7 @@ async def seed_chennai(
                 logo_url=logo,
                 storefront_url=storefront,
                 business_hours={"mon-sat": "9am-9pm", "sun": "10am-8pm"},
-                status=BusinessStatus.APPROVED,
+                status=BusinessStatus.PENDING if slug == _PENDING_SLUG else BusinessStatus.APPROVED,
             )
             db.add(business)
             await db.flush()
@@ -520,7 +478,8 @@ async def seed_chennai(
             business.phone = spec["phone"]
             business.logo_url = logo
             business.storefront_url = storefront
-            business.status = BusinessStatus.APPROVED
+            if slug != _PENDING_SLUG:
+                business.status = BusinessStatus.APPROVED
             refreshed += 1
 
         business_count += 1
@@ -598,6 +557,21 @@ async def seed_chennai(
                     degraded=False,
                 )
             )
+
+            # One merchant reply, on the very first seeded review, to demonstrate
+            # the merchant-responds-to-review flow without replying to every review.
+            if slug == _CHENNAI_BUSINESSES[0]["slug"] and r_idx == 0:
+                existing_reply = (
+                    await db.execute(select(Reply).where(Reply.review_id == review.id))
+                ).scalar_one_or_none()
+                if existing_reply is None:
+                    db.add(
+                        Reply(
+                            review_id=review.id,
+                            merchant_id=merchant.id,
+                            body="Thank you for the kind words — glad you enjoyed it!",
+                        )
+                    )
 
         await update_business_rating(db, business.id)
 

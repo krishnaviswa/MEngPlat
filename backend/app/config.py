@@ -165,7 +165,7 @@ class Settings(BaseSettings):
     # Demo seed gate (scripts/seed.py). Default `off` so production boots never
     # re-upsert; Compose sets `if_outdated`. Manual refresh: SEED_MODE=force.
     seed_mode: Literal["off", "if_empty", "if_outdated", "force"] = "off"
-    seed_version: str = "2026-08-13-password-policy-v1"
+    seed_version: str = "2026-08-18-minimal-scenario-seed-v1"
 
     @property
     def cors_origin_list(self) -> list[str]:
