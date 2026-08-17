@@ -90,9 +90,10 @@ Future<ProviderContainer> _pumpRouter(WidgetTester tester) async {
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 
+  final auth = _FakeAuthController();
   final container = ProviderContainer(
     overrides: [
-      authControllerProvider.overrideWith(_FakeAuthController.new),
+      authControllerProvider.overrideWith(() => auth),
       businessRepositoryProvider.overrideWithValue(_FakeBusinessRepository()),
       notificationsRepositoryProvider.overrideWithValue(_FakeNotificationsRepository()),
       favoritesRepositoryProvider.overrideWithValue(_FakeFavoritesRepository()),
