@@ -12,7 +12,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p /app/uploads
+RUN mkdir -p /app/uploads \
+    && addgroup --system app && adduser --system --ingroup app --no-create-home app \
+    && chown -R app:app /app
+
+USER app
 
 EXPOSE 8000
 

@@ -14,6 +14,9 @@ on:
         required: true
         default: "https://backend-production-2783.up.railway.app"
 
+permissions:
+  contents: read
+
 jobs:
   build-apk:
     runs-on: ubuntu-latest

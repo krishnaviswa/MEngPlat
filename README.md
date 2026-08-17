@@ -44,7 +44,7 @@ Built as a portfolio-grade full-stack MVP demonstrating Forward Deployed Enginee
 | 9   | [Security](#9-security)                                                                                                              |
 | 10  | [Deployment](#10-deployment)                                                                                                         |
 | 11  | [Testing](#11-testing)                                                                                                               |
-| 12  | [Repo layout & conventions](#12-repo-layout--conventions) (incl. [Web ↔ mobile parity tracker](#web--mobile-feature-parity-tracker)) |
+| 12  | [Repo layout & conventions](#12-repo-layout--conventions) (incl. [Web ↔ mobile parity tracker](#web--mobile-feature-parity-tracker), [Mobile parity roadmap](#mobile-parity-roadmap)) |
 | 13  | [Multi-agent workflow](#13-multi-agent-workflow)                                                                                     |
 | 14  | [Known gaps & roadmap](#14-known-gaps--roadmap)                                                                                      |
 | 15  | [Environment variables](#15-environment-variables)                                                                                   |
@@ -1619,7 +1619,10 @@ Config lives in `[frontend/figma.config.json](frontend/figma.config.json)`. Thes
 
 ## 9. Security
 
-
+**2026-08-17 audit:** a full backend/frontend/infra security pass was done and its findings —
+what was fixed, what was deferred and why, and how each fix was verified — are written up in
+**[SECURITY_AUDIT.md](SECURITY_AUDIT.md)**. The tables below already reflect the fixes; the
+audit doc is the detailed record.
 
 ### Authentication chain
 
@@ -1702,7 +1705,8 @@ Confusing these is the classic RBAC bug, so they are separate mechanisms:
 | Browse, search, view business, list reviews               | public   | public           | public |
 | List businesses with non-approved status_filter           | —        | —                | ✅      |
 | Create / edit / delete own review, like, report           | ✅        | ✅                | ✅      |
-| Upload photo                                              | ✅        | ✅                | ✅      |
+| Upload photo attached to own review                       | ✅        | ✅                | ✅      |
+| Upload photo to a business gallery/logo/storefront        | —        | ✅ (own business) | ✅      |
 | Create / update business                                  | —        | ✅                | ✅      |
 | Reply to review                                           | —        | ✅ (own business) | ✅      |
 | Merchant dashboard, AI insights                           | —        | ✅ (own business) | ✅      |
@@ -1724,10 +1728,10 @@ Author-scoped actions (edit/delete review) follow the same principle at the rout
 | Control             | Implementation                                                                                                                                                                                                                                                                             |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | CORS                | `CORSMiddleware` with an explicit origin allowlist from `cors_origin_list`, `allow_credentials=True` ([main.py](backend/app/main.py))                                                                                                                                                      |
-| Security headers    | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` on FastAPI and Next; `Strict-Transport-Security` only when the request is HTTPS / `X-Forwarded-Proto: https` (local Compose HTTP is unchanged). CSP is deferred so Leaflet / Google GIS keep working. |
+| Security headers    | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` on FastAPI and Next; `Strict-Transport-Security` only when the request is HTTPS / `X-Forwarded-Proto: https` (local Compose HTTP is unchanged). Next also sends a `Content-Security-Policy` scoped to `self` + the API origin + `accounts.google.com` (Google Sign-In) + the OSM tile/Nominatim hosts Leaflet needs ([next.config.js](frontend/next.config.js)). |
 | Input validation    | Pydantic request schemas on every endpoint — malformed bodies are rejected with 422 before any handler runs                                                                                                                                                                                |
 | Password policy     | Register: min 12 characters, at least one letter and one digit (`UserRegister`). Login does not re-validate complexity.                                                                                                                                                                    |
-| Rate limiting       | `slowapi`: `/auth/login` 10/minute per IP, `/auth/register` 5/minute per IP                                                                                                                                                                                                                |
+| Rate limiting       | `slowapi`: `/auth/login` 10/min, `/auth/register` 5/min, `/auth/mfa/totp/verify` + `/auth/mfa/totp/confirm` 5/min, `/auth/refresh` 10/min — all per IP                                                                                                                                     |
 | Account lockout     | After 5 failed **password** logins for an email, Redis lock 15 minutes (`auth:fail:` / `auth:lock:`). Fail-open if Redis is down (same idea as the token blocklist). Google sign-in is not counted.                                                                                        |
 | Refresh rotation    | `POST /auth/refresh` blocklists the presented refresh `jti` before issuing a new pair                                                                                                                                                                                                      |
 | SQL injection       | SQLAlchemy parameterised queries throughout; no string-built SQL                                                                                                                                                                                                                           |
@@ -1758,6 +1762,8 @@ These are real and currently unmitigated. They are acceptable for a local demo, 
 | 4   | ✅ Fixed — `debug: bool = True` default, and it wasn't even wired to FastAPI's own debug mode | Verbose tracebacks in HTTP responses can leak internals     | Default is now `False`; `main.py` passes it to `FastAPI(debug=...)` so the setting actually gates traceback responses, not just SQL echo logging. Compose/`.env.example` opt local dev back in explicitly      |
 | 5   | ✅ Fixed — MIME/size validation on photo upload                                               | Arbitrary file content and size accepted into `/uploads`    | Image content types only; 5 MB cap in `[photos.py](backend/app/routers/photos.py)`                                                                                                                             |
 | 6   | `/uploads` served as unauthenticated static files                                            | Any uploaded photo is world-readable to anyone with the URL | Acceptable for public gallery photos; use signed URLs if private media is ever added                                                                                                                           |
+| 7   | ✅ Fixed — `POST /photos/upload` had no ownership check on the `business_id` path             | Any authenticated customer could upload/overwrite gallery, logo, or storefront photos on a business they don't own (IDOR) | Now requires `MERCHANT` (owning that business) or `ADMIN`, matching the check `DELETE /photos/{photo_id}` already had ([photos.py](backend/app/routers/photos.py)); regression tests in `backend/tests/test_photos.py` |
+| 8   | ✅ Fixed — no rate limit on `/auth/mfa/totp/verify`, `/auth/mfa/totp/confirm`, `/auth/refresh` | A held `mfa_token` let an attacker brute-force the 6-digit TOTP code unthrottled          | Same `slowapi` limiter as login/register now applied to all three ([auth.py](backend/app/routers/auth.py))                                                                                                     |
 
 
 
@@ -1771,12 +1777,15 @@ These are real and currently unmitigated. They are acceptable for a local demo, 
 - [x] Per-email lockout on failed password login (Redis, fail-open)
 - [x] Refresh-token `jti` rotation
 - [x] Register password policy (min 12 + letter + digit)
-- [x] Baseline security headers (no CSP yet — maps / GIS)
+- [x] Baseline security headers + CSP (`self` + API origin + Google Sign-In + OSM tiles/Nominatim)
 - [x] Dependabot for `backend/` pip, `frontend/` npm, and GitHub Actions
 - [ ] Database SSL enabled (Neon does this by default)
 - [x] `debug=False`
 - [x] Upload MIME + size validation
 - [ ] `CORS_ORIGINS` set to the real frontend origin only
+- [x] Docker images run as a non-root user (`backend/Dockerfile`, `frontend/Dockerfile`)
+- [x] Compose Postgres/Redis ports bound to `127.0.0.1` only, not all interfaces
+- [x] CI workflows run with explicit least-privilege `permissions: contents: read` and an audit step (`pip-audit` / `npm audit`)
 
 ---
 
@@ -2367,6 +2376,31 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 
 **Rollup (2026-08-16):** `implemented` 46 · `partial` 1 · `unimplemented` 26 · `n/a` 6 · `future` 1 · **total 80**.
 
+#### Mobile parity roadmap
+
+Mobile traffic outweighs web traffic for this product, so the 26 `unimplemented` rows above
+are sequenced here by mobile-first usage rather than by table order. This section sequences —
+it does not pre-spec; concrete slice numbers (S-054+) get assigned via the normal PM →
+Architect → Builder → Tester flow when a tier is picked up.
+
+| Tier | Theme                              | Rows                                                | Why this order                                                                                                     |
+| ---- | ----------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 1    | Auth reliability                    | M-65, M-74, M-73                                    | Daily-driver flows; a merchant or customer locked out on mobile with no reset path is the worst kind of gap.       |
+| 2    | Core review/discovery UX            | M-72, M-75, M-71                                    | Highest-frequency logged-in screens; QR review collection directly drives review volume from mobile users.        |
+| 3    | Merchant monetization & analytics   | M-61, M-66, M-68, M-69, M-70, M-78, M-79, M-80      | Revenue and retention for the paying side of the platform.                                                         |
+| 4    | Admin ops                           | M-62, M-63, M-64                                    | Lower urgency — admins are more likely to be at a desk than on mobile.                                             |
+| 5    | Marketing/home surfaces             | M-13, M-14, M-15, M-16, M-17, M-18, M-76, M-77      | Logged-out acquisition pages; valuable, but organic/SEO traffic still skews web — lowest tier despite the largest row count. |
+
+M-67 (transactional email) is backend/shared infra, not mobile-specific work, and isn't
+sequenced above.
+
+**Note on S-028–S-031:** these four slices are coded and merged, and their tracker rows above
+already read `implemented` — but each slice file's own DoD checklist
+(`docs/agents/slices/S-0XX-mobile-*.md`) still shows `Status: In Progress` / `Testing` and an
+unchecked "PM Status set to Accepted" box, because `flutter analyze` / `flutter test` have not
+been run against them yet. That's open bookkeeping debt on already-shipped mobile work, not a
+sixth roadmap tier — closing it needs the existing Tester → PM steps, not new feature work.
+
 This repo is built with both Cursor and Claude Code, so every convention is defined
 **twice, in each tool's native format** — a session started in either tool should
 understand the whole repo, and what the other tool already did to it.
@@ -2610,7 +2644,7 @@ An honest delta between the original specification and what the code actually do
 | **No structured logging**   | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                                                                                                           |
 | **No CI/CD auto-deploy**    | `backend-tests.yml` / `frontend-tests.yml` run pytest/Jest on every PR and push to `main`, but there is still no auto-deploy step to Railway/Vercel.                                                                                                                             |
 | **Android Play release**    | Signed AAB + Play Console listing / internal-testing track not wired yet (see `[ANDROID_APP_STRATEGY.md](ANDROID_APP_STRATEGY.md)` phase 5). Feature-level web↔mobile gaps live in the [§12 parity tracker](#web--mobile-feature-parity-tracker) — not duplicated here.          |
-| **Mobile web parity**       | P0–P4 (S-023–S-025, S-027–S-031) are on Flutter (analyze/test not run yet). Remaining gaps: home marketing (M-13–M-18), FCM (M-47 `future`), storefront/hours editors (`n/a`). Living checklist: [§12 Web ↔ mobile feature parity tracker](#web--mobile-feature-parity-tracker). |
+| **Mobile web parity**       | P0–P4 (S-023–S-025, S-027–S-031) are on Flutter; S-028–S-031 DoD checklists are still open (`flutter analyze`/`flutter test` not run — see the S-028–S-031 note in [§12 Mobile parity roadmap](#mobile-parity-roadmap)). 26 rows remain `unimplemented`, sequenced into 5 priority tiers by mobile-first usage in that same roadmap. FCM (M-47) stays `future`; storefront/hours editors are shared gaps (`n/a`). Living checklist: [§12 Web ↔ mobile feature parity tracker](#web--mobile-feature-parity-tracker). |
 | **Optional seed ops**       | Core seed gating is done (`SEED_MODE` / `seed_runs`). Still optional later: a Railway one-shot/cron seed service (never on the web dyno), blue-green app cutover on one DB, or a disposable dual-DB demo reset — not required for normal deploys.                                |
 | **Dark mode hex values are placeholder** | Dark mode itself is shipped (S-045, Accepted — `next-themes`, class-based Tailwind, 5 semantic tokens, ~65-file sweep). What's still open: every dark-mode hex (`globals.css` `--mh-*` vars, `Charts.tsx` `CHART_COLORS.dark`, Badge/RatingWidget `dark:` pairs) is a contrast-checked, Material-3-grounded placeholder — the real Figma `Color` collection (`X0XXhJiwW8SxFdMf39n2t3`, 99 variables, Light+Dark) is local/unpublished and unreachable via Figma MCP tooling this session. A human needs to open the file directly, diff the real values against the table in the S-045 slice spec, and file a follow-up patch if they drift. |
 | **WhatsApp shop-data ingestion** | **S-053 Accepted; S-050..052 still `Testing`.** S-053 closes the "merchant approves their own AI draft" gap — a `BusinessUpdateDraft` now only reaches the live `Business` row via admin approve at `/admin/whatsapp`, not merchant self-apply; formal Tester report + PM Accept complete (`pytest tests/test_whatsapp.py` 21/21, `tests/test_whatsapp_admin_asgi.py` 20/20 against real Postgres, Jest 197/197). Along the way, S-053's Tester found and Builder fixed a real bug shared by all four slices: the Postgres `draftstatus` enum only accepted lowercase labels while SQLAlchemy wrote uppercase names, so no `BusinessUpdateDraft.status` write had ever actually succeeded against a real database (`backend/app/models/__init__.py`, one-line `values_callable` fix, no migration). S-050..052's own Tester reports predate both that fix and a working pytest environment (most of their AC are marked "not run" for unrelated environment reasons) — PM did not accept them by inference and instead flagged a follow-up: re-run their test suites for real, then bring back for an accept/rework decision. Live Meta is a later **env/ops cutover**: [Going live with Meta WhatsApp](#going-live-with-meta-whatsapp-cloud-api). |

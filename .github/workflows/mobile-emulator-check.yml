@@ -31,6 +31,9 @@ concurrency:
   group: mobile-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   analyze-test:
     # Fast, no-emulator gate: catches lint/type/unit-test breaks in seconds

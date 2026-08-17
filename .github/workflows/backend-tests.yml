@@ -16,6 +16,9 @@ on:
   #   paths:
   #     - "backend/**"
 
+permissions:
+  contents: read
+
 jobs:
   pytest:
     runs-on: ubuntu-latest
@@ -57,6 +60,12 @@ jobs:
       - name: Install backend deps
         working-directory: backend
         run: pip install -r requirements.txt
+
+      - name: Audit dependencies for known CVEs
+        working-directory: backend
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
 
       - name: Migrate schema
         working-directory: backend

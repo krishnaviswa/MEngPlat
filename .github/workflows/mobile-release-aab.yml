@@ -10,6 +10,9 @@ on:
     tags:
       - "mobile-v*"
 
+permissions:
+  contents: read
+
 jobs:
   build-aab:
     runs-on: ubuntu-latest

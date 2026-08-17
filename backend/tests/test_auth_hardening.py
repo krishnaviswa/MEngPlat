@@ -188,7 +188,7 @@ async def test_refresh_blocklists_old_jti(monkeypatch):
         async def execute(self, *_a, **_k):
             return FakeResult()
 
-    tokens = await auth_module.refresh_token(old, FakeDb())
+    tokens = await auth_module.refresh_token(fake_request(), old, FakeDb())
     assert tokens.refresh_token != old
     assert old_jti in blocklisted
 
@@ -200,6 +200,6 @@ async def test_refresh_rejects_already_rotated_jti(monkeypatch):
     monkeypatch.setattr(auth_module, "is_token_blocklisted", AsyncMock(return_value=True))
 
     with pytest.raises(HTTPException) as exc:
-        await auth_module.refresh_token(old, SimpleNamespace())
+        await auth_module.refresh_token(fake_request(), old, SimpleNamespace())
     assert exc.value.status_code == 401
     assert "revoked" in exc.value.detail.lower()

@@ -287,7 +287,8 @@ async def totp_setup(payload: MfaTokenRequest, db: AsyncSession = Depends(get_db
 
 
 @router.post("/mfa/totp/confirm", response_model=TokenResponse)
-async def totp_confirm(payload: MfaTotpCodeRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+@limiter.limit("5/minute")
+async def totp_confirm(request: Request, payload: MfaTotpCodeRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
     """Confirm TOTP enrollment with a first code from the authenticator app; issues session tokens."""
     user = await _user_from_mfa_token(payload.mfa_token, purpose="enroll", db=db)
     if not user.totp_secret:
@@ -311,7 +312,8 @@ async def totp_confirm(payload: MfaTotpCodeRequest, db: AsyncSession = Depends(g
 
 
 @router.post("/mfa/totp/verify", response_model=TokenResponse)
-async def totp_verify(payload: MfaTotpCodeRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+@limiter.limit("5/minute")
+async def totp_verify(request: Request, payload: MfaTotpCodeRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
     """Complete password login by verifying the authenticator code; issues session tokens."""
     user = await _user_from_mfa_token(payload.mfa_token, purpose="verify", db=db)
     if not user.totp_enabled or not user.totp_secret:
@@ -331,7 +333,8 @@ async def totp_verify(payload: MfaTotpCodeRequest, db: AsyncSession = Depends(ge
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(refresh_token: str, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+@limiter.limit("10/minute")
+async def refresh_token(request: Request, refresh_token: str, db: AsyncSession = Depends(get_db)) -> TokenResponse:
     """
     Exchange a valid refresh token for a new access + refresh pair. The presented
     refresh token's jti is blocklisted so it cannot be reused (rotation).

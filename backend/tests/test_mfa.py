@@ -123,6 +123,7 @@ async def test_totp_verify_issues_tokens(monkeypatch):
         pass
 
     tokens = await auth_module.totp_verify(
+        fake_request(),
         MfaTotpCodeRequest(mfa_token=mfa_token, code=pyotp.TOTP(secret).now()),
         FakeDb(),
     )
@@ -144,6 +145,7 @@ async def test_totp_verify_rejects_bad_code(monkeypatch):
 
     with pytest.raises(HTTPException) as exc:
         await auth_module.totp_verify(
+            fake_request(),
             MfaTotpCodeRequest(mfa_token="x", code="000000"),
             SimpleNamespace(),
         )
@@ -203,6 +205,7 @@ async def test_totp_confirm_enables_totp_and_issues_tokens_on_correct_code(monke
     monkeypatch.setattr(auth_module, "clear_login_failures", AsyncMock())
 
     tokens = await auth_module.totp_confirm(
+        fake_request(),
         MfaTotpCodeRequest(mfa_token="x", code=pyotp.TOTP(secret).now()),
         _FlushOnlyDb(),
     )
@@ -227,6 +230,7 @@ async def test_totp_confirm_rejects_bad_code_and_leaves_totp_disabled(monkeypatc
 
     with pytest.raises(HTTPException) as exc:
         await auth_module.totp_confirm(
+            fake_request(),
             MfaTotpCodeRequest(mfa_token="x", code="000000"),
             _FlushOnlyDb(),
         )

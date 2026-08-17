@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_roles
-from app.models import Merchant, Photo, User, UserRole
+from app.models import Business, Merchant, Photo, User, UserRole
 from app.schemas import PhotoResponse
 from app.services.photo_service import save_business_photo
 from app.services.storage import get_storage_provider
@@ -79,6 +79,19 @@ async def upload_photo(
         )
         result = await db.execute(select(Photo).options(selectinload(Photo.ai_analysis)).where(Photo.id == photo.id))
         return PhotoResponse.model_validate(result.scalar_one())
+
+    # business_id path: writing to a business gallery (and possibly its logo/storefront
+    # image) requires ownership, unlike the review-attachment path above.
+    business = await db.get(Business, business_id)
+    if not business:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
+    if user.role == UserRole.MERCHANT:
+        m_result = await db.execute(select(Merchant).where(Merchant.user_id == user.id))
+        merchant_obj = m_result.scalar_one_or_none()
+        if not merchant_obj or business.merchant_id != merchant_obj.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    elif user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
 
     content = await file.read()
     photo = await save_business_photo(

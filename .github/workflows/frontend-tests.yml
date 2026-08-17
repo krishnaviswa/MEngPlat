@@ -15,6 +15,9 @@ on:
   #   paths:
   #     - "frontend/**"
 
+permissions:
+  contents: read
+
 jobs:
   jest:
     runs-on: ubuntu-latest
@@ -30,6 +33,10 @@ jobs:
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci
+
+      - name: Audit dependencies for known CVEs
+        working-directory: frontend
+        run: npm audit --audit-level=high
 
       - name: Run Jest
         working-directory: frontend
