@@ -74,7 +74,9 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${business.name} ${business.city}`)}`
     : "#";
 
-  const heroImage = business?.storefront_url ? resolveUrl(business.storefront_url) : null;
+  const heroImageUrl = business?.storefront_url || business?.logo_url;
+  const heroImage = heroImageUrl ? resolveUrl(heroImageUrl) : null;
+  const placeLine = [business?.address, business?.city].filter(Boolean).join(", ");
 
   return (
     <div className="mx-auto max-w-lg px-4 pb-16">
@@ -92,6 +94,7 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
           </span>
         )}
         <h1 className="text-2xl font-bold">{business?.name ?? "Leave a review"}</h1>
+        {placeLine && <p className="mt-0.5 text-sm text-white/80">{placeLine}</p>}
         <div className="mt-1 flex items-center gap-2 text-sm">
           <RatingWidget value={business?.average_rating ?? 0} readonly size="sm" />
           <span>{business?.average_rating ? business.average_rating.toFixed(1) : "New"}</span>
