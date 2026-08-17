@@ -103,19 +103,26 @@ async def _seed_base(db) -> tuple[Merchant, list[Category]]:
         hashed_password=get_password_hash("merchant1234"),
         role=UserRole.MERCHANT,
     )
+    merchant2_user = User(
+        email="merchant2@example.com",
+        full_name="Jordan Lee",
+        hashed_password=get_password_hash("merchant1234"),
+        role=UserRole.MERCHANT,
+    )
     customer_user = User(
         email="customer@example.com",
         full_name="Alex Johnson",
         hashed_password=get_password_hash("customer1234"),
         role=UserRole.CUSTOMER,
     )
-    for u in (admin_user, merchant_user, customer_user):
+    for u in (admin_user, merchant_user, merchant2_user, customer_user):
         enable_demo_totp(u)
-    db.add_all([admin_user, merchant_user, customer_user])
+    db.add_all([admin_user, merchant_user, merchant2_user, customer_user])
     await db.flush()
 
     merchant = Merchant(user_id=merchant_user.id, phone="+1-555-0100")
-    db.add(merchant)
+    merchant2 = Merchant(user_id=merchant2_user.id, phone="+1-555-0101")
+    db.add_all([merchant, merchant2])
     await db.flush()
 
     categories = [
@@ -144,6 +151,29 @@ async def _seed_base(db) -> tuple[Merchant, list[Category]]:
     await db.flush()
     cafe = next(c for c in categories if c.slug == "cafe")
     db.add(BusinessCategory(business_id=business.id, category_id=cafe.id))
+
+    # Second merchant with a business still awaiting admin approval — demonstrates
+    # the approval queue (one business live, one merchant queued behind it).
+    pending_business = Business(
+        merchant_id=merchant2.id,
+        name="Riverside Auto Care",
+        slug="riverside-auto-care",
+        description="Full-service auto repair shop awaiting listing approval.",
+        address="456 Riverside Drive",
+        city="Portland",
+        state="OR",
+        postal_code="97201",
+        latitude=45.5152,
+        longitude=-122.6784,
+        phone="+1-555-0177",
+        email="hello@riversideauto.example",
+        business_hours={"mon-fri": "8am-6pm", "sat": "9am-3pm"},
+        status=BusinessStatus.PENDING,
+    )
+    db.add(pending_business)
+    await db.flush()
+    auto_repair = next(c for c in categories if c.slug == "auto_repair")
+    db.add(BusinessCategory(business_id=pending_business.id, category_id=auto_repair.id))
 
     return merchant, list(categories)
 
@@ -200,6 +230,7 @@ async def seed() -> None:
             demo_passwords = {
                 "admin@merchanthub.ai": "admin12345ok",
                 "merchant@example.com": "merchant1234",
+                "merchant2@example.com": "merchant1234",
                 "customer@example.com": "customer1234",
             }
             for email, password in demo_passwords.items():
@@ -250,9 +281,10 @@ async def seed() -> None:
 
         print("Seed complete.")
         print(f"  SEED_VERSION marker: {version}")
-        print("  Admin:    admin@merchanthub.ai / admin12345ok")
-        print("  Merchant: merchant@example.com / merchant1234")
-        print("  Customer: customer@example.com / customer1234")
+        print("  Admin:     admin@merchanthub.ai / admin12345ok")
+        print("  Merchant:  merchant@example.com / merchant1234 (Sunrise Corner Café, approved)")
+        print("  Merchant2: merchant2@example.com / merchant1234 (Riverside Auto Care, pending approval)")
+        print("  Customer:  customer@example.com / customer1234")
         print("  Demo TOTP secret (authenticator): JBSWY3DPEHPK3PXP")
         print(
             f"  Chennai demo customers: demo.customer1@example.com … "

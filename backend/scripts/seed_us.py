@@ -214,7 +214,7 @@ def _gallery_urls(category: str, slug: str) -> list[str]:
 def _reviews_for_slug(category: str, slug: str) -> list[dict]:
     templates = _US_REVIEW_TEMPLATES.get(category, _US_REVIEW_TEMPLATES["restaurant"])
     offset = sum(ord(c) for c in slug) % len(templates)
-    return [templates[(offset + i) % len(templates)] for i in range(3)]
+    return [templates[(offset + i) % len(templates)] for i in range(1)]
 
 
 def _load_listings() -> list[dict]:
@@ -244,7 +244,7 @@ async def seed_us(
     ).scalars().all()
     customers: list[User] = list(existing_customers)
 
-    target_customers = 10
+    target_customers = 2
     for n in range(len(customers) + 1, target_customers + 1):
         customer = User(
             email=f"demo.customer{n}@example.com",
