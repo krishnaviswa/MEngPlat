@@ -37,6 +37,7 @@ part 'business_response.g.dart';
 /// * [reviewCount] 
 /// * [aiMerchantSummary] 
 /// * [categories] 
+/// * [isFeatured] 
 @BuiltValue()
 abstract class BusinessResponse implements Built<BusinessResponse, BusinessResponseBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -106,13 +107,17 @@ abstract class BusinessResponse implements Built<BusinessResponse, BusinessRespo
   @BuiltValueField(wireName: r'categories')
   BuiltList<CategoryResponse>? get categories;
 
+  @BuiltValueField(wireName: r'is_featured')
+  bool? get isFeatured;
+
   BusinessResponse._();
 
   factory BusinessResponse([void updates(BusinessResponseBuilder b)]) = _$BusinessResponse;
 
   @BuiltValueHook(initializeBuilder: true)
   static void _defaults(BusinessResponseBuilder b) => b
-      ..categories = ListBuilder();
+      ..categories = ListBuilder()
+      ..isFeatured = false;
 
   @BuiltValueSerializer(custom: true)
   static Serializer<BusinessResponse> get serializer => _$BusinessResponseSerializer();
@@ -264,6 +269,13 @@ class _$BusinessResponseSerializer implements PrimitiveSerializer<BusinessRespon
       yield serializers.serialize(
         object.categories,
         specifiedType: const FullType(BuiltList, [FullType(CategoryResponse)]),
+      );
+    }
+    if (object.isFeatured != null) {
+      yield r'is_featured';
+      yield serializers.serialize(
+        object.isFeatured,
+        specifiedType: const FullType(bool),
       );
     }
   }
@@ -454,6 +466,13 @@ class _$BusinessResponseSerializer implements PrimitiveSerializer<BusinessRespon
             specifiedType: const FullType(BuiltList, [FullType(CategoryResponse)]),
           ) as BuiltList<CategoryResponse>;
           result.categories.replace(valueDes);
+          break;
+        case r'is_featured':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.isFeatured = valueDes;
           break;
         default:
           unhandled.add(key);

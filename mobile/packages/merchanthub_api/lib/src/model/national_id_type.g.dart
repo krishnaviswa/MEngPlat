@@ -7,12 +7,15 @@ part of 'national_id_type.dart';
 // **************************************************************************
 
 const NationalIdType _$pan = const NationalIdType._('pan');
+const NationalIdType _$aadhaar = const NationalIdType._('aadhaar');
 const NationalIdType _$other = const NationalIdType._('other');
 
 NationalIdType _$valueOf(String name) {
   switch (name) {
     case 'pan':
       return _$pan;
+    case 'aadhaar':
+      return _$aadhaar;
     case 'other':
       return _$other;
     default:
@@ -23,12 +26,14 @@ NationalIdType _$valueOf(String name) {
 final BuiltSet<NationalIdType> _$values =
     BuiltSet<NationalIdType>(const <NationalIdType>[
   _$pan,
+  _$aadhaar,
   _$other,
 ]);
 
 class _$NationalIdTypeMeta {
   const _$NationalIdTypeMeta();
   NationalIdType get pan => _$pan;
+  NationalIdType get aadhaar => _$aadhaar;
   NationalIdType get other => _$other;
   NationalIdType valueOf(String name) => _$valueOf(name);
   BuiltSet<NationalIdType> get values => _$values;
@@ -46,10 +51,12 @@ class _$NationalIdTypeSerializer
     implements PrimitiveSerializer<NationalIdType> {
   static const Map<String, Object> _toWire = const <String, Object>{
     'pan': 'pan',
+    'aadhaar': 'aadhaar',
     'other': 'other',
   };
   static const Map<Object, String> _fromWire = const <Object, String>{
     'pan': 'pan',
+    'aadhaar': 'aadhaar',
     'other': 'other',
   };
 

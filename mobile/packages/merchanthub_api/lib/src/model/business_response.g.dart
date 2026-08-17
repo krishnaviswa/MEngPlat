@@ -51,6 +51,8 @@ class _$BusinessResponse extends BusinessResponse {
   final String? aiMerchantSummary;
   @override
   final BuiltList<CategoryResponse>? categories;
+  @override
+  final bool? isFeatured;
 
   factory _$BusinessResponse(
           [void Function(BusinessResponseBuilder)? updates]) =>
@@ -78,7 +80,8 @@ class _$BusinessResponse extends BusinessResponse {
       required this.averageRating,
       required this.reviewCount,
       this.aiMerchantSummary,
-      this.categories})
+      this.categories,
+      this.isFeatured})
       : super._();
   @override
   BusinessResponse rebuild(void Function(BusinessResponseBuilder) updates) =>
@@ -113,7 +116,8 @@ class _$BusinessResponse extends BusinessResponse {
         averageRating == other.averageRating &&
         reviewCount == other.reviewCount &&
         aiMerchantSummary == other.aiMerchantSummary &&
-        categories == other.categories;
+        categories == other.categories &&
+        isFeatured == other.isFeatured;
   }
 
   @override
@@ -141,6 +145,7 @@ class _$BusinessResponse extends BusinessResponse {
     _$hash = $jc(_$hash, reviewCount.hashCode);
     _$hash = $jc(_$hash, aiMerchantSummary.hashCode);
     _$hash = $jc(_$hash, categories.hashCode);
+    _$hash = $jc(_$hash, isFeatured.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -169,7 +174,8 @@ class _$BusinessResponse extends BusinessResponse {
           ..add('averageRating', averageRating)
           ..add('reviewCount', reviewCount)
           ..add('aiMerchantSummary', aiMerchantSummary)
-          ..add('categories', categories))
+          ..add('categories', categories)
+          ..add('isFeatured', isFeatured))
         .toString();
   }
 }
@@ -272,6 +278,10 @@ class BusinessResponseBuilder
   set categories(ListBuilder<CategoryResponse>? categories) =>
       _$this._categories = categories;
 
+  bool? _isFeatured;
+  bool? get isFeatured => _$this._isFeatured;
+  set isFeatured(bool? isFeatured) => _$this._isFeatured = isFeatured;
+
   BusinessResponseBuilder() {
     BusinessResponse._defaults(this);
   }
@@ -301,6 +311,7 @@ class BusinessResponseBuilder
       _reviewCount = $v.reviewCount;
       _aiMerchantSummary = $v.aiMerchantSummary;
       _categories = $v.categories?.toBuilder();
+      _isFeatured = $v.isFeatured;
       _$v = null;
     }
     return this;
@@ -355,6 +366,7 @@ class BusinessResponseBuilder
                 reviewCount, r'BusinessResponse', 'reviewCount'),
             aiMerchantSummary: aiMerchantSummary,
             categories: _categories?.build(),
+            isFeatured: isFeatured,
           );
     } catch (_) {
       late String _$failedField;

@@ -41,7 +41,7 @@ class RoleHomeScreen extends ConsumerWidget {
             if (user != null) ...[
               Text(user.fullName, style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 4),
-              Text(user.email, style: Theme.of(context).textTheme.bodyMedium),
+              Text(user.email ?? user.phone ?? '', style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: 16),
             ],
             Text(body, key: const Key('roleHomeBody')),

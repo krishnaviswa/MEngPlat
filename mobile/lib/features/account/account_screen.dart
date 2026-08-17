@@ -32,7 +32,7 @@ class AccountScreen extends ConsumerWidget {
                   key: const Key('accountIdentity'),
                   leading: CircleAvatar(child: Text(_initials(user.fullName))),
                   title: Text(user.fullName),
-                  subtitle: Text(user.email),
+                  subtitle: Text(user.email ?? user.phone ?? ''),
                 ),
                 ListTile(
                   key: const Key('profileLink'),

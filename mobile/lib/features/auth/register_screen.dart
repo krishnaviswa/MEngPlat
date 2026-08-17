@@ -5,6 +5,7 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 
 import 'auth_provider.dart';
 import 'google_sign_in_button.dart';
+import 'phone_otp_panel.dart';
 
 /// Customer / merchant sign-up. Password accounts must still enroll TOTP on
 /// first login (web `RegisterForm`). Google skips MFA and always creates a
@@ -27,7 +28,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    // PhoneOtpPanel below reads _nameController.text/_role at build time, so
+    // it needs a rebuild whenever the in-progress name changes too, not just
+    // when _role's own onChanged fires setState.
+    _nameController.addListener(_onNameChanged);
+  }
+
+  void _onNameChanged() => setState(() {});
+
+  @override
   void dispose() {
+    _nameController.removeListener(_onNameChanged);
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -160,6 +173,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   const SizedBox(height: 8),
                   GoogleSignInButton(onCredential: _onGoogleCredential, enabled: !_loading),
+                  const SizedBox(height: 8),
+                  PhoneOtpPanel(
+                    fullName: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(),
+                    role: _role,
+                  ),
                 ],
               ),
             ),

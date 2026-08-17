@@ -19,6 +19,11 @@ part 'dashboard_stats.g.dart';
 /// * [sentimentBreakdown] 
 /// * [recentReviews] 
 /// * [reviewVolumeByMonth] 
+/// * [ratingDistribution] 
+/// * [replyRate] 
+/// * [reviewCountInRange] 
+/// * [reviewCountPrevious] 
+/// * [replyRatePrevious] 
 @BuiltValue()
 abstract class DashboardStats implements Built<DashboardStats, DashboardStatsBuilder> {
   @BuiltValueField(wireName: r'total_reviews')
@@ -35,6 +40,21 @@ abstract class DashboardStats implements Built<DashboardStats, DashboardStatsBui
 
   @BuiltValueField(wireName: r'review_volume_by_month')
   BuiltList<JsonObject> get reviewVolumeByMonth;
+
+  @BuiltValueField(wireName: r'rating_distribution')
+  BuiltMap<String, int> get ratingDistribution;
+
+  @BuiltValueField(wireName: r'reply_rate')
+  num? get replyRate;
+
+  @BuiltValueField(wireName: r'review_count_in_range')
+  int? get reviewCountInRange;
+
+  @BuiltValueField(wireName: r'review_count_previous')
+  int? get reviewCountPrevious;
+
+  @BuiltValueField(wireName: r'reply_rate_previous')
+  num? get replyRatePrevious;
 
   DashboardStats._();
 
@@ -84,6 +104,39 @@ class _$DashboardStatsSerializer implements PrimitiveSerializer<DashboardStats> 
       object.reviewVolumeByMonth,
       specifiedType: const FullType(BuiltList, [FullType(JsonObject)]),
     );
+    yield r'rating_distribution';
+    yield serializers.serialize(
+      object.ratingDistribution,
+      specifiedType: const FullType(BuiltMap, [FullType(String), FullType(int)]),
+    );
+    if (object.replyRate != null) {
+      yield r'reply_rate';
+      yield serializers.serialize(
+        object.replyRate,
+        specifiedType: const FullType.nullable(num),
+      );
+    }
+    if (object.reviewCountInRange != null) {
+      yield r'review_count_in_range';
+      yield serializers.serialize(
+        object.reviewCountInRange,
+        specifiedType: const FullType.nullable(int),
+      );
+    }
+    if (object.reviewCountPrevious != null) {
+      yield r'review_count_previous';
+      yield serializers.serialize(
+        object.reviewCountPrevious,
+        specifiedType: const FullType.nullable(int),
+      );
+    }
+    if (object.replyRatePrevious != null) {
+      yield r'reply_rate_previous';
+      yield serializers.serialize(
+        object.replyRatePrevious,
+        specifiedType: const FullType.nullable(num),
+      );
+    }
   }
 
   @override
@@ -141,6 +194,45 @@ class _$DashboardStatsSerializer implements PrimitiveSerializer<DashboardStats> 
             specifiedType: const FullType(BuiltList, [FullType(JsonObject)]),
           ) as BuiltList<JsonObject>;
           result.reviewVolumeByMonth.replace(valueDes);
+          break;
+        case r'rating_distribution':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(BuiltMap, [FullType(String), FullType(int)]),
+          ) as BuiltMap<String, int>;
+          result.ratingDistribution.replace(valueDes);
+          break;
+        case r'reply_rate':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(num),
+          ) as num?;
+          if (valueDes == null) continue;
+          result.replyRate = valueDes;
+          break;
+        case r'review_count_in_range':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(int),
+          ) as int?;
+          if (valueDes == null) continue;
+          result.reviewCountInRange = valueDes;
+          break;
+        case r'review_count_previous':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(int),
+          ) as int?;
+          if (valueDes == null) continue;
+          result.reviewCountPrevious = valueDes;
+          break;
+        case r'reply_rate_previous':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(num),
+          ) as num?;
+          if (valueDes == null) continue;
+          result.replyRatePrevious = valueDes;
           break;
         default:
           unhandled.add(key);

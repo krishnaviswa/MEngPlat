@@ -17,6 +17,16 @@ class _$DashboardStats extends DashboardStats {
   final BuiltList<ReviewResponse> recentReviews;
   @override
   final BuiltList<JsonObject> reviewVolumeByMonth;
+  @override
+  final BuiltMap<String, int> ratingDistribution;
+  @override
+  final num? replyRate;
+  @override
+  final int? reviewCountInRange;
+  @override
+  final int? reviewCountPrevious;
+  @override
+  final num? replyRatePrevious;
 
   factory _$DashboardStats([void Function(DashboardStatsBuilder)? updates]) =>
       (DashboardStatsBuilder()..update(updates))._build();
@@ -26,7 +36,12 @@ class _$DashboardStats extends DashboardStats {
       required this.averageRating,
       required this.sentimentBreakdown,
       required this.recentReviews,
-      required this.reviewVolumeByMonth})
+      required this.reviewVolumeByMonth,
+      required this.ratingDistribution,
+      this.replyRate,
+      this.reviewCountInRange,
+      this.reviewCountPrevious,
+      this.replyRatePrevious})
       : super._();
   @override
   DashboardStats rebuild(void Function(DashboardStatsBuilder) updates) =>
@@ -43,7 +58,12 @@ class _$DashboardStats extends DashboardStats {
         averageRating == other.averageRating &&
         sentimentBreakdown == other.sentimentBreakdown &&
         recentReviews == other.recentReviews &&
-        reviewVolumeByMonth == other.reviewVolumeByMonth;
+        reviewVolumeByMonth == other.reviewVolumeByMonth &&
+        ratingDistribution == other.ratingDistribution &&
+        replyRate == other.replyRate &&
+        reviewCountInRange == other.reviewCountInRange &&
+        reviewCountPrevious == other.reviewCountPrevious &&
+        replyRatePrevious == other.replyRatePrevious;
   }
 
   @override
@@ -54,6 +74,11 @@ class _$DashboardStats extends DashboardStats {
     _$hash = $jc(_$hash, sentimentBreakdown.hashCode);
     _$hash = $jc(_$hash, recentReviews.hashCode);
     _$hash = $jc(_$hash, reviewVolumeByMonth.hashCode);
+    _$hash = $jc(_$hash, ratingDistribution.hashCode);
+    _$hash = $jc(_$hash, replyRate.hashCode);
+    _$hash = $jc(_$hash, reviewCountInRange.hashCode);
+    _$hash = $jc(_$hash, reviewCountPrevious.hashCode);
+    _$hash = $jc(_$hash, replyRatePrevious.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -65,7 +90,12 @@ class _$DashboardStats extends DashboardStats {
           ..add('averageRating', averageRating)
           ..add('sentimentBreakdown', sentimentBreakdown)
           ..add('recentReviews', recentReviews)
-          ..add('reviewVolumeByMonth', reviewVolumeByMonth))
+          ..add('reviewVolumeByMonth', reviewVolumeByMonth)
+          ..add('ratingDistribution', ratingDistribution)
+          ..add('replyRate', replyRate)
+          ..add('reviewCountInRange', reviewCountInRange)
+          ..add('reviewCountPrevious', reviewCountPrevious)
+          ..add('replyRatePrevious', replyRatePrevious))
         .toString();
   }
 }
@@ -101,6 +131,31 @@ class DashboardStatsBuilder
   set reviewVolumeByMonth(ListBuilder<JsonObject>? reviewVolumeByMonth) =>
       _$this._reviewVolumeByMonth = reviewVolumeByMonth;
 
+  MapBuilder<String, int>? _ratingDistribution;
+  MapBuilder<String, int> get ratingDistribution =>
+      _$this._ratingDistribution ??= MapBuilder<String, int>();
+  set ratingDistribution(MapBuilder<String, int>? ratingDistribution) =>
+      _$this._ratingDistribution = ratingDistribution;
+
+  num? _replyRate;
+  num? get replyRate => _$this._replyRate;
+  set replyRate(num? replyRate) => _$this._replyRate = replyRate;
+
+  int? _reviewCountInRange;
+  int? get reviewCountInRange => _$this._reviewCountInRange;
+  set reviewCountInRange(int? reviewCountInRange) =>
+      _$this._reviewCountInRange = reviewCountInRange;
+
+  int? _reviewCountPrevious;
+  int? get reviewCountPrevious => _$this._reviewCountPrevious;
+  set reviewCountPrevious(int? reviewCountPrevious) =>
+      _$this._reviewCountPrevious = reviewCountPrevious;
+
+  num? _replyRatePrevious;
+  num? get replyRatePrevious => _$this._replyRatePrevious;
+  set replyRatePrevious(num? replyRatePrevious) =>
+      _$this._replyRatePrevious = replyRatePrevious;
+
   DashboardStatsBuilder() {
     DashboardStats._defaults(this);
   }
@@ -113,6 +168,11 @@ class DashboardStatsBuilder
       _sentimentBreakdown = $v.sentimentBreakdown.toBuilder();
       _recentReviews = $v.recentReviews.toBuilder();
       _reviewVolumeByMonth = $v.reviewVolumeByMonth.toBuilder();
+      _ratingDistribution = $v.ratingDistribution.toBuilder();
+      _replyRate = $v.replyRate;
+      _reviewCountInRange = $v.reviewCountInRange;
+      _reviewCountPrevious = $v.reviewCountPrevious;
+      _replyRatePrevious = $v.replyRatePrevious;
       _$v = null;
     }
     return this;
@@ -143,6 +203,11 @@ class DashboardStatsBuilder
             sentimentBreakdown: sentimentBreakdown.build(),
             recentReviews: recentReviews.build(),
             reviewVolumeByMonth: reviewVolumeByMonth.build(),
+            ratingDistribution: ratingDistribution.build(),
+            replyRate: replyRate,
+            reviewCountInRange: reviewCountInRange,
+            reviewCountPrevious: reviewCountPrevious,
+            replyRatePrevious: replyRatePrevious,
           );
     } catch (_) {
       late String _$failedField;
@@ -153,6 +218,8 @@ class DashboardStatsBuilder
         recentReviews.build();
         _$failedField = 'reviewVolumeByMonth';
         reviewVolumeByMonth.build();
+        _$failedField = 'ratingDistribution';
+        ratingDistribution.build();
       } catch (e) {
         throw BuiltValueNestedFieldError(
             r'DashboardStats', _$failedField, e.toString());

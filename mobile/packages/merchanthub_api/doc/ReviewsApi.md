@@ -12,6 +12,7 @@ Method | HTTP request | Description
 [**createReviewApiV1ReviewsPost**](ReviewsApi.md#createreviewapiv1reviewspost) | **POST** /api/v1/reviews | Create Review
 [**deleteReviewApiV1ReviewsReviewIdDelete**](ReviewsApi.md#deletereviewapiv1reviewsreviewiddelete) | **DELETE** /api/v1/reviews/{review_id} | Delete Review
 [**likeReviewApiV1ReviewsReviewIdLikePost**](ReviewsApi.md#likereviewapiv1reviewsreviewidlikepost) | **POST** /api/v1/reviews/{review_id}/like | Like Review
+[**listAdminReviewsApiV1ReviewsAdminAllGet**](ReviewsApi.md#listadminreviewsapiv1reviewsadminallget) | **GET** /api/v1/reviews/admin/all | List Admin Reviews
 [**listBusinessReviewsApiV1ReviewsBusinessBusinessIdGet**](ReviewsApi.md#listbusinessreviewsapiv1reviewsbusinessbusinessidget) | **GET** /api/v1/reviews/business/{business_id} | List Business Reviews
 [**listReportedReviewsApiV1ReviewsReportedGet**](ReviewsApi.md#listreportedreviewsapiv1reviewsreportedget) | **GET** /api/v1/reviews/reported | List Reported Reviews
 [**moderateReviewApiV1ReviewsReviewIdModeratePost**](ReviewsApi.md#moderatereviewapiv1reviewsreviewidmoderatepost) | **POST** /api/v1/reviews/{review_id}/moderate | Moderate Review
@@ -137,6 +138,53 @@ Name | Type | Description  | Notes
 ### Return type
 
 [**MessageResponse**](MessageResponse.md)
+
+### Authorization
+
+[HTTPBearer](../README.md#HTTPBearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **listAdminReviewsApiV1ReviewsAdminAllGet**
+> BuiltList<ReviewResponse> listAdminReviewsApiV1ReviewsAdminAllGet(businessId, page, pageSize)
+
+List Admin Reviews
+
+Admin: browse reviews across every business and status, optionally scoped to one business (drives both the \"All reviews\" browse view and a business drill-down's review history).  **Query:** business_id (optional scope), page (default 1), page_size (default 20, cap 100) **Response:** Reviews of every status, each carrying its business summary
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getReviewsApi();
+final String businessId = 38400000-8cf0-11bd-b23e-10b96e4ef00d; // String | 
+final int page = 56; // int | 
+final int pageSize = 56; // int | 
+
+try {
+    final response = api.listAdminReviewsApiV1ReviewsAdminAllGet(businessId, page, pageSize);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling ReviewsApi->listAdminReviewsApiV1ReviewsAdminAllGet: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **businessId** | **String**|  | [optional] 
+ **page** | **int**|  | [optional] [default to 1]
+ **pageSize** | **int**|  | [optional] [default to 20]
+
+### Return type
+
+[**BuiltList&lt;ReviewResponse&gt;**](ReviewResponse.md)
 
 ### Authorization
 

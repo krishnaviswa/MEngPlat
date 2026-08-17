@@ -8,11 +8,11 @@ part of 'user_response.dart';
 
 class _$UserResponse extends UserResponse {
   @override
-  final String email;
+  final String id;
+  @override
+  final String? email;
   @override
   final String fullName;
-  @override
-  final String id;
   @override
   final UserRole role;
   @override
@@ -48,9 +48,9 @@ class _$UserResponse extends UserResponse {
       (UserResponseBuilder()..update(updates))._build();
 
   _$UserResponse._(
-      {required this.email,
+      {required this.id,
+      this.email,
       required this.fullName,
-      required this.id,
       required this.role,
       required this.isActive,
       this.avatarUrl,
@@ -78,9 +78,9 @@ class _$UserResponse extends UserResponse {
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
     return other is UserResponse &&
+        id == other.id &&
         email == other.email &&
         fullName == other.fullName &&
-        id == other.id &&
         role == other.role &&
         isActive == other.isActive &&
         avatarUrl == other.avatarUrl &&
@@ -101,9 +101,9 @@ class _$UserResponse extends UserResponse {
   @override
   int get hashCode {
     var _$hash = 0;
+    _$hash = $jc(_$hash, id.hashCode);
     _$hash = $jc(_$hash, email.hashCode);
     _$hash = $jc(_$hash, fullName.hashCode);
-    _$hash = $jc(_$hash, id.hashCode);
     _$hash = $jc(_$hash, role.hashCode);
     _$hash = $jc(_$hash, isActive.hashCode);
     _$hash = $jc(_$hash, avatarUrl.hashCode);
@@ -126,9 +126,9 @@ class _$UserResponse extends UserResponse {
   @override
   String toString() {
     return (newBuiltValueToStringHelper(r'UserResponse')
+          ..add('id', id)
           ..add('email', email)
           ..add('fullName', fullName)
-          ..add('id', id)
           ..add('role', role)
           ..add('isActive', isActive)
           ..add('avatarUrl', avatarUrl)
@@ -152,6 +152,10 @@ class UserResponseBuilder
     implements Builder<UserResponse, UserResponseBuilder> {
   _$UserResponse? _$v;
 
+  String? _id;
+  String? get id => _$this._id;
+  set id(String? id) => _$this._id = id;
+
   String? _email;
   String? get email => _$this._email;
   set email(String? email) => _$this._email = email;
@@ -159,10 +163,6 @@ class UserResponseBuilder
   String? _fullName;
   String? get fullName => _$this._fullName;
   set fullName(String? fullName) => _$this._fullName = fullName;
-
-  String? _id;
-  String? get id => _$this._id;
-  set id(String? id) => _$this._id = id;
 
   UserRole? _role;
   UserRole? get role => _$this._role;
@@ -233,9 +233,9 @@ class UserResponseBuilder
   UserResponseBuilder get _$this {
     final $v = _$v;
     if ($v != null) {
+      _id = $v.id;
       _email = $v.email;
       _fullName = $v.fullName;
-      _id = $v.id;
       _role = $v.role;
       _isActive = $v.isActive;
       _avatarUrl = $v.avatarUrl;
@@ -272,11 +272,10 @@ class UserResponseBuilder
   _$UserResponse _build() {
     final _$result = _$v ??
         _$UserResponse._(
-          email: BuiltValueNullFieldError.checkNotNull(
-              email, r'UserResponse', 'email'),
+          id: BuiltValueNullFieldError.checkNotNull(id, r'UserResponse', 'id'),
+          email: email,
           fullName: BuiltValueNullFieldError.checkNotNull(
               fullName, r'UserResponse', 'fullName'),
-          id: BuiltValueNullFieldError.checkNotNull(id, r'UserResponse', 'id'),
           role: BuiltValueNullFieldError.checkNotNull(
               role, r'UserResponse', 'role'),
           isActive: BuiltValueNullFieldError.checkNotNull(

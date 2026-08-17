@@ -67,13 +67,24 @@ Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
 [*AIAnalysisApi*](doc/AIAnalysisApi.md) | [**getMerchantInsightsApiV1AiBusinessesBusinessIdInsightsGet**](doc/AIAnalysisApi.md#getmerchantinsightsapiv1aibusinessesbusinessidinsightsget) | **GET** /api/v1/ai/businesses/{business_id}/insights | Get Merchant Insights
 [*AIAnalysisApi*](doc/AIAnalysisApi.md) | [**getReviewAnalysisApiV1AiReviewsReviewIdGet**](doc/AIAnalysisApi.md#getreviewanalysisapiv1aireviewsreviewidget) | **GET** /api/v1/ai/reviews/{review_id} | Get Review Analysis
+[*AIAnalysisApi*](doc/AIAnalysisApi.md) | [**getTopicClustersApiV1AiBusinessesBusinessIdTopicsGet**](doc/AIAnalysisApi.md#gettopicclustersapiv1aibusinessesbusinessidtopicsget) | **GET** /api/v1/ai/businesses/{business_id}/topics | Get Topic Clusters
 [*AIAnalysisApi*](doc/AIAnalysisApi.md) | [**refreshInsightsApiV1AiBusinessesBusinessIdRefreshPost**](doc/AIAnalysisApi.md#refreshinsightsapiv1aibusinessesbusinessidrefreshpost) | **POST** /api/v1/ai/businesses/{business_id}/refresh | Refresh Insights
+[*AdminApi*](doc/AdminApi.md) | [**approveAdminWhatsappDraftApiV1AdminWhatsappDraftsDraftIdApprovePost**](doc/AdminApi.md#approveadminwhatsappdraftapiv1adminwhatsappdraftsdraftidapprovepost) | **POST** /api/v1/admin/whatsapp/drafts/{draft_id}/approve | Approve Admin Whatsapp Draft
+[*AdminApi*](doc/AdminApi.md) | [**listAdminWhatsappDraftsApiV1AdminWhatsappDraftsGet**](doc/AdminApi.md#listadminwhatsappdraftsapiv1adminwhatsappdraftsget) | **GET** /api/v1/admin/whatsapp/drafts | List Admin Whatsapp Drafts
+[*AdminApi*](doc/AdminApi.md) | [**listUsersApiV1AdminUsersGet**](doc/AdminApi.md#listusersapiv1adminusersget) | **GET** /api/v1/admin/users | List Users
+[*AdminApi*](doc/AdminApi.md) | [**reactivateUserApiV1AdminUsersUserIdReactivatePost**](doc/AdminApi.md#reactivateuserapiv1adminusersuseridreactivatepost) | **POST** /api/v1/admin/users/{user_id}/reactivate | Reactivate User
+[*AdminApi*](doc/AdminApi.md) | [**rejectAdminWhatsappDraftApiV1AdminWhatsappDraftsDraftIdRejectPost**](doc/AdminApi.md#rejectadminwhatsappdraftapiv1adminwhatsappdraftsdraftidrejectpost) | **POST** /api/v1/admin/whatsapp/drafts/{draft_id}/reject | Reject Admin Whatsapp Draft
+[*AdminApi*](doc/AdminApi.md) | [**suspendUserApiV1AdminUsersUserIdSuspendPost**](doc/AdminApi.md#suspenduserapiv1adminusersuseridsuspendpost) | **POST** /api/v1/admin/users/{user_id}/suspend | Suspend User
+[*AuthenticationApi*](doc/AuthenticationApi.md) | [**forgotPasswordApiV1AuthForgotPasswordPost**](doc/AuthenticationApi.md#forgotpasswordapiv1authforgotpasswordpost) | **POST** /api/v1/auth/forgot-password | Forgot Password
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**getMeApiV1AuthMeGet**](doc/AuthenticationApi.md#getmeapiv1authmeget) | **GET** /api/v1/auth/me | Get Me
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**googleAuthApiV1AuthGooglePost**](doc/AuthenticationApi.md#googleauthapiv1authgooglepost) | **POST** /api/v1/auth/google | Google Auth
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**loginApiV1AuthLoginPost**](doc/AuthenticationApi.md#loginapiv1authloginpost) | **POST** /api/v1/auth/login | Login
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**logoutApiV1AuthLogoutPost**](doc/AuthenticationApi.md#logoutapiv1authlogoutpost) | **POST** /api/v1/auth/logout | Logout
+[*AuthenticationApi*](doc/AuthenticationApi.md) | [**phoneOtpRequestApiV1AuthPhoneRequestPost**](doc/AuthenticationApi.md#phoneotprequestapiv1authphonerequestpost) | **POST** /api/v1/auth/phone/request | Phone Otp Request
+[*AuthenticationApi*](doc/AuthenticationApi.md) | [**phoneOtpVerifyApiV1AuthPhoneVerifyPost**](doc/AuthenticationApi.md#phoneotpverifyapiv1authphoneverifypost) | **POST** /api/v1/auth/phone/verify | Phone Otp Verify
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**refreshTokenApiV1AuthRefreshPost**](doc/AuthenticationApi.md#refreshtokenapiv1authrefreshpost) | **POST** /api/v1/auth/refresh | Refresh Token
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**registerApiV1AuthRegisterPost**](doc/AuthenticationApi.md#registerapiv1authregisterpost) | **POST** /api/v1/auth/register | Register
+[*AuthenticationApi*](doc/AuthenticationApi.md) | [**resetPasswordApiV1AuthResetPasswordPost**](doc/AuthenticationApi.md#resetpasswordapiv1authresetpasswordpost) | **POST** /api/v1/auth/reset-password | Reset Password
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**totpConfirmApiV1AuthMfaTotpConfirmPost**](doc/AuthenticationApi.md#totpconfirmapiv1authmfatotpconfirmpost) | **POST** /api/v1/auth/mfa/totp/confirm | Totp Confirm
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**totpSetupApiV1AuthMfaTotpSetupPost**](doc/AuthenticationApi.md#totpsetupapiv1authmfatotpsetuppost) | **POST** /api/v1/auth/mfa/totp/setup | Totp Setup
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**totpVerifyApiV1AuthMfaTotpVerifyPost**](doc/AuthenticationApi.md#totpverifyapiv1authmfatotpverifypost) | **POST** /api/v1/auth/mfa/totp/verify | Totp Verify
@@ -82,15 +93,26 @@ Class | Method | HTTP request | Description
 [*BusinessesApi*](doc/BusinessesApi.md) | [**createBusinessApiV1BusinessesPost**](doc/BusinessesApi.md#createbusinessapiv1businessespost) | **POST** /api/v1/businesses | Create Business
 [*BusinessesApi*](doc/BusinessesApi.md) | [**createCategoryApiV1BusinessesCategoriesPost**](doc/BusinessesApi.md#createcategoryapiv1businessescategoriespost) | **POST** /api/v1/businesses/categories | Create Category
 [*BusinessesApi*](doc/BusinessesApi.md) | [**getBusinessApiV1BusinessesSlugGet**](doc/BusinessesApi.md#getbusinessapiv1businessesslugget) | **GET** /api/v1/businesses/{slug} | Get Business
+[*BusinessesApi*](doc/BusinessesApi.md) | [**listAllBusinessesAdminApiV1BusinessesAdminAllGet**](doc/BusinessesApi.md#listallbusinessesadminapiv1businessesadminallget) | **GET** /api/v1/businesses/admin/all | List All Businesses Admin
 [*BusinessesApi*](doc/BusinessesApi.md) | [**listBusinessesApiV1BusinessesGet**](doc/BusinessesApi.md#listbusinessesapiv1businessesget) | **GET** /api/v1/businesses | List Businesses
 [*BusinessesApi*](doc/BusinessesApi.md) | [**listCategoriesApiV1BusinessesCategoriesAllGet**](doc/BusinessesApi.md#listcategoriesapiv1businessescategoriesallget) | **GET** /api/v1/businesses/categories/all | List Categories
 [*BusinessesApi*](doc/BusinessesApi.md) | [**listCitiesApiV1BusinessesCitiesGet**](doc/BusinessesApi.md#listcitiesapiv1businessescitiesget) | **GET** /api/v1/businesses/cities | List Cities
+[*BusinessesApi*](doc/BusinessesApi.md) | [**listExternalReviewsApiV1BusinessesBusinessIdExternalReviewsGet**](doc/BusinessesApi.md#listexternalreviewsapiv1businessesbusinessidexternalreviewsget) | **GET** /api/v1/businesses/{business_id}/external-reviews | List External Reviews
 [*BusinessesApi*](doc/BusinessesApi.md) | [**listMyBusinessesApiV1BusinessesMineGet**](doc/BusinessesApi.md#listmybusinessesapiv1businessesmineget) | **GET** /api/v1/businesses/mine | List My Businesses
 [*BusinessesApi*](doc/BusinessesApi.md) | [**publicStatsSummaryApiV1BusinessesStatsSummaryGet**](doc/BusinessesApi.md#publicstatssummaryapiv1businessesstatssummaryget) | **GET** /api/v1/businesses/stats/summary | Public Stats Summary
 [*BusinessesApi*](doc/BusinessesApi.md) | [**suspendBusinessApiV1BusinessesBusinessIdSuspendPost**](doc/BusinessesApi.md#suspendbusinessapiv1businessesbusinessidsuspendpost) | **POST** /api/v1/businesses/{business_id}/suspend | Suspend Business
 [*BusinessesApi*](doc/BusinessesApi.md) | [**updateBusinessApiV1BusinessesBusinessIdPatch**](doc/BusinessesApi.md#updatebusinessapiv1businessesbusinessidpatch) | **PATCH** /api/v1/businesses/{business_id} | Update Business
+[*DashboardApi*](doc/DashboardApi.md) | [**createWhatsappLinkApiV1DashboardMerchantBusinessIdWhatsappLinkPost**](doc/DashboardApi.md#createwhatsapplinkapiv1dashboardmerchantbusinessidwhatsapplinkpost) | **POST** /api/v1/dashboard/merchant/{business_id}/whatsapp/link | Create Whatsapp Link
+[*DashboardApi*](doc/DashboardApi.md) | [**getGoogleReviewsStatusApiV1DashboardMerchantBusinessIdGoogleReviewsGet**](doc/DashboardApi.md#getgooglereviewsstatusapiv1dashboardmerchantbusinessidgooglereviewsget) | **GET** /api/v1/dashboard/merchant/{business_id}/google-reviews | Get Google Reviews Status
+[*DashboardApi*](doc/DashboardApi.md) | [**linkGooglePlaceApiV1DashboardMerchantBusinessIdGoogleReviewsLinkPost**](doc/DashboardApi.md#linkgoogleplaceapiv1dashboardmerchantbusinessidgooglereviewslinkpost) | **POST** /api/v1/dashboard/merchant/{business_id}/google-reviews/link | Link Google Place
+[*DashboardApi*](doc/DashboardApi.md) | [**listWhatsappDraftsApiV1DashboardMerchantBusinessIdWhatsappDraftsGet**](doc/DashboardApi.md#listwhatsappdraftsapiv1dashboardmerchantbusinessidwhatsappdraftsget) | **GET** /api/v1/dashboard/merchant/{business_id}/whatsapp/drafts | List Whatsapp Drafts
+[*DashboardApi*](doc/DashboardApi.md) | [**merchantBenchmarkApiV1DashboardMerchantBusinessIdBenchmarkGet**](doc/DashboardApi.md#merchantbenchmarkapiv1dashboardmerchantbusinessidbenchmarkget) | **GET** /api/v1/dashboard/merchant/{business_id}/benchmark | Merchant Benchmark
 [*DashboardApi*](doc/DashboardApi.md) | [**merchantDashboardApiV1DashboardMerchantBusinessIdGet**](doc/DashboardApi.md#merchantdashboardapiv1dashboardmerchantbusinessidget) | **GET** /api/v1/dashboard/merchant/{business_id} | Merchant Dashboard
+[*DashboardApi*](doc/DashboardApi.md) | [**merchantDashboardReviewsCsvApiV1DashboardMerchantBusinessIdReviewsCsvGet**](doc/DashboardApi.md#merchantdashboardreviewscsvapiv1dashboardmerchantbusinessidreviewscsvget) | **GET** /api/v1/dashboard/merchant/{business_id}/reviews.csv | Merchant Dashboard Reviews Csv
 [*DashboardApi*](doc/DashboardApi.md) | [**platformAnalyticsApiV1DashboardAdminPlatformGet**](doc/DashboardApi.md#platformanalyticsapiv1dashboardadminplatformget) | **GET** /api/v1/dashboard/admin/platform | Platform Analytics
+[*DashboardApi*](doc/DashboardApi.md) | [**platformAnalyticsSeriesApiV1DashboardAdminPlatformSeriesGet**](doc/DashboardApi.md#platformanalyticsseriesapiv1dashboardadminplatformseriesget) | **GET** /api/v1/dashboard/admin/platform/series | Platform Analytics Series
+[*DashboardApi*](doc/DashboardApi.md) | [**searchGooglePlacesApiV1DashboardMerchantBusinessIdGoogleReviewsSearchPost**](doc/DashboardApi.md#searchgoogleplacesapiv1dashboardmerchantbusinessidgooglereviewssearchpost) | **POST** /api/v1/dashboard/merchant/{business_id}/google-reviews/search | Search Google Places
+[*DashboardApi*](doc/DashboardApi.md) | [**syncGoogleReviewsApiV1DashboardMerchantBusinessIdGoogleReviewsSyncPost**](doc/DashboardApi.md#syncgooglereviewsapiv1dashboardmerchantbusinessidgooglereviewssyncpost) | **POST** /api/v1/dashboard/merchant/{business_id}/google-reviews/sync | Sync Google Reviews
 [*DefaultApi*](doc/DefaultApi.md) | [**healthCheckHealthGet**](doc/DefaultApi.md#healthcheckhealthget) | **GET** /health | Health Check
 [*DefaultApi*](doc/DefaultApi.md) | [**rootGet**](doc/DefaultApi.md#rootget) | **GET** / | Root
 [*FavoritesApi*](doc/FavoritesApi.md) | [**createFavoriteApiV1FavoritesPost**](doc/FavoritesApi.md#createfavoriteapiv1favoritespost) | **POST** /api/v1/favorites | Create Favorite
@@ -104,12 +126,23 @@ Class | Method | HTTP request | Description
 [*NotificationsApi*](doc/NotificationsApi.md) | [**listNotificationsApiV1NotificationsGet**](doc/NotificationsApi.md#listnotificationsapiv1notificationsget) | **GET** /api/v1/notifications | List Notifications
 [*NotificationsApi*](doc/NotificationsApi.md) | [**markAllReadApiV1NotificationsReadAllPost**](doc/NotificationsApi.md#markallreadapiv1notificationsreadallpost) | **POST** /api/v1/notifications/read-all | Mark All Read
 [*NotificationsApi*](doc/NotificationsApi.md) | [**markReadApiV1NotificationsNotificationIdReadPost**](doc/NotificationsApi.md#markreadapiv1notificationsnotificationidreadpost) | **POST** /api/v1/notifications/{notification_id}/read | Mark Read
+[*PaymentsApi*](doc/PaymentsApi.md) | [**adminApprovePaymentApiV1PaymentsAdminPaymentsPaymentIdApprovePost**](doc/PaymentsApi.md#adminapprovepaymentapiv1paymentsadminpaymentspaymentidapprovepost) | **POST** /api/v1/payments/admin/payments/{payment_id}/approve | Admin Approve Payment
+[*PaymentsApi*](doc/PaymentsApi.md) | [**adminDisablePlacementApiV1PaymentsAdminPlacementsPlacementIdDisablePost**](doc/PaymentsApi.md#admindisableplacementapiv1paymentsadminplacementsplacementiddisablepost) | **POST** /api/v1/payments/admin/placements/{placement_id}/disable | Admin Disable Placement
+[*PaymentsApi*](doc/PaymentsApi.md) | [**adminListPaymentsApiV1PaymentsAdminPaymentsGet**](doc/PaymentsApi.md#adminlistpaymentsapiv1paymentsadminpaymentsget) | **GET** /api/v1/payments/admin/payments | Admin List Payments
+[*PaymentsApi*](doc/PaymentsApi.md) | [**adminRefundPaymentApiV1PaymentsAdminPaymentsPaymentIdRefundPost**](doc/PaymentsApi.md#adminrefundpaymentapiv1paymentsadminpaymentspaymentidrefundpost) | **POST** /api/v1/payments/admin/payments/{payment_id}/refund | Admin Refund Payment
+[*PaymentsApi*](doc/PaymentsApi.md) | [**adminRejectPaymentApiV1PaymentsAdminPaymentsPaymentIdRejectPost**](doc/PaymentsApi.md#adminrejectpaymentapiv1paymentsadminpaymentspaymentidrejectpost) | **POST** /api/v1/payments/admin/payments/{payment_id}/reject | Admin Reject Payment
+[*PaymentsApi*](doc/PaymentsApi.md) | [**featuredCheckoutApiV1PaymentsFeaturedCheckoutPost**](doc/PaymentsApi.md#featuredcheckoutapiv1paymentsfeaturedcheckoutpost) | **POST** /api/v1/payments/featured/checkout | Featured Checkout
+[*PaymentsApi*](doc/PaymentsApi.md) | [**featuredSkusApiV1PaymentsFeaturedSkusGet**](doc/PaymentsApi.md#featuredskusapiv1paymentsfeaturedskusget) | **GET** /api/v1/payments/featured/skus | Featured Skus
+[*PaymentsApi*](doc/PaymentsApi.md) | [**getPlacementApiV1PaymentsBusinessesBusinessIdPlacementGet**](doc/PaymentsApi.md#getplacementapiv1paymentsbusinessesbusinessidplacementget) | **GET** /api/v1/payments/businesses/{business_id}/placement | Get Placement
+[*PaymentsApi*](doc/PaymentsApi.md) | [**mockCompleteApiV1PaymentsMockCompletePost**](doc/PaymentsApi.md#mockcompleteapiv1paymentsmockcompletepost) | **POST** /api/v1/payments/mock/complete | Mock Complete
+[*PaymentsApi*](doc/PaymentsApi.md) | [**razorpayWebhookApiV1PaymentsWebhooksRazorpayPost**](doc/PaymentsApi.md#razorpaywebhookapiv1paymentswebhooksrazorpaypost) | **POST** /api/v1/payments/webhooks/razorpay | Razorpay Webhook
 [*PhotosApi*](doc/PhotosApi.md) | [**deletePhotoApiV1PhotosPhotoIdDelete**](doc/PhotosApi.md#deletephotoapiv1photosphotoiddelete) | **DELETE** /api/v1/photos/{photo_id} | Delete Photo
 [*PhotosApi*](doc/PhotosApi.md) | [**listBusinessPhotosApiV1PhotosBusinessBusinessIdGet**](doc/PhotosApi.md#listbusinessphotosapiv1photosbusinessbusinessidget) | **GET** /api/v1/photos/business/{business_id} | List Business Photos
 [*PhotosApi*](doc/PhotosApi.md) | [**uploadPhotoApiV1PhotosUploadPost**](doc/PhotosApi.md#uploadphotoapiv1photosuploadpost) | **POST** /api/v1/photos/upload | Upload Photo
 [*ReviewsApi*](doc/ReviewsApi.md) | [**createReviewApiV1ReviewsPost**](doc/ReviewsApi.md#createreviewapiv1reviewspost) | **POST** /api/v1/reviews | Create Review
 [*ReviewsApi*](doc/ReviewsApi.md) | [**deleteReviewApiV1ReviewsReviewIdDelete**](doc/ReviewsApi.md#deletereviewapiv1reviewsreviewiddelete) | **DELETE** /api/v1/reviews/{review_id} | Delete Review
 [*ReviewsApi*](doc/ReviewsApi.md) | [**likeReviewApiV1ReviewsReviewIdLikePost**](doc/ReviewsApi.md#likereviewapiv1reviewsreviewidlikepost) | **POST** /api/v1/reviews/{review_id}/like | Like Review
+[*ReviewsApi*](doc/ReviewsApi.md) | [**listAdminReviewsApiV1ReviewsAdminAllGet**](doc/ReviewsApi.md#listadminreviewsapiv1reviewsadminallget) | **GET** /api/v1/reviews/admin/all | List Admin Reviews
 [*ReviewsApi*](doc/ReviewsApi.md) | [**listBusinessReviewsApiV1ReviewsBusinessBusinessIdGet**](doc/ReviewsApi.md#listbusinessreviewsapiv1reviewsbusinessbusinessidget) | **GET** /api/v1/reviews/business/{business_id} | List Business Reviews
 [*ReviewsApi*](doc/ReviewsApi.md) | [**listReportedReviewsApiV1ReviewsReportedGet**](doc/ReviewsApi.md#listreportedreviewsapiv1reviewsreportedget) | **GET** /api/v1/reviews/reported | List Reported Reviews
 [*ReviewsApi*](doc/ReviewsApi.md) | [**moderateReviewApiV1ReviewsReviewIdModeratePost**](doc/ReviewsApi.md#moderatereviewapiv1reviewsreviewidmoderatepost) | **POST** /api/v1/reviews/{review_id}/moderate | Moderate Review
@@ -117,22 +150,44 @@ Class | Method | HTTP request | Description
 [*ReviewsApi*](doc/ReviewsApi.md) | [**reportReviewApiV1ReviewsReviewIdReportPost**](doc/ReviewsApi.md#reportreviewapiv1reviewsreviewidreportpost) | **POST** /api/v1/reviews/{review_id}/report | Report Review
 [*ReviewsApi*](doc/ReviewsApi.md) | [**updateReviewApiV1ReviewsReviewIdPatch**](doc/ReviewsApi.md#updatereviewapiv1reviewsreviewidpatch) | **PATCH** /api/v1/reviews/{review_id} | Update Review
 [*SearchApi*](doc/SearchApi.md) | [**searchBusinessesApiV1SearchBusinessesGet**](doc/SearchApi.md#searchbusinessesapiv1searchbusinessesget) | **GET** /api/v1/search/businesses | Search Businesses
+[*WebhooksApi*](doc/WebhooksApi.md) | [**whatsappInboundApiV1WebhooksWhatsappPost**](doc/WebhooksApi.md#whatsappinboundapiv1webhookswhatsapppost) | **POST** /api/v1/webhooks/whatsapp | Whatsapp Inbound
+[*WebhooksApi*](doc/WebhooksApi.md) | [**whatsappVerifyApiV1WebhooksWhatsappGet**](doc/WebhooksApi.md#whatsappverifyapiv1webhookswhatsappget) | **GET** /api/v1/webhooks/whatsapp | Whatsapp Verify
 
 
 ## Documentation For Models
 
  - [AIAnalysisResponse](doc/AIAnalysisResponse.md)
+ - [AdminPaymentRow](doc/AdminPaymentRow.md)
+ - [AdminWhatsAppDraftApproveRequest](doc/AdminWhatsAppDraftApproveRequest.md)
+ - [AdminWhatsAppDraftQueueResponse](doc/AdminWhatsAppDraftQueueResponse.md)
+ - [AdminWhatsAppDraftResponse](doc/AdminWhatsAppDraftResponse.md)
+ - [BenchmarkResponse](doc/BenchmarkResponse.md)
  - [BusinessCreate](doc/BusinessCreate.md)
  - [BusinessResponse](doc/BusinessResponse.md)
  - [BusinessStatus](doc/BusinessStatus.md)
+ - [BusinessSummary](doc/BusinessSummary.md)
  - [BusinessUpdate](doc/BusinessUpdate.md)
  - [CategoryCreate](doc/CategoryCreate.md)
  - [CategoryResponse](doc/CategoryResponse.md)
+ - [CheckoutFields](doc/CheckoutFields.md)
  - [DashboardStats](doc/DashboardStats.md)
+ - [DraftStatus](doc/DraftStatus.md)
+ - [ExternalReviewResponse](doc/ExternalReviewResponse.md)
  - [FavoriteCreate](doc/FavoriteCreate.md)
  - [FavoriteResponse](doc/FavoriteResponse.md)
+ - [FeaturedCheckoutRequest](doc/FeaturedCheckoutRequest.md)
+ - [FeaturedCheckoutResponse](doc/FeaturedCheckoutResponse.md)
+ - [FeaturedSku](doc/FeaturedSku.md)
+ - [ForgotPasswordRequest](doc/ForgotPasswordRequest.md)
  - [GeocodeResponse](doc/GeocodeResponse.md)
  - [GoogleAuthRequest](doc/GoogleAuthRequest.md)
+ - [GooglePlaceCandidateResponse](doc/GooglePlaceCandidateResponse.md)
+ - [GooglePlaceLinkRequest](doc/GooglePlaceLinkRequest.md)
+ - [GooglePlaceLinkResponse](doc/GooglePlaceLinkResponse.md)
+ - [GooglePlacesSearchRequest](doc/GooglePlacesSearchRequest.md)
+ - [GooglePlacesSearchResponse](doc/GooglePlacesSearchResponse.md)
+ - [GoogleReviewsStatusResponse](doc/GoogleReviewsStatusResponse.md)
+ - [GoogleReviewsSyncResponse](doc/GoogleReviewsSyncResponse.md)
  - [HTTPValidationError](doc/HTTPValidationError.md)
  - [LocationInner](doc/LocationInner.md)
  - [LoginResult](doc/LoginResult.md)
@@ -141,14 +196,26 @@ Class | Method | HTTP request | Description
  - [MessageResponse](doc/MessageResponse.md)
  - [MfaTokenRequest](doc/MfaTokenRequest.md)
  - [MfaTotpCodeRequest](doc/MfaTotpCodeRequest.md)
+ - [MockCompleteRequest](doc/MockCompleteRequest.md)
  - [NationalIdType](doc/NationalIdType.md)
  - [NearbyBusinessRequest](doc/NearbyBusinessRequest.md)
  - [NotificationResponse](doc/NotificationResponse.md)
+ - [PaymentApproveResponse](doc/PaymentApproveResponse.md)
+ - [PaymentLedger](doc/PaymentLedger.md)
+ - [PaymentRefundResponse](doc/PaymentRefundResponse.md)
+ - [PaymentRejectResponse](doc/PaymentRejectResponse.md)
+ - [PhoneOtpRequest](doc/PhoneOtpRequest.md)
+ - [PhoneOtpVerifyRequest](doc/PhoneOtpVerifyRequest.md)
  - [PhotoResponse](doc/PhotoResponse.md)
+ - [PlacementDisableResponse](doc/PlacementDisableResponse.md)
+ - [PlacementResponse](doc/PlacementResponse.md)
+ - [PlacementWindow](doc/PlacementWindow.md)
  - [PlatformAnalytics](doc/PlatformAnalytics.md)
+ - [PlatformAnalyticsSeries](doc/PlatformAnalyticsSeries.md)
  - [PublicPlatformStats](doc/PublicPlatformStats.md)
  - [ReplyCreate](doc/ReplyCreate.md)
  - [ReplyResponse](doc/ReplyResponse.md)
+ - [ResetPasswordRequest](doc/ResetPasswordRequest.md)
  - [ReviewCreate](doc/ReviewCreate.md)
  - [ReviewReportCreate](doc/ReviewReportCreate.md)
  - [ReviewResponse](doc/ReviewResponse.md)
@@ -156,6 +223,8 @@ Class | Method | HTTP request | Description
  - [ReviewUpdate](doc/ReviewUpdate.md)
  - [Sentiment](doc/Sentiment.md)
  - [TokenResponse](doc/TokenResponse.md)
+ - [TopicClusterResponse](doc/TopicClusterResponse.md)
+ - [TopicItem](doc/TopicItem.md)
  - [TotpSetupResponse](doc/TotpSetupResponse.md)
  - [UserLogin](doc/UserLogin.md)
  - [UserProfileUpdate](doc/UserProfileUpdate.md)
@@ -163,6 +232,10 @@ Class | Method | HTTP request | Description
  - [UserResponse](doc/UserResponse.md)
  - [UserRole](doc/UserRole.md)
  - [ValidationError](doc/ValidationError.md)
+ - [WebhookAck](doc/WebhookAck.md)
+ - [WhatsAppDraftResponse](doc/WhatsAppDraftResponse.md)
+ - [WhatsAppLinkResponse](doc/WhatsAppLinkResponse.md)
+ - [WhatsAppWebhookAck](doc/WhatsAppWebhookAck.md)
 
 
 ## Documentation For Authorization

@@ -9,6 +9,7 @@ import 'features/admin/admin_businesses_screen.dart';
 import 'features/admin/admin_home_screen.dart';
 import 'features/admin/admin_reviews_screen.dart';
 import 'features/auth/auth_provider.dart';
+import 'features/auth/forgot_password_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/post_login_path.dart';
 import 'features/auth/register_screen.dart';
@@ -50,6 +51,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/register',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const ForgotPasswordScreen(),
       ),
       ShellRoute(
         navigatorKey: shellNavigatorKey,
@@ -110,12 +116,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
       final isOnLogin = loc == '/login';
       final isOnRegister = loc == '/register';
+      final isOnForgotPassword = loc == '/forgot-password';
       // Public carve-out (ADR-003): business browsing and its reviews are
       // reachable without a session. Shell chrome on `/businesses` is fine
       // for guests; every other shell route stays auth-gated (ADR-005).
       final isPublicBusinessRoute = loc == '/businesses' || loc.startsWith('/businesses/');
 
-      if (!isLoggedIn && !isOnLogin && !isOnRegister && !isPublicBusinessRoute) return '/login';
+      if (!isLoggedIn && !isOnLogin && !isOnRegister && !isOnForgotPassword && !isPublicBusinessRoute) {
+        return '/login';
+      }
       if (isLoggedIn && (isOnLogin || isOnRegister)) return postLoginPath(user.role);
 
       if (isLoggedIn) {

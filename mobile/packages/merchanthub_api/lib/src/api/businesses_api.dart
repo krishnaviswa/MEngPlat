@@ -16,6 +16,7 @@ import 'package:merchanthub_api/src/model/business_status.dart';
 import 'package:merchanthub_api/src/model/business_update.dart';
 import 'package:merchanthub_api/src/model/category_create.dart';
 import 'package:merchanthub_api/src/model/category_response.dart';
+import 'package:merchanthub_api/src/model/external_review_response.dart';
 import 'package:merchanthub_api/src/model/http_validation_error.dart';
 import 'package:merchanthub_api/src/model/message_response.dart';
 import 'package:merchanthub_api/src/model/public_platform_stats.dart';
@@ -29,7 +30,7 @@ class BusinessesApi {
   const BusinessesApi(this._dio, this._serializers);
 
   /// Approve Business
-  /// Admin: approve a pending business.
+  /// Admin: approve a pending business. Notifies the merchant in-app and by best-effort email.
   ///
   /// Parameters:
   /// * [businessId] 
@@ -211,7 +212,7 @@ class BusinessesApi {
   }
 
   /// Create Category
-  /// Admin: create a new category.
+  /// Admin: create a new category. 409 if name or slug already exists.
   ///
   /// Parameters:
   /// * [categoryCreate] 
@@ -386,11 +387,101 @@ class BusinessesApi {
     );
   }
 
+  /// List All Businesses Admin
+  /// Admin: browse businesses of every status (approved, pending, rejected, suspended), newest-registered first.  **Query:** page (default 1), page_size (default 20, cap 100) **Response:** Businesses of every status — distinct from the public &#x60;GET /businesses&#x60;, which defaults to approved-only.
+  ///
+  /// Parameters:
+  /// * [page] 
+  /// * [pageSize] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [BuiltList<BusinessResponse>] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<BuiltList<BusinessResponse>>> listAllBusinessesAdminApiV1BusinessesAdminAllGet({ 
+    int? page = 1,
+    int? pageSize = 20,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/v1/businesses/admin/all';
+    final _options = Options(
+      method: r'GET',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'HTTPBearer',
+          },
+        ],
+        ...?extra,
+      },
+      validateStatus: validateStatus,
+    );
+
+    final _queryParameters = <String, dynamic>{
+      if (page != null) r'page': encodeQueryParameter(_serializers, page, const FullType(int)),
+      if (pageSize != null) r'page_size': encodeQueryParameter(_serializers, pageSize, const FullType(int)),
+    };
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
+      queryParameters: _queryParameters,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    BuiltList<BusinessResponse>? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(BuiltList, [FullType(BusinessResponse)]),
+      ) as BuiltList<BusinessResponse>;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<BuiltList<BusinessResponse>>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
   /// List Businesses
-  /// List businesses with optional city filter. Non-approved status filters require admin.
+  /// List businesses with optional city/slugs filter. Non-approved status filters require admin.
   ///
   /// Parameters:
   /// * [city] 
+  /// * [slugs] 
   /// * [statusFilter] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
@@ -403,6 +494,7 @@ class BusinessesApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<BuiltList<BusinessResponse>>> listBusinessesApiV1BusinessesGet({ 
     String? city,
+    String? slugs,
     BusinessStatus? statusFilter,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -432,6 +524,7 @@ class BusinessesApi {
 
     final _queryParameters = <String, dynamic>{
       r'city': encodeQueryParameter(_serializers, city, const FullType(String)),
+      r'slugs': encodeQueryParameter(_serializers, slugs, const FullType(String)),
       if (statusFilter != null) r'status_filter': encodeQueryParameter(_serializers, statusFilter, const FullType(BusinessStatus)),
     };
 
@@ -610,6 +703,81 @@ class BusinessesApi {
     }
 
     return Response<BuiltList<String>>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// List External Reviews
+  /// Public: up to 5 synced third-party (Google) reviews for a business (S-048 AC10, AC11). Two path segments, so this cannot collide with the single-segment &#x60;GET /{slug}&#x60; above regardless of registration order.  **Response:** &#x60;[]&#x60; when the business has never linked/synced (AC11) -- callers should not render an \&quot;Also reviewed on Google\&quot; section for an empty list.
+  ///
+  /// Parameters:
+  /// * [businessId] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [BuiltList<ExternalReviewResponse>] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<BuiltList<ExternalReviewResponse>>> listExternalReviewsApiV1BusinessesBusinessIdExternalReviewsGet({ 
+    required String businessId,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/v1/businesses/{business_id}/external-reviews'.replaceAll('{' r'business_id' '}', encodeQueryParameter(_serializers, businessId, const FullType(String)).toString());
+    final _options = Options(
+      method: r'GET',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[],
+        ...?extra,
+      },
+      validateStatus: validateStatus,
+    );
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    BuiltList<ExternalReviewResponse>? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(BuiltList, [FullType(ExternalReviewResponse)]),
+      ) as BuiltList<ExternalReviewResponse>;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<BuiltList<ExternalReviewResponse>>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

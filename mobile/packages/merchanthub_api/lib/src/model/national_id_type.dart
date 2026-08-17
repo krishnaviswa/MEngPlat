@@ -13,6 +13,8 @@ class NationalIdType extends EnumClass {
 
   @BuiltValueEnumConst(wireName: r'pan')
   static const NationalIdType pan = _$pan;
+  @BuiltValueEnumConst(wireName: r'aadhaar')
+  static const NationalIdType aadhaar = _$aadhaar;
   @BuiltValueEnumConst(wireName: r'other')
   static const NationalIdType other = _$other;
 

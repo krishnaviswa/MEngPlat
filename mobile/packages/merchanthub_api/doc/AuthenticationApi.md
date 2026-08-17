@@ -9,17 +9,64 @@ All URIs are relative to *http://localhost*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
+[**forgotPasswordApiV1AuthForgotPasswordPost**](AuthenticationApi.md#forgotpasswordapiv1authforgotpasswordpost) | **POST** /api/v1/auth/forgot-password | Forgot Password
 [**getMeApiV1AuthMeGet**](AuthenticationApi.md#getmeapiv1authmeget) | **GET** /api/v1/auth/me | Get Me
 [**googleAuthApiV1AuthGooglePost**](AuthenticationApi.md#googleauthapiv1authgooglepost) | **POST** /api/v1/auth/google | Google Auth
 [**loginApiV1AuthLoginPost**](AuthenticationApi.md#loginapiv1authloginpost) | **POST** /api/v1/auth/login | Login
 [**logoutApiV1AuthLogoutPost**](AuthenticationApi.md#logoutapiv1authlogoutpost) | **POST** /api/v1/auth/logout | Logout
+[**phoneOtpRequestApiV1AuthPhoneRequestPost**](AuthenticationApi.md#phoneotprequestapiv1authphonerequestpost) | **POST** /api/v1/auth/phone/request | Phone Otp Request
+[**phoneOtpVerifyApiV1AuthPhoneVerifyPost**](AuthenticationApi.md#phoneotpverifyapiv1authphoneverifypost) | **POST** /api/v1/auth/phone/verify | Phone Otp Verify
 [**refreshTokenApiV1AuthRefreshPost**](AuthenticationApi.md#refreshtokenapiv1authrefreshpost) | **POST** /api/v1/auth/refresh | Refresh Token
 [**registerApiV1AuthRegisterPost**](AuthenticationApi.md#registerapiv1authregisterpost) | **POST** /api/v1/auth/register | Register
+[**resetPasswordApiV1AuthResetPasswordPost**](AuthenticationApi.md#resetpasswordapiv1authresetpasswordpost) | **POST** /api/v1/auth/reset-password | Reset Password
 [**totpConfirmApiV1AuthMfaTotpConfirmPost**](AuthenticationApi.md#totpconfirmapiv1authmfatotpconfirmpost) | **POST** /api/v1/auth/mfa/totp/confirm | Totp Confirm
 [**totpSetupApiV1AuthMfaTotpSetupPost**](AuthenticationApi.md#totpsetupapiv1authmfatotpsetuppost) | **POST** /api/v1/auth/mfa/totp/setup | Totp Setup
 [**totpVerifyApiV1AuthMfaTotpVerifyPost**](AuthenticationApi.md#totpverifyapiv1authmfatotpverifypost) | **POST** /api/v1/auth/mfa/totp/verify | Totp Verify
 [**updateMeApiV1AuthMePatch**](AuthenticationApi.md#updatemeapiv1authmepatch) | **PATCH** /api/v1/auth/me | Update Me
 
+
+# **forgotPasswordApiV1AuthForgotPasswordPost**
+> MessageResponse forgotPasswordApiV1AuthForgotPasswordPost(forgotPasswordRequest)
+
+Forgot Password
+
+Request a password-reset email. Always returns the same generic message, whether or not the address is registered -- the response never confirms account existence (ADR-007).  **Request:** email **Response:** Always 200, generic confirmation copy **Errors:** 422 invalid email shape, 429 rate-limited (5/minute per IP), 503 Redis unreachable (cannot store a hashed token -- fails closed before the account lookup, so the 503 itself does not distinguish known vs unknown addresses)
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAuthenticationApi();
+final ForgotPasswordRequest forgotPasswordRequest = ; // ForgotPasswordRequest | 
+
+try {
+    final response = api.forgotPasswordApiV1AuthForgotPasswordPost(forgotPasswordRequest);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AuthenticationApi->forgotPasswordApiV1AuthForgotPasswordPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **forgotPasswordRequest** | [**ForgotPasswordRequest**](ForgotPasswordRequest.md)|  | 
+
+### Return type
+
+[**MessageResponse**](MessageResponse.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getMeApiV1AuthMeGet**
 > UserResponse getMeApiV1AuthMeGet()
@@ -108,7 +155,7 @@ No authorization required
 
 Login
 
-Authenticate with email and password.  **Request:** email, password **Response:** Either JWT tokens (should not happen for password accounts without TOTP), or `{ mfa_required, mfa_token }` / `{ mfa_enrollment_required, mfa_token }` for TOTP. **Errors:** 400 account is Google-only (no password set), 401 invalid credentials, 403 inactive
+Authenticate with email and password.  **Request:** email, password **Response:** Either JWT tokens (should not happen for password accounts without TOTP), or `{ mfa_required, mfa_token }` / `{ mfa_enrollment_required, mfa_token }` for TOTP. **Errors:** 400 account is Google-only (no password set), 401 invalid credentials, 403 inactive, 429 if rate-limited (10/minute per IP) -- bcrypt makes each attempt expensive, so this also caps CPU spent on credential stuffing, not just attempt count. After 5 failed password attempts for the same email, Redis lockout applies for 15 minutes (best-effort; skipped if Redis is unreachable).
 
 ### Example
 ```dart
@@ -189,12 +236,98 @@ Name | Type | Description  | Notes
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **phoneOtpRequestApiV1AuthPhoneRequestPost**
+> MessageResponse phoneOtpRequestApiV1AuthPhoneRequestPost(phoneOtpRequest)
+
+Phone Otp Request
+
+Send a 6-digit SMS code. Always the same 200 copy (no user enumeration).
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAuthenticationApi();
+final PhoneOtpRequest phoneOtpRequest = ; // PhoneOtpRequest | 
+
+try {
+    final response = api.phoneOtpRequestApiV1AuthPhoneRequestPost(phoneOtpRequest);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AuthenticationApi->phoneOtpRequestApiV1AuthPhoneRequestPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **phoneOtpRequest** | [**PhoneOtpRequest**](PhoneOtpRequest.md)|  | 
+
+### Return type
+
+[**MessageResponse**](MessageResponse.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **phoneOtpVerifyApiV1AuthPhoneVerifyPost**
+> TokenResponse phoneOtpVerifyApiV1AuthPhoneVerifyPost(phoneOtpVerifyRequest)
+
+Phone Otp Verify
+
+Verify SMS code; register-or-login. Skips TOTP (same as Google).
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAuthenticationApi();
+final PhoneOtpVerifyRequest phoneOtpVerifyRequest = ; // PhoneOtpVerifyRequest | 
+
+try {
+    final response = api.phoneOtpVerifyApiV1AuthPhoneVerifyPost(phoneOtpVerifyRequest);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AuthenticationApi->phoneOtpVerifyApiV1AuthPhoneVerifyPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **phoneOtpVerifyRequest** | [**PhoneOtpVerifyRequest**](PhoneOtpVerifyRequest.md)|  | 
+
+### Return type
+
+[**TokenResponse**](TokenResponse.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **refreshTokenApiV1AuthRefreshPost**
 > TokenResponse refreshTokenApiV1AuthRefreshPost(refreshToken)
 
 Refresh Token
 
-Exchange a valid refresh token for new access + refresh tokens.  **Request:** refresh_token (query/body depending on client) **Response:** New token pair
+Exchange a valid refresh token for a new access + refresh pair. The presented refresh token's jti is blocklisted so it cannot be reused (rotation).  **Request:** refresh_token (query/body depending on client) **Response:** New token pair
 
 ### Example
 ```dart
@@ -237,7 +370,7 @@ No authorization required
 
 Register
 
-Register a new user account.  **Request:** email, full_name, password (min 8 chars), role (customer|merchant|admin blocked for public) **Response:** Created user profile (no tokens — login separately; password login requires TOTP enrollment) **Errors:** 409 if email exists
+Register a new user account.  **Request:** email, full_name, password (min 12 chars, at least one letter and one digit), role (customer|merchant|admin blocked for public) **Response:** Created user profile (no tokens — login separately; password login requires TOTP enrollment) **Errors:** 409 if email exists, 422 if password policy fails, 429 if rate-limited (5/minute per IP)
 
 ### Example
 ```dart
@@ -263,6 +396,49 @@ Name | Type | Description  | Notes
 ### Return type
 
 [**UserResponse**](UserResponse.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **resetPasswordApiV1AuthResetPasswordPost**
+> MessageResponse resetPasswordApiV1AuthResetPasswordPost(resetPasswordRequest)
+
+Reset Password
+
+Complete a password reset with a token from the reset email.  **Request:** token, new_password (min 12 chars, at least one letter and one digit -- same policy as register) **Response:** Confirmation message. No session tokens are issued -- sign in still requires TOTP (ADR-001). **Errors:** 422 password policy, 400 invalid/expired/already-used token (generic, does not distinguish which), 429 rate-limited (5/minute per IP), 503 Redis unreachable
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAuthenticationApi();
+final ResetPasswordRequest resetPasswordRequest = ; // ResetPasswordRequest | 
+
+try {
+    final response = api.resetPasswordApiV1AuthResetPasswordPost(resetPasswordRequest);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AuthenticationApi->resetPasswordApiV1AuthResetPasswordPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **resetPasswordRequest** | [**ResetPasswordRequest**](ResetPasswordRequest.md)|  | 
+
+### Return type
+
+[**MessageResponse**](MessageResponse.md)
 
 ### Authorization
 

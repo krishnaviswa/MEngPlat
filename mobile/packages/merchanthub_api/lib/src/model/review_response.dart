@@ -8,6 +8,7 @@ import 'package:merchanthub_api/src/model/ai_analysis_response.dart';
 import 'package:merchanthub_api/src/model/review_status.dart';
 import 'package:merchanthub_api/src/model/reply_response.dart';
 import 'package:merchanthub_api/src/model/user_response.dart';
+import 'package:merchanthub_api/src/model/business_summary.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -29,6 +30,7 @@ part 'review_response.g.dart';
 /// * [aiAnalysis] 
 /// * [reply] 
 /// * [photoUrls] 
+/// * [business] 
 @BuiltValue()
 abstract class ReviewResponse implements Built<ReviewResponse, ReviewResponseBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -70,6 +72,9 @@ abstract class ReviewResponse implements Built<ReviewResponse, ReviewResponseBui
 
   @BuiltValueField(wireName: r'photo_urls')
   BuiltList<String>? get photoUrls;
+
+  @BuiltValueField(wireName: r'business')
+  BusinessSummary? get business;
 
   ReviewResponse._();
 
@@ -168,6 +173,13 @@ class _$ReviewResponseSerializer implements PrimitiveSerializer<ReviewResponse> 
       yield serializers.serialize(
         object.photoUrls,
         specifiedType: const FullType(BuiltList, [FullType(String)]),
+      );
+    }
+    if (object.business != null) {
+      yield r'business';
+      yield serializers.serialize(
+        object.business,
+        specifiedType: const FullType(BusinessSummary),
       );
     }
   }
@@ -284,6 +296,13 @@ class _$ReviewResponseSerializer implements PrimitiveSerializer<ReviewResponse> 
             specifiedType: const FullType(BuiltList, [FullType(String)]),
           ) as BuiltList<String>;
           result.photoUrls.replace(valueDes);
+          break;
+        case r'business':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(BusinessSummary),
+          ) as BusinessSummary;
+          result.business.replace(valueDes);
           break;
         default:
           unhandled.add(key);

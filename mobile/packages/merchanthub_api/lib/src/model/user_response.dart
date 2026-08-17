@@ -13,9 +13,9 @@ part 'user_response.g.dart';
 /// UserResponse
 ///
 /// Properties:
+/// * [id] 
 /// * [email] 
 /// * [fullName] 
-/// * [id] 
 /// * [role] 
 /// * [isActive] 
 /// * [avatarUrl] 
@@ -33,14 +33,14 @@ part 'user_response.g.dart';
 /// * [createdAt] 
 @BuiltValue()
 abstract class UserResponse implements Built<UserResponse, UserResponseBuilder> {
+  @BuiltValueField(wireName: r'id')
+  String get id;
+
   @BuiltValueField(wireName: r'email')
-  String get email;
+  String? get email;
 
   @BuiltValueField(wireName: r'full_name')
   String get fullName;
-
-  @BuiltValueField(wireName: r'id')
-  String get id;
 
   @BuiltValueField(wireName: r'role')
   UserRole get role;
@@ -75,7 +75,7 @@ abstract class UserResponse implements Built<UserResponse, UserResponseBuilder> 
 
   @BuiltValueField(wireName: r'national_id_type')
   NationalIdType? get nationalIdType;
-  // enum nationalIdTypeEnum {  pan,  other,  };
+  // enum nationalIdTypeEnum {  pan,  aadhaar,  other,  };
 
   @BuiltValueField(wireName: r'national_id_number')
   String? get nationalIdNumber;
@@ -114,19 +114,21 @@ class _$UserResponseSerializer implements PrimitiveSerializer<UserResponse> {
     UserResponse object, {
     FullType specifiedType = FullType.unspecified,
   }) sync* {
-    yield r'email';
-    yield serializers.serialize(
-      object.email,
-      specifiedType: const FullType(String),
-    );
-    yield r'full_name';
-    yield serializers.serialize(
-      object.fullName,
-      specifiedType: const FullType(String),
-    );
     yield r'id';
     yield serializers.serialize(
       object.id,
+      specifiedType: const FullType(String),
+    );
+    if (object.email != null) {
+      yield r'email';
+      yield serializers.serialize(
+        object.email,
+        specifiedType: const FullType.nullable(String),
+      );
+    }
+    yield r'full_name';
+    yield serializers.serialize(
+      object.fullName,
       specifiedType: const FullType(String),
     );
     yield r'role';
@@ -251,11 +253,19 @@ class _$UserResponseSerializer implements PrimitiveSerializer<UserResponse> {
       final key = serializedList[i] as String;
       final value = serializedList[i + 1];
       switch (key) {
-        case r'email':
+        case r'id':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(String),
           ) as String;
+          result.id = valueDes;
+          break;
+        case r'email':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
           result.email = valueDes;
           break;
         case r'full_name':
@@ -264,13 +274,6 @@ class _$UserResponseSerializer implements PrimitiveSerializer<UserResponse> {
             specifiedType: const FullType(String),
           ) as String;
           result.fullName = valueDes;
-          break;
-        case r'id':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(String),
-          ) as String;
-          result.id = valueDes;
           break;
         case r'role':
           final valueDes = serializers.deserialize(

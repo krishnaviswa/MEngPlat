@@ -10,6 +10,7 @@ import 'package:merchanthub_api/src/auth/basic_auth.dart';
 import 'package:merchanthub_api/src/auth/bearer_auth.dart';
 import 'package:merchanthub_api/src/auth/oauth.dart';
 import 'package:merchanthub_api/src/api/ai_analysis_api.dart';
+import 'package:merchanthub_api/src/api/admin_api.dart';
 import 'package:merchanthub_api/src/api/authentication_api.dart';
 import 'package:merchanthub_api/src/api/businesses_api.dart';
 import 'package:merchanthub_api/src/api/dashboard_api.dart';
@@ -18,9 +19,11 @@ import 'package:merchanthub_api/src/api/favorites_api.dart';
 import 'package:merchanthub_api/src/api/maps_api.dart';
 import 'package:merchanthub_api/src/api/merchant_analytics_api.dart';
 import 'package:merchanthub_api/src/api/notifications_api.dart';
+import 'package:merchanthub_api/src/api/payments_api.dart';
 import 'package:merchanthub_api/src/api/photos_api.dart';
 import 'package:merchanthub_api/src/api/reviews_api.dart';
 import 'package:merchanthub_api/src/api/search_api.dart';
+import 'package:merchanthub_api/src/api/webhooks_api.dart';
 
 class MerchanthubApi {
   static const String basePath = r'http://localhost';
@@ -82,6 +85,12 @@ class MerchanthubApi {
     return AIAnalysisApi(dio, serializers);
   }
 
+  /// Get AdminApi instance, base route and serializer can be overridden by a given but be careful,
+  /// by doing that all interceptors will not be executed
+  AdminApi getAdminApi() {
+    return AdminApi(dio, serializers);
+  }
+
   /// Get AuthenticationApi instance, base route and serializer can be overridden by a given but be careful,
   /// by doing that all interceptors will not be executed
   AuthenticationApi getAuthenticationApi() {
@@ -130,6 +139,12 @@ class MerchanthubApi {
     return NotificationsApi(dio, serializers);
   }
 
+  /// Get PaymentsApi instance, base route and serializer can be overridden by a given but be careful,
+  /// by doing that all interceptors will not be executed
+  PaymentsApi getPaymentsApi() {
+    return PaymentsApi(dio, serializers);
+  }
+
   /// Get PhotosApi instance, base route and serializer can be overridden by a given but be careful,
   /// by doing that all interceptors will not be executed
   PhotosApi getPhotosApi() {
@@ -146,5 +161,11 @@ class MerchanthubApi {
   /// by doing that all interceptors will not be executed
   SearchApi getSearchApi() {
     return SearchApi(dio, serializers);
+  }
+
+  /// Get WebhooksApi instance, base route and serializer can be overridden by a given but be careful,
+  /// by doing that all interceptors will not be executed
+  WebhooksApi getWebhooksApi() {
+    return WebhooksApi(dio, serializers);
   }
 }

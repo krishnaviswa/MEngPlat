@@ -11,6 +11,7 @@ Method | HTTP request | Description
 ------------- | ------------- | -------------
 [**getMerchantInsightsApiV1AiBusinessesBusinessIdInsightsGet**](AIAnalysisApi.md#getmerchantinsightsapiv1aibusinessesbusinessidinsightsget) | **GET** /api/v1/ai/businesses/{business_id}/insights | Get Merchant Insights
 [**getReviewAnalysisApiV1AiReviewsReviewIdGet**](AIAnalysisApi.md#getreviewanalysisapiv1aireviewsreviewidget) | **GET** /api/v1/ai/reviews/{review_id} | Get Review Analysis
+[**getTopicClustersApiV1AiBusinessesBusinessIdTopicsGet**](AIAnalysisApi.md#gettopicclustersapiv1aibusinessesbusinessidtopicsget) | **GET** /api/v1/ai/businesses/{business_id}/topics | Get Topic Clusters
 [**refreshInsightsApiV1AiBusinessesBusinessIdRefreshPost**](AIAnalysisApi.md#refreshinsightsapiv1aibusinessesbusinessidrefreshpost) | **POST** /api/v1/ai/businesses/{business_id}/refresh | Refresh Insights
 
 
@@ -92,6 +93,49 @@ Name | Type | Description  | Notes
 ### Authorization
 
 No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **getTopicClustersApiV1AiBusinessesBusinessIdTopicsGet**
+> TopicClusterResponse getTopicClustersApiV1AiBusinessesBusinessIdTopicsGet(businessId)
+
+Get Topic Clusters
+
+Get AI-suggested common themes across a business's reviews.  **Path:** business_id **Response:** Named topics with mention count, sentiment, and an example quote -- suggestions, not facts. **Auth:** Merchant (own business) or Admin  Synchronous, not persisted -- a business below `ai_topics_min_reviews` never reaches the AI provider at all (insufficient_data=True). Above threshold, results are cache-aside in Redis for `ai_topics_cache_ttl_seconds`; only the first dashboard load in that window pays for the LLM call.
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAIAnalysisApi();
+final String businessId = 38400000-8cf0-11bd-b23e-10b96e4ef00d; // String | 
+
+try {
+    final response = api.getTopicClustersApiV1AiBusinessesBusinessIdTopicsGet(businessId);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AIAnalysisApi->getTopicClustersApiV1AiBusinessesBusinessIdTopicsGet: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **businessId** | **String**|  | 
+
+### Return type
+
+[**TopicClusterResponse**](TopicClusterResponse.md)
+
+### Authorization
+
+[HTTPBearer](../README.md#HTTPBearer)
 
 ### HTTP request headers
 

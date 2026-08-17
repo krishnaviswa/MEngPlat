@@ -66,6 +66,33 @@ class AuthController extends AsyncNotifier<UserResponse?> {
     state = AsyncValue.data(user);
   }
 
+  /// Request half of forgot/reset password (M-65); no session change.
+  Future<MessageResponse> forgotPassword({required String email}) {
+    return ref.read(authRepositoryProvider).forgotPassword(email: email);
+  }
+
+  /// Sends an SMS code; no session change (M-74).
+  Future<MessageResponse> requestPhoneOtp({required String phone}) {
+    return ref.read(authRepositoryProvider).requestPhoneOtp(phone: phone);
+  }
+
+  /// Login-or-register in one call; skips TOTP entirely (same trust model as
+  /// Google, M-74).
+  Future<void> signInWithPhone({
+    required String phone,
+    required String code,
+    String? fullName,
+    UserRole? role,
+  }) async {
+    final user = await ref.read(authRepositoryProvider).verifyPhoneOtp(
+          phone: phone,
+          code: code,
+          fullName: fullName,
+          role: role,
+        );
+    state = AsyncValue.data(user);
+  }
+
   Future<UserResponse> updateProfile(UserProfileUpdate payload) async {
     final user = await ref.read(authRepositoryProvider).updateMe(payload);
     state = AsyncValue.data(user);

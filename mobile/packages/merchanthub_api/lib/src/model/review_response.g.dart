@@ -33,6 +33,8 @@ class _$ReviewResponse extends ReviewResponse {
   final ReplyResponse? reply;
   @override
   final BuiltList<String>? photoUrls;
+  @override
+  final BusinessSummary? business;
 
   factory _$ReviewResponse([void Function(ReviewResponseBuilder)? updates]) =>
       (ReviewResponseBuilder()..update(updates))._build();
@@ -50,7 +52,8 @@ class _$ReviewResponse extends ReviewResponse {
       this.author,
       this.aiAnalysis,
       this.reply,
-      this.photoUrls})
+      this.photoUrls,
+      this.business})
       : super._();
   @override
   ReviewResponse rebuild(void Function(ReviewResponseBuilder) updates) =>
@@ -75,7 +78,8 @@ class _$ReviewResponse extends ReviewResponse {
         author == other.author &&
         aiAnalysis == other.aiAnalysis &&
         reply == other.reply &&
-        photoUrls == other.photoUrls;
+        photoUrls == other.photoUrls &&
+        business == other.business;
   }
 
   @override
@@ -94,6 +98,7 @@ class _$ReviewResponse extends ReviewResponse {
     _$hash = $jc(_$hash, aiAnalysis.hashCode);
     _$hash = $jc(_$hash, reply.hashCode);
     _$hash = $jc(_$hash, photoUrls.hashCode);
+    _$hash = $jc(_$hash, business.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -113,7 +118,8 @@ class _$ReviewResponse extends ReviewResponse {
           ..add('author', author)
           ..add('aiAnalysis', aiAnalysis)
           ..add('reply', reply)
-          ..add('photoUrls', photoUrls))
+          ..add('photoUrls', photoUrls)
+          ..add('business', business))
         .toString();
   }
 }
@@ -178,6 +184,11 @@ class ReviewResponseBuilder
   set photoUrls(ListBuilder<String>? photoUrls) =>
       _$this._photoUrls = photoUrls;
 
+  BusinessSummaryBuilder? _business;
+  BusinessSummaryBuilder get business =>
+      _$this._business ??= BusinessSummaryBuilder();
+  set business(BusinessSummaryBuilder? business) => _$this._business = business;
+
   ReviewResponseBuilder() {
     ReviewResponse._defaults(this);
   }
@@ -198,6 +209,7 @@ class ReviewResponseBuilder
       _aiAnalysis = $v.aiAnalysis?.toBuilder();
       _reply = $v.reply?.toBuilder();
       _photoUrls = $v.photoUrls?.toBuilder();
+      _business = $v.business?.toBuilder();
       _$v = null;
     }
     return this;
@@ -242,6 +254,7 @@ class ReviewResponseBuilder
             aiAnalysis: _aiAnalysis?.build(),
             reply: _reply?.build(),
             photoUrls: _photoUrls?.build(),
+            business: _business?.build(),
           );
     } catch (_) {
       late String _$failedField;
@@ -254,6 +267,8 @@ class ReviewResponseBuilder
         _reply?.build();
         _$failedField = 'photoUrls';
         _photoUrls?.build();
+        _$failedField = 'business';
+        _business?.build();
       } catch (e) {
         throw BuiltValueNestedFieldError(
             r'ReviewResponse', _$failedField, e.toString());

@@ -54,7 +54,7 @@ abstract class UserProfileUpdate implements Built<UserProfileUpdate, UserProfile
 
   @BuiltValueField(wireName: r'national_id_type')
   NationalIdType? get nationalIdType;
-  // enum nationalIdTypeEnum {  pan,  other,  };
+  // enum nationalIdTypeEnum {  pan,  aadhaar,  other,  };
 
   @BuiltValueField(wireName: r'national_id_number')
   String? get nationalIdNumber;

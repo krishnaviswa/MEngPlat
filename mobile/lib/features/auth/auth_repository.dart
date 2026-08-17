@@ -101,6 +101,55 @@ class AuthRepository {
     }
   }
 
+  /// Always returns the same generic confirmation regardless of whether the
+  /// email is registered (S-035 / M-65, anti-enumeration by design).
+  Future<MessageResponse> forgotPassword({required String email}) async {
+    try {
+      final response = await _client.authFreeApi.getAuthenticationApi().forgotPasswordApiV1AuthForgotPasswordPost(
+            forgotPasswordRequest: ForgotPasswordRequest((b) => b..email = email),
+          );
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Always returns the same generic confirmation regardless of whether the
+  /// number can receive SMS (S-044 / ADR-011 / M-74, anti-enumeration).
+  Future<MessageResponse> requestPhoneOtp({required String phone}) async {
+    try {
+      final response = await _client.authFreeApi.getAuthenticationApi().phoneOtpRequestApiV1AuthPhoneRequestPost(
+            phoneOtpRequest: PhoneOtpRequest((b) => b..phone = phone),
+          );
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Login-or-register in one call; skips TOTP entirely (same trust model as
+  /// Google). `fullName`/`role` are only required for a brand-new number.
+  Future<UserResponse> verifyPhoneOtp({
+    required String phone,
+    required String code,
+    String? fullName,
+    UserRole? role,
+  }) async {
+    try {
+      final response = await _client.authFreeApi.getAuthenticationApi().phoneOtpVerifyApiV1AuthPhoneVerifyPost(
+            phoneOtpVerifyRequest: PhoneOtpVerifyRequest((b) => b
+              ..phone = phone
+              ..code = code
+              ..fullName = fullName
+              ..role = role),
+          );
+      await _client.tokenStorage.save(response.data!);
+      return me();
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   Future<UserResponse> me() async {
     try {
       final response = await _client.api.getAuthenticationApi().getMeApiV1AuthMeGet();

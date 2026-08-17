@@ -8,9 +8,9 @@ import 'package:merchanthub_api/api.dart';
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**email** | **String** |  | 
-**fullName** | **String** |  | 
 **id** | **String** |  | 
+**email** | **String** |  | [optional] 
+**fullName** | **String** |  | 
 **role** | [**UserRole**](UserRole.md) |  | 
 **isActive** | **bool** |  | 
 **avatarUrl** | **String** |  | [optional] 

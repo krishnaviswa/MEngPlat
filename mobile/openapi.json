@@ -12,7 +12,7 @@
           "Authentication"
         ],
         "summary": "Register",
-        "description": "Register a new user account.\n\n**Request:** email, full_name, password (min 8 chars), role (customer|merchant|admin blocked for public)\n**Response:** Created user profile (no tokens \u2014 login separately; password login requires TOTP enrollment)\n**Errors:** 409 if email exists",
+        "description": "Register a new user account.\n\n**Request:** email, full_name, password (min 12 chars, at least one letter and one digit), role (customer|merchant|admin blocked for public)\n**Response:** Created user profile (no tokens \u2014 login separately; password login requires TOTP enrollment)\n**Errors:** 409 if email exists, 422 if password policy fails, 429 if rate-limited (5/minute per IP)",
         "operationId": "register_api_v1_auth_register_post",
         "requestBody": {
           "content": {
@@ -54,7 +54,7 @@
           "Authentication"
         ],
         "summary": "Login",
-        "description": "Authenticate with email and password.\n\n**Request:** email, password\n**Response:** Either JWT tokens (should not happen for password accounts without TOTP),\nor `{ mfa_required, mfa_token }` / `{ mfa_enrollment_required, mfa_token }` for TOTP.\n**Errors:** 400 account is Google-only (no password set), 401 invalid credentials, 403 inactive",
+        "description": "Authenticate with email and password.\n\n**Request:** email, password\n**Response:** Either JWT tokens (should not happen for password accounts without TOTP),\nor `{ mfa_required, mfa_token }` / `{ mfa_enrollment_required, mfa_token }` for TOTP.\n**Errors:** 400 account is Google-only (no password set), 401 invalid credentials, 403 inactive,\n429 if rate-limited (10/minute per IP) -- bcrypt makes each attempt expensive, so this also\ncaps CPU spent on credential stuffing, not just attempt count. After 5 failed password\nattempts for the same email, Redis lockout applies for 15 minutes (best-effort; skipped\nif Redis is unreachable).",
         "operationId": "login_api_v1_auth_login_post",
         "requestBody": {
           "content": {
@@ -73,6 +73,90 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LoginResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Forgot Password",
+        "description": "Request a password-reset email. Always returns the same generic message,\nwhether or not the address is registered -- the response never confirms\naccount existence (ADR-007).\n\n**Request:** email\n**Response:** Always 200, generic confirmation copy\n**Errors:** 422 invalid email shape, 429 rate-limited (5/minute per IP),\n503 Redis unreachable (cannot store a hashed token -- fails closed before\nthe account lookup, so the 503 itself does not distinguish known vs\nunknown addresses)",
+        "operationId": "forgot_password_api_v1_auth_forgot_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Reset Password",
+        "description": "Complete a password reset with a token from the reset email.\n\n**Request:** token, new_password (min 12 chars, at least one letter and\none digit -- same policy as register)\n**Response:** Confirmation message. No session tokens are issued -- sign\nin still requires TOTP (ADR-001).\n**Errors:** 422 password policy, 400 invalid/expired/already-used token\n(generic, does not distinguish which), 429 rate-limited (5/minute per\nIP), 503 Redis unreachable",
+        "operationId": "reset_password_api_v1_auth_reset_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
                 }
               }
             }
@@ -222,7 +306,7 @@
           "Authentication"
         ],
         "summary": "Refresh Token",
-        "description": "Exchange a valid refresh token for new access + refresh tokens.\n\n**Request:** refresh_token (query/body depending on client)\n**Response:** New token pair",
+        "description": "Exchange a valid refresh token for a new access + refresh pair. The presented\nrefresh token's jti is blocklisted so it cannot be reused (rotation).\n\n**Request:** refresh_token (query/body depending on client)\n**Response:** New token pair",
         "operationId": "refresh_token_api_v1_auth_refresh_post",
         "parameters": [
           {
@@ -373,6 +457,90 @@
         }
       }
     },
+    "/api/v1/auth/phone/request": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Phone Otp Request",
+        "description": "Send a 6-digit SMS code. Always the same 200 copy (no user enumeration).",
+        "operationId": "phone_otp_request_api_v1_auth_phone_request_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneOtpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/phone/verify": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Phone Otp Verify",
+        "description": "Verify SMS code; register-or-login. Skips TOTP (same as Google).",
+        "operationId": "phone_otp_verify_api_v1_auth_phone_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneOtpVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/logout": {
       "post": {
         "tags": [
@@ -427,7 +595,7 @@
           "Businesses"
         ],
         "summary": "List Businesses",
-        "description": "List businesses with optional city filter. Non-approved status filters require admin.",
+        "description": "List businesses with optional city/slugs filter. Non-approved status filters require admin.",
         "operationId": "list_businesses_api_v1_businesses_get",
         "security": [
           {
@@ -443,6 +611,16 @@
               "type": "string",
               "nullable": true,
               "title": "City"
+            }
+          },
+          {
+            "name": "slugs",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true,
+              "title": "Slugs"
             }
           },
           {
@@ -635,13 +813,76 @@
         ]
       }
     },
+    "/api/v1/businesses/admin/all": {
+      "get": {
+        "tags": [
+          "Businesses"
+        ],
+        "summary": "List All Businesses Admin",
+        "description": "Admin: browse businesses of every status (approved, pending, rejected,\nsuspended), newest-registered first.\n\n**Query:** page (default 1), page_size (default 20, cap 100)\n**Response:** Businesses of every status \u2014 distinct from the public\n`GET /businesses`, which defaults to approved-only.",
+        "operationId": "list_all_businesses_admin_api_v1_businesses_admin_all_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessResponse"
+                  },
+                  "title": "Response List All Businesses Admin Api V1 Businesses Admin All Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/businesses/categories": {
       "post": {
         "tags": [
           "Businesses"
         ],
         "summary": "Create Category",
-        "description": "Admin: create a new category.",
+        "description": "Admin: create a new category. 409 if name or slug already exists.",
         "operationId": "create_category_api_v1_businesses_categories_post",
         "requestBody": {
           "content": {
@@ -790,7 +1031,7 @@
           "Businesses"
         ],
         "summary": "Approve Business",
-        "description": "Admin: approve a pending business.",
+        "description": "Admin: approve a pending business. Notifies the merchant in-app and by best-effort email.",
         "operationId": "approve_business_api_v1_businesses__business_id__approve_post",
         "security": [
           {
@@ -865,6 +1106,54 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/businesses/{business_id}/external-reviews": {
+      "get": {
+        "tags": [
+          "Businesses"
+        ],
+        "summary": "List External Reviews",
+        "description": "Public: up to 5 synced third-party (Google) reviews for a business (S-048\nAC10, AC11). Two path segments, so this cannot collide with the\nsingle-segment `GET /{slug}` above regardless of registration order.\n\n**Response:** `[]` when the business has never linked/synced (AC11) --\ncallers should not render an \"Also reviewed on Google\" section for an\nempty list.",
+        "operationId": "list_external_reviews_api_v1_businesses__business_id__external_reviews_get",
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExternalReviewResponse"
+                  },
+                  "title": "Response List External Reviews Api V1 Businesses  Business Id  External Reviews Get"
                 }
               }
             }
@@ -959,6 +1248,80 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/v1/reviews/admin/all": {
+      "get": {
+        "tags": [
+          "Reviews"
+        ],
+        "summary": "List Admin Reviews",
+        "description": "Admin: browse reviews across every business and status, optionally scoped\nto one business (drives both the \"All reviews\" browse view and a\nbusiness drill-down's review history).\n\n**Query:** business_id (optional scope), page (default 1), page_size (default 20, cap 100)\n**Response:** Reviews of every status, each carrying its business summary",
+        "operationId": "list_admin_reviews_api_v1_reviews_admin_all_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "nullable": true,
+              "title": "Business Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReviewResponse"
+                  },
+                  "title": "Response List Admin Reviews Api V1 Reviews Admin All Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/reviews": {
@@ -1618,14 +1981,14 @@
         }
       }
     },
-    "/api/v1/dashboard/merchant/{business_id}": {
+    "/api/v1/ai/businesses/{business_id}/topics": {
       "get": {
         "tags": [
-          "Dashboard"
+          "AI Analysis"
         ],
-        "summary": "Merchant Dashboard",
-        "description": "Merchant analytics dashboard data.\n\n**Response:** total reviews, average rating, sentiment breakdown, recent reviews, monthly volume",
-        "operationId": "merchant_dashboard_api_v1_dashboard_merchant__business_id__get",
+        "summary": "Get Topic Clusters",
+        "description": "Get AI-suggested common themes across a business's reviews.\n\n**Path:** business_id\n**Response:** Named topics with mention count, sentiment, and an example quote -- suggestions, not facts.\n**Auth:** Merchant (own business) or Admin\n\nSynchronous, not persisted -- a business below `ai_topics_min_reviews` never\nreaches the AI provider at all (insufficient_data=True). Above threshold,\nresults are cache-aside in Redis for `ai_topics_cache_ttl_seconds`; only the\nfirst dashboard load in that window pays for the LLM call.",
+        "operationId": "get_topic_clusters_api_v1_ai_businesses__business_id__topics_get",
         "security": [
           {
             "HTTPBearer": []
@@ -1649,8 +2012,183 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "$ref": "#/components/schemas/TopicClusterResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/merchant/{business_id}": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Merchant Dashboard",
+        "description": "Merchant analytics dashboard data.\n\n**Query:** `range=30|90|all` (default `all`) filters `review_volume_by_month`,\n`rating_distribution`, and `reply_rate` by `Review.created_at` (UTC).\n`total_reviews`, `average_rating`, `sentiment_breakdown`, `recent_reviews` stay all-time.\n\n**Response:** total reviews, average rating, sentiment breakdown, recent reviews,\nmonthly volume, 1-5 rating distribution, reply rate.",
+        "operationId": "merchant_dashboard_api_v1_dashboard_merchant__business_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          },
+          {
+            "name": "range",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "30",
+                "90",
+                "all"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Range"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
                   "$ref": "#/components/schemas/DashboardStats"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/merchant/{business_id}/benchmark": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Merchant Benchmark",
+        "description": "Category and city rating medians from approved listings. Not an AI judgment.",
+        "operationId": "merchant_benchmark_api_v1_dashboard_merchant__business_id__benchmark_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/merchant/{business_id}/reviews.csv": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Merchant Dashboard Reviews Csv",
+        "description": "Export this business's reviews (own business only) as CSV.\n\n**Query:** `range=30|90|all` (default `all`), same window as the dashboard.\n**Response:** `text/csv` attachment, one row per in-range review, `created_at` desc.",
+        "operationId": "merchant_dashboard_reviews_csv_api_v1_dashboard_merchant__business_id__reviews_csv_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          },
+          {
+            "name": "range",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "30",
+                "90",
+                "all"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Range"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -1692,6 +2230,389 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/v1/dashboard/admin/platform/series": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Platform Analytics Series",
+        "description": "Admin time-series: new users, businesses moved pending -> approved (via\nAuditLog `approve`/`business` rows, not `Business.updated_at`), new\nreviews, new reports. Each bucket is a stored-timestamp count, zero-filled\nacross the full window -- operational facts, not AI output.\n\n**Query:** `granularity=day|week` (default `day`), `days` 1-365 (default `90`).",
+        "operationId": "platform_analytics_series_api_v1_dashboard_admin_platform_series_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "granularity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "day",
+                "week"
+              ],
+              "type": "string",
+              "default": "day",
+              "title": "Granularity"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 1,
+              "default": 90,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformAnalyticsSeries"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/merchant/{business_id}/google-reviews/search": {
+      "post": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Search Google Places",
+        "description": "Search Google Places for candidates to link (AC1-5). Lat/lng bias comes\nfrom the loaded `Business`, not the client.\n\n**Response:** `candidates` (empty list is a valid 200 -- AC4);\n`502` on provider timeout/error, existing linked state untouched (AC5).",
+        "operationId": "search_google_places_api_v1_dashboard_merchant__business_id__google_reviews_search_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GooglePlacesSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GooglePlacesSearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/merchant/{business_id}/google-reviews": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Get Google Reviews Status",
+        "description": "Link/sync status powering the dashboard card's unlinked/linked/synced states (AC3, AC6, AC7).",
+        "operationId": "get_google_reviews_status_api_v1_dashboard_merchant__business_id__google_reviews_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleReviewsStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/merchant/{business_id}/google-reviews/link": {
+      "post": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Link Google Place",
+        "description": "Link a Google Place ID to this business (AC3). `name`/`address` in the\npayload are UI-confirmation echoes only, not persisted.\n\n**Response:** `409` if already linked (v1 supports linking once).",
+        "operationId": "link_google_place_api_v1_dashboard_merchant__business_id__google_reviews_link_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GooglePlaceLinkRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GooglePlaceLinkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/merchant/{business_id}/google-reviews/sync": {
+      "post": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Sync Google Reviews",
+        "description": "Fetch up to 5 reviews from Google and upsert them (AC7, AC8). Debounced\nvia a Redis lock (AC9) -- a concurrent/duplicate click returns the\ncurrent state with `debounced: true` instead of erroring or duplicating.\n\n**Response:** `400` if unlinked; `502` on provider failure, existing\n`ExternalReview` rows left untouched.",
+        "operationId": "sync_google_reviews_api_v1_dashboard_merchant__business_id__google_reviews_sync_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleReviewsSyncResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/merchant/{business_id}/whatsapp/link": {
+      "post": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Create Whatsapp Link",
+        "description": "Generate a short-lived wa.me link that binds inbound WhatsApp to this listing (S-050).",
+        "operationId": "create_whatsapp_link_api_v1_dashboard_merchant__business_id__whatsapp_link_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatsAppLinkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/merchant/{business_id}/whatsapp/drafts": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "List Whatsapp Drafts",
+        "description": "Read-only status of every WhatsApp-derived suggestion for this business, any status,\nnewest first -- apply/discard now happens exclusively via the admin queue (S-053).",
+        "operationId": "list_whatsapp_drafts_api_v1_dashboard_merchant__business_id__whatsapp_drafts_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WhatsAppDraftResponse"
+                  },
+                  "title": "Response List Whatsapp Drafts Api V1 Dashboard Merchant  Business Id  Whatsapp Drafts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/search/businesses": {
@@ -2304,6 +3225,935 @@
         }
       }
     },
+    "/api/v1/admin/users": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List Users",
+        "description": "Admin: list all users, newest `created_at` first.\n\n**Query:** page (default 1), page_size (default 20, cap 100), optional `q`\nsubstring match on email or full_name (case-insensitive).\n**Response:** never includes `totp_secret`, `hashed_password`, or `google_sub`.",
+        "operationId": "list_users_api_v1_admin_users_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true,
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserResponse"
+                  },
+                  "title": "Response List Users Api V1 Admin Users Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/suspend": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Suspend User",
+        "description": "Admin: suspend a non-admin user (`is_active=false`) and record an AuditLog\nrow. Idempotent if already inactive. Refused (400) for the caller's own\naccount or another admin.",
+        "operationId": "suspend_user_api_v1_admin_users__user_id__suspend_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/reactivate": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Reactivate User",
+        "description": "Admin: reactivate a non-admin user (`is_active=true`) and record an\nAuditLog row. Idempotent if already active. Refused (400) for the\ncaller's own account or another admin.",
+        "operationId": "reactivate_user_api_v1_admin_users__user_id__reactivate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/whatsapp/drafts": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List Admin Whatsapp Drafts",
+        "description": "Admin: global, cross-business queue of pending WhatsApp-derived profile\ndrafts, oldest first (S-053). This is the sole surface a WhatsApp draft can\nbe approved or rejected from -- merchants can view but no longer act.",
+        "operationId": "list_admin_whatsapp_drafts_api_v1_admin_whatsapp_drafts_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWhatsAppDraftQueueResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/whatsapp/drafts/{draft_id}/approve": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Approve Admin Whatsapp Draft",
+        "description": "Admin: approve a WhatsApp draft, writing the (optionally edited) fields to\nthe live Business row. Omitted/absent fields fall back to the raw AI\nextraction. `404` unknown draft; `409` already resolved (S-053).",
+        "operationId": "approve_admin_whatsapp_draft_api_v1_admin_whatsapp_drafts__draft_id__approve_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminWhatsAppDraftApproveRequest",
+                "nullable": true,
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatsAppDraftResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/whatsapp/drafts/{draft_id}/reject": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Reject Admin Whatsapp Draft",
+        "description": "Admin: reject a WhatsApp draft. The live Business row is left untouched (S-053).",
+        "operationId": "reject_admin_whatsapp_draft_api_v1_admin_whatsapp_drafts__draft_id__reject_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatsAppDraftResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/featured/skus": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Featured Skus",
+        "description": "Catalog of featured listing SKUs. Auth: merchant or admin.",
+        "operationId": "featured_skus_api_v1_payments_featured_skus_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FeaturedSku"
+                  },
+                  "type": "array",
+                  "title": "Response Featured Skus Api V1 Payments Featured Skus Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/payments/featured/checkout": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Featured Checkout",
+        "description": "Start featured checkout for an owned approved listing. Auth: merchant. sku_code required.",
+        "operationId": "featured_checkout_api_v1_payments_featured_checkout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeaturedCheckoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeaturedCheckoutResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/payments/webhooks/razorpay": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Razorpay Webhook",
+        "description": "Razorpay (or signed mock) webhook. Unauthenticated; HMAC required.",
+        "operationId": "razorpay_webhook_api_v1_payments_webhooks_razorpay_post",
+        "parameters": [
+          {
+            "name": "x-razorpay-signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true,
+              "title": "X-Razorpay-Signature"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookAck"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/mock/complete": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Mock Complete",
+        "description": "DEBUG-only: admin completes a mock order (ledger only). 404 when DEBUG is false.",
+        "operationId": "mock_complete_api_v1_payments_mock_complete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MockCompleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookAck"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/payments/businesses/{business_id}/placement": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get Placement",
+        "description": "Active/expiry for a listing. Fee split is admin-only. Catalog always included.",
+        "operationId": "get_placement_api_v1_payments_businesses__business_id__placement_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlacementResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/admin/payments": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Admin List Payments",
+        "description": "Admin: all featured payments, newest first, with per-merchant counts.",
+        "operationId": "admin_list_payments_api_v1_payments_admin_payments_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminPaymentRow"
+                  },
+                  "title": "Response Admin List Payments Api V1 Payments Admin Payments Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/admin/payments/{payment_id}/approve": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Admin Approve Payment",
+        "description": "Admin: after capture, create the featured placement window.",
+        "operationId": "admin_approve_payment_api_v1_payments_admin_payments__payment_id__approve_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Payment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentApproveResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/admin/payments/{payment_id}/reject": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Admin Reject Payment",
+        "description": "Admin: refuse the boost. Does not refund.",
+        "operationId": "admin_reject_payment_api_v1_payments_admin_payments__payment_id__reject_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Payment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRejectResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/admin/placements/{placement_id}/disable": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Admin Disable Placement",
+        "description": "Admin: drop featured rank without refund.",
+        "operationId": "admin_disable_placement_api_v1_payments_admin_placements__placement_id__disable_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "placement_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Placement Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlacementDisableResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/admin/payments/{payment_id}/refund": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Admin Refund Payment",
+        "description": "Admin: refund provider charge and disable linked placement.",
+        "operationId": "admin_refund_payment_api_v1_payments_admin_payments__payment_id__refund_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Payment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRefundResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/whatsapp": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Whatsapp Verify",
+        "description": "Meta subscription handshake \u2014 echo `hub.challenge` when the verify token matches.",
+        "operationId": "whatsapp_verify_api_v1_webhooks_whatsapp_get",
+        "parameters": [
+          {
+            "name": "hub.mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true,
+              "title": "Hub.Mode"
+            }
+          },
+          {
+            "name": "hub.verify_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true,
+              "title": "Hub.Verify Token"
+            }
+          },
+          {
+            "name": "hub.challenge",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true,
+              "title": "Hub.Challenge"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Whatsapp Inbound",
+        "description": "Inbound WhatsApp messages. Unauthenticated; `X-Hub-Signature-256` HMAC required.",
+        "operationId": "whatsapp_inbound_api_v1_webhooks_whatsapp_post",
+        "parameters": [
+          {
+            "name": "x-hub-signature-256",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true,
+              "title": "X-Hub-Signature-256"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatsAppWebhookAck"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health Check",
@@ -2402,6 +4252,258 @@
           "provider"
         ],
         "title": "AIAnalysisResponse"
+      },
+      "AdminPaymentRow": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "amount_paise": {
+            "type": "integer",
+            "title": "Amount Paise"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "sku_code": {
+            "type": "string",
+            "title": "Sku Code"
+          },
+          "duration_days": {
+            "type": "integer",
+            "title": "Duration Days"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "provider_order_id": {
+            "type": "string",
+            "title": "Provider Order Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "approved_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "title": "Approved At"
+          },
+          "rejected_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "title": "Rejected At"
+          },
+          "platform_fee_paise": {
+            "type": "integer",
+            "nullable": true,
+            "title": "Platform Fee Paise"
+          },
+          "gateway_fee_paise": {
+            "type": "integer",
+            "nullable": true,
+            "title": "Gateway Fee Paise"
+          },
+          "business_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Business Id"
+          },
+          "business_name": {
+            "type": "string",
+            "title": "Business Name"
+          },
+          "merchant_user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Merchant User Id"
+          },
+          "merchant_email": {
+            "type": "string",
+            "title": "Merchant Email"
+          },
+          "merchant_name": {
+            "type": "string",
+            "title": "Merchant Name"
+          },
+          "merchant_payment_count": {
+            "type": "integer",
+            "title": "Merchant Payment Count"
+          },
+          "awaiting_approval": {
+            "type": "boolean",
+            "title": "Awaiting Approval"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "amount_paise",
+          "currency",
+          "sku_code",
+          "duration_days",
+          "provider",
+          "provider_order_id",
+          "created_at",
+          "business_id",
+          "business_name",
+          "merchant_user_id",
+          "merchant_email",
+          "merchant_name",
+          "merchant_payment_count",
+          "awaiting_approval"
+        ],
+        "title": "AdminPaymentRow"
+      },
+      "AdminWhatsAppDraftApproveRequest": {
+        "properties": {
+          "fields": {
+            "type": "object",
+            "nullable": true,
+            "title": "Fields"
+          }
+        },
+        "type": "object",
+        "title": "AdminWhatsAppDraftApproveRequest",
+        "description": "Optional admin-edited field values; omitted keys fall back to the AI extraction (S-053)."
+      },
+      "AdminWhatsAppDraftQueueResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminWhatsAppDraftResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "AdminWhatsAppDraftQueueResponse"
+      },
+      "AdminWhatsAppDraftResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "extracted_fields": {
+            "type": "object",
+            "title": "Extracted Fields"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DraftStatus"
+          },
+          "degraded": {
+            "type": "boolean",
+            "title": "Degraded",
+            "default": false
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "business_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Business Id"
+          },
+          "business_name": {
+            "type": "string",
+            "title": "Business Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "extracted_fields",
+          "status",
+          "created_at",
+          "business_id",
+          "business_name"
+        ],
+        "title": "AdminWhatsAppDraftResponse",
+        "description": "Same as WhatsAppDraftResponse plus the business context an admin needs (S-053)."
+      },
+      "BenchmarkResponse": {
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Business Id"
+          },
+          "own_rating": {
+            "type": "number",
+            "title": "Own Rating"
+          },
+          "category_median": {
+            "type": "number",
+            "nullable": true,
+            "title": "Category Median"
+          },
+          "city_median": {
+            "type": "number",
+            "nullable": true,
+            "title": "City Median"
+          },
+          "category_sample_size": {
+            "type": "integer",
+            "title": "Category Sample Size"
+          },
+          "city_sample_size": {
+            "type": "integer",
+            "title": "City Sample Size"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "business_id",
+          "own_rating",
+          "category_sample_size",
+          "city_sample_size",
+          "disclaimer"
+        ],
+        "title": "BenchmarkResponse"
       },
       "Body_upload_photo_api_v1_photos_upload_post": {
         "properties": {
@@ -2626,6 +4728,11 @@
             "type": "array",
             "title": "Categories",
             "default": []
+          },
+          "is_featured": {
+            "type": "boolean",
+            "title": "Is Featured",
+            "default": false
           }
         },
         "type": "object",
@@ -2651,6 +4758,39 @@
           "suspended"
         ],
         "title": "BusinessStatus"
+      },
+      "BusinessSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "city": {
+            "type": "string",
+            "nullable": true,
+            "title": "City"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BusinessStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "status"
+        ],
+        "title": "BusinessSummary"
       },
       "BusinessUpdate": {
         "properties": {
@@ -2789,6 +4929,52 @@
         ],
         "title": "CategoryResponse"
       },
+      "CheckoutFields": {
+        "properties": {
+          "key_id": {
+            "type": "string",
+            "title": "Key Id"
+          },
+          "order_id": {
+            "type": "string",
+            "title": "Order Id"
+          },
+          "amount": {
+            "type": "integer",
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "prefill": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Prefill",
+            "default": {}
+          }
+        },
+        "type": "object",
+        "required": [
+          "key_id",
+          "order_id",
+          "amount",
+          "currency",
+          "name",
+          "description"
+        ],
+        "title": "CheckoutFields"
+      },
       "DashboardStats": {
         "properties": {
           "total_reviews": {
@@ -2819,6 +5005,33 @@
             },
             "type": "array",
             "title": "Review Volume By Month"
+          },
+          "rating_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Rating Distribution"
+          },
+          "reply_rate": {
+            "type": "number",
+            "nullable": true,
+            "title": "Reply Rate"
+          },
+          "review_count_in_range": {
+            "type": "integer",
+            "nullable": true,
+            "title": "Review Count In Range"
+          },
+          "review_count_previous": {
+            "type": "integer",
+            "nullable": true,
+            "title": "Review Count Previous"
+          },
+          "reply_rate_previous": {
+            "type": "number",
+            "nullable": true,
+            "title": "Reply Rate Previous"
           }
         },
         "type": "object",
@@ -2827,9 +5040,69 @@
           "average_rating",
           "sentiment_breakdown",
           "recent_reviews",
-          "review_volume_by_month"
+          "review_volume_by_month",
+          "rating_distribution"
         ],
         "title": "DashboardStats"
+      },
+      "DraftStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "applied",
+          "discarded"
+        ],
+        "title": "DraftStatus"
+      },
+      "ExternalReviewResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "author_name": {
+            "type": "string",
+            "title": "Author Name"
+          },
+          "author_photo_url": {
+            "type": "string",
+            "nullable": true,
+            "title": "Author Photo Url"
+          },
+          "rating": {
+            "type": "integer",
+            "title": "Rating"
+          },
+          "body": {
+            "type": "string",
+            "nullable": true,
+            "title": "Body"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "source_url": {
+            "type": "string",
+            "nullable": true,
+            "title": "Source Url"
+          },
+          "external_posted_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "title": "External Posted At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "author_name",
+          "rating",
+          "source"
+        ],
+        "title": "ExternalReviewResponse"
       },
       "FavoriteCreate": {
         "properties": {
@@ -2863,6 +5136,109 @@
           "business_id"
         ],
         "title": "FavoriteResponse"
+      },
+      "FeaturedCheckoutRequest": {
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Business Id"
+          },
+          "sku_code": {
+            "type": "string",
+            "title": "Sku Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "business_id",
+          "sku_code"
+        ],
+        "title": "FeaturedCheckoutRequest"
+      },
+      "FeaturedCheckoutResponse": {
+        "properties": {
+          "payment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Payment Id"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "provider_order_id": {
+            "type": "string",
+            "title": "Provider Order Id"
+          },
+          "amount_paise": {
+            "type": "integer",
+            "title": "Amount Paise"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "sku": {
+            "$ref": "#/components/schemas/FeaturedSku"
+          },
+          "checkout": {
+            "$ref": "#/components/schemas/CheckoutFields"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payment_id",
+          "provider",
+          "provider_order_id",
+          "amount_paise",
+          "currency",
+          "sku",
+          "checkout"
+        ],
+        "title": "FeaturedCheckoutResponse"
+      },
+      "FeaturedSku": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "duration_days": {
+            "type": "integer",
+            "title": "Duration Days"
+          },
+          "listed_price_inr": {
+            "type": "integer",
+            "title": "Listed Price Inr"
+          },
+          "amount_paise": {
+            "type": "integer",
+            "nullable": true,
+            "title": "Amount Paise"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "duration_days",
+          "listed_price_inr"
+        ],
+        "title": "FeaturedSku"
+      },
+      "ForgotPasswordRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "ForgotPasswordRequest"
       },
       "GeocodeResponse": {
         "properties": {
@@ -2904,6 +5280,163 @@
           "credential"
         ],
         "title": "GoogleAuthRequest"
+      },
+      "GooglePlaceCandidateResponse": {
+        "properties": {
+          "place_id": {
+            "type": "string",
+            "title": "Place Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          },
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          }
+        },
+        "type": "object",
+        "required": [
+          "place_id",
+          "name",
+          "address",
+          "latitude",
+          "longitude"
+        ],
+        "title": "GooglePlaceCandidateResponse"
+      },
+      "GooglePlaceLinkRequest": {
+        "properties": {
+          "place_id": {
+            "type": "string",
+            "title": "Place Id"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "title": "Name"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true,
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "place_id"
+        ],
+        "title": "GooglePlaceLinkRequest"
+      },
+      "GooglePlaceLinkResponse": {
+        "properties": {
+          "linked": {
+            "type": "boolean",
+            "title": "Linked"
+          },
+          "place_id": {
+            "type": "string",
+            "title": "Place Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "linked",
+          "place_id"
+        ],
+        "title": "GooglePlaceLinkResponse"
+      },
+      "GooglePlacesSearchRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 2,
+            "title": "Query"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "GooglePlacesSearchRequest"
+      },
+      "GooglePlacesSearchResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/GooglePlaceCandidateResponse"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidates"
+        ],
+        "title": "GooglePlacesSearchResponse"
+      },
+      "GoogleReviewsStatusResponse": {
+        "properties": {
+          "linked": {
+            "type": "boolean",
+            "title": "Linked"
+          },
+          "place_id": {
+            "type": "string",
+            "nullable": true,
+            "title": "Place Id"
+          },
+          "review_count": {
+            "type": "integer",
+            "title": "Review Count"
+          },
+          "last_synced_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "title": "Last Synced At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "linked",
+          "review_count"
+        ],
+        "title": "GoogleReviewsStatusResponse"
+      },
+      "GoogleReviewsSyncResponse": {
+        "properties": {
+          "synced_count": {
+            "type": "integer",
+            "title": "Synced Count"
+          },
+          "last_synced_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Synced At"
+          },
+          "debounced": {
+            "type": "boolean",
+            "title": "Debounced"
+          }
+        },
+        "type": "object",
+        "required": [
+          "synced_count",
+          "last_synced_at",
+          "debounced"
+        ],
+        "title": "GoogleReviewsSyncResponse"
       },
       "HTTPValidationError": {
         "properties": {
@@ -3077,10 +5610,30 @@
         ],
         "title": "MfaTotpCodeRequest"
       },
+      "MockCompleteRequest": {
+        "properties": {
+          "provider_order_id": {
+            "type": "string",
+            "title": "Provider Order Id"
+          },
+          "outcome": {
+            "type": "string",
+            "pattern": "^(paid|failed)$",
+            "title": "Outcome"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider_order_id",
+          "outcome"
+        ],
+        "title": "MockCompleteRequest"
+      },
       "NationalIdType": {
         "type": "string",
         "enum": [
           "pan",
+          "aadhaar",
           "other"
         ],
         "title": "NationalIdType"
@@ -3153,6 +5706,201 @@
         ],
         "title": "NotificationResponse"
       },
+      "PaymentApproveResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "approved_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Approved At"
+          },
+          "placement_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Placement Id"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ends At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "approved_at",
+          "placement_id",
+          "ends_at"
+        ],
+        "title": "PaymentApproveResponse"
+      },
+      "PaymentLedger": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "amount_paise": {
+            "type": "integer",
+            "title": "Amount Paise"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "sku_code": {
+            "type": "string",
+            "nullable": true,
+            "title": "Sku Code"
+          },
+          "duration_days": {
+            "type": "integer",
+            "nullable": true,
+            "title": "Duration Days"
+          },
+          "platform_fee_paise": {
+            "type": "integer",
+            "nullable": true,
+            "title": "Platform Fee Paise"
+          },
+          "gateway_fee_paise": {
+            "type": "integer",
+            "nullable": true,
+            "title": "Gateway Fee Paise"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "provider_order_id": {
+            "type": "string",
+            "title": "Provider Order Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "approved_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "title": "Approved At"
+          },
+          "rejected_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "title": "Rejected At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "amount_paise",
+          "currency",
+          "provider",
+          "provider_order_id",
+          "created_at"
+        ],
+        "title": "PaymentLedger"
+      },
+      "PaymentRefundResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "PaymentRefundResponse"
+      },
+      "PaymentRejectResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "rejected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Rejected At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "rejected_at"
+        ],
+        "title": "PaymentRejectResponse"
+      },
+      "PhoneOtpRequest": {
+        "properties": {
+          "phone": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 10,
+            "title": "Phone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "phone"
+        ],
+        "title": "PhoneOtpRequest"
+      },
+      "PhoneOtpVerifyRequest": {
+        "properties": {
+          "phone": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 10,
+            "title": "Phone"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 8,
+            "minLength": 4,
+            "title": "Code"
+          },
+          "full_name": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true,
+            "title": "Full Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole",
+            "nullable": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "phone",
+          "code"
+        ],
+        "title": "PhoneOtpVerifyRequest"
+      },
       "PhotoResponse": {
         "properties": {
           "id": {
@@ -3186,6 +5934,108 @@
         ],
         "title": "PhotoResponse"
       },
+      "PlacementDisableResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "disabled_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Disabled At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "disabled_at"
+        ],
+        "title": "PlacementDisableResponse"
+      },
+      "PlacementResponse": {
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Business Id"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          },
+          "placement": {
+            "$ref": "#/components/schemas/PlacementWindow",
+            "nullable": true
+          },
+          "sku": {
+            "$ref": "#/components/schemas/FeaturedSku"
+          },
+          "skus": {
+            "items": {
+              "$ref": "#/components/schemas/FeaturedSku"
+            },
+            "type": "array",
+            "title": "Skus",
+            "default": []
+          },
+          "awaiting_approval": {
+            "type": "boolean",
+            "title": "Awaiting Approval",
+            "default": false
+          },
+          "payment": {
+            "$ref": "#/components/schemas/PaymentLedger",
+            "nullable": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "business_id",
+          "active",
+          "sku"
+        ],
+        "title": "PlacementResponse"
+      },
+      "PlacementWindow": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Starts At"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ends At"
+          },
+          "disabled_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "title": "Disabled At"
+          },
+          "payment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Payment Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "starts_at",
+          "ends_at",
+          "payment_id"
+        ],
+        "title": "PlacementWindow"
+      },
       "PlatformAnalytics": {
         "properties": {
           "total_users": {
@@ -3218,6 +6068,39 @@
           "reported_reviews"
         ],
         "title": "PlatformAnalytics"
+      },
+      "PlatformAnalyticsSeries": {
+        "properties": {
+          "granularity": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week"
+            ],
+            "title": "Granularity"
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          },
+          "series": {
+            "additionalProperties": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Series"
+          }
+        },
+        "type": "object",
+        "required": [
+          "granularity",
+          "days",
+          "series"
+        ],
+        "title": "PlatformAnalyticsSeries"
       },
       "PublicPlatformStats": {
         "properties": {
@@ -3286,6 +6169,25 @@
           "created_at"
         ],
         "title": "ReplyResponse"
+      },
+      "ResetPasswordRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "new_password": {
+            "type": "string",
+            "minLength": 12,
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "title": "ResetPasswordRequest"
       },
       "ReviewCreate": {
         "properties": {
@@ -3394,6 +6296,10 @@
             "type": "array",
             "title": "Photo Urls",
             "default": []
+          },
+          "business": {
+            "$ref": "#/components/schemas/BusinessSummary",
+            "nullable": true
           }
         },
         "type": "object",
@@ -3474,6 +6380,76 @@
           "refresh_token"
         ],
         "title": "TokenResponse"
+      },
+      "TopicClusterResponse": {
+        "properties": {
+          "business_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Business Id"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/TopicItem"
+            },
+            "type": "array",
+            "title": "Topics",
+            "default": []
+          },
+          "degraded": {
+            "type": "boolean",
+            "title": "Degraded",
+            "default": false
+          },
+          "insufficient_data": {
+            "type": "boolean",
+            "title": "Insufficient Data",
+            "default": false
+          },
+          "unavailable": {
+            "type": "boolean",
+            "title": "Unavailable",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "business_id"
+        ],
+        "title": "TopicClusterResponse"
+      },
+      "TopicItem": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "sentiment": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "negative",
+              "mixed"
+            ],
+            "title": "Sentiment"
+          },
+          "example_quote": {
+            "type": "string",
+            "title": "Example Quote"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "count",
+          "sentiment",
+          "example_quote"
+        ],
+        "title": "TopicItem"
       },
       "TotpSetupResponse": {
         "properties": {
@@ -3601,7 +6577,7 @@
           },
           "password": {
             "type": "string",
-            "minLength": 8,
+            "minLength": 12,
             "title": "Password"
           },
           "role": {
@@ -3619,19 +6595,20 @@
       },
       "UserResponse": {
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
           "email": {
             "type": "string",
             "format": "email",
+            "nullable": true,
             "title": "Email"
           },
           "full_name": {
             "type": "string",
             "title": "Full Name"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
           },
           "role": {
             "$ref": "#/components/schemas/UserRole"
@@ -3707,9 +6684,8 @@
         },
         "type": "object",
         "required": [
-          "email",
-          "full_name",
           "id",
+          "full_name",
           "role",
           "is_active",
           "created_at"
@@ -3757,6 +6733,111 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WebhookAck": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "duplicate": {
+            "type": "boolean",
+            "title": "Duplicate",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "WebhookAck"
+      },
+      "WhatsAppDraftResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "extracted_fields": {
+            "type": "object",
+            "title": "Extracted Fields"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DraftStatus"
+          },
+          "degraded": {
+            "type": "boolean",
+            "title": "Degraded",
+            "default": false
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "extracted_fields",
+          "status",
+          "created_at"
+        ],
+        "title": "WhatsAppDraftResponse"
+      },
+      "WhatsAppLinkResponse": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "wa_url": {
+            "type": "string",
+            "nullable": true,
+            "title": "Wa Url"
+          },
+          "token": {
+            "type": "string",
+            "nullable": true,
+            "title": "Token"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "title": "Expires At"
+          },
+          "display_number": {
+            "type": "string",
+            "nullable": true,
+            "title": "Display Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "available"
+        ],
+        "title": "WhatsAppLinkResponse"
+      },
+      "WhatsAppWebhookAck": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "processed": {
+            "type": "integer",
+            "title": "Processed",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "WhatsAppWebhookAck"
       }
     },
     "securitySchemes": {

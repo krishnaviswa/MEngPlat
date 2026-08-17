@@ -107,6 +107,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return 'Authenticator setup is required the next time you sign in with your password.';
   }
 
+  String _nationalIdHelperText(UserResponse user) {
+    if (user.role == UserRole.merchant) {
+      return 'Required for merchants before you can submit a listing. Stored for your account — not verified as government KYC.';
+    }
+    return 'Optional. Stored for your account only — not verified as KYC in this version.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authControllerProvider).valueOrNull;
@@ -195,6 +202,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     items: const [
                       DropdownMenuItem(value: null, child: Text('Select type')),
                       DropdownMenuItem(value: NationalIdType.pan, child: Text('PAN (India)')),
+                      DropdownMenuItem(value: NationalIdType.aadhaar, child: Text('Aadhaar (India)')),
                       DropdownMenuItem(value: NationalIdType.other, child: Text('Other national ID')),
                     ],
                     onChanged: _saving ? null : (value) => setState(() => _nationalIdType = value),
@@ -203,14 +211,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   TextFormField(
                     key: const Key('nationalIdNumberField'),
                     controller: _nationalIdController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'ID number',
-                      helperText: 'Stored for your account only — not verified as KYC in this version.',
+                      helperText: _nationalIdHelperText(user),
                     ),
                   ),
                   const SizedBox(height: 16),
                   const Text('Email', style: TextStyle(color: Colors.grey)),
-                  Text(user.email, key: const Key('profileEmailReadOnly'), style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text(
+                    user.email ?? 'No email on file',
+                    key: const Key('profileEmailReadOnly'),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   const Text('Email changes aren\'t supported yet.', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   const SizedBox(height: 12),
                   const Text('Role', style: TextStyle(color: Colors.grey)),

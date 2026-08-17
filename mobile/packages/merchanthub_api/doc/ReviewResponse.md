@@ -21,6 +21,7 @@ Name | Type | Description | Notes
 **aiAnalysis** | [**AIAnalysisResponse**](AIAnalysisResponse.md) |  | [optional] 
 **reply** | [**ReplyResponse**](ReplyResponse.md) |  | [optional] 
 **photoUrls** | **BuiltList&lt;String&gt;** |  | [optional] [default to ListBuilder()]
+**business** | [**BusinessSummary**](BusinessSummary.md) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

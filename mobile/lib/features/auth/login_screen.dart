@@ -6,6 +6,7 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 
 import 'auth_provider.dart';
 import 'google_sign_in_button.dart';
+import 'phone_otp_panel.dart';
 
 enum _Step { credentials, enroll, verify }
 
@@ -230,6 +231,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     GoogleSignInButton(onCredential: _onGoogleCredential, enabled: !_loading),
+                    const SizedBox(height: 8),
+                    const PhoneOtpPanel(),
                   ],
                 ],
               ),
@@ -256,6 +259,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         obscureText: true,
         decoration: const InputDecoration(labelText: 'Password'),
         validator: (value) => (value == null || value.length < 8) ? 'Password is too short' : null,
+      ),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton(
+          key: const Key('forgotPasswordLink'),
+          onPressed: _loading ? null : () => context.go('/forgot-password'),
+          child: const Text('Forgot password?'),
+        ),
       ),
       const SizedBox(height: 12),
       const Text(
