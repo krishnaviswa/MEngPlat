@@ -66,9 +66,15 @@ class PhotoGallery extends StatelessWidget {
   }
 
   void _openLightbox(BuildContext context, int index, List<String> urls) {
+    openLightbox(context, urls: urls, initialIndex: index);
+  }
+
+  /// Public entry point so other features (e.g. review photos, S-058) can
+  /// reuse the lightbox without duplicating it or making [_Lightbox] public.
+  static void openLightbox(BuildContext context, {required List<String> urls, required int initialIndex}) {
     showDialog<void>(
       context: context,
-      builder: (context) => _Lightbox(urls: urls, initialIndex: index),
+      builder: (context) => _Lightbox(urls: urls, initialIndex: initialIndex),
     );
   }
 }
@@ -95,10 +101,7 @@ class FallbackPhotoStrip extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (context, index) => GestureDetector(
               key: Key('galleryThumb_$index'),
-              onTap: () => showDialog<void>(
-                context: context,
-                builder: (_) => _Lightbox(urls: urls, initialIndex: index),
-              ),
+              onTap: () => PhotoGallery.openLightbox(context, urls: urls, initialIndex: index),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(
