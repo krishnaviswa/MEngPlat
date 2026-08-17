@@ -25,6 +25,11 @@ class _FakeAuthController extends AuthController {
   Future<UserResponse?> build() async => null;
 
   @override
+  Future<MessageResponse> requestPhoneOtp({required String phone}) async {
+    return MessageResponse((b) => b..message = 'If that number can receive SMS, we sent a sign-in code.');
+  }
+
+  @override
   Future<void> signInWithPhone({
     required String phone,
     required String code,
