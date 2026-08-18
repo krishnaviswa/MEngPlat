@@ -25,6 +25,32 @@ class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
   var _showMap = false;
 
   @override
+  void initState() {
+    super.initState();
+    // AC 6 (S-061/M-63): a category chip tapped from the admin category list
+    // or a business's detail screen lands here pre-filtered via
+    // `?category=`. go_router already passes query params through with no
+    // route-pattern change; only the "apply it on first frame" wiring was
+    // missing.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // GoRouterState.of throws when this screen is hosted outside a
+      // GoRouter route tree (e.g. some widget tests mount it directly under
+      // MaterialApp) -- guard so that stays a no-op instead of a crash; in
+      // the real app it is always reached as a GoRoute builder.
+      String? category;
+      try {
+        category = GoRouterState.of(context).uri.queryParameters['category'];
+      } on GoError {
+        category = null;
+      }
+      if (category != null) {
+        ref.read(searchControllerProvider.notifier).applyQuery(SearchQuery(category: category));
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();

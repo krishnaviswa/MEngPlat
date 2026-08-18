@@ -125,6 +125,7 @@ Future<_FakeBusinessRepository> _pumpExplore(
   Object? searchError,
   GeoPoint? location,
   bool withRouter = false,
+  String initialLocation = '/businesses',
 }) async {
   final repo = _FakeBusinessRepository(businesses: businesses, searchError: searchError);
   final container = ProviderContainer(
@@ -139,7 +140,7 @@ Future<_FakeBusinessRepository> _pumpExplore(
 
   if (withRouter) {
     final router = GoRouter(
-      initialLocation: '/businesses',
+      initialLocation: initialLocation,
       routes: [
         GoRoute(
           path: '/businesses',
@@ -274,5 +275,28 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.text('DETAIL_cafe-demo'), findsOneWidget);
+  });
+
+  testWidgets('S-061 AC6: an incoming ?category= query param pre-filters the search on first frame', (tester) async {
+    final repo = await _pumpExplore(
+      tester,
+      user: _user(),
+      businesses: [_business()],
+      withRouter: true,
+      initialLocation: '/businesses?category=cafe',
+    );
+
+    expect(repo.lastQuery?.category, 'cafe');
+  });
+
+  testWidgets('no ?category= query param leaves the default (unfiltered) search untouched', (tester) async {
+    final repo = await _pumpExplore(
+      tester,
+      user: _user(),
+      businesses: [_business()],
+      withRouter: true,
+    );
+
+    expect(repo.lastQuery?.category, isNull);
   });
 }

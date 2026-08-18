@@ -378,7 +378,11 @@ class _CategoryChips extends StatelessWidget {
         spacing: 8,
         runSpacing: 4,
         children: [
-          for (final category in categories) Chip(label: Text(category.name)),
+          for (final category in categories)
+            ActionChip(
+              label: Text(category.name),
+              onPressed: () => context.push('/businesses?category=${category.slug}'),
+            ),
         ],
       ),
     );

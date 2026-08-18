@@ -544,6 +544,55 @@ void main() {
     });
   });
 
+  testWidgets('S-061 AC6: tapping a category chip navigates to /businesses pre-filtered by its slug', (tester) async {
+    final reviewRepository = _FakeReviewRepository(reviews: const []);
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith(() => _FakeAuthController(_user(id: 'cust-1', role: UserRole.customer))),
+        businessRepositoryProvider.overrideWithValue(
+          _FakeBusinessRepository(
+            business: _business(
+              categories: [
+                CategoryResponse((b) => b
+                  ..id = 'c1'
+                  ..name = 'Diner'
+                  ..slug = 'diner'),
+              ],
+            ),
+          ),
+        ),
+        reviewRepositoryProvider.overrideWithValue(reviewRepository),
+        favoritesRepositoryProvider.overrideWithValue(_FakeFavoritesRepository()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final router = GoRouter(
+      initialLocation: '/businesses/test-biz',
+      routes: [
+        GoRoute(
+          path: '/businesses/:slug',
+          builder: (context, state) => BusinessDetailScreen(slug: state.pathParameters['slug']!),
+        ),
+        GoRoute(
+          path: '/businesses',
+          builder: (context, state) => Scaffold(body: Text('BUSINESSES_${state.uri.queryParameters['category']}')),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('categoryChips')), findsOneWidget);
+    await tester.tap(find.text('Diner'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('BUSINESSES_diner'), findsOneWidget);
+  });
+
   testWidgets('S-028 AC18: AI overview is labeled a suggestion; omitted when null', (tester) async {
     await _pumpDetailScreen(
       tester,

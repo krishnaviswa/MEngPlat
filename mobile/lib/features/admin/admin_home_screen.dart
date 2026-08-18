@@ -7,6 +7,7 @@ import '../businesses/business_list_provider.dart';
 import '../merchant/merchant_providers.dart';
 import '../reviews/review_card.dart';
 import '../reviews/review_providers.dart';
+import 'platform_series_chart.dart';
 
 /// Admin Home (S-031 / M-57–M-59). Replaces the S-027 placeholder.
 class AdminHomeScreen extends ConsumerStatefulWidget {
@@ -18,6 +19,7 @@ class AdminHomeScreen extends ConsumerStatefulWidget {
 
 class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
   PlatformAnalytics? _stats;
+  PlatformAnalyticsSeries? _series;
   List<BusinessResponse> _pending = [];
   List<ReviewResponse> _reported = [];
   String? _error;
@@ -54,7 +56,11 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        _AdminStat(label: 'Total users', value: '${_stats!.totalUsers}'),
+                        _AdminStat(
+                          label: 'Total users',
+                          value: '${_stats!.totalUsers}',
+                          onTap: () => context.push('/admin/users'),
+                        ),
                         _AdminStat(
                           label: 'Total businesses',
                           value: '${_stats!.totalBusinesses}',
@@ -70,6 +76,17 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                       ],
                     ),
                   ],
+                  if (_series != null) ...[
+                    const SizedBox(height: 24),
+                    PlatformSeriesChart(series: _series!),
+                  ],
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    key: const Key('manageCategoriesButton'),
+                    onPressed: () => context.push('/admin/categories'),
+                    icon: const Icon(Icons.category_outlined),
+                    label: const Text('Manage categories'),
+                  ),
                   const SizedBox(height: 24),
                   Text('Pending businesses', style: Theme.of(context).textTheme.titleMedium),
                   if (_pending.isEmpty)
@@ -151,11 +168,13 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
       final businesses = ref.read(businessRepositoryProvider);
       final reviews = ref.read(reviewRepositoryProvider);
       final stats = await dash.platformAnalytics();
+      final series = await dash.platformAnalyticsSeries();
       final pending = await businesses.listByStatus(BusinessStatus.pending);
       final reported = await reviews.listReported();
       if (!mounted) return;
       setState(() {
         _stats = stats;
+        _series = series;
         _pending = pending;
         _reported = reported;
         _loading = false;
