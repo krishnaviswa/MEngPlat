@@ -52,6 +52,12 @@ dependencies:
   url_launcher: ^6.3.2
   # S-054: local-device dark mode preference (not a secret, unlike TokenStorage).
   shared_preferences: ^2.5.3
+  # S-059: merchant "Share review link" QR code (M-71 mobile parity).
+  qr_flutter: ^4.1.0
+  # S-059: native share sheet for the review-collection link (M-71 mobile parity).
+  share_plus: ^13.3.0
+  # S-060: merchant dashboard review-volume + rating-mix charts (M-61 mobile parity).
+  fl_chart: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -61,6 +67,10 @@ dev_dependencies:
   # TOTP code generation for integration_test/app_test.dart, which signs in
   # against the seeded demo account's known authenticator secret.
   otp: ^3.1.4
+  # S-060: `merchant_dashboard_screen_test.dart` fakes share_plus's own
+  # documented `SharePlatform.instance` testing seam directly (transitive via
+  # share_plus otherwise) to assert the CSV-export share-sheet call (AC 6).
+  share_plus_platform_interface: ^7.2.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

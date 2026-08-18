@@ -1,13 +1,26 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:built_collection/built_collection.dart';
+import 'package:built_value/json_object.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../reviews/review_card.dart';
 import '../reviews/review_providers.dart';
 import 'ai_insights_panel.dart';
 import 'merchant_providers.dart';
+import 'rating_distribution_chart.dart';
+import 'review_volume_chart.dart';
 import 'sentiment_breakdown.dart';
+import 'share_review_link_sheet.dart';
+
+/// S-060/M-61: `range` values the dashboard's date filter accepts, matching
+/// the backend's `range=30|90|all` query param exactly (S-033).
+const _rangeOptions = {'30': 'Last 30 days', '90': 'Last 90 days', 'all': 'All time'};
 
 const _statusLabel = {
   BusinessStatus.pending: 'Awaiting approval',
@@ -30,6 +43,8 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
   MerchantInsightsResponse? _insights;
   String? _error;
   bool _refreshingAi = false;
+  String _range = 'all';
+  bool _exportingCsv = false;
   final _reviewsKey = GlobalKey();
   final _sentimentKey = GlobalKey();
 
@@ -167,13 +182,70 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                     ),
                   ],
                 ),
+                const SizedBox(height: 16),
+                // S-060/M-61 AC 3: date-range filter -- changing it is a live
+                // refetch (not a client-side filter of the all-time payload).
+                SegmentedButton<String>(
+                  key: const Key('dashboardRangeSelector'),
+                  segments: [
+                    for (final entry in _rangeOptions.entries) ButtonSegment(value: entry.key, label: Text(entry.value)),
+                  ],
+                  selected: {_range},
+                  onSelectionChanged: (selected) {
+                    final range = selected.first;
+                    setState(() => _range = range);
+                    _loadDashboard(business.id);
+                  },
+                ),
+                const SizedBox(height: 16),
+                ReviewVolumeChart(volumeByMonth: _stats?.reviewVolumeByMonth ?? BuiltList<JsonObject>()),
+                const SizedBox(height: 16),
+                RatingDistributionChart(counts: Map<String, int>.from(_stats?.ratingDistribution.toMap() ?? {})),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatTile(
+                        key: const Key('replyRateTile'),
+                        label: 'Reply rate',
+                        value: _stats?.replyRate == null
+                            ? 'No reviews in this range'
+                            : '${(_stats!.replyRate! * 100).round()}%',
+                        onTap: () => _scrollTo(_reviewsKey),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        key: const Key('exportCsvButton'),
+                        onPressed: _exportingCsv ? null : () => _exportCsv(business.id),
+                        child: Text(_exportingCsv ? 'Exporting...' : 'Export CSV'),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    onPressed: () => context.push('/merchant/businesses/${business.id}/edit'),
-                    child: const Text('Edit business'),
-                  ),
+                // Wrap, not Row: two text buttons can overflow a narrow-phone
+                // width (found via S-060's widget tests) -- wrapping to a
+                // second line beats a RenderFlex overflow.
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton(
+                      onPressed: () => context.push('/merchant/businesses/${business.id}/edit'),
+                      child: const Text('Edit business'),
+                    ),
+                    if (business.status == BusinessStatus.approved)
+                      TextButton(
+                        key: const Key('shareReviewLinkButton'),
+                        onPressed: () => ShareReviewLinkSheet.show(
+                          context,
+                          businessName: business.name,
+                          slug: business.slug,
+                        ),
+                        child: const Text('Share review link'),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 KeyedSubtree(
@@ -226,7 +298,7 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
     setState(() => _error = null);
     try {
       final repo = ref.read(dashboardRepositoryProvider);
-      final stats = await repo.merchantStats(businessId);
+      final stats = await repo.merchantStats(businessId, range: _range);
       MerchantInsightsResponse? insights;
       try {
         insights = await repo.insights(businessId);
@@ -255,6 +327,37 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
     } finally {
       if (mounted) setState(() => _refreshingAi = false);
+    }
+  }
+
+  /// S-060/M-61 AC 6: fetches this business's reviews as CSV and hands it to
+  /// the native share sheet -- mobile's equivalent of web's browser
+  /// download. Own-business-only is enforced by the existing, unmodified
+  /// backend ownership check; a 403 (or any failure) surfaces through the
+  /// same `_error` pattern used elsewhere on this screen, never a silent
+  /// empty file.
+  Future<void> _exportCsv(String businessId) async {
+    setState(() => _exportingCsv = true);
+    try {
+      final csv = await ref.read(dashboardRepositoryProvider).reviewsCsv(businessId, range: _range);
+      final bytes = Uint8List.fromList(utf8.encode(csv));
+      final fileName = 'reviews-$businessId-$_range.csv';
+      await SharePlus.instance.share(
+        ShareParams(
+          // `XFile.fromData`'s own `name` parameter is documented as ignored
+          // on every non-web platform (cross_file's io implementation derives
+          // `name` from `path`, which is empty here) -- `fileNameOverrides`
+          // is `share_plus`'s own documented workaround for exactly this,
+          // confirmed by widget-test assertion on the shared file's name.
+          files: [XFile.fromData(bytes, name: fileName, mimeType: 'text/csv')],
+          fileNameOverrides: [fileName],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _exportingCsv = false);
     }
   }
 
