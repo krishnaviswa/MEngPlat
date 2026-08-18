@@ -84,9 +84,71 @@ void main() {
     await tester.enterText(find.byKey(const Key('businessNameField')), 'New Shop');
     await tester.enterText(find.byKey(const Key('businessAddressField')), '2 Oak');
     await tester.enterText(find.byKey(const Key('businessCityField')), 'Springfield');
+    await tester.enterText(find.byKey(const Key('businessPhoneField')), '+919876543210');
+    await tester.enterText(find.byKey(const Key('businessEmailField')), 'shop@example.com');
     await tester.ensureVisible(find.byKey(const Key('businessEditorSave')));
     await tester.tap(find.byKey(const Key('businessEditorSave')));
     await tester.pump();
     expect(repo.created?.name, 'New Shop');
+    expect(repo.created?.phone, '+919876543210');
+    expect(repo.created?.email, 'shop@example.com');
+  });
+
+  testWidgets('S-072: blank phone/email blocks create', (tester) async {
+    final repo = _FakeBusinessRepository();
+    final container = ProviderContainer(
+      overrides: [businessRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: BusinessEditorScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('requiredFieldLegend')), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('businessNameField')), 'New Shop');
+    await tester.enterText(find.byKey(const Key('businessAddressField')), '2 Oak');
+    await tester.enterText(find.byKey(const Key('businessCityField')), 'Springfield');
+    await tester.ensureVisible(find.byKey(const Key('businessEditorSave')));
+    await tester.tap(find.byKey(const Key('businessEditorSave')));
+    await tester.pump();
+
+    expect(repo.created, isNull);
+    expect(find.text('Phone number is required.'), findsOneWidget);
+    expect(find.text('Email is required.'), findsOneWidget);
+  });
+
+  testWidgets('S-072: malformed phone/email shows format errors', (tester) async {
+    final repo = _FakeBusinessRepository();
+    final container = ProviderContainer(
+      overrides: [businessRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: BusinessEditorScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('businessNameField')), 'New Shop');
+    await tester.enterText(find.byKey(const Key('businessAddressField')), '2 Oak');
+    await tester.enterText(find.byKey(const Key('businessCityField')), 'Springfield');
+    await tester.enterText(find.byKey(const Key('businessPhoneField')), '123');
+    await tester.enterText(find.byKey(const Key('businessEmailField')), 'not-an-email');
+    await tester.ensureVisible(find.byKey(const Key('businessEditorSave')));
+    await tester.tap(find.byKey(const Key('businessEditorSave')));
+    await tester.pump();
+
+    expect(repo.created, isNull);
+    expect(find.text('Enter a valid phone number.'), findsOneWidget);
+    expect(find.text('Enter a valid email address.'), findsOneWidget);
   });
 }
