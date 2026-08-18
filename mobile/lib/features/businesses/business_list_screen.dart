@@ -39,13 +39,22 @@ class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
       // MaterialApp) -- guard so that stays a no-op instead of a crash; in
       // the real app it is always reached as a GoRoute builder.
       String? category;
+      String? city;
+      String? q;
       try {
-        category = GoRouterState.of(context).uri.queryParameters['category'];
+        final params = GoRouterState.of(context).uri.queryParameters;
+        category = params['category'];
+        city = params['city'];
+        q = params['q'];
       } on GoError {
         category = null;
+        city = null;
+        q = null;
       }
-      if (category != null) {
-        ref.read(searchControllerProvider.notifier).applyQuery(SearchQuery(category: category));
+      if (category != null || city != null || q != null) {
+        ref.read(searchControllerProvider.notifier).applyQuery(
+              SearchQuery(category: category, city: city, q: q),
+            );
       }
     });
   }

@@ -213,12 +213,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onPressed: _loading ? null : () => context.go('/register'),
                       child: const Text('Create account'),
                     ),
-                    // ADR-003: guest browsing entry point -- business listing
-                    // and detail screens are public routes, reachable through
-                    // real navigation rather than only a raw deep link.
+                    // ADR-003 / S-064: guest browsing entry — marketing home
+                    // first, Explore still one tab away.
                     TextButton(
                       key: const Key('continueAsGuestButton'),
-                      onPressed: _loading ? null : () => context.go('/businesses'),
+                      onPressed: _loading ? null : () => context.go('/home'),
                       child: const Text('Continue without signing in'),
                     ),
                     const SizedBox(height: 8),

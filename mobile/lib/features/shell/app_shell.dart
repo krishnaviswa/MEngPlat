@@ -49,6 +49,14 @@ class AppShell extends ConsumerWidget {
     if (user == null) {
       return [
         _Dest(
+          location: '/home',
+          destination: NavigationDestination(
+            icon: _tabIcon(Icons.home_outlined, const Key('homeTab')),
+            selectedIcon: _tabIcon(Icons.home, const Key('homeTab')),
+            label: 'Home',
+          ),
+        ),
+        _Dest(
           location: '/businesses',
           destination: NavigationDestination(
             icon: _tabIcon(Icons.storefront_outlined, const Key('exploreTab')),

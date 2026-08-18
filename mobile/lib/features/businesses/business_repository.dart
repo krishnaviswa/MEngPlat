@@ -129,6 +129,30 @@ class BusinessRepository {
     }
   }
 
+  /// Public approved catalog (S-064 home). Optional [city] / [slugs] match
+  /// web `businesses.list()`.
+  Future<List<BusinessResponse>> listPublic({String? city, String? slugs}) async {
+    try {
+      final response = await _client.api.getBusinessesApi().listBusinessesApiV1BusinessesGet(
+            city: city,
+            slugs: slugs,
+          );
+      return response.data!.toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Public platform counts for the home trust-metrics row (S-064 / M-14).
+  Future<PublicPlatformStats?> publicStats() async {
+    try {
+      final response = await _client.api.getBusinessesApi().publicStatsSummaryApiV1BusinessesStatsSummaryGet();
+      return response.data;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   Future<List<BusinessResponse>> listByStatus(BusinessStatus status) async {
     try {
       final response = await _client.api.getBusinessesApi().listBusinessesApiV1BusinessesGet(statusFilter: status);

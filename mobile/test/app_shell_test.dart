@@ -88,6 +88,12 @@ class _FakeBusinessRepository extends BusinessRepository {
 
   @override
   Future<List<CategoryResponse>> listCategories() async => [];
+
+  @override
+  Future<List<BusinessResponse>> listPublic({String? city, String? slugs}) async => businesses;
+
+  @override
+  Future<PublicPlatformStats?> publicStats() async => null;
 }
 
 class _FakeNotificationsRepository extends NotificationsRepository {
@@ -162,6 +168,7 @@ void main() {
     expect(find.byKey(const Key('favoritesTab')), findsOneWidget);
     expect(find.byKey(const Key('notificationsTab')), findsOneWidget);
     expect(find.byKey(const Key('accountTab')), findsOneWidget);
+    expect(find.byKey(const Key('homeTab')), findsNothing);
     expect(find.byKey(const Key('merchantHomeTab')), findsNothing);
     expect(find.byKey(const Key('adminHomeTab')), findsNothing);
     expect(find.text('Businesses'), findsOneWidget);
@@ -200,15 +207,16 @@ void main() {
     await tester.tap(find.byKey(const Key('continueAsGuestButton')));
     await _pumpFrames(tester);
 
+    expect(find.byKey(const Key('homeTab')), findsOneWidget);
     expect(find.byKey(const Key('exploreTab')), findsOneWidget);
     expect(find.byKey(const Key('signInTab')), findsOneWidget);
     expect(find.byKey(const Key('favoritesTab')), findsNothing);
     expect(find.byKey(const Key('notificationsTab')), findsNothing);
     expect(find.byKey(const Key('accountTab')), findsNothing);
     expect(find.byKey(const Key('logoutButton')), findsNothing);
+    expect(find.byKey(const Key('homeScreen')), findsOneWidget);
 
-    final nav = tester.widget<NavigationBar>(find.byKey(const Key('primaryNav')));
-    nav.onDestinationSelected!(1);
+    await tester.tap(find.byKey(const Key('signInTab')));
     await _pumpFrames(tester);
     expect(find.byKey(const Key('emailField')), findsOneWidget);
     expect(find.byKey(const Key('primaryNav')).hitTestable(), findsNothing);
