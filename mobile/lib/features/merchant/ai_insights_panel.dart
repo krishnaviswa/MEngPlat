@@ -3,9 +3,10 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 
 /// Merchant AI insights with a required suggestion-only disclaimer (M-52).
 class AiInsightsPanel extends StatelessWidget {
-  const AiInsightsPanel({required this.insights, super.key});
+  const AiInsightsPanel({required this.insights, this.topics, super.key});
 
   final MerchantInsightsResponse insights;
+  final TopicClusterResponse? topics;
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +47,25 @@ class AiInsightsPanel extends StatelessWidget {
                 child: Text('“$item”', style: const TextStyle(fontStyle: FontStyle.italic)),
               ),
             ),
+          ],
+          if (topics != null &&
+              (topics!.insufficientData == true ||
+                  topics!.unavailable == true ||
+                  (topics!.topics?.isNotEmpty ?? false))) ...[
+            const SizedBox(height: 12),
+            Text('Common Themes', key: const Key('commonThemesHeading'), style: Theme.of(context).textTheme.titleSmall),
+            if (topics!.insufficientData == true)
+              const Text('Not enough reviews yet to identify common themes.')
+            else if (topics!.unavailable == true)
+              const Text('Common themes are temporarily unavailable.')
+            else
+              for (final topic in topics!.topics ?? const <TopicItem>[])
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '${topics!.degraded == true ? 'Mock/degraded data. ' : ''}${topic.label} — ${topic.count} mentions · ${topic.sentiment.name} (suggestion)',
+                  ),
+                ),
           ],
         ],
       ),

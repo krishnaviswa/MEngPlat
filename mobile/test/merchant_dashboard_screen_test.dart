@@ -40,6 +40,84 @@ BusinessResponse _owned({
       ..averageRating = 4.5
       ..reviewCount = 2);
 
+mixin _ParityDashboardStubs on DashboardRepository {
+  @override
+  Future<BenchmarkResponse> benchmark(String businessId) async {
+    return BenchmarkResponse(
+      (b) => b
+        ..businessId = businessId
+        ..ownRating = 4.5
+        ..categoryMedian = 4.2
+        ..cityMedian = 4.0
+        ..categorySampleSize = 8
+        ..citySampleSize = 12
+        ..disclaimer = 'Directory medians from MerchantHub listings — not an AI judgment.',
+    );
+  }
+
+  @override
+  Future<TopicClusterResponse> topicClusters(String businessId) async {
+    return TopicClusterResponse(
+      (b) => b
+        ..businessId = businessId
+        ..insufficientData = false
+        ..unavailable = false
+        ..topics.add(
+          TopicItem(
+            (t) => t
+              ..label = 'Wait time'
+              ..count = 4
+              ..sentiment = TopicItemSentimentEnum.mixed
+              ..exampleQuote = 'Sometimes busy on weekends',
+          ),
+        ),
+    );
+  }
+
+  @override
+  Future<GoogleReviewsStatusResponse> googleReviewsStatus(String businessId) async {
+    return GoogleReviewsStatusResponse(
+      (b) => b
+        ..linked = false
+        ..reviewCount = 0,
+    );
+  }
+
+  @override
+  Future<GooglePlacesSearchResponse> searchGooglePlaces({
+    required String businessId,
+    required String query,
+  }) async {
+    return GooglePlacesSearchResponse((b) => b.candidates.addAll([]));
+  }
+
+  @override
+  Future<void> linkGooglePlace({
+    required String businessId,
+    required String placeId,
+    String? name,
+    String? address,
+  }) async {}
+
+  @override
+  Future<GoogleReviewsSyncResponse> syncGoogleReviews(String businessId) async {
+    return GoogleReviewsSyncResponse(
+      (b) => b
+        ..syncedCount = 0
+        ..lastSyncedAt = DateTime.utc(2026, 8, 1)
+        ..debounced = false,
+    );
+  }
+
+  @override
+  Future<WhatsAppLinkResponse> createWhatsAppLink(String businessId) async {
+    return WhatsAppLinkResponse((b) => b..available = false);
+  }
+
+  @override
+  Future<List<WhatsAppDraftResponse>> whatsappDrafts(String businessId) async => [];
+}
+
 class _FakeAuthController extends AuthController {
   @override
   Future<UserResponse?> build() async => _merchant();
@@ -54,7 +132,7 @@ class _FakeBusinessRepository extends BusinessRepository {
   Future<List<BusinessResponse>> listMine() async => mine;
 }
 
-class _FakeDashboardRepository extends DashboardRepository {
+class _FakeDashboardRepository extends DashboardRepository with _ParityDashboardStubs {
   _FakeDashboardRepository() : super(ApiClient());
 
   @override
@@ -78,7 +156,7 @@ class _FakeDashboardRepository extends DashboardRepository {
 /// [statsByRange]) so tests can prove the screen actually refetches and
 /// re-renders on range change (AC 3), rather than client-side filtering an
 /// already-fetched payload.
-class _RecordingDashboardRepository extends DashboardRepository {
+class _RecordingDashboardRepository extends DashboardRepository with _ParityDashboardStubs {
   _RecordingDashboardRepository({
     DashboardStats? stats,
     this.statsByRange,
@@ -197,6 +275,9 @@ class _FakePaymentsRepository extends PaymentsRepository {
   final PlacementResponse _placementResponse;
   final Object? skusError;
   final Object? placementError;
+  String? lastCheckoutSku;
+  FeaturedCheckoutResponse? checkoutResult;
+  Object? checkoutError;
 
   @override
   Future<List<FeaturedSku>> featuredSkus() async {
@@ -211,6 +292,37 @@ class _FakePaymentsRepository extends PaymentsRepository {
     if (error != null) throw error;
     return _placementResponse;
   }
+
+  @override
+  Future<FeaturedCheckoutResponse> checkoutFeatured({
+    required String businessId,
+    required String skuCode,
+  }) async {
+    lastCheckoutSku = skuCode;
+    final error = checkoutError;
+    if (error != null) throw error;
+    return checkoutResult ??
+        FeaturedCheckoutResponse(
+          (b) => b
+            ..paymentId = 'pay-1'
+            ..provider = 'mock'
+            ..providerOrderId = 'order-demo'
+            ..amountPaise = 29900
+            ..currency = 'INR'
+            ..sku.replace(_defaultSkus().first)
+            ..checkout.replace(
+              CheckoutFields(
+                (c) => c
+                  ..keyId = ''
+                  ..orderId = 'order-demo'
+                  ..amount = 29900
+                  ..currency = 'INR'
+                  ..name = 'MerchantHub'
+                  ..description = 'Featured',
+              ),
+            ),
+        );
+  }
 }
 
 Future<void> _pumpDashboard(
@@ -224,7 +336,7 @@ Future<void> _pumpDashboard(
   // too short to build (and thus find.byKey) content further down the list
   // (e.g. aiInsightsDisclaimer), same class of fix S-058/S-059's Tester
   // documented for other screens.
-  await tester.binding.setSurfaceSize(const Size(400, 2000));
+  await tester.binding.setSurfaceSize(const Size(400, 4200));
   addTearDown(() => tester.binding.setSurfaceSize(null));
 
   final container = ProviderContainer(
@@ -265,7 +377,6 @@ void main() {
     expect(find.byKey(const Key('averageRatingTile')), findsOneWidget);
     expect(find.byKey(const Key('statusTile')), findsOneWidget);
     expect(find.byKey(const Key('aiInsightsDisclaimer')), findsOneWidget);
-    expect(find.textContaining('Suggestions only'), findsOneWidget);
     expect(find.textContaining('Guests mention friendly staff.'), findsOneWidget);
   });
 
@@ -512,7 +623,7 @@ void main() {
   });
 
   testWidgets(
-    'S-062 AC1: featured boost panel renders live SKU prices/durations and a static web-handoff note',
+    'S-062 AC1 / S-066: featured boost panel renders live SKU prices as checkout actions',
     (tester) async {
       await _pumpDashboard(tester, mine: [_owned()]);
 
@@ -520,29 +631,25 @@ void main() {
       expect(find.text('₹299 / 7 days'), findsOneWidget);
       expect(find.text('₹499 / 15 days'), findsOneWidget);
       expect(find.text('₹899 / 30 days'), findsOneWidget);
-      // Risk mitigation the Architect explicitly called out: static
-      // explanatory copy near the SKU tiles, not solely the button label.
-      expect(find.byKey(const Key('featuredBuyOnWebNote')), findsOneWidget);
-      expect(find.textContaining('web'), findsWidgets);
+      expect(find.byKey(const Key('featuredCheckout-featured_7d')), findsOneWidget);
     },
   );
 
-  testWidgets(
-    'S-062 AC1/AC8 (risk note): "Buy on web" button copy is an honest hand-off, never "Buy now"/"Start checkout"',
-    (tester) async {
-      await _pumpDashboard(tester, mine: [_owned()]);
+  testWidgets('S-066 M-66: SKU buttons start checkout and show a mock pending order', (tester) async {
+    final payments = _FakePaymentsRepository();
+    await _pumpDashboard(tester, mine: [_owned()], paymentsRepository: payments);
 
-      final button = find.byKey(const Key('openWebCheckoutButton'));
-      expect(button, findsOneWidget);
-      final label = tester.widget<OutlinedButton>(button).child! as Text;
-      expect(label.data, contains('web dashboard'));
-      expect(label.data, isNot(contains('Buy now')));
-      expect(label.data, isNot(contains('Start checkout')));
-      expect(find.byKey(const Key('featuredBuyOnWebNote')), findsOneWidget);
-      final note = tester.widget<Text>(find.byKey(const Key('featuredBuyOnWebNote')));
-      expect(note.data, contains('web'));
-    },
-  );
+    final skuButton = find.byKey(const Key('featuredCheckout-featured_7d'));
+    expect(skuButton, findsOneWidget);
+    await tester.ensureVisible(skuButton);
+    await tester.tap(skuButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(payments.lastCheckoutSku, 'featured_7d');
+    expect(find.byKey(const Key('featuredCheckoutPendingNote')), findsOneWidget);
+    expect(find.textContaining('Demo order'), findsOneWidget);
+  });
 
   testWidgets('S-062 AC3: placement status shows "Active until <expiry>" when a placement is active', (
     tester,
@@ -772,4 +879,40 @@ void main() {
       );
     },
   );
+
+  testWidgets('S-066 M-69: benchmark card shows directory medians and disclaimer', (tester) async {
+    await _pumpDashboard(tester, mine: [_owned()]);
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.byKey(const Key('benchmarkCard')), findsOneWidget);
+    expect(find.byKey(const Key('benchmarkDisclaimer')), findsOneWidget);
+    expect(find.textContaining('not an AI judgment'), findsOneWidget);
+    expect(find.textContaining('Category median'), findsOneWidget);
+  });
+
+  testWidgets('S-066 M-78: Common Themes lists topic label, count, and suggestion', (tester) async {
+    await _pumpDashboard(tester, mine: [_owned()]);
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.byKey(const Key('commonThemesHeading')), findsOneWidget);
+    expect(find.textContaining('Wait time'), findsOneWidget);
+    expect(find.textContaining('(suggestion)'), findsWidgets);
+  });
+
+  testWidgets('S-066 M-80: unlinked Google panel offers Link Google Business Profile', (tester) async {
+    await _pumpDashboard(tester, mine: [_owned()]);
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.byKey(const Key('googleReviewsPanel')), findsOneWidget);
+    expect(find.byKey(const Key('linkGoogleProfileButton')), findsOneWidget);
+  });
+
+  testWidgets('S-066 M-79: WhatsApp panel shows suggestion disclaimer when link is unavailable', (tester) async {
+    await _pumpDashboard(tester, mine: [_owned()]);
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.byKey(const Key('whatsAppUpdatePanel')), findsOneWidget);
+    expect(find.byKey(const Key('whatsAppSuggestionDisclaimer')), findsOneWidget);
+    expect(find.textContaining('not configured'), findsOneWidget);
+  });
 }

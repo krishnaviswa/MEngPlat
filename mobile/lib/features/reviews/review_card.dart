@@ -306,15 +306,34 @@ class _ReviewCardState extends State<ReviewCard> {
               ),
               onChanged: (_) => setState(() {}),
             ),
+            const SizedBox(height: 4),
+            Text(
+              'AI draft is a suggestion — edit before sending. It is not posted automatically.',
+              key: const Key('aiDraftDisclaimer'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(height: 8),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
+                if (review.aiAnalysis?.suggestedResponse != null &&
+                    review.aiAnalysis!.suggestedResponse!.trim().isNotEmpty)
+                  OutlinedButton(
+                    key: const Key('draftWithAiButton'),
+                    onPressed: () {
+                      _replyController.text = review.aiAnalysis!.suggestedResponse!;
+                      setState(() {});
+                    },
+                    child: const Text('Draft with AI'),
+                  )
+                else
+                  Text('No draft available', key: const Key('noAiDraftLabel'), style: Theme.of(context).textTheme.bodySmall),
                 FilledButton(
                   key: const Key('reviewReplySubmit'),
                   onPressed: _replyController.text.trim().length < 5 || _submittingReply ? null : _submitReply,
                   child: Text(_submittingReply ? 'Posting...' : 'Post reply'),
                 ),
-                const SizedBox(width: 8),
                 TextButton(
                   onPressed: () => setState(() {
                     _replying = false;

@@ -63,6 +63,7 @@ class InMemoryDB:
         self.sessions: list[WhatsAppSession] = []
         self.drafts: list[BusinessUpdateDraft] = []
         self.photos: list[object] = []
+        self.notifications: list[object] = []
 
     async def get(self, model, id_):
         if model is Business and self.business and self.business.id == id_:
@@ -114,6 +115,12 @@ class InMemoryDB:
             ]
             return FakeResult(scalar=matches[0] if matches else None)
 
+        if "notifications" in compiled:
+            from app.models import Notification
+
+            rows = [n for n in self.notifications if isinstance(n, Notification)]
+            return FakeResult(scalar=rows[0] if rows else None, rows=rows)
+
         return FakeResult()
 
     def add(self, obj):
@@ -122,6 +129,10 @@ class InMemoryDB:
         elif isinstance(obj, BusinessUpdateDraft):
             self.drafts.append(obj)
         else:
+            from app.models import Notification
+
+            if isinstance(obj, Notification):
+                self.notifications.append(obj)
             self.photos.append(obj)
 
     async def flush(self):

@@ -379,6 +379,7 @@ class NotificationResponse(BaseModel):
     title: str
     message: str
     is_read: bool
+    scenario: str | None = None
     extra_data: dict[str, Any] | None = None
     created_at: datetime
 

@@ -113,6 +113,9 @@ class FakeFlushDB:
     def add(self, obj):
         self.added.append(obj)
 
+    async def get(self, model, id_):
+        return None
+
     async def flush(self):
         pass
 
@@ -155,7 +158,10 @@ class TestApplyCaptured:
         assert activated is False
         assert payment.status == PaymentStatus.PAID
         assert payment.platform_fee_paise + payment.gateway_fee_paise == 29900
-        assert db.added == []
+        from app.models import FeaturedPlacement, Notification
+
+        assert not any(isinstance(o, FeaturedPlacement) for o in db.added)
+        assert any(isinstance(o, Notification) for o in db.added)
         cache.assert_not_awaited()
 
     async def test_failed_does_not_place(self):

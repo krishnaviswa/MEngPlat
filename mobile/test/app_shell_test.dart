@@ -78,6 +78,9 @@ class _FakeBusinessRepository extends BusinessRepository {
   Future<List<PhotoResponse>> listPhotos(String businessId) async => [];
 
   @override
+  Future<List<ExternalReviewResponse>> listExternalReviews(String businessId) async => [];
+
+  @override
   Future<List<BusinessResponse>> listMine() async => businesses;
 
   @override

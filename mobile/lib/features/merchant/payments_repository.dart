@@ -4,11 +4,8 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
 
-/// Read-only access to `/payments/*` -- a distinct backend domain from
-/// `/dashboard/*`/`/ai/*` (kept out of [DashboardRepository] deliberately,
-/// S-062 Architect spec). S-062/M-66: SKU catalog + placement status only.
-/// `POST /payments/featured/checkout` is intentionally never called here --
-/// mobile checkout is a future, dedicated slice, not this one.
+/// Access to `/payments/*` -- a distinct backend domain from
+/// `/dashboard/*`/`/ai/*` (kept out of [DashboardRepository] deliberately).
 class PaymentsRepository {
   PaymentsRepository(this._client);
 
@@ -28,6 +25,24 @@ class PaymentsRepository {
       final response = await _client.api
           .getPaymentsApi()
           .getPlacementApiV1PaymentsBusinessesBusinessIdPlacementGet(businessId: businessId);
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<FeaturedCheckoutResponse> checkoutFeatured({
+    required String businessId,
+    required String skuCode,
+  }) async {
+    try {
+      final response = await _client.api.getPaymentsApi().featuredCheckoutApiV1PaymentsFeaturedCheckoutPost(
+        featuredCheckoutRequest: FeaturedCheckoutRequest(
+          (b) => b
+            ..businessId = businessId
+            ..skuCode = skuCode,
+        ),
+      );
       return response.data!;
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);

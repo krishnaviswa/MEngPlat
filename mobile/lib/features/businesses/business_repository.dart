@@ -196,4 +196,15 @@ class BusinessRepository {
       throw ApiException.fromDioException(e);
     }
   }
+
+  Future<List<ExternalReviewResponse>> listExternalReviews(String businessId) async {
+    try {
+      final response = await _client.api
+          .getBusinessesApi()
+          .listExternalReviewsApiV1BusinessesBusinessIdExternalReviewsGet(businessId: businessId);
+      return response.data?.toList() ?? [];
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
 }

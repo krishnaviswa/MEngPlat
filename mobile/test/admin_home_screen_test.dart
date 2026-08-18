@@ -133,6 +133,7 @@ void main() {
         GoRoute(path: '/admin', builder: (context, state) => const AdminHomeScreen()),
         GoRoute(path: '/admin/categories', builder: (context, state) => const Scaffold(body: Text('CATEGORIES_SCREEN'))),
         GoRoute(path: '/admin/users', builder: (context, state) => const Scaffold(body: Text('USERS_SCREEN'))),
+        GoRoute(path: '/admin/whatsapp', builder: (context, state) => const Scaffold(body: Text('WHATSAPP_SCREEN'))),
       ],
     );
 
@@ -142,6 +143,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
+    await tester.ensureVisible(find.byKey(const Key('manageCategoriesButton')));
     await tester.tap(find.byKey(const Key('manageCategoriesButton')));
     await tester.pumpAndSettle();
     expect(find.text('CATEGORIES_SCREEN'), findsOneWidget);
@@ -151,6 +153,13 @@ void main() {
     await tester.tap(find.text('Total users'));
     await tester.pumpAndSettle();
     expect(find.text('USERS_SCREEN'), findsOneWidget);
+
+    router.pop();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('manageWhatsAppDraftsButton')));
+    await tester.tap(find.byKey(const Key('manageWhatsAppDraftsButton')));
+    await tester.pumpAndSettle();
+    expect(find.text('WHATSAPP_SCREEN'), findsOneWidget);
   });
 
   testWidgets('S-031 AC16: admin home shows platform stats, not the web placeholder', (tester) async {

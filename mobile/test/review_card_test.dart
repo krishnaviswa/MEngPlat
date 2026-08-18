@@ -17,6 +17,7 @@ ReviewResponse _review({
   int likeCount = 0,
   String? body,
   List<String>? photoUrls,
+  String? suggestedResponse,
 }) {
   return ReviewResponse((b) {
     b
@@ -41,13 +42,14 @@ ReviewResponse _review({
         ..isActive = true
         ..createdAt = DateTime.utc(2026, 1, 1)));
     }
-    if (sentiment != null || summary != null) {
+    if (sentiment != null || summary != null || suggestedResponse != null) {
       b.aiAnalysis.replace(AIAnalysisResponse((a) => a
         ..id = 'analysis-1'
         ..analysisType = 'review'
         ..provider = 'mock'
         ..sentiment = sentiment
-        ..summary = summary));
+        ..summary = summary
+        ..suggestedResponse = suggestedResponse));
     }
     if (replyBody != null) {
       b.reply.replace(ReplyResponse((r) => r
@@ -179,6 +181,32 @@ void main() {
     await tester.tap(find.byKey(const Key('reviewReplySubmit')));
     await tester.pump();
     expect(posted, 'Glad you enjoyed it.');
+  });
+
+  testWidgets('S-066 M-70: Draft with AI fills the composer and does not post', (tester) async {
+    String? posted;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ReviewCard(
+            review: _review(suggestedResponse: 'Thanks for the kind words — please visit again.'),
+            showActions: false,
+            canReply: true,
+            onReply: (body) async {
+              posted = body;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('reviewReplyButton')));
+    await tester.pump();
+    expect(find.byKey(const Key('aiDraftDisclaimer')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('draftWithAiButton')));
+    await tester.pump();
+    expect(find.text('Thanks for the kind words — please visit again.'), findsOneWidget);
+    expect(posted, isNull);
   });
 
   testWidgets('S-030 AC5: reported placeholder replaces the card', (tester) async {

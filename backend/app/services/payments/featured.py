@@ -9,8 +9,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Business, FeaturedPlacement, Payment, PaymentStatus, User
+from app.models import Business, FeaturedPlacement, NotificationType, Payment, PaymentStatus, User
 from app.services.cache import cache_delete_pattern
+from app.services.notifications import (
+    SCENARIO_PAYMENT_BOOST_APPROVED,
+    SCENARIO_PAYMENT_CAPTURED,
+    upsert_notice,
+)
 from app.services.payments.base import WebhookEvent
 from app.services.payments.sku import FEATURED_CURRENCY, split_fees
 
@@ -67,6 +72,11 @@ async def get_payment_by_order_id(db: AsyncSession, provider_order_id: str) -> P
     return result.scalar_one_or_none()
 
 
+async def _listing_name(db: AsyncSession, business_id: UUID) -> str:
+    business = await db.get(Business, business_id)
+    return business.name if business else "your listing"
+
+
 async def apply_captured_payment(db: AsyncSession, payment: Payment, event: WebhookEvent) -> bool:
     """Mark paid and split fees. Does not create a placement (admin approve does)."""
     if payment.status == PaymentStatus.PAID:
@@ -81,6 +91,16 @@ async def apply_captured_payment(db: AsyncSession, payment: Payment, event: Webh
     payment.gateway_fee_paise = gateway_fee
     if event.provider_payment_id:
         payment.provider_payment_id = event.provider_payment_id
+    name = await _listing_name(db, payment.business_id)
+    await upsert_notice(
+        db,
+        user_id=payment.merchant_user_id,
+        scenario=SCENARIO_PAYMENT_CAPTURED,
+        ntype=NotificationType.SYSTEM,
+        title="Featured payment received",
+        message=f"Payment for a featured boost on {name} is recorded. Search placement starts after admin approval.",
+        extra_data={"business_id": str(payment.business_id), "payment_id": str(payment.id)},
+    )
     await db.flush()
     return False
 
@@ -108,6 +128,16 @@ async def approve_payment(db: AsyncSession, payment: Payment) -> FeaturedPlaceme
         ends_at=now + timedelta(days=days),
     )
     db.add(placement)
+    name = await _listing_name(db, payment.business_id)
+    await upsert_notice(
+        db,
+        user_id=payment.merchant_user_id,
+        scenario=SCENARIO_PAYMENT_BOOST_APPROVED,
+        ntype=NotificationType.SYSTEM,
+        title="Featured boost is live",
+        message=f"Your featured search placement for {name} is on.",
+        extra_data={"business_id": str(payment.business_id), "payment_id": str(payment.id)},
+    )
     await cache_delete_pattern("search:*")
     await db.flush()
     return placement

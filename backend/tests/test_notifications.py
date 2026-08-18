@@ -76,6 +76,7 @@ def _make_notification(user_id, *, is_read: bool = False, created_at=None) -> No
         id=uuid.uuid4(),
         user_id=user_id,
         type=NotificationType.SYSTEM,
+        scenario="whatsapp_rejected",
         title="Title",
         message="Message",
         is_read=is_read,

@@ -64,6 +64,108 @@ class DashboardRepository {
     }
   }
 
+  Future<BenchmarkResponse> benchmark(String businessId) async {
+    try {
+      final response = await _client.api
+          .getDashboardApi()
+          .merchantBenchmarkApiV1DashboardMerchantBusinessIdBenchmarkGet(businessId: businessId);
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<TopicClusterResponse> topicClusters(String businessId) async {
+    try {
+      final response = await _client.api
+          .getAIAnalysisApi()
+          .getTopicClustersApiV1AiBusinessesBusinessIdTopicsGet(businessId: businessId);
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<GoogleReviewsStatusResponse> googleReviewsStatus(String businessId) async {
+    try {
+      final response = await _client.api
+          .getDashboardApi()
+          .getGoogleReviewsStatusApiV1DashboardMerchantBusinessIdGoogleReviewsGet(businessId: businessId);
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<GooglePlacesSearchResponse> searchGooglePlaces({
+    required String businessId,
+    required String query,
+  }) async {
+    try {
+      final response = await _client.api.getDashboardApi().searchGooglePlacesApiV1DashboardMerchantBusinessIdGoogleReviewsSearchPost(
+        businessId: businessId,
+        googlePlacesSearchRequest: GooglePlacesSearchRequest((b) => b.query = query),
+      );
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<void> linkGooglePlace({
+    required String businessId,
+    required String placeId,
+    String? name,
+    String? address,
+  }) async {
+    try {
+      await _client.api.getDashboardApi().linkGooglePlaceApiV1DashboardMerchantBusinessIdGoogleReviewsLinkPost(
+        businessId: businessId,
+        googlePlaceLinkRequest: GooglePlaceLinkRequest(
+          (b) => b
+            ..placeId = placeId
+            ..name = name
+            ..address = address,
+        ),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<GoogleReviewsSyncResponse> syncGoogleReviews(String businessId) async {
+    try {
+      final response = await _client.api
+          .getDashboardApi()
+          .syncGoogleReviewsApiV1DashboardMerchantBusinessIdGoogleReviewsSyncPost(businessId: businessId);
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<WhatsAppLinkResponse> createWhatsAppLink(String businessId) async {
+    try {
+      final response = await _client.api
+          .getDashboardApi()
+          .createWhatsappLinkApiV1DashboardMerchantBusinessIdWhatsappLinkPost(businessId: businessId);
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<List<WhatsAppDraftResponse>> whatsappDrafts(String businessId) async {
+    try {
+      final response = await _client.api
+          .getDashboardApi()
+          .listWhatsappDraftsApiV1DashboardMerchantBusinessIdWhatsappDraftsGet(businessId: businessId);
+      return response.data?.toList() ?? [];
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   Future<PlatformAnalytics> platformAnalytics() async {
     try {
       final response = await _client.api.getDashboardApi().platformAnalyticsApiV1DashboardAdminPlatformGet();

@@ -6,13 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/config/app_config.dart';
 import 'merchant_providers.dart';
 
-/// Read-only "Featured boost" info panel -- mobile parity for M-66's
-/// browse/display half (S-062). Shows the existing three-SKU catalog and
-/// this business's current placement status. Deliberately does **not**
-/// start a checkout: `POST /payments/featured/checkout` is never called
-/// here -- mobile checkout is a separate, future slice. The "Buy on web
-/// dashboard" button is a real, working external-browser hand-off, not a
-/// disguised in-app purchase -- see the slice's Deep-link/copy risk note.
+/// Featured boost catalog + in-app checkout start (M-66).
 class FeaturedBoostPanel extends ConsumerStatefulWidget {
   const FeaturedBoostPanel({required this.business, super.key});
 
@@ -27,6 +21,9 @@ class _FeaturedBoostPanelState extends ConsumerState<FeaturedBoostPanel> {
   PlacementResponse? _placement;
   String? _error;
   bool _loading = true;
+  String? _busySku;
+  String? _pendingOrderId;
+  String? _pendingProvider;
 
   @override
   void initState() {
@@ -63,7 +60,31 @@ class _FeaturedBoostPanelState extends ConsumerState<FeaturedBoostPanel> {
     }
   }
 
-  Future<void> _openWebCheckout() async {
+  Future<void> _checkout(String skuCode) async {
+    setState(() {
+      _busySku = skuCode;
+      _error = null;
+    });
+    try {
+      final result = await ref.read(paymentsRepositoryProvider).checkoutFeatured(
+        businessId: widget.business.id,
+        skuCode: skuCode,
+      );
+      if (!mounted) return;
+      setState(() {
+        _pendingOrderId = result.providerOrderId;
+        _pendingProvider = result.provider;
+      });
+      await _load();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _busySku = null);
+    }
+  }
+
+  Future<void> _openWebDashboard() async {
     final uri = Uri.parse('${AppConfig.webBaseUrl}/merchant/dashboard');
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened && mounted) {
@@ -85,6 +106,12 @@ class _FeaturedBoostPanelState extends ConsumerState<FeaturedBoostPanel> {
     return 'Not currently featured';
   }
 
+  bool get _canBuy {
+    final placement = _placement;
+    if (placement == null) return true;
+    return !placement.active && placement.awaitingApproval != true;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -92,6 +119,11 @@ class _FeaturedBoostPanelState extends ConsumerState<FeaturedBoostPanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Featured boost', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 4),
+        Text(
+          'Paid search placement for a fixed period. This is not an AI quality score.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
         const SizedBox(height: 8),
         if (_loading)
           const Center(child: CircularProgressIndicator())
@@ -102,24 +134,43 @@ class _FeaturedBoostPanelState extends ConsumerState<FeaturedBoostPanel> {
         ] else ...[
           Text(_statusText, key: const Key('featuredPlacementStatus')),
           const SizedBox(height: 12),
-          for (final sku in _skus ?? const <FeaturedSku>[])
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text('₹${sku.listedPriceInr} / ${sku.durationDays} days'),
+          if (_canBuy)
+            for (final sku in _skus ?? const <FeaturedSku>[])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: FilledButton.tonal(
+                  key: Key('featuredCheckout-${sku.code}'),
+                  onPressed: _busySku == null ? () => _checkout(sku.code) : null,
+                  child: Text(
+                    _busySku == sku.code
+                        ? 'Starting...'
+                        : '₹${sku.listedPriceInr} / ${sku.durationDays} days',
+                  ),
+                ),
+              )
+          else
+            for (final sku in _skus ?? const <FeaturedSku>[])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text('₹${sku.listedPriceInr} / ${sku.durationDays} days'),
+              ),
+          if (_pendingOrderId != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _pendingProvider == 'razorpay'
+                  ? 'Order $_pendingOrderId created. Finish payment on the web dashboard — cards never go through this app.'
+                  : 'Demo order $_pendingOrderId created. An admin records the mock capture, then approves the boost. Cards never go to this app.',
+              key: const Key('featuredCheckoutPendingNote'),
             ),
-          const SizedBox(height: 8),
-          // Static explanatory copy near the tiles, not solely on the
-          // button -- the slice's central scope-leak-risk mitigation.
-          const Text(
-            'Purchase is completed on the web merchant dashboard for now.',
-            key: Key('featuredBuyOnWebNote'),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            key: const Key('openWebCheckoutButton'),
-            onPressed: _openWebCheckout,
-            child: const Text('Buy a featured boost on the web dashboard'),
-          ),
+            if (_pendingProvider == 'razorpay') ...[
+              const SizedBox(height: 8),
+              OutlinedButton(
+                key: const Key('openWebCheckoutButton'),
+                onPressed: _openWebDashboard,
+                child: const Text('Finish payment on the web dashboard'),
+              ),
+            ],
+          ],
         ],
       ],
     );
