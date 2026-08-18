@@ -45,6 +45,8 @@ async def test_mine_returns_owned_businesses(client):
             "name": "Mine Test Cafe",
             "address": "12 Main St",
             "city": "Chennai",
+            "phone": "+919876500001",
+            "email": "mine-test@example.com",
         },
     )
     assert create.status_code == 201

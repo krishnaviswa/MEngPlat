@@ -2,11 +2,13 @@ interface DashboardProps {
   title: string;
   description?: string;
   navItems: { href: string; label: string }[];
+  /** Optional extra column between nav and content, e.g. onboarding guidance. Additive — omitted call sites are unaffected. */
+  sidePanel?: React.ReactNode;
   children: React.ReactNode;
 }
 
 /** Dashboard — layout shell for merchant/admin pages with sidebar nav. */
-export function Dashboard({ title, description, navItems, children }: DashboardProps) {
+export function Dashboard({ title, description, navItems, sidePanel, children }: DashboardProps) {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6">
@@ -25,7 +27,8 @@ export function Dashboard({ title, description, navItems, children }: DashboardP
             </a>
           ))}
         </nav>
-        <div className="lg:col-span-3">{children}</div>
+        {sidePanel && <div className="lg:col-span-1">{sidePanel}</div>}
+        <div className={sidePanel ? "lg:col-span-2" : "lg:col-span-3"}>{children}</div>
       </div>
     </div>
   );

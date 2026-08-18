@@ -34,7 +34,13 @@ async def _create_business(client: AsyncClient, merchant: dict) -> str:
     create = await client.post(
         "/api/v1/businesses",
         headers=merchant["headers"],
-        json={"name": f"Photo Test Biz {uuid.uuid4().hex[:6]}", "address": "1 Main St", "city": "Chennai"},
+        json={
+            "name": f"Photo Test Biz {uuid.uuid4().hex[:6]}",
+            "address": "1 Main St",
+            "city": "Chennai",
+            "phone": "+919876500004",
+            "email": "photo-test@example.com",
+        },
     )
     assert create.status_code == 201, create.text
     return create.json()["id"]

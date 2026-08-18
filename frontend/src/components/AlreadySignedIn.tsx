@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { auth, clearTokens, performLogout } from "@/lib/api";
+import { auth, clearTokens, performLogout, roleLandingPath } from "@/lib/api";
 import type { User } from "@/lib/api";
 
 /**
@@ -53,7 +53,10 @@ export function AlreadySignedIn({ children }: { children: React.ReactNode }) {
         You&apos;re signed in as <span className="font-medium">{user.full_name}</span> ({user.role}).
       </p>
       <div className="flex justify-center gap-3">
-        <a href="/" className="rounded bg-brand-600 px-4 py-2 text-white hover:bg-brand-700">
+        <a
+          href={roleLandingPath(user.role)}
+          className="rounded bg-brand-600 px-4 py-2 text-white hover:bg-brand-700"
+        >
           Continue
         </a>
         <button onClick={handleLogout} className="rounded border px-4 py-2 hover:bg-surface">

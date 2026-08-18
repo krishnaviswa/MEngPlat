@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { LoginForm } from "@/components/LoginForm";
-import { auth, storeTokens } from "@/lib/api";
+import { auth, redirectAfterAuth } from "@/lib/api";
 
 // Stable across renders -- see RequireAuth.test.tsx for why a fresh object
 // literal per call would be a problem for hook-dependency identity.
@@ -19,15 +19,16 @@ jest.mock("../../lib/api", () => ({
     google: jest.fn(),
     phoneRequest: jest.fn(),
     phoneVerify: jest.fn(),
+    me: jest.fn(),
   },
-  storeTokens: jest.fn(),
+  redirectAfterAuth: jest.fn(),
 }));
 
 const loginMock = auth.login as jest.Mock;
 const totpSetupMock = auth.totpSetup as jest.Mock;
 const totpConfirmMock = auth.totpConfirm as jest.Mock;
 const totpVerifyMock = auth.totpVerify as jest.Mock;
-const storeTokensMock = storeTokens as jest.Mock;
+const redirectAfterAuthMock = redirectAfterAuth as jest.Mock;
 
 function fillCredentials(email = "user@example.com", password = "password123") {
   fireEvent.change(screen.getByPlaceholderText("Email"), { target: { value: email } });
@@ -71,7 +72,7 @@ describe("LoginForm", () => {
     expect(await screen.findByText("Set up authenticator")).toBeInTheDocument();
     await waitFor(() => expect(totpSetupMock).toHaveBeenCalledWith("mfa-enroll-1"));
     expect(await screen.findByText("SECRET123")).toBeInTheDocument();
-    expect(storeTokensMock).not.toHaveBeenCalled();
+    expect(redirectAfterAuthMock).not.toHaveBeenCalled();
   });
 
   // S-020 AC1: confirming enrollment with a correct first code is what
@@ -95,9 +96,8 @@ describe("LoginForm", () => {
 
     await waitFor(() => expect(totpConfirmMock).toHaveBeenCalledWith("mfa-enroll-1", "123456"));
     await waitFor(() =>
-      expect(storeTokensMock).toHaveBeenCalledWith({ access_token: "a1", refresh_token: "r1" }),
+      expect(redirectAfterAuthMock).toHaveBeenCalledWith({ access_token: "a1", refresh_token: "r1" }),
     );
-    expect(window.location.href).toBe("/");
   });
 
   // S-035: the credentials step must offer a way into the forgot-password flow.
@@ -134,9 +134,8 @@ describe("LoginForm", () => {
 
     await waitFor(() => expect(totpVerifyMock).toHaveBeenCalledWith("mfa-verify-1", "654321"));
     await waitFor(() =>
-      expect(storeTokensMock).toHaveBeenCalledWith({ access_token: "a2", refresh_token: "r2" }),
+      expect(redirectAfterAuthMock).toHaveBeenCalledWith({ access_token: "a2", refresh_token: "r2" }),
     );
-    expect(window.location.href).toBe("/");
   });
 
   // S-020 AC4: a wrong code must surface an error and must not issue tokens
@@ -154,8 +153,7 @@ describe("LoginForm", () => {
     fireEvent.click(screen.getByRole("button", { name: /verify and sign in/i }));
 
     expect(await screen.findByText("Invalid authenticator code")).toBeInTheDocument();
-    expect(storeTokensMock).not.toHaveBeenCalled();
-    expect(window.location.href).toBe("");
+    expect(redirectAfterAuthMock).not.toHaveBeenCalled();
   });
 
   // S-020 AC4: same guarantee on the enrollment-confirm path.
@@ -177,7 +175,47 @@ describe("LoginForm", () => {
     fireEvent.click(screen.getByRole("button", { name: /confirm and sign in/i }));
 
     expect(await screen.findByText("Invalid authenticator code")).toBeInTheDocument();
-    expect(storeTokensMock).not.toHaveBeenCalled();
-    expect(window.location.href).toBe("");
+    expect(redirectAfterAuthMock).not.toHaveBeenCalled();
+  });
+
+  // S-068 AC1/AC2: the login screen exposes a phone-OTP option that carries a
+  // role selector through to PhoneOtpPanel, defaulting to "customer" and
+  // mirroring RegisterForm's role choice (no "admin" option).
+  it("renders a 'Signing in as' role selector defaulting to customer, with only customer/merchant options, and passes the picked role into the phone-OTP verify call", async () => {
+    const { phoneVerify, phoneRequest } = jest.requireMock("../../lib/api").auth as {
+      phoneVerify: jest.Mock;
+      phoneRequest: jest.Mock;
+    };
+    phoneRequest.mockResolvedValue({ message: "sent" });
+    phoneVerify.mockResolvedValue({ access_token: "a", refresh_token: "r" });
+
+    render(<LoginForm />);
+
+    const roleSelect = screen.getByLabelText(/signing in as/i) as HTMLSelectElement;
+    expect(roleSelect.value).toBe("customer");
+    const optionValues = Array.from(roleSelect.options).map((o) => o.value);
+    expect(optionValues).toEqual(["customer", "merchant"]);
+
+    fireEvent.change(roleSelect, { target: { value: "merchant" } });
+
+    fireEvent.change(screen.getByLabelText(/mobile number/i), { target: { value: "9876543210" } });
+    fireEvent.click(screen.getByRole("button", { name: /send sms code/i }));
+    await waitFor(() => expect(phoneRequest).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText(/sms code/i), { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: /verify and sign in/i }));
+
+    await waitFor(() =>
+      expect(phoneVerify).toHaveBeenCalledWith(expect.objectContaining({ role: "merchant" })),
+    );
+  });
+
+  // S-068 AC5: static help copy above PhoneOtpPanel warns an existing
+  // merchant that phone sign-in only matches an already-verified number.
+  it("shows help copy above the phone panel warning phone sign-in only matches an already-verified number", () => {
+    render(<LoginForm />);
+    expect(
+      screen.getByText(/only works if you.*ve verified this exact number before/i),
+    ).toBeInTheDocument();
   });
 });

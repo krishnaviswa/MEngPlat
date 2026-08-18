@@ -482,6 +482,7 @@ erDiagram
         jsonb ai_positives
         jsonb ai_complaints
         jsonb external_platform_refs
+        int address_edit_count
     }
     categories {
         uuid id PK
@@ -554,7 +555,7 @@ erDiagram
 | `business_update_drafts` | AI-extracted profile fields (`pending`/`applied`/`discarded`) — never auto-live (**S-052**) |
 
 
-SQLAlchemy models live in a single file: `[backend/app/models/__init__.py](backend/app/models/__init__.py)`. `Business.external_platform_refs` is nullable JSONB (`{"google": "<place_id>"}` once linked; `NULL` when not).
+SQLAlchemy models live in a single file: `[backend/app/models/__init__.py](backend/app/models/__init__.py)`. `Business.external_platform_refs` is nullable JSONB (`{"google": "<place_id>"}` once linked; `NULL` when not). `Business.address_edit_count` (S-073) counts address-field edits since creation; `0` means the next address change needs no OTP, `>=1` means it does (see §7 `PATCH /businesses/{id}`).
 
 ### Relationships
 
@@ -1136,6 +1137,8 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | POST   | `/auth/google`           | Public           | Google ID-token sign-in (register-or-login; no TOTP)                                          |
 | POST   | `/auth/phone/request`    | Public           | Send SMS OTP (generic 200; mock logs the code). 400 invalid number; 503 if Redis/SMS down     |
 | POST   | `/auth/phone/verify`     | Public           | Verify OTP → JWT (skips TOTP). First visit needs `full_name`; optional `role` customer/merchant |
+| POST   | `/auth/national-id/aadhaar/mock-otp/request` | Bearer | S-070: start a MOCK Aadhaar OTP challenge (`{aadhaar_number}`, 12 digits). Not UIDAI — returns `dev_code` only when `DEBUG=true` |
+| POST   | `/auth/national-id/aadhaar/mock-otp/verify`  | Bearer | S-070: verify the mock code (`{code}`); on success saves `national_id_type=aadhaar` + the number. 401 on wrong/expired code |
 | POST   | `/auth/logout`           | Bearer           | Blocklist caller's access token (+ optional refresh token)                                    |
 
 
@@ -1182,7 +1185,8 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | GET    | `/businesses/{slug}`         | Public         | Get by slug                                                              |
 | GET    | `/businesses/{business_id}/external-reviews` | Public | Synced Google review sample, max 5, `[]` if none (**S-048**). Does not affect `average_rating` / `review_count` |
 | POST   | `/businesses`                | Merchant       | Create business (status `pending`). 400 if merchant national ID missing  |
-| PATCH  | `/businesses/{id}`           | Merchant/Admin | Update business                                                          |
+| PATCH  | `/businesses/{id}`           | Merchant/Admin | Update business. S-073: merchant edits to `address`/`city`/`state`/`postal_code` require `address_otp_code` once `address_edit_count >= 1` (400 missing, 401 wrong/expired). Admin edits bypass this gate. |
+| POST   | `/businesses/{id}/address-verify/request` | Merchant (owner) | S-073: sends an OTP to confirm a 2nd+ address edit (SMS to business phone, falling back to the merchant's own phone). 409 if no prior address edit yet, 400 if no phone is on file |
 | POST   | `/businesses/{id}/approve`   | Admin          | Approve listing                                                          |
 | POST   | `/businesses/{id}/suspend`   | Admin          | Suspend listing                                                          |
 | POST   | `/businesses/categories`     | Admin          | Create category. `409` if name or slug already exists (S-034)            |
@@ -1359,10 +1363,11 @@ Uses **Nominatim** for geocoding and **Haversine** bounding-box queries for near
 | ------ | --------------- | ------ | ------------------------------------------------- |
 | POST   | `/maps/nearby`  | Public | Approved businesses within `radius_km` of a point |
 | GET    | `/maps/geocode` | Public | Forward-geocode an address via Nominatim          |
+| GET    | `/maps/autocomplete` | Public | S-073: live address suggestions via Nominatim (`?q=`), up to 5, `[]` on no results — debounced client-side, `BusinessForm`'s live suggestion dropdown |
 | GET    | `/maps/config`  | Public | Provider config (`provider: osm`, tile URL)       |
 
 
-`GET /maps/geocode` returns `{ message, latitude?, longitude?, display_name? }`. Respect Nominatim usage policy — the merchant form geocodes on button click only, not per keystroke.
+`GET /maps/geocode` returns `{ message, latitude?, longitude?, display_name? }`. Respect Nominatim usage policy — the merchant form geocodes on button click only, not per keystroke. `GET /maps/autocomplete` returns `list[{ display_name, latitude, longitude, city?, postal_code?, state? }]` and is debounced (≥300ms, ≥3 chars) client-side for the same reason.
 
 ### Health
 

@@ -19,6 +19,9 @@ class BusinessEditorScreen extends ConsumerStatefulWidget {
   ConsumerState<BusinessEditorScreen> createState() => _BusinessEditorScreenState();
 }
 
+final _emailFormat = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+final _phoneFormat = RegExp(r'^\+?\d{7,15}$');
+
 class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
@@ -75,6 +78,14 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+            if (!widget.isEditing) ...[
+              Text(
+                '* Required field',
+                key: const Key('requiredFieldLegend'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+            ],
             TextFormField(
               key: const Key('businessNameField'),
               controller: _name,
@@ -97,8 +108,20 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
             TextFormField(controller: _state, decoration: const InputDecoration(labelText: 'State')),
             TextFormField(controller: _postal, decoration: const InputDecoration(labelText: 'Postal code')),
             TextFormField(controller: _country, decoration: const InputDecoration(labelText: 'Country')),
-            TextFormField(controller: _phone, decoration: const InputDecoration(labelText: 'Phone')),
-            TextFormField(controller: _email, decoration: const InputDecoration(labelText: 'Email')),
+            TextFormField(
+              key: const Key('businessPhoneField'),
+              controller: _phone,
+              decoration: InputDecoration(labelText: widget.isEditing ? 'Phone' : 'Phone *'),
+              keyboardType: TextInputType.phone,
+              validator: widget.isEditing ? null : _validatePhone,
+            ),
+            TextFormField(
+              key: const Key('businessEmailField'),
+              controller: _email,
+              decoration: InputDecoration(labelText: widget.isEditing ? 'Email' : 'Email *'),
+              keyboardType: TextInputType.emailAddress,
+              validator: widget.isEditing ? null : _validateEmail,
+            ),
             TextFormField(controller: _website, decoration: const InputDecoration(labelText: 'Website')),
             TextFormField(controller: _lat, decoration: const InputDecoration(labelText: 'Latitude'), keyboardType: TextInputType.number),
             TextFormField(controller: _lng, decoration: const InputDecoration(labelText: 'Longitude'), keyboardType: TextInputType.number),
@@ -230,5 +253,21 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
   String? _optional(String value) {
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
+  }
+
+  // Required only on create -- mirrors backend BusinessCreate.phone/.email
+  // (required) vs BusinessUpdate (still optional), same as web's BusinessForm.
+  String? _validatePhone(String? value) {
+    final trimmed = value?.trim() ?? '';
+    if (trimmed.isEmpty) return 'Phone number is required.';
+    if (!_phoneFormat.hasMatch(trimmed)) return 'Enter a valid phone number.';
+    return null;
+  }
+
+  String? _validateEmail(String? value) {
+    final trimmed = value?.trim() ?? '';
+    if (trimmed.isEmpty) return 'Email is required.';
+    if (!_emailFormat.hasMatch(trimmed)) return 'Enter a valid email address.';
+    return null;
   }
 }

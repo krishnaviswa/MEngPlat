@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { auth, storeTokens } from "@/lib/api";
+import { auth, redirectAfterAuth } from "@/lib/api";
 
 /** Phone OTP sign-in — skips TOTP, same as Google. Mock SMS logs the code. */
 export function PhoneOtpPanel({
@@ -18,6 +18,7 @@ export function PhoneOtpPanel({
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [roleMismatchNote, setRoleMismatchNote] = useState("");
 
   async function sendCode() {
     onError("");
@@ -34,6 +35,7 @@ export function PhoneOtpPanel({
 
   async function verify() {
     onError("");
+    setRoleMismatchNote("");
     setBusy(true);
     try {
       const tokens = await auth.phoneVerify({
@@ -42,8 +44,10 @@ export function PhoneOtpPanel({
         full_name: fullName,
         role,
       });
-      storeTokens(tokens);
-      window.location.href = "/";
+      await redirectAfterAuth(tokens, {
+        expectedRole: role,
+        onRoleMismatch: (actualRole) => setRoleMismatchNote(`Signed in as ${actualRole} — this number is already registered as a ${actualRole} account.`),
+      });
     } catch (err) {
       onError(err instanceof Error ? err.message : "Invalid code");
     } finally {
@@ -85,6 +89,11 @@ export function PhoneOtpPanel({
           className="w-full rounded border bg-surface-raised px-3 py-2.5 text-center text-lg tracking-widest"
           aria-label="SMS code"
         />
+      )}
+      {roleMismatchNote && (
+        <p className="rounded bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+          {roleMismatchNote}
+        </p>
       )}
       {!sent ? (
         <button
