@@ -213,6 +213,9 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                             ? 'No reviews in this range'
                             : '${(_stats!.replyRate! * 100).round()}%',
                         onTap: () => _scrollTo(_reviewsKey),
+                        extra: _stats?.replyRate == null
+                            ? null
+                            : _TrendDelta(current: _stats?.replyRate, previous: _stats?.replyRatePrevious, range: _range),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -221,6 +224,27 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                         key: const Key('exportCsvButton'),
                         onPressed: _exportingCsv ? null : () => _exportCsv(business.id),
                         child: Text(_exportingCsv ? 'Exporting...' : 'Export CSV'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // S-063/M-68 AC 2: a second row, not a third item crammed
+                // into the row above -- avoids repeating the narrow-width
+                // overflow class of bug S-060's Tester found elsewhere.
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatTile(
+                        key: const Key('reviewCountInRangeTile'),
+                        label: 'Reviews in this range',
+                        value: '${_stats?.reviewCountInRange ?? 0}',
+                        onTap: () => _scrollTo(_reviewsKey),
+                        extra: _TrendDelta(
+                          current: _stats?.reviewCountInRange,
+                          previous: _stats?.reviewCountPrevious,
+                          range: _range,
+                        ),
                       ),
                     ),
                   ],
@@ -389,11 +413,12 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
 }
 
 class _StatTile extends StatelessWidget {
-  const _StatTile({required this.label, required this.value, required this.onTap, super.key});
+  const _StatTile({required this.label, required this.value, required this.onTap, this.extra, super.key});
 
   final String label;
   final String value;
   final VoidCallback onTap;
+  final Widget? extra;
 
   @override
   Widget build(BuildContext context) {
@@ -411,10 +436,73 @@ class _StatTile extends StatelessWidget {
               Text(label, style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: 4),
               Text(value, style: Theme.of(context).textTheme.titleLarge),
+              ?extra,
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Period-over-period delta badge -- mobile parity for S-037's web
+/// `StatCard` trend indicator (M-68, S-063 AC 2-4). Branches on [range]
+/// first (AC 3: all-time hides the badge entirely), then on [previous]
+/// (AC 4: an undefined previous window shows an em dash, never a fabricated
+/// percentage) -- these are two textually distinct S-037 requirements that
+/// must not be collapsed into one check (S-063 Architect spec).
+class _TrendDelta extends StatelessWidget {
+  const _TrendDelta({required this.current, required this.previous, required this.range});
+
+  final num? current;
+  final num? previous;
+  final String range;
+
+  @override
+  Widget build(BuildContext context) {
+    if (range == 'all') return const SizedBox.shrink();
+
+    if (previous == null) {
+      return Text(
+        '—',
+        key: const Key('trendDeltaUndefined'),
+        semanticsLabel: 'not enough data for previous period',
+        style: Theme.of(context).textTheme.bodySmall,
+      );
+    }
+
+    // previous == 0 (a real zero, not null) is division-by-zero -- treat
+    // identically to the undefined case above, never a fabricated large
+    // percentage (S-063 Risks: not directly forced by any AC's wording).
+    final prev = previous!;
+    final cur = current ?? 0;
+    if (prev == 0) {
+      return Text(
+        '—',
+        key: const Key('trendDeltaUndefined'),
+        semanticsLabel: 'not enough data for previous period',
+        style: Theme.of(context).textTheme.bodySmall,
+      );
+    }
+
+    final delta = (cur - prev) / prev;
+    final up = delta >= 0;
+    return Row(
+      key: const Key('trendDeltaValue'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          up ? Icons.arrow_upward : Icons.arrow_downward,
+          size: 14,
+          color: up ? Colors.green : Theme.of(context).colorScheme.error,
+        ),
+        Text(
+          '${(delta.abs() * 100).round()}%',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: up ? Colors.green : Theme.of(context).colorScheme.error),
+        ),
+      ],
     );
   }
 }

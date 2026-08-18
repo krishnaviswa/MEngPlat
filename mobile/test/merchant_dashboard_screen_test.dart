@@ -344,35 +344,48 @@ void main() {
     },
   );
 
-  testWidgets('S-060 AC1/AC8: review volume chart shows empty-state copy when there is no volume data', (
+  testWidgets('S-060/S-063 AC6: review volume chart shows empty-state copy when there is no volume data', (
     tester,
   ) async {
     await _pumpDashboard(tester, mine: [_owned()], dashboardRepository: _RecordingDashboardRepository());
 
     expect(find.byKey(const Key('reviewVolumeChart')), findsOneWidget);
     expect(find.byKey(const Key('reviewVolumeChartEmpty')), findsOneWidget);
+    // AC 1/AC 6: the chart-type upgrade (bar -> line/area) must not regress
+    // S-060's empty-state behavior -- neither chart type renders at all when
+    // every month's count is zero/there's no data.
     expect(find.byType(BarChart), findsNothing);
+    expect(find.byType(LineChart), findsNothing);
   });
 
-  testWidgets('S-060 AC1: review volume chart renders bars when review_volume_by_month has data', (tester) async {
-    final stats = DashboardStats((b) => b
-      ..totalReviews = 3
-      ..averageRating = 4.5
-      ..sentimentBreakdown.addAll({'positive': 3, 'neutral': 0, 'negative': 0})
-      ..reviewVolumeByMonth.addAll([
-        JsonObject({'month': '2026-06', 'count': 1}),
-        JsonObject({'month': '2026-07', 'count': 2}),
-      ]));
+  testWidgets(
+    'S-063 AC1: review volume chart renders as a LineChart (area/line, not BarChart) when data is present',
+    (tester) async {
+      final stats = DashboardStats((b) => b
+        ..totalReviews = 3
+        ..averageRating = 4.5
+        ..sentimentBreakdown.addAll({'positive': 3, 'neutral': 0, 'negative': 0})
+        ..reviewVolumeByMonth.addAll([
+          JsonObject({'month': '2026-06', 'count': 1}),
+          JsonObject({'month': '2026-07', 'count': 2}),
+        ]));
 
-    await _pumpDashboard(
-      tester,
-      mine: [_owned()],
-      dashboardRepository: _RecordingDashboardRepository(stats: stats),
-    );
+      await _pumpDashboard(
+        tester,
+        mine: [_owned()],
+        dashboardRepository: _RecordingDashboardRepository(stats: stats),
+      );
 
-    expect(find.byKey(const Key('reviewVolumeChartEmpty')), findsNothing);
-    expect(find.byType(BarChart), findsWidgets);
-  });
+      expect(find.byKey(const Key('reviewVolumeChartEmpty')), findsNothing);
+      // S-063/M-68 AC 1: bar -> area/line upgrade of the same series. Rating
+      // distribution (unrelated, unchanged S-060 chart) has no data in this
+      // stats object either, so it renders its own empty state -- no
+      // BarChart anywhere on screen confirms the volume chart itself is no
+      // longer a BarChart, not just that *a* LineChart happens to exist.
+      expect(find.byType(LineChart), findsOneWidget);
+      expect(find.byType(BarChart), findsNothing);
+    },
+  );
 
   testWidgets('S-060 AC2/AC8: rating distribution chart shows empty-state copy when there are no ratings', (
     tester,
@@ -608,4 +621,155 @@ void main() {
     final panel = find.byKey(const Key('featuredBoostPanel'));
     expect(find.descendant(of: panel, matching: find.textContaining('SKU fetch failed')), findsOneWidget);
   });
+
+  testWidgets(
+    'S-063 AC3: "All time" range shows no delta badge at all on either tile (fully absent, not an em dash)',
+    (tester) async {
+      // Default range is 'all' -- no need to tap the selector. previous
+      // fields are null on this stats object too (matches the real backend,
+      // which nulls both *_previous fields for range=all), but AC 3 must be
+      // satisfied by the _range == 'all' short-circuit itself, not by
+      // incidentally falling through to the previous == null branch (AC 4) --
+      // that's exactly the conflation the Architect flagged in Risks.
+      final stats = DashboardStats((b) => b
+        ..totalReviews = 4
+        ..averageRating = 4.5
+        ..sentimentBreakdown.addAll({'positive': 4, 'neutral': 0, 'negative': 0})
+        ..replyRate = 0.5
+        ..reviewCountInRange = 10);
+
+      await _pumpDashboard(
+        tester,
+        mine: [_owned()],
+        dashboardRepository: _RecordingDashboardRepository(stats: stats),
+      );
+
+      expect(find.byKey(const Key('replyRateTile')), findsOneWidget);
+      expect(find.byKey(const Key('reviewCountInRangeTile')), findsOneWidget);
+      expect(find.byKey(const Key('trendDeltaUndefined')), findsNothing);
+      expect(find.byKey(const Key('trendDeltaValue')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'S-063 AC4: 30-day range with a null previous window shows an em dash badge (distinct from AC 3\'s "fully absent")',
+    (tester) async {
+      final repo = _RecordingDashboardRepository(
+        statsByRange: {
+          'all': DashboardStats((b) => b
+            ..totalReviews = 4
+            ..averageRating = 4.5
+            ..sentimentBreakdown.addAll({'positive': 4, 'neutral': 0, 'negative': 0})),
+          '30': DashboardStats((b) => b
+            ..totalReviews = 4
+            ..averageRating = 4.5
+            ..sentimentBreakdown.addAll({'positive': 4, 'neutral': 0, 'negative': 0})
+            ..replyRate = 0.5
+            ..reviewCountInRange = 3),
+          // replyRatePrevious / reviewCountPrevious intentionally left null --
+          // the "previous window had zero reviews" case.
+        },
+      );
+
+      await _pumpDashboard(tester, mine: [_owned()], dashboardRepository: repo);
+
+      await tester.tap(find.text('Last 30 days'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // AC 4: badge is present (unlike AC 3), but shows an em dash -- never a
+      // fabricated percentage.
+      expect(find.byKey(const Key('trendDeltaUndefined')), findsNWidgets(2));
+      expect(find.byKey(const Key('trendDeltaValue')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'S-063 (Architect Risks): previous == 0 (a real zero, not null) also renders an em dash, never a fabricated '
+    '"infinite"/huge percentage',
+    (tester) async {
+      final repo = _RecordingDashboardRepository(
+        statsByRange: {
+          'all': DashboardStats((b) => b
+            ..totalReviews = 4
+            ..averageRating = 4.5
+            ..sentimentBreakdown.addAll({'positive': 4, 'neutral': 0, 'negative': 0})),
+          '30': DashboardStats((b) => b
+            ..totalReviews = 4
+            ..averageRating = 4.5
+            ..sentimentBreakdown.addAll({'positive': 4, 'neutral': 0, 'negative': 0})
+            ..replyRate = 0.5
+            ..replyRatePrevious = 0
+            ..reviewCountInRange = 6
+            ..reviewCountPrevious = 0),
+        },
+      );
+
+      await _pumpDashboard(tester, mine: [_owned()], dashboardRepository: repo);
+
+      await tester.tap(find.text('Last 30 days'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.byKey(const Key('trendDeltaUndefined')), findsNWidgets(2));
+      // `trendDeltaValue` is the only widget that would ever render a
+      // percentage for a delta badge -- asserting it's entirely absent locks
+      // in "never a fabricated large/infinite percentage" without false-
+      // positiving on the tiles' own current-value text (e.g. replyRate's
+      // own "50%", which is unrelated to the delta badge).
+      expect(find.byKey(const Key('trendDeltaValue')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'S-063 AC2: delta badge shows +50% up-arrow when current > previous, and -33% down-arrow when current < previous',
+    (tester) async {
+      final repo = _RecordingDashboardRepository(
+        statsByRange: {
+          'all': DashboardStats((b) => b
+            ..totalReviews = 10
+            ..averageRating = 4.5
+            ..sentimentBreakdown.addAll({'positive': 10, 'neutral': 0, 'negative': 0})),
+          '30': DashboardStats((b) => b
+            ..totalReviews = 10
+            ..averageRating = 4.5
+            ..sentimentBreakdown.addAll({'positive': 10, 'neutral': 0, 'negative': 0})
+            // Reply rate: 15% vs previous 10% -> +50% up.
+            ..replyRate = 0.15
+            ..replyRatePrevious = 0.10
+            // Review count in range: 10 vs previous 15 -> -33% down (.round()).
+            ..reviewCountInRange = 10
+            ..reviewCountPrevious = 15),
+        },
+      );
+
+      await _pumpDashboard(tester, mine: [_owned()], dashboardRepository: repo);
+
+      await tester.tap(find.text('Last 30 days'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final replyTile = find.byKey(const Key('replyRateTile'));
+      expect(find.descendant(of: replyTile, matching: find.byKey(const Key('trendDeltaValue'))), findsOneWidget);
+      expect(find.descendant(of: replyTile, matching: find.text('50%')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: replyTile,
+          matching: find.byWidgetPredicate((w) => w is Icon && w.icon == Icons.arrow_upward),
+        ),
+        findsOneWidget,
+      );
+
+      final countTile = find.byKey(const Key('reviewCountInRangeTile'));
+      expect(find.descendant(of: countTile, matching: find.byKey(const Key('trendDeltaValue'))), findsOneWidget);
+      expect(find.descendant(of: countTile, matching: find.text('33%')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: countTile,
+          matching: find.byWidgetPredicate((w) => w is Icon && w.icon == Icons.arrow_downward),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 }

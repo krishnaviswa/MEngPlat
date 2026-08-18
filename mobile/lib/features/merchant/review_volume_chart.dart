@@ -19,9 +19,9 @@ class _VolumePoint {
   }
 }
 
-/// Review-volume-over-months bar chart -- mobile parity for S-033's web
-/// volume chart (M-61, S-060 AC 1). A plain "volume over months" chart, not
-/// M-68/S-037's future richer trend/delta treatment (kept out of scope).
+/// Review-volume-over-months area/line chart -- mobile parity for S-037's
+/// web chart upgrade (M-68, S-063 AC 1/6), rendering the same series S-060/
+/// M-61 already charted (bar -> line + area fill, not a second chart).
 class ReviewVolumeChart extends StatelessWidget {
   const ReviewVolumeChart({required this.volumeByMonth, super.key});
 
@@ -42,9 +42,8 @@ class ReviewVolumeChart extends StatelessWidget {
         else
           SizedBox(
             height: 160,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
+            child: LineChart(
+              LineChartData(
                 titlesData: FlTitlesData(
                   topTitles: const AxisTitles(),
                   rightTitles: const AxisTitles(),
@@ -64,19 +63,20 @@ class ReviewVolumeChart extends StatelessWidget {
                   ),
                 ),
                 borderData: FlBorderData(show: false),
-                barGroups: [
-                  for (var i = 0; i < points.length; i++)
-                    BarChartGroupData(
-                      x: i,
-                      barRods: [
-                        BarChartRodData(
-                          toY: points[i].count.toDouble(),
-                          color: Theme.of(context).colorScheme.primary,
-                          width: 14,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                        ),
-                      ],
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: [
+                      for (var i = 0; i < points.length; i++) FlSpot(i.toDouble(), points[i].count.toDouble()),
+                    ],
+                    isCurved: false,
+                    barWidth: 2,
+                    color: Theme.of(context).colorScheme.primary,
+                    dotData: const FlDotData(),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                     ),
+                  ),
                 ],
               ),
             ),
