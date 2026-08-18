@@ -62,6 +62,19 @@ class BusinessCard extends StatelessWidget {
                         label: Text(category, style: const TextStyle(fontSize: 12)),
                       ),
                     ),
+                  // S-062/M-66: paid, fixed-period placement fact -- not an AI
+                  // quality score. Opposite corner from the category chip,
+                  // matching web's BusinessCard.tsx (absolute right-3 top-3).
+                  if (business.isFeatured == true)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Chip(
+                        key: const Key('featuredBadge'),
+                        visualDensity: VisualDensity.compact,
+                        label: const Text('Featured', style: TextStyle(fontSize: 12)),
+                      ),
+                    ),
                 ],
               ),
             ),

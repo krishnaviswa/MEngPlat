@@ -125,6 +125,7 @@ Future<_FakeBusinessRepository> _pumpExplore(
   Object? searchError,
   GeoPoint? location,
   bool withRouter = false,
+  String initialLocation = '/businesses',
 }) async {
   final repo = _FakeBusinessRepository(businesses: businesses, searchError: searchError);
   final container = ProviderContainer(
@@ -139,7 +140,7 @@ Future<_FakeBusinessRepository> _pumpExplore(
 
   if (withRouter) {
     final router = GoRouter(
-      initialLocation: '/businesses',
+      initialLocation: initialLocation,
       routes: [
         GoRoute(
           path: '/businesses',
@@ -274,5 +275,42 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.text('DETAIL_cafe-demo'), findsOneWidget);
+  });
+
+  testWidgets('S-061 AC6: an incoming ?category= query param pre-filters the search on first frame', (tester) async {
+    final repo = await _pumpExplore(
+      tester,
+      user: _user(),
+      businesses: [_business()],
+      withRouter: true,
+      initialLocation: '/businesses?category=cafe',
+    );
+
+    expect(repo.lastQuery?.category, 'cafe');
+  });
+
+  testWidgets('no ?category= query param leaves the default (unfiltered) search untouched', (tester) async {
+    final repo = await _pumpExplore(
+      tester,
+      user: _user(),
+      businesses: [_business()],
+      withRouter: true,
+    );
+
+    expect(repo.lastQuery?.category, isNull);
+  });
+
+  testWidgets('S-062 AC2: featured disclaimer is always shown, including on empty results', (tester) async {
+    await _pumpExplore(tester, user: _user(), businesses: const []);
+    expect(find.byKey(const Key('featuredDisclaimerText')), findsOneWidget);
+    expect(
+      find.textContaining('not an AI quality score and does not mean the business is better'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('S-062 AC2: featured disclaimer is shown when results are present too', (tester) async {
+    await _pumpExplore(tester, user: _user(), businesses: [_business()]);
+    expect(find.byKey(const Key('featuredDisclaimerText')), findsOneWidget);
   });
 }

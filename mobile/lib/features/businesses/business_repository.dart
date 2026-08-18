@@ -77,6 +77,17 @@ class BusinessRepository {
     }
   }
 
+  /// Admin-only: create a new category (M-63, S-061).
+  Future<CategoryResponse> createCategory(CategoryCreate payload) async {
+    try {
+      final response =
+          await _client.api.getBusinessesApi().createCategoryApiV1BusinessesCategoriesPost(categoryCreate: payload);
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   Future<List<PhotoResponse>> listPhotos(String businessId) async {
     try {
       final response = await _client.api.getPhotosApi().listBusinessPhotosApiV1PhotosBusinessBusinessIdGet(

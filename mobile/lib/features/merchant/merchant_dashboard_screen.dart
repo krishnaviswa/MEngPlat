@@ -1,13 +1,27 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:built_collection/built_collection.dart';
+import 'package:built_value/json_object.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../reviews/review_card.dart';
 import '../reviews/review_providers.dart';
 import 'ai_insights_panel.dart';
+import 'featured_boost_panel.dart';
 import 'merchant_providers.dart';
+import 'rating_distribution_chart.dart';
+import 'review_volume_chart.dart';
 import 'sentiment_breakdown.dart';
+import 'share_review_link_sheet.dart';
+
+/// S-060/M-61: `range` values the dashboard's date filter accepts, matching
+/// the backend's `range=30|90|all` query param exactly (S-033).
+const _rangeOptions = {'30': 'Last 30 days', '90': 'Last 90 days', 'all': 'All time'};
 
 const _statusLabel = {
   BusinessStatus.pending: 'Awaiting approval',
@@ -30,6 +44,8 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
   MerchantInsightsResponse? _insights;
   String? _error;
   bool _refreshingAi = false;
+  String _range = 'all';
+  bool _exportingCsv = false;
   final _reviewsKey = GlobalKey();
   final _sentimentKey = GlobalKey();
 
@@ -167,14 +183,99 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    onPressed: () => context.push('/merchant/businesses/${business.id}/edit'),
-                    child: const Text('Edit business'),
-                  ),
+                const SizedBox(height: 16),
+                // S-060/M-61 AC 3: date-range filter -- changing it is a live
+                // refetch (not a client-side filter of the all-time payload).
+                SegmentedButton<String>(
+                  key: const Key('dashboardRangeSelector'),
+                  segments: [
+                    for (final entry in _rangeOptions.entries) ButtonSegment(value: entry.key, label: Text(entry.value)),
+                  ],
+                  selected: {_range},
+                  onSelectionChanged: (selected) {
+                    final range = selected.first;
+                    setState(() => _range = range);
+                    _loadDashboard(business.id);
+                  },
                 ),
+                const SizedBox(height: 16),
+                ReviewVolumeChart(volumeByMonth: _stats?.reviewVolumeByMonth ?? BuiltList<JsonObject>()),
+                const SizedBox(height: 16),
+                RatingDistributionChart(counts: Map<String, int>.from(_stats?.ratingDistribution.toMap() ?? {})),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatTile(
+                        key: const Key('replyRateTile'),
+                        label: 'Reply rate',
+                        value: _stats?.replyRate == null
+                            ? 'No reviews in this range'
+                            : '${(_stats!.replyRate! * 100).round()}%',
+                        onTap: () => _scrollTo(_reviewsKey),
+                        extra: _stats?.replyRate == null
+                            ? null
+                            : _TrendDelta(current: _stats?.replyRate, previous: _stats?.replyRatePrevious, range: _range),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        key: const Key('exportCsvButton'),
+                        onPressed: _exportingCsv ? null : () => _exportCsv(business.id),
+                        child: Text(_exportingCsv ? 'Exporting...' : 'Export CSV'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // S-063/M-68 AC 2: a second row, not a third item crammed
+                // into the row above -- avoids repeating the narrow-width
+                // overflow class of bug S-060's Tester found elsewhere.
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatTile(
+                        key: const Key('reviewCountInRangeTile'),
+                        label: 'Reviews in this range',
+                        value: '${_stats?.reviewCountInRange ?? 0}',
+                        onTap: () => _scrollTo(_reviewsKey),
+                        extra: _TrendDelta(
+                          current: _stats?.reviewCountInRange,
+                          previous: _stats?.reviewCountPrevious,
+                          range: _range,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Wrap, not Row: two text buttons can overflow a narrow-phone
+                // width (found via S-060's widget tests) -- wrapping to a
+                // second line beats a RenderFlex overflow.
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton(
+                      onPressed: () => context.push('/merchant/businesses/${business.id}/edit'),
+                      child: const Text('Edit business'),
+                    ),
+                    if (business.status == BusinessStatus.approved)
+                      TextButton(
+                        key: const Key('shareReviewLinkButton'),
+                        onPressed: () => ShareReviewLinkSheet.show(
+                          context,
+                          businessName: business.name,
+                          slug: business.slug,
+                        ),
+                        child: const Text('Share review link'),
+                      ),
+                  ],
+                ),
+                if (business.status == BusinessStatus.approved) ...[
+                  const SizedBox(height: 16),
+                  FeaturedBoostPanel(business: business),
+                ],
                 const SizedBox(height: 8),
                 KeyedSubtree(
                   key: _sentimentKey,
@@ -226,7 +327,7 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
     setState(() => _error = null);
     try {
       final repo = ref.read(dashboardRepositoryProvider);
-      final stats = await repo.merchantStats(businessId);
+      final stats = await repo.merchantStats(businessId, range: _range);
       MerchantInsightsResponse? insights;
       try {
         insights = await repo.insights(businessId);
@@ -258,6 +359,37 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
     }
   }
 
+  /// S-060/M-61 AC 6: fetches this business's reviews as CSV and hands it to
+  /// the native share sheet -- mobile's equivalent of web's browser
+  /// download. Own-business-only is enforced by the existing, unmodified
+  /// backend ownership check; a 403 (or any failure) surfaces through the
+  /// same `_error` pattern used elsewhere on this screen, never a silent
+  /// empty file.
+  Future<void> _exportCsv(String businessId) async {
+    setState(() => _exportingCsv = true);
+    try {
+      final csv = await ref.read(dashboardRepositoryProvider).reviewsCsv(businessId, range: _range);
+      final bytes = Uint8List.fromList(utf8.encode(csv));
+      final fileName = 'reviews-$businessId-$_range.csv';
+      await SharePlus.instance.share(
+        ShareParams(
+          // `XFile.fromData`'s own `name` parameter is documented as ignored
+          // on every non-web platform (cross_file's io implementation derives
+          // `name` from `path`, which is empty here) -- `fileNameOverrides`
+          // is `share_plus`'s own documented workaround for exactly this,
+          // confirmed by widget-test assertion on the shared file's name.
+          files: [XFile.fromData(bytes, name: fileName, mimeType: 'text/csv')],
+          fileNameOverrides: [fileName],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _exportingCsv = false);
+    }
+  }
+
   Future<void> _postReply(String reviewId, String body) async {
     final reply = await ref.read(reviewRepositoryProvider).replyToReview(reviewId: reviewId, body: body);
     if (!mounted) return;
@@ -281,11 +413,12 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
 }
 
 class _StatTile extends StatelessWidget {
-  const _StatTile({required this.label, required this.value, required this.onTap, super.key});
+  const _StatTile({required this.label, required this.value, required this.onTap, this.extra, super.key});
 
   final String label;
   final String value;
   final VoidCallback onTap;
+  final Widget? extra;
 
   @override
   Widget build(BuildContext context) {
@@ -303,10 +436,73 @@ class _StatTile extends StatelessWidget {
               Text(label, style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: 4),
               Text(value, style: Theme.of(context).textTheme.titleLarge),
+              ?extra,
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Period-over-period delta badge -- mobile parity for S-037's web
+/// `StatCard` trend indicator (M-68, S-063 AC 2-4). Branches on [range]
+/// first (AC 3: all-time hides the badge entirely), then on [previous]
+/// (AC 4: an undefined previous window shows an em dash, never a fabricated
+/// percentage) -- these are two textually distinct S-037 requirements that
+/// must not be collapsed into one check (S-063 Architect spec).
+class _TrendDelta extends StatelessWidget {
+  const _TrendDelta({required this.current, required this.previous, required this.range});
+
+  final num? current;
+  final num? previous;
+  final String range;
+
+  @override
+  Widget build(BuildContext context) {
+    if (range == 'all') return const SizedBox.shrink();
+
+    if (previous == null) {
+      return Text(
+        '—',
+        key: const Key('trendDeltaUndefined'),
+        semanticsLabel: 'not enough data for previous period',
+        style: Theme.of(context).textTheme.bodySmall,
+      );
+    }
+
+    // previous == 0 (a real zero, not null) is division-by-zero -- treat
+    // identically to the undefined case above, never a fabricated large
+    // percentage (S-063 Risks: not directly forced by any AC's wording).
+    final prev = previous!;
+    final cur = current ?? 0;
+    if (prev == 0) {
+      return Text(
+        '—',
+        key: const Key('trendDeltaUndefined'),
+        semanticsLabel: 'not enough data for previous period',
+        style: Theme.of(context).textTheme.bodySmall,
+      );
+    }
+
+    final delta = (cur - prev) / prev;
+    final up = delta >= 0;
+    return Row(
+      key: const Key('trendDeltaValue'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          up ? Icons.arrow_upward : Icons.arrow_downward,
+          size: 14,
+          color: up ? Colors.green : Theme.of(context).colorScheme.error,
+        ),
+        Text(
+          '${(delta.abs() * 100).round()}%',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: up ? Colors.green : Theme.of(context).colorScheme.error),
+        ),
+      ],
     );
   }
 }
