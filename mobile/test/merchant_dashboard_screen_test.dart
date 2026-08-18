@@ -13,6 +13,7 @@ import 'package:merchanthub_mobile/features/businesses/business_repository.dart'
 import 'package:merchanthub_mobile/features/merchant/dashboard_repository.dart';
 import 'package:merchanthub_mobile/features/merchant/merchant_dashboard_screen.dart';
 import 'package:merchanthub_mobile/features/merchant/merchant_providers.dart';
+import 'package:merchanthub_mobile/features/merchant/payments_repository.dart';
 import 'package:share_plus_platform_interface/share_plus_platform_interface.dart';
 
 UserResponse _merchant() => UserResponse((b) => b
@@ -137,10 +138,86 @@ class _FakeSharePlatform extends SharePlatform {
   }
 }
 
+List<FeaturedSku> _defaultSkus() => [
+      FeaturedSku((b) => b
+        ..code = 'featured_7d'
+        ..durationDays = 7
+        ..listedPriceInr = 299),
+      FeaturedSku((b) => b
+        ..code = 'featured_15d'
+        ..durationDays = 15
+        ..listedPriceInr = 499),
+      FeaturedSku((b) => b
+        ..code = 'featured_30d'
+        ..durationDays = 30
+        ..listedPriceInr = 899),
+    ];
+
+PlacementResponse _notFeaturedPlacement({String businessId = 'biz-1'}) => PlacementResponse((b) => b
+  ..businessId = businessId
+  ..active = false
+  ..awaitingApproval = false
+  ..sku.replace(_defaultSkus().first));
+
+PlacementResponse _activePlacement({String businessId = 'biz-1', required DateTime endsAt}) =>
+    PlacementResponse((b) => b
+      ..businessId = businessId
+      ..active = true
+      ..awaitingApproval = false
+      ..sku.replace(_defaultSkus().first)
+      ..placement.replace(PlacementWindow((p) => p
+        ..id = 'placement-1'
+        ..startsAt = endsAt.subtract(const Duration(days: 7))
+        ..endsAt = endsAt
+        ..paymentId = 'payment-1')));
+
+PlacementResponse _awaitingApprovalPlacement({String businessId = 'biz-1'}) => PlacementResponse((b) => b
+  ..businessId = businessId
+  ..active = false
+  ..awaitingApproval = true
+  ..sku.replace(_defaultSkus().first));
+
+/// S-062/M-66: `PaymentsRepository` fake -- default is the "never featured"
+/// state so pre-existing S-060/S-059 tests that render an approved business
+/// (and therefore build `FeaturedBoostPanel`) don't hit a real,
+/// never-resolving `ApiClient()` network call. Overriding this is what
+/// fixed a real `pumpAndSettle` hang introduced when the panel was wired in
+/// with no test-provider override (see TR-S-062).
+class _FakePaymentsRepository extends PaymentsRepository {
+  _FakePaymentsRepository({
+    List<FeaturedSku>? skus,
+    PlacementResponse? placement,
+    this.skusError,
+    this.placementError,
+  })  : skus = skus ?? _defaultSkus(),
+        _placementResponse = placement ?? _notFeaturedPlacement(),
+        super(ApiClient());
+
+  final List<FeaturedSku> skus;
+  final PlacementResponse _placementResponse;
+  final Object? skusError;
+  final Object? placementError;
+
+  @override
+  Future<List<FeaturedSku>> featuredSkus() async {
+    final error = skusError;
+    if (error != null) throw error;
+    return skus;
+  }
+
+  @override
+  Future<PlacementResponse> placement(String businessId) async {
+    final error = placementError;
+    if (error != null) throw error;
+    return _placementResponse;
+  }
+}
+
 Future<void> _pumpDashboard(
   WidgetTester tester, {
   List<BusinessResponse> mine = const [],
   DashboardRepository? dashboardRepository,
+  PaymentsRepository? paymentsRepository,
 }) async {
   // S-060 added a range selector + two fl_chart sections + a reply-rate/CSV
   // row to this screen's ListView -- the default 800x600 test surface is
@@ -155,6 +232,7 @@ Future<void> _pumpDashboard(
       authControllerProvider.overrideWith(_FakeAuthController.new),
       businessRepositoryProvider.overrideWithValue(_FakeBusinessRepository(mine)),
       dashboardRepositoryProvider.overrideWithValue(dashboardRepository ?? _FakeDashboardRepository()),
+      paymentsRepositoryProvider.overrideWithValue(paymentsRepository ?? _FakePaymentsRepository()),
     ],
   );
   addTearDown(container.dispose);
@@ -418,5 +496,116 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.textContaining('403: not your business'), findsOneWidget);
+  });
+
+  testWidgets(
+    'S-062 AC1: featured boost panel renders live SKU prices/durations and a static web-handoff note',
+    (tester) async {
+      await _pumpDashboard(tester, mine: [_owned()]);
+
+      expect(find.byKey(const Key('featuredBoostPanel')), findsOneWidget);
+      expect(find.text('₹299 / 7 days'), findsOneWidget);
+      expect(find.text('₹499 / 15 days'), findsOneWidget);
+      expect(find.text('₹899 / 30 days'), findsOneWidget);
+      // Risk mitigation the Architect explicitly called out: static
+      // explanatory copy near the SKU tiles, not solely the button label.
+      expect(find.byKey(const Key('featuredBuyOnWebNote')), findsOneWidget);
+      expect(find.textContaining('web'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'S-062 AC1/AC8 (risk note): "Buy on web" button copy is an honest hand-off, never "Buy now"/"Start checkout"',
+    (tester) async {
+      await _pumpDashboard(tester, mine: [_owned()]);
+
+      final button = find.byKey(const Key('openWebCheckoutButton'));
+      expect(button, findsOneWidget);
+      final label = tester.widget<OutlinedButton>(button).child! as Text;
+      expect(label.data, contains('web dashboard'));
+      expect(label.data, isNot(contains('Buy now')));
+      expect(label.data, isNot(contains('Start checkout')));
+      expect(find.byKey(const Key('featuredBuyOnWebNote')), findsOneWidget);
+      final note = tester.widget<Text>(find.byKey(const Key('featuredBuyOnWebNote')));
+      expect(note.data, contains('web'));
+    },
+  );
+
+  testWidgets('S-062 AC3: placement status shows "Active until <expiry>" when a placement is active', (
+    tester,
+  ) async {
+    final endsAt = DateTime.utc(2026, 9, 1, 12);
+    await _pumpDashboard(
+      tester,
+      mine: [_owned()],
+      paymentsRepository: _FakePaymentsRepository(placement: _activePlacement(endsAt: endsAt)),
+    );
+
+    final status = find.byKey(const Key('featuredPlacementStatus'));
+    expect(status, findsOneWidget);
+    expect(tester.widget<Text>(status).data, contains('Active until'));
+  });
+
+  testWidgets(
+    'S-062 AC4/S-042: a captured-but-unapproved payment shows "awaiting admin approval", never "Active until"',
+    (tester) async {
+      await _pumpDashboard(
+        tester,
+        mine: [_owned()],
+        paymentsRepository: _FakePaymentsRepository(placement: _awaitingApprovalPlacement()),
+      );
+
+      final status = find.byKey(const Key('featuredPlacementStatus'));
+      expect(status, findsOneWidget);
+      final data = tester.widget<Text>(status).data;
+      expect(data, 'Payment received — awaiting admin approval');
+      expect(data, isNot(contains('Active until')));
+    },
+  );
+
+  testWidgets('S-062 AC4: no active or pending placement shows "Not currently featured"', (tester) async {
+    await _pumpDashboard(
+      tester,
+      mine: [_owned()],
+      paymentsRepository: _FakePaymentsRepository(placement: _notFeaturedPlacement()),
+    );
+
+    final status = find.byKey(const Key('featuredPlacementStatus'));
+    expect(tester.widget<Text>(status).data, 'Not currently featured');
+  });
+
+  testWidgets('S-062 AC10: featured boost panel is not shown for a pending (not-yet-approved) business', (
+    tester,
+  ) async {
+    await _pumpDashboard(tester, mine: [_owned(status: BusinessStatus.pending)]);
+
+    expect(find.byKey(const Key('featuredBoostPanel')), findsNothing);
+  });
+
+  testWidgets('S-062: a placement-fetch failure surfaces the panel\'s own error/retry, not a silent blank panel', (
+    tester,
+  ) async {
+    await _pumpDashboard(
+      tester,
+      mine: [_owned()],
+      paymentsRepository: _FakePaymentsRepository(placementError: Exception('Network error')),
+    );
+
+    final panel = find.byKey(const Key('featuredBoostPanel'));
+    expect(panel, findsOneWidget);
+    expect(find.descendant(of: panel, matching: find.textContaining('Network error')), findsOneWidget);
+    expect(find.descendant(of: panel, matching: find.widgetWithText(OutlinedButton, 'Retry')), findsOneWidget);
+    expect(find.byKey(const Key('featuredPlacementStatus')), findsNothing);
+  });
+
+  testWidgets('S-062: a SKU-catalog fetch failure also surfaces the panel\'s error/retry pattern', (tester) async {
+    await _pumpDashboard(
+      tester,
+      mine: [_owned()],
+      paymentsRepository: _FakePaymentsRepository(skusError: Exception('SKU fetch failed')),
+    );
+
+    final panel = find.byKey(const Key('featuredBoostPanel'));
+    expect(find.descendant(of: panel, matching: find.textContaining('SKU fetch failed')), findsOneWidget);
   });
 }

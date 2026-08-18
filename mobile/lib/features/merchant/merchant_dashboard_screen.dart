@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import '../reviews/review_card.dart';
 import '../reviews/review_providers.dart';
 import 'ai_insights_panel.dart';
+import 'featured_boost_panel.dart';
 import 'merchant_providers.dart';
 import 'rating_distribution_chart.dart';
 import 'review_volume_chart.dart';
@@ -247,6 +248,10 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                       ),
                   ],
                 ),
+                if (business.status == BusinessStatus.approved) ...[
+                  const SizedBox(height: 16),
+                  FeaturedBoostPanel(business: business),
+                ],
                 const SizedBox(height: 8),
                 KeyedSubtree(
                   key: _sentimentKey,

@@ -4,9 +4,14 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 import '../auth/auth_provider.dart';
 import '../businesses/business_list_provider.dart';
 import 'dashboard_repository.dart';
+import 'payments_repository.dart';
 
 final dashboardRepositoryProvider = Provider<DashboardRepository>(
   (ref) => DashboardRepository(ref.watch(apiClientProvider)),
+);
+
+final paymentsRepositoryProvider = Provider<PaymentsRepository>(
+  (ref) => PaymentsRepository(ref.watch(apiClientProvider)),
 );
 
 final ownedBusinessesProvider = FutureProvider.autoDispose<List<BusinessResponse>>((ref) async {

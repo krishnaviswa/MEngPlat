@@ -141,6 +141,18 @@ class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
+          // S-062/M-66 AC 2: always shown, not gated on any result being
+          // featured -- avoids a layout shift on scroll, matches web's
+          // unconditional placement (search/page.tsx).
+          Padding(
+            key: const Key('featuredDisclaimerText'),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Text(
+              'Listings marked Featured paid for a fixed-period search boost (7, 15, or 30 days) — '
+              'that is not an AI quality score and does not mean the business is better.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
           Expanded(
             child: search.when(
               loading: () => const Center(child: CircularProgressIndicator()),

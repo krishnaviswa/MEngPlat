@@ -299,4 +299,18 @@ void main() {
 
     expect(repo.lastQuery?.category, isNull);
   });
+
+  testWidgets('S-062 AC2: featured disclaimer is always shown, including on empty results', (tester) async {
+    await _pumpExplore(tester, user: _user(), businesses: const []);
+    expect(find.byKey(const Key('featuredDisclaimerText')), findsOneWidget);
+    expect(
+      find.textContaining('not an AI quality score and does not mean the business is better'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('S-062 AC2: featured disclaimer is shown when results are present too', (tester) async {
+    await _pumpExplore(tester, user: _user(), businesses: [_business()]);
+    expect(find.byKey(const Key('featuredDisclaimerText')), findsOneWidget);
+  });
 }
