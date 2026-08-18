@@ -289,6 +289,30 @@ void main() {
     expect(repo.lastQuery?.category, 'cafe');
   });
 
+  testWidgets('S-064: an incoming ?city= query param pre-filters Explore on first frame', (tester) async {
+    final repo = await _pumpExplore(
+      tester,
+      user: _user(),
+      businesses: [_business()],
+      withRouter: true,
+      initialLocation: '/businesses?city=Springfield',
+    );
+
+    expect(repo.lastQuery?.city, 'Springfield');
+  });
+
+  testWidgets('S-064: an incoming ?q= query param pre-filters Explore on first frame', (tester) async {
+    final repo = await _pumpExplore(
+      tester,
+      user: _user(),
+      businesses: [_business()],
+      withRouter: true,
+      initialLocation: '/businesses?q=cafe',
+    );
+
+    expect(repo.lastQuery?.q, 'cafe');
+  });
+
   testWidgets('no ?category= query param leaves the default (unfiltered) search untouched', (tester) async {
     final repo = await _pumpExplore(
       tester,

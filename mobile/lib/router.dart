@@ -18,6 +18,7 @@ import 'features/auth/register_screen.dart';
 import 'features/businesses/business_detail_screen.dart';
 import 'features/businesses/business_list_screen.dart';
 import 'features/favorites/favorites_screen.dart';
+import 'features/home/home_screen.dart';
 import 'features/merchant/business_editor_screen.dart';
 import 'features/merchant/merchant_dashboard_screen.dart';
 import 'features/notifications/notifications_screen.dart';
@@ -71,6 +72,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         navigatorKey: shellNavigatorKey,
         builder: (context, state, child) => AppShell(child: child),
         routes: [
+          GoRoute(
+            path: '/home',
+            builder: (context, state) => const HomeScreen(),
+          ),
           GoRoute(
             path: '/businesses',
             builder: (context, state) => const BusinessListScreen(),
@@ -135,6 +140,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       // reachable without a session. Shell chrome on `/businesses` is fine
       // for guests; every other shell route stays auth-gated (ADR-005).
       final isPublicBusinessRoute = loc == '/businesses' || loc.startsWith('/businesses/');
+      // S-064/Tier 5: marketing home is public, same carve-out shape as
+      // Explore. Signed-in shells do not show a Home tab for this route.
+      final isPublicHomeRoute = loc == '/home';
       // S-059/M-71: the review-collection landing view is ungated too --
       // only submitting from it (handled in the screen itself) requires a
       // session, same "view is public, action is gated" shape as above.
@@ -145,6 +153,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           !isOnRegister &&
           !isOnForgotPassword &&
           !isPublicBusinessRoute &&
+          !isPublicHomeRoute &&
           !isPublicCollectRoute) {
         return '/login';
       }
