@@ -12,12 +12,15 @@ import 'package:share_plus/share_plus.dart';
 import '../reviews/review_card.dart';
 import '../reviews/review_providers.dart';
 import 'ai_insights_panel.dart';
+import 'benchmark_card.dart';
 import 'featured_boost_panel.dart';
+import 'google_reviews_panel.dart';
 import 'merchant_providers.dart';
 import 'rating_distribution_chart.dart';
 import 'review_volume_chart.dart';
 import 'sentiment_breakdown.dart';
 import 'share_review_link_sheet.dart';
+import 'whatsapp_update_panel.dart';
 
 /// S-060/M-61: `range` values the dashboard's date filter accepts, matching
 /// the backend's `range=30|90|all` query param exactly (S-033).
@@ -42,6 +45,8 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
   String? _selectedId;
   DashboardStats? _stats;
   MerchantInsightsResponse? _insights;
+  BenchmarkResponse? _benchmark;
+  TopicClusterResponse? _topics;
   String? _error;
   bool _refreshingAi = false;
   String _range = 'all';
@@ -133,6 +138,8 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                         _selectedId = id;
                         _stats = null;
                         _insights = null;
+                        _benchmark = null;
+                        _topics = null;
                         _error = null;
                       });
                     },
@@ -275,12 +282,20 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                 if (business.status == BusinessStatus.approved) ...[
                   const SizedBox(height: 16),
                   FeaturedBoostPanel(business: business),
+                  const SizedBox(height: 16),
+                  GoogleReviewsPanel(business: business),
+                  const SizedBox(height: 16),
+                  WhatsAppUpdatePanel(business: business),
                 ],
                 const SizedBox(height: 8),
                 KeyedSubtree(
                   key: _sentimentKey,
                   child: SentimentBreakdown(counts: Map<String, int>.from(_stats?.sentimentBreakdown.toMap() ?? {})),
                 ),
+                if (_benchmark != null) ...[
+                  const SizedBox(height: 16),
+                  BenchmarkCard(benchmark: _benchmark!),
+                ],
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -293,7 +308,7 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                   ],
                 ),
                 const SizedBox(height: 8),
-                if (_insights != null) AiInsightsPanel(insights: _insights!),
+                if (_insights != null) AiInsightsPanel(insights: _insights!, topics: _topics),
                 const SizedBox(height: 16),
                 KeyedSubtree(
                   key: _reviewsKey,
@@ -329,15 +344,29 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
       final repo = ref.read(dashboardRepositoryProvider);
       final stats = await repo.merchantStats(businessId, range: _range);
       MerchantInsightsResponse? insights;
+      BenchmarkResponse? benchmark;
+      TopicClusterResponse? topics;
       try {
         insights = await repo.insights(businessId);
       } catch (_) {
         insights = null;
       }
+      try {
+        benchmark = await repo.benchmark(businessId);
+      } catch (_) {
+        benchmark = null;
+      }
+      try {
+        topics = await repo.topicClusters(businessId);
+      } catch (_) {
+        topics = null;
+      }
       if (!mounted) return;
       setState(() {
         _stats = stats;
         _insights = insights;
+        _benchmark = benchmark;
+        _topics = topics;
       });
     } catch (error) {
       if (!mounted) return;

@@ -14,6 +14,7 @@ import '../reviews/review_form_sheet.dart';
 import '../reviews/review_providers.dart';
 import 'business_hours.dart';
 import 'business_list_provider.dart';
+import 'external_reviews_section.dart';
 import 'maps_config.dart';
 import 'osm_map_view.dart';
 import 'photo_gallery.dart';
@@ -161,6 +162,7 @@ class _BusinessDetailBodyState extends ConsumerState<_BusinessDetailBody> {
                   _HoursBlock(business: business),
                   _GalleryBlock(business: business),
                   _DetailMap(business: business),
+                  _ExternalReviewsBlock(businessId: business.id),
                   if (showAddReview) ...[
                     const SizedBox(height: 16),
                     FilledButton.icon(
@@ -287,6 +289,22 @@ String _placeLine(BusinessResponse business) {
     business.state,
     business.postalCode,
   ].whereType<String>().where((s) => s.isNotEmpty).join(', ');
+}
+
+class _ExternalReviewsBlock extends ConsumerWidget {
+  const _ExternalReviewsBlock({required this.businessId});
+
+  final String businessId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reviewsAsync = ref.watch(externalReviewsProvider(businessId));
+    return reviewsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (reviews) => ExternalReviewsSection(reviews: reviews),
+    );
+  }
 }
 
 class _AiOverview extends StatelessWidget {

@@ -13,7 +13,6 @@ from app.models import (
     Business,
     BusinessStatus,
     Merchant,
-    Notification,
     NotificationType,
     Photo,
     Reply,
@@ -43,6 +42,7 @@ from app.services.business_service import (
 )
 from app.services.cache import cache_delete_pattern
 from app.services.email import try_send_new_review
+from app.services.notifications import SCENARIO_NEW_REVIEW, upsert_notice
 
 router = APIRouter(prefix="/reviews", tags=["Reviews"])
 
@@ -215,14 +215,14 @@ async def create_review(
     merchant_result = await db.execute(select(Merchant).where(Merchant.id == business.merchant_id))
     merchant = merchant_result.scalar_one_or_none()
     if merchant:
-        db.add(
-            Notification(
-                user_id=merchant.user_id,
-                type=NotificationType.REVIEW,
-                title="New review received",
-                message=f"New {payload.rating}-star review on {business.name}",
-                extra_data={"review_id": str(review.id), "business_id": str(business.id)},
-            )
+        await upsert_notice(
+            db,
+            user_id=merchant.user_id,
+            scenario=SCENARIO_NEW_REVIEW,
+            ntype=NotificationType.REVIEW,
+            title="New review received",
+            message=f"New {payload.rating}-star review on {business.name}",
+            extra_data={"review_id": str(review.id), "business_id": str(business.id)},
         )
         merchant_user = await db.get(User, merchant.user_id)
         if merchant_user:

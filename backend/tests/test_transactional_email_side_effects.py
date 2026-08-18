@@ -58,11 +58,12 @@ def _clause_matches(obj, clause) -> bool:
 
 
 class FakeDB:
-    def __init__(self, *, businesses=None, merchants=None, users=None, reviews=None):
+    def __init__(self, *, businesses=None, merchants=None, users=None, reviews=None, notifications=None):
         self.businesses = list(businesses or [])
         self.merchants = list(merchants or [])
         self.users = list(users or [])
         self.reviews = list(reviews or [])
+        self.notifications = list(notifications or [])
         self.added: list[object] = []
 
     def _table_for(self, model):
@@ -71,6 +72,7 @@ class FakeDB:
             Merchant: self.merchants,
             User: self.users,
             Review: self.reviews,
+            Notification: self.notifications,
         }.get(model, [])
 
     async def get(self, model, id_, options=None):
@@ -87,6 +89,8 @@ class FakeDB:
         self.added.append(obj)
         if isinstance(obj, Review):
             self.reviews.append(obj)
+        if isinstance(obj, Notification):
+            self.notifications.append(obj)
 
     async def flush(self):
         for obj in self.added:

@@ -20,7 +20,6 @@ from app.models import (
     BusinessUpdateDraft,
     DraftStatus,
     Merchant,
-    Notification,
     NotificationType,
     User,
     WhatsAppSession,
@@ -28,6 +27,11 @@ from app.models import (
 from app.services.ai import get_ai_provider
 from app.services.cache import cache_delete_pattern
 from app.services.email import try_send_whatsapp_draft_approved
+from app.services.notifications import (
+    SCENARIO_WHATSAPP_APPLIED,
+    SCENARIO_WHATSAPP_REJECTED,
+    upsert_notice,
+)
 from app.services.photo_service import ALLOWED_CONTENT_TYPES, save_business_photo
 from app.services.whatsapp import get_whatsapp_provider
 from app.services.whatsapp.base import InboundMessage
@@ -143,14 +147,14 @@ async def admin_approve_draft(
     merchant_result = await db.execute(select(Merchant).where(Merchant.id == business.merchant_id))
     merchant = merchant_result.scalar_one_or_none()
     if merchant:
-        db.add(
-            Notification(
-                user_id=merchant.user_id,
-                type=NotificationType.APPROVAL,
-                title="WhatsApp update applied",
-                message=f"Your WhatsApp suggestion for {business.name} was approved and is now live.",
-                extra_data={"business_id": str(business.id), "draft_id": str(draft.id)},
-            )
+        await upsert_notice(
+            db,
+            user_id=merchant.user_id,
+            scenario=SCENARIO_WHATSAPP_APPLIED,
+            ntype=NotificationType.APPROVAL,
+            title="WhatsApp update applied",
+            message=f"Your WhatsApp suggestion for {business.name} was approved and is now live.",
+            extra_data={"business_id": str(business.id), "draft_id": str(draft.id)},
         )
         merchant_user = await db.get(User, merchant.user_id)
         if merchant_user and merchant_user.email:
@@ -180,14 +184,14 @@ async def admin_reject_draft(db: AsyncSession, draft_id: UUID, admin_id: UUID) -
         merchant_result = await db.execute(select(Merchant).where(Merchant.id == business.merchant_id))
         merchant = merchant_result.scalar_one_or_none()
         if merchant:
-            db.add(
-                Notification(
-                    user_id=merchant.user_id,
-                    type=NotificationType.SYSTEM,
-                    title="WhatsApp suggestion not applied",
-                    message=f"Your WhatsApp suggestion for {business.name} was reviewed and not applied.",
-                    extra_data={"business_id": str(business.id), "draft_id": str(draft.id)},
-                )
+            await upsert_notice(
+                db,
+                user_id=merchant.user_id,
+                scenario=SCENARIO_WHATSAPP_REJECTED,
+                ntype=NotificationType.SYSTEM,
+                title="WhatsApp suggestion not applied",
+                message=f"Your WhatsApp suggestion for {business.name} was reviewed and not applied.",
+                extra_data={"business_id": str(business.id), "draft_id": str(draft.id)},
             )
 
     await db.flush()

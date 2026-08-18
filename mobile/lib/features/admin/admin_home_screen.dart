@@ -87,6 +87,12 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                     icon: const Icon(Icons.category_outlined),
                     label: const Text('Manage categories'),
                   ),
+                  TextButton.icon(
+                    key: const Key('manageWhatsAppDraftsButton'),
+                    onPressed: () => context.push('/admin/whatsapp'),
+                    icon: const Icon(Icons.chat_outlined),
+                    label: const Text('WhatsApp drafts'),
+                  ),
                   const SizedBox(height: 24),
                   Text('Pending businesses', style: Theme.of(context).textTheme.titleMedium),
                   if (_pending.isEmpty)

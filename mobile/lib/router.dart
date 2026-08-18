@@ -10,6 +10,7 @@ import 'features/admin/admin_categories_screen.dart';
 import 'features/admin/admin_home_screen.dart';
 import 'features/admin/admin_reviews_screen.dart';
 import 'features/admin/admin_users_screen.dart';
+import 'features/admin/admin_whatsapp_queue_screen.dart';
 import 'features/auth/auth_provider.dart';
 import 'features/auth/forgot_password_screen.dart';
 import 'features/auth/login_screen.dart';
@@ -121,6 +122,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               // free role-gate inheritance from the parent /admin redirect.
               GoRoute(path: 'categories', builder: (context, state) => const AdminCategoriesScreen()),
               GoRoute(path: 'users', builder: (context, state) => const AdminUsersScreen()),
+              GoRoute(path: 'whatsapp', builder: (context, state) => const AdminWhatsAppQueueScreen()),
             ],
           ),
         ],

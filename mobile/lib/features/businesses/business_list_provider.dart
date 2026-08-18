@@ -34,6 +34,10 @@ final businessDetailProvider = FutureProvider.autoDispose.family<BusinessRespons
   return ref.watch(businessRepositoryProvider).getBySlug(slug);
 });
 
+final externalReviewsProvider = FutureProvider.autoDispose.family<List<ExternalReviewResponse>, String>((ref, businessId) {
+  return ref.watch(businessRepositoryProvider).listExternalReviews(businessId);
+});
+
 /// IDs of businesses owned by the current user, empty for non-merchants (or
 /// while logged out). Used client-side to hide "Add review" on a merchant's
 /// own business (S-023 AC12) -- not a new endpoint, just `GET /businesses/mine`

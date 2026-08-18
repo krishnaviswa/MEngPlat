@@ -14,7 +14,6 @@ from app.models import (
     BusinessStatus,
     Category,
     Merchant,
-    Notification,
     NotificationType,
     Review,
     ReviewStatus,
@@ -34,6 +33,7 @@ from app.schemas import (
 from app.services import review_sync_service
 from app.services.cache import cache_delete_pattern
 from app.services.email import try_send_listing_approved
+from app.services.notifications import SCENARIO_LISTING_APPROVED, upsert_notice
 from app.services.payments.featured import load_active_featured_ends
 
 router = APIRouter(prefix="/businesses", tags=["Businesses"])
@@ -335,14 +335,14 @@ async def approve_business(
     merchant_result = await db.execute(select(Merchant).where(Merchant.id == business.merchant_id))
     merchant = merchant_result.scalar_one_or_none()
     if merchant:
-        db.add(
-            Notification(
-                user_id=merchant.user_id,
-                type=NotificationType.APPROVAL,
-                title="Listing approved",
-                message=f"{business.name} has been approved and is now live",
-                extra_data={"business_id": str(business.id)},
-            )
+        await upsert_notice(
+            db,
+            user_id=merchant.user_id,
+            scenario=SCENARIO_LISTING_APPROVED,
+            ntype=NotificationType.APPROVAL,
+            title="Listing approved",
+            message=f"{business.name} has been approved and is now live",
+            extra_data={"business_id": str(business.id)},
         )
         merchant_user = await db.get(User, merchant.user_id)
         if merchant_user:

@@ -103,12 +103,14 @@ class _FakeBusinessRepository extends BusinessRepository {
     this.mine = const [],
     this.detailError,
     this.photos = const [],
+    this.externalReviews = const [],
   }) : super(ApiClient());
 
   final BusinessResponse? business;
   final List<BusinessResponse> mine;
   final Object? detailError;
   final List<PhotoResponse> photos;
+  final List<ExternalReviewResponse> externalReviews;
 
   @override
   Future<BusinessResponse> getBySlug(String slug) async {
@@ -125,6 +127,9 @@ class _FakeBusinessRepository extends BusinessRepository {
 
   @override
   Future<MapsConfig> mapsConfig() async => MapsConfig.fallback;
+
+  @override
+  Future<List<ExternalReviewResponse>> listExternalReviews(String businessId) async => externalReviews;
 
   @override
   Future<List<BusinessResponse>> searchBusinesses({
@@ -165,6 +170,7 @@ Future<_FakeReviewRepository> _pumpDetailScreen(
   List<ReviewResponse> reviews = const [],
   List<BusinessResponse> mine = const [],
   List<PhotoResponse> photos = const [],
+  List<ExternalReviewResponse> externalReviews = const [],
   Object? businessError,
   Object? reviewsError,
 }) async {
@@ -178,6 +184,7 @@ Future<_FakeReviewRepository> _pumpDetailScreen(
           mine: mine,
           detailError: businessError,
           photos: photos,
+          externalReviews: externalReviews,
         ),
       ),
       reviewRepositoryProvider.overrideWithValue(reviewRepository),
@@ -606,5 +613,30 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await _pumpDetailScreen(tester, user: _user(id: 'cust-1', role: UserRole.customer));
     expect(find.byKey(const Key('aiOverviewSuggestion')), findsNothing);
+  });
+
+  testWidgets('S-066 M-80: empty Google samples hide the section', (tester) async {
+    await _pumpDetailScreen(tester, user: _user(id: 'cust-1', role: UserRole.customer));
+    expect(find.byKey(const Key('externalReviewsSection')), findsNothing);
+  });
+
+  testWidgets('S-066 M-80: Google samples render without mixing into native reviews', (tester) async {
+    await _pumpDetailScreen(
+      tester,
+      user: _user(id: 'cust-1', role: UserRole.customer),
+      externalReviews: [
+        ExternalReviewResponse(
+          (b) => b
+            ..id = 'ext-1'
+            ..authorName = 'Priya'
+            ..rating = 5
+            ..body = 'Great coffee'
+            ..source_ = 'google',
+        ),
+      ],
+    );
+    expect(find.byKey(const Key('externalReviewsSection')), findsOneWidget);
+    expect(find.text('Also reviewed on Google'), findsOneWidget);
+    expect(find.text('Great coffee'), findsOneWidget);
   });
 }

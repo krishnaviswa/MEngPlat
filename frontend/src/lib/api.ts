@@ -756,6 +756,7 @@ export interface Notification {
   title: string;
   message: string;
   is_read: boolean;
+  scenario?: string | null;
   extra_data?: Record<string, unknown> | null;
   created_at: string;
 }
