@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { PhoneOtpPanel } from "@/components/PhoneOtpPanel";
-import { auth, storeTokens, type TotpSetupResponse } from "@/lib/api";
+import { Select } from "@/components/ui/Select";
+import { auth, redirectAfterAuth, type TotpSetupResponse } from "@/lib/api";
 
 type Step = "credentials" | "enroll" | "verify";
 
@@ -23,6 +24,7 @@ export function LoginForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [registeredNote, setRegisteredNote] = useState(false);
+  const [loginRole, setLoginRole] = useState("customer");
 
   useEffect(() => {
     const prefill = searchParams.get("email");
@@ -51,9 +53,9 @@ export function LoginForm() {
   }, [step, mfaToken, setup]);
 
   function finishWithTokens(tokens: { access_token: string; refresh_token: string }) {
-    storeTokens(tokens);
-    // Hard reload so ClientLayout remounts with the new session.
-    window.location.href = "/";
+    // redirectAfterAuth stores tokens, re-resolves the true role via
+    // auth.me(), and hard-navigates to the role-appropriate landing page.
+    void redirectAfterAuth(tokens);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -178,7 +180,26 @@ export function LoginForm() {
             <div className="h-px flex-1 bg-border" />
           </div>
           <GoogleSignInButton onCredential={handleGoogleCredential} />
-          <PhoneOtpPanel onError={setError} />
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-ink" htmlFor="login-role">
+              Signing in as
+            </label>
+            <Select
+              id="login-role"
+              aria-label="Signing in as"
+              value={loginRole}
+              onChange={(e) => setLoginRole(e.target.value)}
+            >
+              <option value="customer">Customer</option>
+              <option value="merchant">Merchant</option>
+            </Select>
+            <p className="text-xs text-muted">
+              Only affects phone sign-in below. Already have a merchant account? Phone sign-in
+              only works if you&apos;ve verified this exact number before — otherwise it creates a
+              new account. Use your password above if unsure.
+            </p>
+          </div>
+          <PhoneOtpPanel role={loginRole} onError={setError} />
         </>
       )}
 

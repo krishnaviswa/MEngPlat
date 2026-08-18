@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
@@ -5,6 +6,9 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.models import BusinessStatus, DraftStatus, NationalIdType, ReviewStatus, Sentiment, UserRole
+
+_PAN_RE = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]{1}$")
+_AADHAAR_RE = re.compile(r"^\d{12}$")
 
 
 class TokenResponse(BaseModel):
@@ -121,6 +125,36 @@ class UserProfileUpdate(BaseModel):
     national_id_type: NationalIdType | None = None
     national_id_number: str | None = Field(default=None, max_length=64)
 
+    @field_validator("national_id_number")
+    @classmethod
+    def _validate_national_id(cls, v: str | None, info: Any) -> str | None:
+        id_type = info.data.get("national_id_type")
+        if v and id_type == NationalIdType.PAN and not _PAN_RE.match(v.strip().upper()):
+            raise ValueError("PAN must be 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F)")
+        if v and id_type == NationalIdType.AADHAAR and not _AADHAAR_RE.match(v.strip()):
+            raise ValueError("Aadhaar must be exactly 12 digits")
+        return v
+
+
+class MockAadhaarOtpRequest(BaseModel):
+    aadhaar_number: str = Field(max_length=64)
+
+    @field_validator("aadhaar_number")
+    @classmethod
+    def _validate_aadhaar(cls, v: str) -> str:
+        if not _AADHAAR_RE.match(v.strip()):
+            raise ValueError("Aadhaar must be exactly 12 digits")
+        return v.strip()
+
+
+class MockOtpVerifyRequest(BaseModel):
+    code: str = Field(min_length=6, max_length=6)
+
+
+class MockAadhaarOtpResponse(BaseModel):
+    message: str
+    dev_code: str | None = None
+
 
 class PublicPlatformStats(BaseModel):
     """Public home-page counts — deliberately excludes admin-only fields."""
@@ -158,11 +192,20 @@ class BusinessCreate(BaseModel):
     country: str = "US"
     latitude: float | None = None
     longitude: float | None = None
-    phone: str | None = None
-    email: str | None = None
+    phone: str
+    email: EmailStr
     website: str | None = None
     business_hours: dict[str, Any] | None = None
     category_ids: list[UUID] = []
+
+    @field_validator("phone")
+    @classmethod
+    def _phone_format(cls, v: str) -> str:
+        # Loose E.164-ish check -- an optional leading "+" then 7-15 digits --
+        # deliberately permissive so valid international numbers aren't rejected.
+        if not re.fullmatch(r"\+?\d{7,15}", v.strip()):
+            raise ValueError("Enter a valid phone number.")
+        return v.strip()
 
 
 class BusinessUpdate(BaseModel):
@@ -179,6 +222,18 @@ class BusinessUpdate(BaseModel):
     website: str | None = None
     business_hours: dict[str, Any] | None = None
     category_ids: list[UUID] | None = None
+    # S-073: required only when this business's address_edit_count >= 1 and the
+    # payload changes an address-bearing field.
+    address_otp_code: str | None = None
+
+
+class AddressSuggestion(BaseModel):
+    display_name: str
+    latitude: float
+    longitude: float
+    city: str | None = None
+    postal_code: str | None = None
+    state: str | None = None
 
 
 class BusinessResponse(BaseModel):

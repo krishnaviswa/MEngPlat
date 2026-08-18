@@ -22,7 +22,13 @@ async def _create_approved_business(client: AsyncClient, name: str) -> dict:
     create = await client.post(
         "/api/v1/businesses",
         headers={"Authorization": f"Bearer {merchant_token}"},
-        json={"name": name, "address": "12 Main St", "city": "Chennai"},
+        json={
+            "name": name,
+            "address": "12 Main St",
+            "city": "Chennai",
+            "phone": "+919876500006",
+            "email": "slugs-filter-test@example.com",
+        },
     )
     assert create.status_code == 201, create.text
     created = create.json()

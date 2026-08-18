@@ -146,6 +146,8 @@ class Api:
                 "address": "1 Test Street",
                 "city": city,
                 "country": "IN",
+                "phone": "+919876500098",
+                "email": "e2e-business@example.com",
             },
         )
         assert res.status == 201, res.text()

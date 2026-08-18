@@ -1,4 +1,4 @@
-import { apiFetch, auth, dashboard, performLogout } from "@/lib/api";
+import { apiFetch, auth, dashboard, performLogout, redirectAfterAuth } from "@/lib/api";
 
 function mockFetchOnce(response: { ok: boolean; status: number; json: () => Promise<unknown> }) {
   return jest.fn().mockResolvedValueOnce(response);
@@ -144,6 +144,110 @@ describe("performLogout", () => {
     expect(localStorage.getItem("access_token")).toBeNull();
     expect(localStorage.getItem("refresh_token")).toBeNull();
     expect(window.location.replace).toHaveBeenCalledWith("/login");
+  });
+});
+
+// S-067 AC4 / S-068 AC4: redirectAfterAuth stores tokens, re-resolves the
+// true role via a fresh auth.me(), and routes merchants to their dashboard.
+describe("redirectAfterAuth", () => {
+  const originalLocation = window.location;
+
+  beforeEach(() => {
+    localStorage.clear();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: { ...originalLocation, href: "" },
+    });
+  });
+
+  afterAll(() => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: originalLocation,
+    });
+  });
+
+  it("stores tokens and redirects a merchant to /merchant/dashboard", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "u1", role: "merchant", full_name: "M", email: "m@x.com", is_active: true }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await redirectAfterAuth({ access_token: "a", refresh_token: "r" });
+
+    expect(localStorage.getItem("access_token")).toBe("a");
+    expect(window.location.href).toBe("/merchant/dashboard");
+  });
+
+  it("falls back to the given fallback destination for a non-merchant role", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "u1", role: "customer", full_name: "C", email: "c@x.com", is_active: true }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await redirectAfterAuth({ access_token: "a", refresh_token: "r" }, { fallback: "/" });
+
+    expect(window.location.href).toBe("/");
+  });
+
+  it("falls back to the given destination (without throwing) when auth.me() fails after tokens are stored", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ detail: "boom" }) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await redirectAfterAuth({ access_token: "a", refresh_token: "r" }, { fallback: "/somewhere" });
+
+    expect(localStorage.getItem("access_token")).toBe("a");
+    expect(window.location.href).toBe("/somewhere");
+  });
+
+  // S-068 AC4: when expectedRole is passed and the resolved role differs,
+  // onRoleMismatch fires (so the caller can show a note) before the redirect.
+  // Real timers on purpose: redirectAfterAuth's 1.5s note-display delay is
+  // small and this keeps the test honest about the actual awaited behavior.
+  it(
+    "invokes onRoleMismatch and still redirects when the resolved role differs from expectedRole",
+    async () => {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: "u1", role: "customer", full_name: "C", email: "c@x.com", is_active: true }),
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+      const onRoleMismatch = jest.fn();
+
+      await redirectAfterAuth(
+        { access_token: "a", refresh_token: "r" },
+        { expectedRole: "merchant", onRoleMismatch },
+      );
+
+      expect(onRoleMismatch).toHaveBeenCalledWith("customer");
+      expect(window.location.href).toBe("/");
+    },
+    10000,
+  );
+
+  it("does not invoke onRoleMismatch when the resolved role matches expectedRole", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "u1", role: "merchant", full_name: "M", email: "m@x.com", is_active: true }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const onRoleMismatch = jest.fn();
+
+    await redirectAfterAuth(
+      { access_token: "a", refresh_token: "r" },
+      { expectedRole: "merchant", onRoleMismatch },
+    );
+
+    expect(onRoleMismatch).not.toHaveBeenCalled();
+    expect(window.location.href).toBe("/merchant/dashboard");
   });
 });
 

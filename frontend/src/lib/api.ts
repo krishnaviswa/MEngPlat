@@ -95,6 +95,17 @@ export interface BusinessUpdateInput {
   website?: string;
   business_hours?: Record<string, unknown>;
   category_ids?: string[];
+  /** S-073: required only on a merchant's 2nd+ edit that changes an address field. */
+  address_otp_code?: string;
+}
+
+export interface AddressSuggestion {
+  display_name: string;
+  latitude: number;
+  longitude: number;
+  city?: string;
+  postal_code?: string;
+  state?: string;
 }
 
 export interface NearbyRequest {
@@ -198,6 +209,45 @@ export async function performLogout(redirectTo = "/login"): Promise<void> {
   }
   clearTokens();
   window.location.replace(redirectTo);
+}
+
+/** The landing route for a signed-in account's role -- shared by every post-auth redirect. */
+export function roleLandingPath(role: string): string {
+  return role === "merchant" ? "/merchant/dashboard" : "/";
+}
+
+/**
+ * Store fresh tokens, re-resolve the account's true role via `auth.me()`, and
+ * hard-navigate to the role-appropriate landing page. Used after every login
+ * path (password/TOTP, Google, phone OTP) so merchants land on
+ * `/merchant/dashboard` instead of the public home page.
+ *
+ * `expectedRole`/`onRoleMismatch` let a caller (e.g. a role selector on the
+ * login screen) surface a note when the resolved role differs from what the
+ * user picked, without forcing every other caller to opt in.
+ */
+export async function redirectAfterAuth(
+  tokens: TokenResponse,
+  options: { fallback?: string; expectedRole?: string; onRoleMismatch?: (actualRole: string) => void } = {},
+): Promise<void> {
+  const { fallback = "/", expectedRole, onRoleMismatch } = options;
+  storeTokens(tokens);
+  let destination = fallback;
+  let mismatched = false;
+  try {
+    const me = await auth.me();
+    destination = roleLandingPath(me.role);
+    if (expectedRole && me.role !== expectedRole) {
+      mismatched = true;
+      onRoleMismatch?.(me.role);
+    }
+  } catch {
+    // Token just stored should be valid; on any failure fall back rather than
+    // blocking the redirect -- ClientLayout will re-resolve on load.
+  }
+  // Give the role-mismatch note a beat to be read before the hard navigation.
+  if (mismatched) await new Promise((resolve) => setTimeout(resolve, 1500));
+  window.location.href = destination;
 }
 
 // Auth endpoints 401 on bad credentials, not an expired session -- retrying
@@ -327,6 +377,20 @@ export const auth = {
     }),
 };
 
+export const nationalId = {
+  /** Mock/demo Aadhaar OTP step (S-070) — never a real UIDAI call. */
+  requestAadhaarMockOtp: (aadhaarNumber: string) =>
+    apiFetch<{ message: string; dev_code?: string | null }>("/api/v1/auth/national-id/aadhaar/mock-otp/request", {
+      method: "POST",
+      body: JSON.stringify({ aadhaar_number: aadhaarNumber }),
+    }),
+  verifyAadhaarMockOtp: (code: string) =>
+    apiFetch<{ message: string }>("/api/v1/auth/national-id/aadhaar/mock-otp/verify", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+};
+
 export interface UserProfileUpdateInput {
   full_name?: string;
   avatar_url?: string | null;
@@ -361,6 +425,9 @@ export const businesses = {
   update: (id: string, data: BusinessUpdateInput) =>
     apiFetch<Business>(`/api/v1/businesses/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   approve: (id: string) => apiFetch<Business>(`/api/v1/businesses/${id}/approve`, { method: "POST" }),
+  /** S-073: send an OTP to confirm a 2nd+ address edit. 409 if no prior edit exists yet. */
+  requestAddressOtp: (id: string) =>
+    apiFetch<{ message: string }>(`/api/v1/businesses/${id}/address-verify/request`, { method: "POST" }),
   suspend: (id: string) => apiFetch<{ message: string }>(`/api/v1/businesses/${id}/suspend`, { method: "POST" }),
   search: (params: Record<string, string>) => {
     const qs = new URLSearchParams(params).toString();
@@ -396,6 +463,9 @@ export const maps = {
     apiFetch<Business[]>("/api/v1/maps/nearby", { method: "POST", body: JSON.stringify(data) }),
   geocode: (address: string) =>
     apiFetch<GeocodeResponse>(`/api/v1/maps/geocode?address=${encodeURIComponent(address)}`),
+  /** S-073: live suggestions, [] on no results (client falls back to "Look up address"). */
+  autocomplete: (query: string) =>
+    apiFetch<AddressSuggestion[]>(`/api/v1/maps/autocomplete?q=${encodeURIComponent(query)}`),
   config: () => apiFetch<MapsConfig>("/api/v1/maps/config"),
 };
 
@@ -441,6 +511,7 @@ export const photos = {
     if (opts.caption) form.append("caption", opts.caption);
     return apiFetch<Photo>("/api/v1/photos/upload", { method: "POST", body: form });
   },
+  delete: (photoId: string) => apiFetch<void>(`/api/v1/photos/${photoId}`, { method: "DELETE" }),
 };
 
 export type DashboardRange = "30" | "90" | "all";

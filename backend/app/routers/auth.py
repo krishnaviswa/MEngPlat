@@ -15,7 +15,7 @@ from app.core.security import (
 )
 from app.database import get_db
 from app.dependencies import get_current_user, security
-from app.models import Merchant, User, UserRole
+from app.models import Merchant, NationalIdType, User, UserRole
 from app.schemas import (
     ForgotPasswordRequest,
     GoogleAuthRequest,
@@ -24,6 +24,9 @@ from app.schemas import (
     MessageResponse,
     MfaTokenRequest,
     MfaTotpCodeRequest,
+    MockAadhaarOtpRequest,
+    MockAadhaarOtpResponse,
+    MockOtpVerifyRequest,
     PhoneOtpRequest,
     PhoneOtpVerifyRequest,
     ResetPasswordRequest,
@@ -387,6 +390,60 @@ async def update_me(
     await db.flush()
     await db.refresh(current_user)
     return current_user
+
+
+def _aadhaar_mock_key(user_id: object) -> str:
+    return f"aadhaar-mock:{user_id}"
+
+
+def _aadhaar_mock_pending_key(user_id: object) -> str:
+    return f"aadhaar-mock-pending:{user_id}"
+
+
+@router.post("/national-id/aadhaar/mock-otp/request", response_model=MockAadhaarOtpResponse)
+async def request_aadhaar_mock_otp(
+    payload: MockAadhaarOtpRequest,
+    current_user: User = Depends(get_current_user),
+) -> MockAadhaarOtpResponse:
+    """
+    Start a MOCK Aadhaar OTP challenge (S-070 / ADR-013). Not a real UIDAI call --
+    reuses phone_otp.py's Redis hashed-code primitives under a distinct key prefix.
+    The structurally-valid Aadhaar number is held pending in Redis (same TTL as the
+    code) until verify succeeds; it is never persisted here.
+    """
+    settings = get_settings()
+    code = await issue_otp(_aadhaar_mock_key(current_user.id))
+    client = await get_redis()
+    await client.set(_aadhaar_mock_pending_key(current_user.id), payload.aadhaar_number, ex=300)
+    return MockAadhaarOtpResponse(
+        message="Mock/demo — enter the 6-digit code (not a real government check).",
+        dev_code=code if settings.debug else None,
+    )
+
+
+@router.post("/national-id/aadhaar/mock-otp/verify", response_model=MessageResponse)
+async def verify_aadhaar_mock_otp(
+    payload: MockOtpVerifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MessageResponse:
+    """Verify the mock Aadhaar OTP code; on success, saves the pending Aadhaar number."""
+    ok = await consume_otp(_aadhaar_mock_key(current_user.id), payload.code)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired code")
+
+    client = await get_redis()
+    pending_key = _aadhaar_mock_pending_key(current_user.id)
+    pending = await client.get(pending_key)
+    if pending is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired code")
+    await client.delete(pending_key)
+
+    aadhaar_number = pending.decode() if isinstance(pending, bytes) else pending
+    current_user.national_id_type = NationalIdType.AADHAAR
+    current_user.national_id_number = aadhaar_number
+    await db.flush()
+    return MessageResponse(message="Aadhaar mock-verified and saved.")
 
 
 @router.post("/google", response_model=TokenResponse)

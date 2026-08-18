@@ -35,8 +35,17 @@ from app.services.cache import cache_delete_pattern
 from app.services.email import try_send_listing_approved
 from app.services.notifications import SCENARIO_LISTING_APPROVED, upsert_notice
 from app.services.payments.featured import load_active_featured_ends
+from app.services.phone_otp import consume_otp, issue_otp
+from app.services.sms import get_sms_provider
 
 router = APIRouter(prefix="/businesses", tags=["Businesses"])
+
+# S-073: address-bearing fields that trigger the re-verification gate on 2nd+ edit.
+_ADDRESS_FIELDS = ("address", "city", "state", "postal_code", "country")
+
+
+def _address_bizkey(business_id: UUID) -> str:
+    return f"bizaddr:{business_id}"
 
 
 def _to_response(business: Business, *, is_featured: bool = False) -> BusinessResponse:
@@ -299,7 +308,28 @@ async def update_business(
         if not m or business.merchant_id != m.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your business")
 
-    for field, value in payload.model_dump(exclude_unset=True, exclude={"category_ids"}).items():
+    payload_fields = payload.model_dump(exclude_unset=True, exclude={"category_ids", "address_otp_code"})
+    address_changed = any(
+        field in payload_fields and payload_fields[field] != getattr(business, field)
+        for field in _ADDRESS_FIELDS
+    )
+
+    if address_changed:
+        # Admin edits bypass re-verification (ADR-014 Risks: no single merchant
+        # phone to send an admin-initiated OTP to) -- but the count still
+        # advances so a later merchant edit isn't treated as the free first
+        # edit just because an admin touched the address in between.
+        if user.role == UserRole.MERCHANT and business.address_edit_count >= 1:
+            if not payload.address_otp_code:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Verification code required to confirm this address change",
+                )
+            if not await consume_otp(_address_bizkey(business_id), payload.address_otp_code):
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired code")
+        business.address_edit_count += 1
+
+    for field, value in payload_fields.items():
         setattr(business, field, value)
 
     if payload.category_ids is not None:
@@ -315,6 +345,40 @@ async def update_business(
         .where(Business.id == business_id)
     )
     return _to_response(result.scalar_one())
+
+
+@router.post("/{business_id}/address-verify/request", response_model=MessageResponse)
+async def request_address_verify(
+    business_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.MERCHANT)),
+) -> MessageResponse:
+    """
+    Send an OTP to confirm a 2nd+ address edit (S-073/ADR-014). Owner-only;
+    409 if this business has no prior address edit to re-verify.
+    """
+    business = await db.get(Business, business_id)
+    if not business:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
+
+    merchant = await db.execute(select(Merchant).where(Merchant.user_id == user.id))
+    m = merchant.scalar_one_or_none()
+    if not m or business.merchant_id != m.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your business")
+
+    if business.address_edit_count < 1:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No prior address edit to re-verify")
+
+    phone = business.phone or user.phone
+    if not phone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Add a phone number to your business or profile before editing your address again",
+        )
+
+    code = await issue_otp(_address_bizkey(business_id))
+    await get_sms_provider().send_otp(phone, code)
+    return MessageResponse(message="If that number can receive SMS, we sent a confirmation code.")
 
 
 @router.post("/{business_id}/approve", response_model=BusinessResponse)

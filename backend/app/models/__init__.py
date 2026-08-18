@@ -190,6 +190,9 @@ class Business(Base):
     # must never leak into a surface that also carries average_rating/
     # review_count (AC12 -- external reviews never blend into those fields).
     external_platform_refs: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # S-073: 0 = no address edit since creation (no re-verification needed yet);
+    # >=1 edits require OTP confirmation on the next address-changing PATCH.
+    address_edit_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

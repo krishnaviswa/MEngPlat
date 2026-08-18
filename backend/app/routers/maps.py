@@ -8,8 +8,8 @@ from app.config import get_settings
 from app.database import get_db
 from app.models import Business, BusinessCategory, BusinessStatus
 from app.routers.businesses import _to_response
-from app.schemas import BusinessResponse, GeocodeResponse, NearbyBusinessRequest
-from app.services.geo import bounding_box, haversine_km
+from app.schemas import AddressSuggestion, BusinessResponse, GeocodeResponse, NearbyBusinessRequest
+from app.services.geo import bounding_box, haversine_km, search_addresses
 
 router = APIRouter(prefix="/maps", tags=["Maps"])
 settings = get_settings()
@@ -106,6 +106,17 @@ async def geocode_address(address: str) -> GeocodeResponse:
         longitude=lng,
         display_name=display_name,
     )
+
+
+@router.get("/autocomplete", response_model=list[AddressSuggestion])
+async def autocomplete_address(q: str) -> list[AddressSuggestion]:
+    """
+    Live address suggestions via Nominatim (S-073). Up to 5 results with
+    city/postal code parsed out; [] when none (client falls back to manual
+    entry / the "Look up address" button, never a dead end).
+    """
+    suggestions = await search_addresses(q, NOMINATIM_USER_AGENT)
+    return [AddressSuggestion(**s) for s in suggestions]
 
 
 @router.get("/config", response_model=dict)
