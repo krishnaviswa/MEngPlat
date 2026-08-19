@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-085 |
 | **Phase** | 2 Core |
-| **Status** | Specified |
+| **Status** | Accepted |
 | **Role(s)** | customer, merchant, admin |
 | **Owner** | PM / 2026-08-19 |
 
@@ -104,12 +104,12 @@ the page's separate "Save changes" button, matching the confirmed Facebook-style
 
 ## Definition of done (PM)
 
-- [ ] All AC verified in test report
-- [ ] UX matches notes above
-- [ ] Documented in `README.md` §7 API reference (new avatar upload endpoint) / §8
+- [x] All AC verified in test report
+- [x] UX matches notes above
+- [x] Documented in `README.md` §7 API reference (new avatar upload endpoint) / §8
       Frontend guide (new `Avatar` component pattern)
-- [ ] `README.md` §12 Web ↔ mobile feature parity tracker row added for this capability
-- [ ] PM Status set to **Accepted**
+- [x] `README.md` §12 Web ↔ mobile feature parity tracker row added for this capability
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -293,11 +293,8 @@ sequenceDiagram
 - [x] Uses AI/storage abstractions where applicable — `get_storage_provider()` reused
       exactly as `photos.py`/`photo_service.py` already use it; `get_ai_provider()`
       deliberately **not** called anywhere in this path (AC10).
-- [x] ERD/API/FLOWS updates noted — no ERD change (no new table/column). When the Builder
-      lands this, `README.md` §7 API reference needs the new endpoint row, and §8
-      Frontend guide should note the new `Avatar` component pattern (per the slice's own
-      Definition of done) — Architect will do this update once implementation lands, per
-      `CLAUDE.md`'s handoff rule, not now.
+- [x] ERD/API/FLOWS updates noted — no ERD change (no new table/column). README §7
+      `POST /auth/me/avatar`, §8 `Avatar` pattern, §12 M-91, §14/§16 updated at Accept.
 - [x] No secrets in design.
 
 ### Risks / tradeoffs
@@ -353,9 +350,7 @@ sequenceDiagram
 
 - Test plan: `docs/agents/test-plans/TP-S-085-profile-avatar-upload.md`
 - Test report: `docs/agents/test-reports/TR-S-085-profile-avatar-upload.md`
-- ADR: TBD — a new authenticated upload endpoint separate from `photos.py` may warrant a
-  short ADR if the Architect decides it needs its own router/service module; not
-  prescribed here.
+- ADR: none — Architect: routing/module-boundary only; no new integration or auth change.
 
 ---
 
@@ -365,3 +360,6 @@ sequenceDiagram
 |------|-------|--------|
 | 2026-08-19 | PM | Created slice from a planning conversation confirming Facebook-style avatar upload. Confirmed by reading `backend/app/models/__init__.py`, `frontend/src/components/ProfilePage.tsx`, `frontend/src/components/Navbar.tsx`, and `backend/app/routers/photos.py` that `User.avatar_url` already exists but is only settable via a manual URL-paste text input, the nav shows no avatar image at all, and the existing photo-upload endpoint is unsuitable (business/review-scoped, triggers AI analysis). 10 numbered AC covering nav avatar/initials fallback, profile click-to-upload, immediate apply independent of "Save changes," reject-oversized/wrong-type with previous avatar retained, own-user-only scope, and explicit no-AI-analysis requirement. Out of scope: cropping, moderation/AI analysis, avatar removal. Status: Draft — handing off to Architect to fill the technical specification. |
 | 2026-08-19 | Architect | Filled technical specification. New `POST /api/v1/auth/me/avatar` on the existing `auth.py` router (multipart `file` → `UserResponse`, own-user-only via `get_current_user`, no `user_id` param); logic in a new `backend/app/services/avatar_service.py` (thin router per layering rules) reusing `photo_service.py`'s `ALLOWED_CONTENT_TYPES`/`MAX_UPLOAD_BYTES` and `get_storage_provider()`, never `get_ai_provider()` (AC10 enforced at the module-import level, not just UI). Renamed `photo_service._upload_from_bytes` → `upload_from_bytes` (now a declared shared helper; one existing call site in `save_business_photo()` unaffected in behavior). Data model impact: none — reuses `User.avatar_url` verbatim. Cache: no invalidation needed (`search:*` doesn't embed `avatar_url`; `reviews.py` GETs aren't cached at all). Old avatar file is deleted best-effort on replace (safe no-op on external/legacy URLs per both storage providers' behavior — documented in Risks). Frontend: new reusable `Avatar` UI primitive (image-or-initials, `onError` fallback) used by both `Navbar.tsx` and `ProfilePage.tsx`; new `auth.uploadAvatar()` in `api.ts` following `photos.upload()`'s multipart pattern; Navbar↔ProfilePage live sync via a scoped `window` `CustomEvent` (`mh:user-updated`) rather than a new global store, to satisfy AC5 without a disproportionate refactor. RBAC matrix: identical across all three roles (own-avatar-only, no admin bypass). No ADR warranted (routing/module-boundary call, not a new integration or auth change). Status: Draft → **Specified** — handing off to Builder. |
+| 2026-08-19 | Builder | Implementation already on branch (`POST /auth/me/avatar`, `avatar_service.py`, `Avatar` + Navbar/`ProfilePage`/`ClientLayout`). No functional rework this closeout. |
+| 2026-08-19 | Tester | TR-S-085 Ship (ACs 1–10). TP-S-085 added. Docs DoD was the only Accept hold. |
+| 2026-08-19 | PM | README §7/§8/§12/§14/§16 filled. Status: Specified → **Accepted**. |

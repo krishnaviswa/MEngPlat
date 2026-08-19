@@ -5,7 +5,7 @@
 | **Slice** | S-085 |
 | **Author** | Tester |
 | **Date** | 2026-08-19 |
-| **Recommendation** | Ship — ACs 1–10 pass. README §7 / §8 / §12 documentation DoD is still open (not an AC failure; Architect/Builder before PM Accept). |
+| **Recommendation** | Ship — ACs 1–10 pass. README §7 / §8 / §12 / §14 / §16 and TP-S-085 closed 2026-08-19; PM Accept unblocked. |
 
 ---
 
@@ -120,11 +120,12 @@ Tests:       22 passed, 22 total
 
 ## Gaps / rework items
 
-1. **README §7** — `POST /auth/me/avatar` is not in the Authentication table (PM DoD / Architect checklist). Assign Architect/Builder.
-2. **README §8** — `Avatar` primitive is not listed; `Navbar.tsx` row still says auth/role links only.
-3. **README §12** — no parity row for click-to-upload profile photo. M-48 is still “Profile edit” / S-029 `implemented`; mobile is unlikely to have this upload flow yet → should be a new `unimplemented` (or M-48 notes `partial`).
+Documentation DoD closed 2026-08-19 (no AC failures):
 
-None of these fail AC 1–10.
+1. **README §7** — `POST /auth/me/avatar` row added; PATCH `/auth/me` notes the web form no longer submits `avatar_url`.
+2. **README §8** — `ui/Avatar.tsx` listed; Navbar/ProfilePage rows and Avatar pattern note added.
+3. **README §12** — M-91 click-to-upload (`unimplemented` on mobile). M-48 remains field-edit parity.
+4. **TP-S-085** — written to match this matrix.
 
 ---
 
@@ -133,6 +134,6 @@ None of these fail AC 1–10.
 - [x] All AC mapped to tests
 - [x] RBAC tested (401 unauthenticated; all three roles can upload own avatar; extra `user_id` cannot retarget)
 - [x] AI disclaimer verified **not** present on avatar surfaces (AC10 by design)
-- [ ] Ready for PM acceptance — after README §7 / §8 / §12 updates
+- [x] Ready for PM acceptance — README §7 / §8 / §12 / §14 / §16 + TP-S-085 filled
 
-**Handoff:** ACs pass → PM may Accept once documentation DoD is filled. No Builder functional rework.
+**Handoff:** ACs pass; docs DoD filled → PM sets **Accepted**. No Builder functional rework.
