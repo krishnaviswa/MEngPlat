@@ -143,11 +143,11 @@ def test_msg91_without_keys_fails_startup(monkeypatch):
         get_settings.cache_clear()
 
 
-async def test_demo_fixed_otp_accepted_when_mock_and_env_set(monkeypatch):
+async def test_demo_fixed_otp_accepted_even_when_sms_is_not_mock(monkeypatch):
     from app.config import get_settings
     from app.services.phone_otp import consume_otp
 
-    monkeypatch.setenv("SMS_PROVIDER", "mock")
+    monkeypatch.setenv("SMS_PROVIDER", "msg91")
     monkeypatch.setenv("DEMO_PHONE_OTP", "123456")
     get_settings.cache_clear()
     try:

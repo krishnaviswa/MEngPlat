@@ -147,9 +147,9 @@ class Settings(BaseSettings):
     google_client_id: str = ""
 
     sms_provider: str = "mock"
-    # Temporary local/demo Mobile OTP (REMOVE — docs/agents/REMOVE-ME-demo-fixed-otp.md).
-    # Honored only when sms_provider is mock. Empty = disabled.
-    demo_phone_otp: str = ""
+    # Temporary demo Mobile OTP (REMOVE — docs/agents/REMOVE-ME-demo-fixed-otp.md).
+    # Default 123456 so hosted demo works without a Railway variable. Set empty to disable.
+    demo_phone_otp: str = "123456"
     msg91_auth_key: str = ""
     msg91_template_id: str = ""
 
