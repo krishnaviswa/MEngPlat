@@ -1552,6 +1552,8 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | `AdminCategoryPanel.tsx`   | Admin category create + list; chips link to search by slug (S-034, S-041)      |
 | `AdminPaymentPanel.tsx`    | Admin featured payment desk: mock complete, approve/reject, refund (S-042)     |
 | `AdminUserPanel.tsx`       | Admin user list + suspend/reactivate panel (S-034)                             |
+| `AdminSupportQueue.tsx`    | Admin support-ticket queue (S-088)                                             |
+| `AdminBusinessReportsQueue.tsx` | Admin shop-report queue with Repeat badge (S-089)                         |
 | `Dashboard.tsx`            | Layout shell for merchant/admin analytics                                      |
 | `Charts.tsx`               | Recharts bar / area / line dashboard series                                    |
 | `PhotoGallery.tsx`         | Image grid + lightbox                                                          |
