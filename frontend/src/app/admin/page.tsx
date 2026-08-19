@@ -6,6 +6,7 @@ import { AdminPaymentPanel } from "@/components/admin/AdminPaymentPanel";
 import { AdminUserPanel } from "@/components/admin/AdminUserPanel";
 import { PendingBusinessQueue } from "@/components/admin/PendingBusinessQueue";
 import { ReportedReviewsQueue } from "@/components/admin/ReportedReviewsQueue";
+import { AdminOpsNav } from "@/components/admin/AdminOpsNav";
 import { Charts } from "@/components/Charts";
 import { RequireAuth } from "@/components/RequireAuth";
 import { StatCard } from "@/components/ui/StatCard";
@@ -17,6 +18,9 @@ interface PlatformStats {
   pending_businesses: number;
   total_reviews: number;
   reported_reviews: number;
+  open_support_tickets: number;
+  repeat_shop_reports: number;
+  processing_businesses: number;
 }
 
 const STAT_LABELS: Record<keyof PlatformStats, string> = {
@@ -25,6 +29,9 @@ const STAT_LABELS: Record<keyof PlatformStats, string> = {
   pending_businesses: "Pending businesses",
   total_reviews: "Total reviews",
   reported_reviews: "Reported reviews",
+  open_support_tickets: "Open support tickets",
+  repeat_shop_reports: "Repeat shop reports",
+  processing_businesses: "Processing businesses",
 };
 
 // Same-page scroll targets (existing queue sections further down /admin).
@@ -33,6 +40,7 @@ const STAT_TARGETS: Partial<Record<keyof PlatformStats, string>> = {
   total_users: "admin-users",
   pending_businesses: "pending-businesses",
   reported_reviews: "reported-reviews",
+  processing_businesses: "pending-businesses",
 };
 
 // Navigate-away targets: "Total businesses"/"Total reviews" browse every
@@ -40,6 +48,8 @@ const STAT_TARGETS: Partial<Record<keyof PlatformStats, string>> = {
 const STAT_LINKS: Partial<Record<keyof PlatformStats, string>> = {
   total_businesses: "/admin/businesses",
   total_reviews: "/admin/reviews",
+  open_support_tickets: "/admin/support",
+  repeat_shop_reports: "/admin/business-reports",
 };
 
 const SERIES_META: Record<string, { title: string; subtitle?: string }> = {
@@ -74,7 +84,7 @@ function SeriesChart({ title, subtitle, data }: { title: string; subtitle?: stri
   );
 }
 
-/** Admin moderation panel — platform stats, trend charts, category and user admin, and moderation queues. */
+/** Admin operational console — ops nav, snapshot tiles, trends, and moderation queues (S-090). */
 export default function AdminPage() {
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [series, setSeries] = useState<PlatformAnalyticsSeries | null>(null);
@@ -93,9 +103,10 @@ export default function AdminPage() {
 
   return (
     <RequireAuth role="admin">
-      <div className="mx-auto max-w-4xl px-4 py-8">
+      <div className="mx-auto max-w-6xl px-4 py-8">
         <h1 className="text-2xl font-bold">Admin Panel</h1>
-        <p className="text-muted">Platform moderation and analytics</p>
+        <p className="text-muted">Operational console — queues, search, and platform facts</p>
+        <AdminOpsNav />
 
         {error && (
           <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-center dark:border-red-900/50 dark:bg-red-900/20">

@@ -91,6 +91,7 @@ describe("Admin business drill-down page (S-021)", () => {
     expect(await screen.findByRole("heading", { name: "Corner Bakery" })).toBeInTheDocument();
     expect(await screen.findByText("Wonderful bread and service.")).toBeInTheDocument();
     expect(adminAllReviewsMock).toHaveBeenCalledWith({ business_id: "biz-1" });
+    expect(screen.getByRole("link", { name: /all businesses/i })).toHaveAttribute("href", "/admin/businesses");
   });
 
   it("shows a 'No reviews yet' empty state for a business with zero reviews", async () => {

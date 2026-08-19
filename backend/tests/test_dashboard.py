@@ -16,11 +16,19 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
+from app.core.rate_limit import limiter
 from app.core.security import get_password_hash
 from app.database import AsyncSessionLocal
 from app.main import app
 from app.models import Review, User, UserRole
 from tests.auth_helpers import complete_password_login, register_and_get_token
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    limiter.reset()
+    yield
+    limiter.reset()
 
 
 @pytest.fixture
@@ -227,7 +235,27 @@ async def test_platform_analytics_returns_counts_shape_for_admin(client):
         "pending_businesses",
         "total_reviews",
         "reported_reviews",
+        "open_support_tickets",
+        "repeat_shop_reports",
+        "processing_businesses",
     }
     # Real, shared DB -- other tests contribute rows, so only non-negative
     # counts are asserted, not exact values.
     assert all(isinstance(v, int) and v >= 0 for v in body.values())
+
+
+@pytest.mark.asyncio
+async def test_platform_analytics_open_tickets_increments_after_create(client):
+    admin = await _register_admin(client)
+    before = await client.get("/api/v1/dashboard/admin/platform", headers=admin["headers"])
+    assert before.status_code == 200
+    start = before.json()["open_support_tickets"]
+
+    created = await client.post(
+        "/api/v1/support-tickets",
+        json={"name": "Ops", "phone": "+15555550100", "issue": "Need help with a listing question."},
+    )
+    assert created.status_code == 201
+
+    after = await client.get("/api/v1/dashboard/admin/platform", headers=admin["headers"])
+    assert after.json()["open_support_tickets"] == start + 1

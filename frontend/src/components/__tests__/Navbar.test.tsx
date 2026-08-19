@@ -56,4 +56,11 @@ describe("Navbar", () => {
     expect(screen.getByAltText("Ann Customer")).toBeInTheDocument();
     expect(screen.queryByText(/suggestion/i)).not.toBeInTheDocument();
   });
+
+  // S-087 AC4: support lives in the footer, not the header (S-085 owns Navbar).
+  it("does not add a Support or /support link in the header", () => {
+    const { container } = render(<Navbar user={baseUser} />);
+    expect(container.querySelector('a[href="/support"]')).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /support/i })).not.toBeInTheDocument();
+  });
 });

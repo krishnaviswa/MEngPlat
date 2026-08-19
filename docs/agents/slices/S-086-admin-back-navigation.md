@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-086 |
 | **Phase** | 5 Polish |
-| **Status** | In Progress |
+| **Status** | Accepted |
 | **Role(s)** | admin |
 | **Owner** | PM / 2026-08-19 |
 
@@ -50,10 +50,10 @@
 
 ## Definition of done (PM)
 
-- [ ] All AC verified in test report (Tester chat)
-- [ ] UX matches notes above
-- [ ] README §8 if a new shared pattern is listed
-- [ ] PM Status set to **Accepted** (after Tester)
+- [x] All AC verified in test report (Tester chat)
+- [x] UX matches notes above
+- [x] README §8 if a new shared pattern is listed
+- [x] PM Status set to **Accepted** (after Tester)
 
 ---
 
@@ -105,3 +105,5 @@ None.
 | 2026-08-19 | PM | Created slice |
 | 2026-08-19 | Architect | Spec filled |
 | 2026-08-19 | Builder | Implementation |
+| 2026-08-19 | Tester | TR-S-086 Ship |
+| 2026-08-19 | PM | Status Accepted |

@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-087 |
 | **Phase** | 5 Polish |
-| **Status** | In Progress |
+| **Status** | Accepted |
 | **Role(s)** | customer, merchant, admin |
 | **Owner** | PM / 2026-08-19 |
 
@@ -49,9 +49,9 @@
 
 ## Definition of done (PM)
 
-- [ ] All AC verified in Tester chat
-- [ ] README §8 Footer description + §12 tracker row
-- [ ] Not Accepted until Tester
+- [x] All AC verified in Tester chat
+- [x] README §8 Footer description + §12 tracker row
+- [x] Not Accepted until Tester
 
 ---
 
@@ -95,3 +95,5 @@
 | Date | Agent | Change |
 |------|-------|--------|
 | 2026-08-19 | PM / Architect / Builder | Created and implemented |
+| 2026-08-19 | Tester | TR-S-087 Ship |
+| 2026-08-19 | PM | Status Accepted |

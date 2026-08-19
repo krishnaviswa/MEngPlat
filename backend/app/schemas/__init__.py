@@ -410,6 +410,9 @@ class PlatformAnalytics(BaseModel):
     pending_businesses: int
     total_reviews: int
     reported_reviews: int
+    open_support_tickets: int = 0
+    repeat_shop_reports: int = 0
+    processing_businesses: int = 0
 
 
 class PlatformAnalyticsSeries(BaseModel):

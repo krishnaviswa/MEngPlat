@@ -84,4 +84,5 @@ async def update_admin(
     if admin_response is not None:
         ticket.admin_response = admin_response.strip() or None
     await db.flush()
+    await db.refresh(ticket)
     return ticket

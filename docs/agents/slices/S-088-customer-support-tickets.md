@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-088 |
 | **Phase** | 2 Core |
-| **Status** | In Progress |
+| **Status** | Accepted |
 | **Role(s)** | customer, merchant, admin |
 | **Owner** | PM / 2026-08-19 |
 
@@ -52,9 +52,9 @@
 
 ## Definition of done (PM)
 
-- [ ] Tester chat maps every AC
-- [ ] README §5/§7/§12
-- [ ] Not Accepted until Tester
+- [x] Tester chat maps every AC
+- [x] README §5/§7/§12
+- [x] Not Accepted until Tester
 
 ---
 
@@ -108,3 +108,5 @@ None (not on search cache).
 | Date | Agent | Change |
 |------|-------|--------|
 | 2026-08-19 | PM / Architect / Builder | Created and implemented |
+| 2026-08-19 | Tester | TR-S-088 Ship; refresh ticket after admin PATCH |
+| 2026-08-19 | PM | Status Accepted |

@@ -972,7 +972,7 @@ sequenceDiagram
 
 
 
-`/admin` also loads `GET /dashboard/admin/platform/series` (`granularity=day|week`, `days` 1-365, default `day`/`90`) for the trend row under the tiles — new users, businesses moved pending→approved (from `audit_logs`, not `Business.updated_at`), new reviews, new reports, all zero-filled and sourced from stored timestamps, never AI. Category create/list (`GET`/`POST /businesses/categories`) and user suspend/reactivate (`GET /admin/users`, `POST /admin/users/:id/suspend|reactivate`) round out the page; suspend/reactivate is refused (400) for the caller's own account or another admin (S-034).
+`/admin` also loads `GET /dashboard/admin/platform/series` (`granularity=day|week`, `days` 1-365, default `day`/`90`) for the trend row under the tiles — new users, businesses moved pending→approved (from `audit_logs`, not `Business.updated_at`), new reviews, new reports, all zero-filled and sourced from stored timestamps, never AI. **S-090** adds an operations nav and snapshot counts for open support tickets, repeat shop reports (distinct shops at ≥3 reports), and processing businesses on the same platform payload. Category create/list (`GET`/`POST /businesses/categories`) and user suspend/reactivate (`GET /admin/users`, `POST /admin/users/:id/suspend|reactivate`) round out the page; suspend/reactivate is refused (400) for the caller's own account or another admin (S-034).
 
 ---
 
@@ -1266,7 +1266,7 @@ Upload form fields: `file`, `business_id`, `review_id`, `photo_type`, `caption`.
 | POST   | `/dashboard/merchant/{business_id}/google-reviews/sync` | Merchant, Admin | Fetch/upsert up to 5 reviews. `400` if unlinked; `200` `{debounced: true}` if a sync is in flight; `502` leaves rows untouched (**S-048**) |
 | POST   | `/dashboard/merchant/{business_id}/whatsapp/link` | Merchant, Admin | Short-lived `wa.me` URL + session token (**S-050**). Mock is always `available` |
 | GET    | `/dashboard/merchant/{business_id}/whatsapp/drafts` | Merchant, Admin | Read-only: every draft for this business, any status, newest first. Apply/discard is admin-only now — see `/admin/whatsapp/drafts` above (**S-052**, RBAC changed **S-053**) |
-| GET    | `/dashboard/admin/platform`                     | Admin           | Five live `COUNT(*)` tiles — unchanged snapshot                                                                                                                                                                                                                                         |
+| GET    | `/dashboard/admin/platform`                     | Admin           | Snapshot `COUNT(*)` tiles: original five plus `open_support_tickets` (`open`+`in_progress`), `repeat_shop_reports` (distinct shops with ≥3 shop reports), `processing_businesses` (**S-090**) |
 | GET    | `/dashboard/admin/platform/series`              | Admin           | Time series: `new_users`, `businesses_approved` (from `audit_logs` `approve`/`business`), `new_reviews`, `new_reports`. Query `granularity=day|week` (default `day`), `days` 1-365 (default `90`), zero-filled buckets (**S-034**)                                                      |
 
 
@@ -1477,7 +1477,7 @@ File-based routing under `frontend/src/app/`. A `page.tsx` file defines a route.
 | `/merchant/dashboard`            | `merchant/dashboard/page.tsx`            | Client dashboard (`RequireAuth`) |
 | `/merchant/businesses/new`       | `merchant/businesses/new/page.tsx`       | Client — create business         |
 | `/merchant/businesses/[id]/edit` | `merchant/businesses/[id]/edit/page.tsx` | Client — edit owned business     |
-| `/admin`                         | `admin/page.tsx`                         | Client (`RequireAuth admin`)     |
+| `/admin`                         | `admin/page.tsx`                         | Client ops console (`RequireAuth admin`, S-090) |
 
 
 
@@ -1524,6 +1524,7 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | `NotificationBell.tsx`     | Navbar notifications dropdown (S-015)                                          |
 | `Footer.tsx`               | Multi-column site map: Discover, merchants, Account, Support (S-087) |
 | `AdminBackLink.tsx`        | Shared “← Admin panel” on admin drill-downs (S-086)                    |
+| `AdminOpsNav.tsx`          | Compact `/admin` operations jump nav (S-090)                       |
 | `SupportTicketForm.tsx`    | Public support query form + my tickets / shop reports (S-088, S-089) |
 | `ReportShopButton.tsx`     | Report a listing from the public profile (S-089)                       |
 | `home/TrustMetrics.tsx`    | Editorial live platform counts on the home page                                |
@@ -2447,13 +2448,14 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-83 | Admin             | Admin Categories panel search (by name)                              | `/admin` Categories panel                       | —                                                                      | `unimplemented` | S-081 (web, 2026-08-19); not yet on mobile admin ops (Tier 4, S-061) |
 | M-84 | Admin             | Categories panel repositioned to top of `/admin`; distinct "Add category" error messages (409/401-403/network) | `/admin` Categories panel                       | —                                                                      | `unimplemented` | S-082 (web, 2026-08-19); not yet on mobile admin ops (Tier 4, S-061) |
 | M-85 | Admin             | Admin Users panel role badge (customer/merchant/admin classification) | `/admin` Users panel                            | —                                                                      | `unimplemented` | S-083 (web, 2026-08-19); not yet on mobile admin ops (Tier 4, S-061) |
-| M-86 | Admin             | Back navigation on admin drill-down screens                         | `/admin/whatsapp`, `/admin/reviews`, `/admin/businesses`, `/admin/businesses/[id]` | —                                                                      | `unimplemented` | S-086 (web, 2026-08-19); Tester hold |
-| M-87 | Chrome            | Support contact in footer + `/support`                              | `Footer`, `/support`                            | —                                                                      | `unimplemented` | S-087 (web); not in Navbar (S-085 owns header) |
-| M-88 | Support           | Customer support tickets + admin queue                              | `/support`, `/admin/support`                    | —                                                                      | `unimplemented` | S-088 (web, 2026-08-19); Tester hold |
-| M-89 | Support           | Shop-level reports (not review reports) + admin queue               | public profile, `/admin/business-reports`       | —                                                                      | `unimplemented` | S-089 (web, 2026-08-19); Tester hold |
+| M-86 | Admin             | Back navigation on admin drill-down screens                         | `/admin/whatsapp`, `/admin/reviews`, `/admin/businesses`, `/admin/businesses/[id]` | —                                                                      | `unimplemented` | S-086 Accepted (web, 2026-08-19) |
+| M-87 | Chrome            | Support contact in footer + `/support`                              | `Footer`, `/support`                            | —                                                                      | `unimplemented` | S-087 Accepted (web); not in Navbar (S-085 owns header) |
+| M-88 | Support           | Customer support tickets + admin queue                              | `/support`, `/admin/support`                    | —                                                                      | `unimplemented` | S-088 Accepted (web, 2026-08-19) |
+| M-89 | Support           | Shop-level reports (not review reports) + admin queue               | public profile, `/admin/business-reports`       | —                                                                      | `unimplemented` | S-089 Accepted (web, 2026-08-19) |
+| M-90 | Admin             | Operational `/admin` console (ops nav + queue tiles)                | `/admin`                                        | —                                                                      | `unimplemented` | S-090 Accepted (web, 2026-08-19); S-091 batched verify |
 
 
-**Rollup (2026-08-19):** `implemented` 68 · `partial` 4 (M-10 chrome, M-54 merchant editor Country/State dropdowns on web only — S-084, M-65 reset completion, M-71 cold QR) · `unimplemented` 9 (M-81–M-89) · `n/a` 7 · `future` 1 · **total 89**.
+**Rollup (2026-08-19):** `implemented` 68 · `partial` 4 (M-10 chrome, M-54 merchant editor Country/State dropdowns on web only — S-084, M-65 reset completion, M-71 cold QR) · `unimplemented` 10 (M-81–M-90) · `n/a` 7 · `future` 1 · **total 90**.
 
 #### Mobile parity roadmap
 
@@ -2661,10 +2663,12 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-051 | WhatsApp photo ingestion (reuse existing photo/storage pipeline)               | 2 Core       | Testing (pytest not run; not Accepted)   |
 | S-052 | WhatsApp AI text drafts (extract → merchant Apply/Discard)                     | 3 AI         | Testing (Jest pass; pytest not run; not Accepted) |
 | S-053 | WhatsApp admin approval gate (global review queue, editable AI suggestions, merchant self-apply removed) | 4 Dashboards | **Accepted** |
-| S-086 | Admin back navigation on drill-downs | 5 Polish | In Progress (Tester hold) |
-| S-087 | Support contact in footer + `/support` | 5 Polish | In Progress (Tester hold) |
-| S-088 | Customer support tickets | 2 Core | In Progress (Tester hold) |
-| S-089 | Shop-level business reports | 2 Core | In Progress (Tester hold) |
+| S-086 | Admin back navigation on drill-downs | 5 Polish | **Accepted** |
+| S-087 | Support contact in footer + `/support` | 5 Polish | **Accepted** |
+| S-088 | Customer support tickets | 2 Core | **Accepted** |
+| S-089 | Shop-level business reports | 2 Core | **Accepted** |
+| S-090 | Admin operational console (G1 + E2) | 4 Dashboards | **Accepted** |
+| S-091 | End-to-end merchant + admin verification (H1) | 5 Polish | **Accepted** |
 
 
 
@@ -2716,7 +2720,8 @@ An honest delta between the original specification and what the code actually do
 | Seeding         | `scripts/seed.py` — Portland + Chennai + US; gated by `SEED_MODE` / `seed_runs` (Railway: not on boot)                                                                                                                                                                                                                                                                                   |
 | Local dev       | `docker compose up --build`                                                                                                                                                                                                                                                                                                                                                              |
 | Admin ops (S-076–S-083) | Google review sync now refetches stats/insights, not just the sync card (S-076); merchant review-QR and WhatsApp-QR cards show a clear "not approved yet" / "not configured yet" message instead of silently disappearing (S-077, S-078); admin queue gained an optional `Processing` business status between Pending and Approve/Suspend, admin-triggered, visibility-only (S-079); admin Users and Categories panels gained debounced search (S-080, S-081); Categories panel moved to the top of `/admin` and "Add category" now shows distinct 409/401-403/network error messages via a new `ApiError` HTTP-status-carrying class (S-082); admin Users panel shows a role badge (customer/merchant/admin) alongside the existing account-status badge (S-083). All admin-only or merchant-dashboard-only — no new customer-facing surface. |
-| Support & shop reports (S-086–S-089) | **Built, Tester hold (not Accepted).** Admin drill-downs have a shared back link (S-086). Footer + `/support` + `GET /support/contact` (S-087; Navbar unchanged). `support_tickets` + admin `/admin/support` (S-088). Shop-level `business_reports` + thread, repeat flag at 3+, `/admin/business-reports`, public “Report this shop” (S-089). Distinct from `review_reports`. Run `alembic upgrade head`. |
+| Support & shop reports (S-086–S-089) | **Accepted.** Admin drill-downs have a shared back link (S-086). Footer + `/support` + `GET /support/contact` (S-087; Navbar unchanged). `support_tickets` + admin `/admin/support` (S-088). Shop-level `business_reports` + thread, repeat flag at 3+, `/admin/business-reports`, public “Report this shop” (S-089). Distinct from `review_reports`. Run `alembic upgrade head`. |
+| Admin operational console (S-090) | **Accepted.** `/admin` is an ops console: wider shell, jump nav to existing queues/drill-downs, extra snapshot counts (open tickets, repeat shops, processing listings) on `GET /dashboard/admin/platform`. Feedback = support tickets; Complaints = shop reports. No Inspections/FAQ product. |
 
 
 

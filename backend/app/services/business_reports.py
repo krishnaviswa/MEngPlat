@@ -118,4 +118,5 @@ async def update_status(db: AsyncSession, report_id: UUID, status: str) -> Busin
         raise ReportNotFoundError()
     report.status = status
     await db.flush()
+    await db.refresh(report)
     return report

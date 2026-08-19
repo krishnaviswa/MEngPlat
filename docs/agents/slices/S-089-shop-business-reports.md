@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-089 |
 | **Phase** | 2 Core |
-| **Status** | In Progress |
+| **Status** | Accepted |
 | **Role(s)** | customer, merchant, admin |
 | **Owner** | PM / 2026-08-19 |
 
@@ -52,9 +52,9 @@
 
 ## Definition of done (PM)
 
-- [ ] Tester chat
-- [ ] README §5/§7/§12
-- [ ] Not Accepted until Tester
+- [x] Tester chat
+- [x] README §5/§7/§12
+- [x] Not Accepted until Tester
 
 ---
 
@@ -106,3 +106,5 @@ Repeat threshold: 3. `404` unknown. `403` own shop or not the reporter.
 | Date | Agent | Change |
 |------|-------|--------|
 | 2026-08-19 | PM / Architect / Builder | Created and implemented |
+| 2026-08-19 | Tester | TR-S-089 Ship |
+| 2026-08-19 | PM | Status Accepted |
