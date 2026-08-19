@@ -1,12 +1,15 @@
 name: Mobile build APK
 
 # Builds a sideloadable APK on GitHub's runners (Flutter + Android SDK) so you
-# do not need the Android SDK installed locally. Trigger from Actions →
-# "Mobile build APK" → Run workflow. Download the artifact and install on your
-# phone. Uses the debug signing key (fine for personal QA; not for Play).
-# Play/store uploads still use mobile-release-aab.yml + a real keystore.
+# do not need the Android SDK installed locally. Runs on every push to main
+# (QA artifact after merge) and on demand from Actions → "Mobile build APK" →
+# Run workflow. Download the artifact and install on your phone. Uses the
+# debug signing key (fine for personal QA; not for Play). Play/store uploads
+# still use mobile-release-aab.yml + a real keystore.
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       api_base_url:
@@ -14,12 +17,20 @@ on:
         required: true
         default: "https://backend-production-2783.up.railway.app"
 
+concurrency:
+  group: mobile-build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+    env:
+      # Dispatch can override the API URL. Push to main uses the repo variable
+      # when set, otherwise the Railway production default.
+      API_BASE_URL: ${{ github.event.inputs.api_base_url || vars.MOBILE_PROD_API_BASE_URL || 'https://backend-production-2783.up.railway.app' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -35,7 +46,7 @@ jobs:
         working-directory: mobile
         run: |
           flutter build apk --release \
-            --dart-define=API_BASE_URL=${{ inputs.api_base_url }} \
+            --dart-define=API_BASE_URL=${{ env.API_BASE_URL }} \
             --dart-define=GOOGLE_CLIENT_ID=${{ vars.MOBILE_GOOGLE_CLIENT_ID }}
 
       - name: Upload APK artifact
