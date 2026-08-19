@@ -6,6 +6,8 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 import 'auth_provider.dart';
 import 'google_sign_in_button.dart';
 import 'phone_otp_panel.dart';
+import '../../ui/friendly_error.dart';
+import '../../ui/widgets.dart';
 
 /// Customer / merchant sign-up. Password accounts must still enroll TOTP on
 /// first login (web `RegisterForm`). Google skips MFA and always creates a
@@ -64,7 +66,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       final email = Uri.encodeComponent(_emailController.text.trim());
       context.go('/login?registered=1&email=$email');
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -75,7 +77,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     try {
       await ref.read(authControllerProvider.notifier).signInWithGoogle(credential: credential);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyMessage(e));
     }
   }
 
@@ -94,7 +96,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('MerchantHub', style: Theme.of(context).textTheme.headlineMedium),
+                  MhAuthHeader(title: 'Create account', subtitle: 'Join MerchantHub in a minute'),
                   const SizedBox(height: 24),
                   if (_error != null)
                     Padding(

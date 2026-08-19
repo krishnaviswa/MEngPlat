@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:merchanthub_mobile/ui/friendly_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
@@ -57,7 +58,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = friendlyMessage(error);
         _loading = false;
       });
     }
@@ -70,7 +71,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyMessage(error));
     } finally {
       if (mounted) setState(() => _actingId = null);
     }
@@ -83,7 +84,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyMessage(error));
     } finally {
       if (mounted) setState(() => _actingId = null);
     }

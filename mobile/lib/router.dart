@@ -110,6 +110,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const MerchantDashboardScreen(),
             routes: [
               GoRoute(
+                path: 'insights',
+                builder: (context, state) => const MerchantDashboardScreen(section: MerchantSection.insights),
+              ),
+              GoRoute(
+                path: 'reviews',
+                builder: (context, state) => const MerchantDashboardScreen(section: MerchantSection.reviews),
+              ),
+              GoRoute(
+                path: 'grow',
+                builder: (context, state) => const MerchantDashboardScreen(section: MerchantSection.grow),
+              ),
+              GoRoute(
                 path: 'businesses/new',
                 builder: (context, state) => const BusinessEditorScreen(),
               ),

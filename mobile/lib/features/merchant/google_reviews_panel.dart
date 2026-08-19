@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:merchanthub_mobile/ui/friendly_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
@@ -67,7 +68,7 @@ class _GoogleReviewsPanelState extends ConsumerState<GoogleReviewsPanel> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = friendlyMessage(error);
         _loading = false;
       });
     }
@@ -95,7 +96,7 @@ class _GoogleReviewsPanelState extends ConsumerState<GoogleReviewsPanel> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = friendlyMessage(error);
         _searching = false;
       });
     }
@@ -120,7 +121,7 @@ class _GoogleReviewsPanelState extends ConsumerState<GoogleReviewsPanel> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyMessage(error));
     }
   }
 
@@ -134,7 +135,7 @@ class _GoogleReviewsPanelState extends ConsumerState<GoogleReviewsPanel> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyMessage(error));
     } finally {
       if (mounted) setState(() => _syncing = false);
     }

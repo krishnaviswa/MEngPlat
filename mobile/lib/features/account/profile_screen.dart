@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:merchanthub_mobile/ui/friendly_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
@@ -87,7 +88,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await ref.read(authControllerProvider.notifier).uploadAvatar(bytes: picked.bytes, filename: picked.filename);
       setState(() => _success = 'Photo updated.');
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyMessage(e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -116,7 +117,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           );
       setState(() => _success = 'Profile updated.');
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyMessage(e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

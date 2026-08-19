@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../ui/widgets.dart';
 import '../businesses/business_card.dart';
 import 'favorites_providers.dart';
 
@@ -38,19 +39,9 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: favoritesAsync.when(
-          loading: () => const _CenteredScroll(child: CircularProgressIndicator()),
+          loading: () => const _CenteredScroll(child: MhSkeleton()),
           error: (error, _) => _CenteredScroll(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(error.toString()),
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: () => ref.invalidate(favoritesListProvider),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
+            child: MhError(error: error, onRetry: () => ref.invalidate(favoritesListProvider)),
           ),
           data: (favorites) {
             final visible = favorites.where((business) => !_locallyRemoved.contains(business.id)).toList();

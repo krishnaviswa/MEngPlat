@@ -29,7 +29,9 @@
 ## UX notes
 
 - Screens / routes:
-- Components to reuse:
+- Figma (mobile file `rk4RnruVFTpKdIsgGJIt9w`) frame + states (default / empty / loading / error):
+- Mobile placement (named hub slot or new route — never append to a dump-screen):
+- Components to reuse (`Mh*` kit / existing cards):
 - Empty states / errors:
 - AI disclaimer required? yes / no
 

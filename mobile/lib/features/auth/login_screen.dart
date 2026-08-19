@@ -7,6 +7,8 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 import 'auth_provider.dart';
 import 'google_sign_in_button.dart';
 import 'phone_otp_panel.dart';
+import '../../ui/friendly_error.dart';
+import '../../ui/widgets.dart';
 
 enum _Step { credentials, enroll, verify }
 
@@ -87,7 +89,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       setState(() => _error = 'Unexpected login response');
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyMessage(e));
     } finally {
       setState(() => _loading = false);
     }
@@ -99,7 +101,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final setup = await ref.read(authControllerProvider.notifier).startTotpEnrollment(mfaToken: _mfaToken!);
       setState(() => _setup = setup);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyMessage(e));
     } finally {
       setState(() => _loading = false);
     }
@@ -127,7 +129,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       // Success flips authControllerProvider's state to a real user; router redirects.
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyMessage(e));
     } finally {
       setState(() => _loading = false);
     }
@@ -138,7 +140,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       await ref.read(authControllerProvider.notifier).signInWithGoogle(credential: credential);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyMessage(e));
     }
   }
 
@@ -156,7 +158,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(_titleFor(_step))),
-      body: Center(
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFFBAE6FD),
+              const Color(0xFFEDE9FE),
+              Theme.of(context).colorScheme.surface,
+            ],
+          ),
+        ),
+        child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 400),
           child: SingleChildScrollView(
@@ -167,7 +181,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('MerchantHub', style: Theme.of(context).textTheme.headlineMedium),
+                  MhAuthHeader(
+                    title: 'MerchantHub',
+                    subtitle: _step == _Step.credentials ? 'Sign in to continue' : null,
+                  ),
                   const SizedBox(height: 24),
                   if (widget.registered && _step == _Step.credentials)
                     Padding(
@@ -237,6 +254,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ),
+        ),
         ),
       ),
     );

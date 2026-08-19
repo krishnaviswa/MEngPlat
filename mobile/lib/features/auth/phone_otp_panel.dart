@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:merchanthub_mobile/ui/friendly_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
@@ -47,7 +48,7 @@ class _PhoneOtpPanelState extends ConsumerState<PhoneOtpPanel> {
           );
       setState(() => _sent = true);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -67,7 +68,7 @@ class _PhoneOtpPanelState extends ConsumerState<PhoneOtpPanel> {
           );
       // Success flips authControllerProvider's state to a real user; router redirects.
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
