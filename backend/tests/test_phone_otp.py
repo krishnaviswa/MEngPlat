@@ -141,3 +141,34 @@ def test_msg91_without_keys_fails_startup(monkeypatch):
             validate_startup_config()
     finally:
         get_settings.cache_clear()
+
+
+async def test_demo_fixed_otp_accepted_when_mock_and_env_set(monkeypatch):
+    from app.config import get_settings
+    from app.services.phone_otp import consume_otp
+
+    monkeypatch.setenv("SMS_PROVIDER", "mock")
+    monkeypatch.setenv("DEMO_PHONE_OTP", "123456")
+    get_settings.cache_clear()
+    try:
+        with patch("app.services.phone_otp.get_redis", new_callable=AsyncMock) as redis:
+            assert await consume_otp("+919000000001", "123456") is True
+            redis.assert_not_called()
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_demo_fixed_otp_ignored_when_env_empty(monkeypatch):
+    from app.config import get_settings
+    from app.services.phone_otp import consume_otp
+
+    monkeypatch.setenv("SMS_PROVIDER", "mock")
+    monkeypatch.setenv("DEMO_PHONE_OTP", "")
+    get_settings.cache_clear()
+    try:
+        redis = AsyncMock()
+        redis.get = AsyncMock(return_value=None)
+        with patch("app.services.phone_otp.get_redis", new_callable=AsyncMock, return_value=redis):
+            assert await consume_otp("+919000000001", "123456") is False
+    finally:
+        get_settings.cache_clear()

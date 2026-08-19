@@ -46,7 +46,18 @@ async def issue_otp(phone: str) -> str:
 
 
 async def consume_otp(phone: str, code: str) -> bool:
-    """True if code matches; deletes the challenge. Raises on Redis error."""
+    """True if code matches; deletes the challenge. Raises on Redis error.
+
+    Temporary demo bypass: when `SMS_PROVIDER=mock` and `DEMO_PHONE_OTP` is set,
+    that exact code is accepted (see docs/agents/REMOVE-ME-demo-fixed-otp.md).
+    """
+    from app.config import get_settings
+
+    settings = get_settings()
+    demo = (settings.demo_phone_otp or "").strip()
+    if demo and settings.sms_provider == "mock" and code.strip() == demo:
+        return True
+
     client = await get_redis()
     key = _otp_key(phone)
     stored = await client.get(key)
