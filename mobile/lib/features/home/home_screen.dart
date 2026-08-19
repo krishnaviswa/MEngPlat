@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../../core/media_url.dart';
+import '../../ui/widgets.dart';
 import '../businesses/business_card.dart';
 import '../reviews/rating_stars.dart';
 import '../theme/theme_toggle_button.dart';
@@ -45,21 +46,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       key: const Key('homeScreen'),
       appBar: AppBar(title: const Text('MerchantHub'), actions: const [ThemeToggleButton()]),
       body: payload.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const MhSkeleton(),
         error: (error, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(error.toString()),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: () => ref.invalidate(homePayloadProvider),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+          child: MhError(error: error, onRetry: () => ref.invalidate(homePayloadProvider)),
         ),
-        data: (home) => SingleChildScrollView(
+        data: (home) => MhCanvas(
+          child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -94,6 +86,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
         ),
+        ),
       ),
     );
   }
@@ -112,12 +105,17 @@ class _HeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Container(
       key: const Key('homeHero'),
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
-      color: scheme.inverseSurface,
+      padding: const EdgeInsets.fromLTRB(20, 32, 20, 36),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0369A1), Color(0xFF0EA5E9), Color(0xFF8B5CF6)],
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -125,7 +123,7 @@ class _HeroSection extends StatelessWidget {
             'MERCHANTHUB',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   letterSpacing: 2,
-                  color: scheme.inversePrimary,
+                  color: Colors.white70,
                   fontWeight: FontWeight.w600,
                 ),
           ),
@@ -133,14 +131,14 @@ class _HeroSection extends StatelessWidget {
           Text(
             'Local businesses, reviewed with clarity',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: scheme.onInverseSurface,
+                  color: Colors.white,
                   fontWeight: FontWeight.w600,
                 ),
           ),
           const SizedBox(height: 12),
           Text(
             'Find neighborhood shops with photos, ratings, and AI-suggested insights — never presented as definitive judgments.',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: scheme.onInverseSurface),
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white.withValues(alpha: 0.92)),
           ),
           const SizedBox(height: 20),
           TextField(
@@ -148,14 +146,16 @@ class _HeroSection extends StatelessWidget {
             controller: searchController,
             textInputAction: TextInputAction.search,
             onSubmitted: (_) => onExplore(),
-            style: TextStyle(color: scheme.onInverseSurface),
+            style: const TextStyle(color: Color(0xFF0F172A)),
             decoration: InputDecoration(
               hintText: 'Try café, salon, pharmacy, Chrompet…',
-              hintStyle: TextStyle(color: scheme.onInverseSurface.withValues(alpha: 0.7)),
-              prefixIcon: Icon(Icons.search, color: scheme.onInverseSurface),
+              hintStyle: TextStyle(color: Colors.black.withValues(alpha: 0.45)),
+              prefixIcon: const Icon(Icons.search, color: Color(0xFF0284C7)),
               filled: true,
-              fillColor: scheme.surface.withValues(alpha: 0.12),
-              border: const OutlineInputBorder(),
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
             ),
           ),
           const SizedBox(height: 16),
@@ -165,13 +165,17 @@ class _HeroSection extends StatelessWidget {
             children: [
               FilledButton(
                 key: const Key('homeExploreButton'),
+                style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF0369A1)),
                 onPressed: onExplore,
                 child: const Text('Explore listings'),
               ),
               OutlinedButton(
                 key: const Key('homeRegisterButton'),
                 onPressed: onRegister,
-                style: OutlinedButton.styleFrom(foregroundColor: scheme.onInverseSurface),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white),
+                ),
                 child: const Text('List your business'),
               ),
             ],
@@ -295,26 +299,26 @@ class _ProblemSection extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 16),
-          for (final point in _points)
-            Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
+          for (var i = 0; i < _points.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: MhCard(
+                accent: const [MhAccent.coral, MhAccent.amber, MhAccent.violet][i],
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      point.n,
+                      _points[i].n,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                             letterSpacing: 1.4,
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.w600,
+                            color: const [MhAccent.coral, MhAccent.amber, MhAccent.violet][i].ink,
+                            fontWeight: FontWeight.w700,
                           ),
                     ),
                     const SizedBox(height: 8),
-                    Text(point.title, style: Theme.of(context).textTheme.titleMedium),
+                    Text(_points[i].title, style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 4),
-                    Text(point.body, style: Theme.of(context).textTheme.bodyMedium),
+                    Text(_points[i].body, style: Theme.of(context).textTheme.bodyMedium),
                   ],
                 ),
               ),

@@ -14,6 +14,7 @@ import 'package:merchanthub_mobile/features/merchant/dashboard_repository.dart';
 import 'package:merchanthub_mobile/features/merchant/merchant_dashboard_screen.dart';
 import 'package:merchanthub_mobile/features/merchant/merchant_providers.dart';
 import 'package:merchanthub_mobile/features/merchant/payments_repository.dart';
+import 'package:merchanthub_mobile/ui/widgets.dart';
 import 'package:share_plus_platform_interface/share_plus_platform_interface.dart';
 
 UserResponse _merchant() => UserResponse((b) => b
@@ -163,6 +164,7 @@ class _RecordingDashboardRepository extends DashboardRepository with _ParityDash
     this.csvResult,
     this.csvError,
     this.csvCompleter,
+    this.statsCompleter,
   }) : _stats = stats ?? _defaultStats(),
        super(ApiClient());
 
@@ -171,9 +173,13 @@ class _RecordingDashboardRepository extends DashboardRepository with _ParityDash
   final String? csvResult;
   final Object? csvError;
   final Completer<String>? csvCompleter;
+  final Completer<DashboardStats>? statsCompleter;
 
   final List<String> statsRangesRequested = [];
   final List<String> csvRangesRequested = [];
+  int insightsCalls = 0;
+  int topicCalls = 0;
+  int benchmarkCalls = 0;
 
   static DashboardStats _defaultStats() => DashboardStats((b) => b
     ..totalReviews = 2
@@ -183,14 +189,30 @@ class _RecordingDashboardRepository extends DashboardRepository with _ParityDash
   @override
   Future<DashboardStats> merchantStats(String businessId, {String range = 'all'}) async {
     statsRangesRequested.add(range);
+    if (statsCompleter != null && statsRangesRequested.length == 1) {
+      return statsCompleter!.future;
+    }
     return statsByRange?[range] ?? _stats;
   }
 
   @override
   Future<MerchantInsightsResponse> insights(String businessId) async {
+    insightsCalls++;
     return MerchantInsightsResponse((b) => b
       ..businessId = businessId
       ..merchantSummary = 'Guests mention friendly staff.');
+  }
+
+  @override
+  Future<TopicClusterResponse> topicClusters(String businessId) async {
+    topicCalls++;
+    return super.topicClusters(businessId);
+  }
+
+  @override
+  Future<BenchmarkResponse> benchmark(String businessId) async {
+    benchmarkCalls++;
+    return super.benchmark(businessId);
   }
 
   @override
@@ -330,6 +352,7 @@ Future<void> _pumpDashboard(
   List<BusinessResponse> mine = const [],
   DashboardRepository? dashboardRepository,
   PaymentsRepository? paymentsRepository,
+  MerchantSection section = MerchantSection.all,
 }) async {
   // S-060 added a range selector + two fl_chart sections + a reply-rate/CSV
   // row to this screen's ListView -- the default 800x600 test surface is
@@ -352,7 +375,7 @@ Future<void> _pumpDashboard(
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: MerchantDashboardScreen()),
+      child: MaterialApp(home: MerchantDashboardScreen(section: section)),
     ),
   );
   await tester.pump();
@@ -378,6 +401,52 @@ void main() {
     expect(find.byKey(const Key('statusTile')), findsOneWidget);
     expect(find.byKey(const Key('aiInsightsDisclaimer')), findsOneWidget);
     expect(find.textContaining('Guests mention friendly staff.'), findsOneWidget);
+  });
+
+  testWidgets('Merchant Home does not call dashboard or AI GETs', (tester) async {
+    final repo = _RecordingDashboardRepository();
+    await _pumpDashboard(
+      tester,
+      mine: [_owned()],
+      dashboardRepository: repo,
+      section: MerchantSection.hub,
+    );
+
+    expect(repo.statsRangesRequested, isEmpty);
+    expect(repo.insightsCalls, 0);
+    expect(repo.topicCalls, 0);
+    expect(repo.benchmarkCalls, 0);
+    expect(find.byKey(const Key('totalReviewsTile')), findsOneWidget);
+    expect(find.byKey(const Key('merchantInsightsJob')), findsOneWidget);
+    expect(find.byKey(const Key('aiInsightsDisclaimer')), findsNothing);
+  });
+
+  testWidgets('a stale dashboard timeout cannot replace a newer successful load', (tester) async {
+    final hung = Completer<DashboardStats>();
+    final repo = _RecordingDashboardRepository(
+      statsCompleter: hung,
+      statsByRange: {
+        '30': DashboardStats((b) => b
+          ..totalReviews = 0
+          ..averageRating = 0
+          ..sentimentBreakdown.addAll({'positive': 0, 'neutral': 0, 'negative': 0})
+          ..replyRate = null
+          ..reviewCountInRange = 0),
+      },
+    );
+    await _pumpDashboard(tester, mine: [_owned()], dashboardRepository: repo);
+
+    await tester.tap(find.text('Last 30 days'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('No reviews in this range'), findsOneWidget);
+
+    hung.completeError(Exception('The request took longer than 0:00:30.000000 to receive data.'));
+    await tester.pump();
+
+    expect(find.text('No reviews in this range'), findsOneWidget);
+    expect(find.byType(MhError), findsNothing);
   });
 
   testWidgets('S-031 AC2: multi-business selector is shown', (tester) async {

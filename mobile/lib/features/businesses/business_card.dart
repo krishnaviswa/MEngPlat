@@ -49,6 +49,9 @@ class BusinessCard extends StatelessWidget {
                       photoUrl,
                       key: const Key('businessPhoto'),
                       fit: BoxFit.cover,
+                      cacheWidth: 800,
+                      filterQuality: FilterQuality.medium,
+                      gaplessPlayback: true,
                       errorBuilder: (_, _, _) => const _PhotoPlaceholder(),
                     )
                   else
@@ -72,7 +75,9 @@ class BusinessCard extends StatelessWidget {
                       child: Chip(
                         key: const Key('featuredBadge'),
                         visualDensity: VisualDensity.compact,
-                        label: const Text('Featured', style: TextStyle(fontSize: 12)),
+                        backgroundColor: const Color(0xFFFEF3C7),
+                        side: BorderSide.none,
+                        label: const Text('Featured', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFB45309))),
                       ),
                     ),
                 ],
@@ -115,10 +120,16 @@ class _PhotoPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
+    return DecoratedBox(
       key: const Key('businessPhotoPlaceholder'),
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: const Center(child: Icon(Icons.storefront, size: 48)),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFE0F2FE), Color(0xFFEDE9FE), Color(0xFFFFE4E6)],
+        ),
+      ),
+      child: const Center(child: Icon(Icons.storefront, size: 48, color: Color(0xFF0284C7))),
     );
   }
 }

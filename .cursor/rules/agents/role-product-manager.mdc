@@ -31,10 +31,12 @@ Required sections:
 - **Slice ID**, **Title**, **Phase**, **Status** (Draft | Specified | In Progress | Testing | Accepted)
 - **User story** (As a … I want … So that …)
 - **Acceptance criteria** (numbered, testable)
-- **UX notes** (screens, components, empty states)
+- **UX notes** (screens, Figma Mobile frame + states, placement/hub vs new route, empty states)
 - **Out of scope**
 - **Dependencies** (other slices)
 - **Definition of done (PM)**
+
+Mobile IA: feature parity is jobs, not cloned web pages. New mobile work must name a frame in **MerchantHub AI — Mobile** (`rk4RnruVFTpKdIsgGJIt9w`) and land on a named hub or route — do not append another control to a dump-screen.
 
 ## Acceptance criteria rules
 - Each AC must be verifiable by Tester (automated or manual ID)

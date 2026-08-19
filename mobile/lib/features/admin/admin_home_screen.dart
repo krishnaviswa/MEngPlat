@@ -8,6 +8,8 @@ import '../merchant/merchant_providers.dart';
 import '../reviews/review_card.dart';
 import '../reviews/review_providers.dart';
 import 'platform_series_chart.dart';
+import '../../ui/friendly_error.dart';
+import '../../ui/widgets.dart';
 
 /// Admin Home (S-031 / M-57–M-59). Replaces the S-027 placeholder.
 class AdminHomeScreen extends ConsumerStatefulWidget {
@@ -37,8 +39,9 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
     return Scaffold(
       key: const Key('adminHomeScreen'),
       appBar: AppBar(title: const Text('Admin')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
+      body: MhCanvas(
+        child: _loading
+          ? const MhSkeleton()
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
@@ -47,8 +50,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                   Text('Platform moderation and analytics', style: Theme.of(context).textTheme.bodyMedium),
                   if (_error != null) ...[
                     const SizedBox(height: 8),
-                    Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                    OutlinedButton(onPressed: _load, child: const Text('Retry')),
+                    MhError(error: _error!, onRetry: _load),
                   ],
                   const SizedBox(height: 12),
                   Wrap(
@@ -243,6 +245,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                 ],
               ),
             ),
+      ),
     );
   }
 
@@ -255,11 +258,18 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
       final dash = ref.read(dashboardRepositoryProvider);
       final businesses = ref.read(businessRepositoryProvider);
       final reviews = ref.read(reviewRepositoryProvider);
-      final stats = await dash.platformAnalytics();
-      final series = await dash.platformAnalyticsSeries();
-      final pending = await businesses.listByStatus(BusinessStatus.pending);
-      final processing = await businesses.listByStatus(BusinessStatus.processing);
-      final reported = await reviews.listReported();
+      late final PlatformAnalytics stats;
+      late final PlatformAnalyticsSeries series;
+      late final List<BusinessResponse> pending;
+      late final List<BusinessResponse> processing;
+      late final List<ReviewResponse> reported;
+      await Future.wait([
+        dash.platformAnalytics().then((v) => stats = v),
+        dash.platformAnalyticsSeries().then((v) => series = v),
+        businesses.listByStatus(BusinessStatus.pending).then((v) => pending = v),
+        businesses.listByStatus(BusinessStatus.processing).then((v) => processing = v),
+        reviews.listReported().then((v) => reported = v),
+      ]);
       if (!mounted) return;
       setState(() {
         _stats = stats;
@@ -271,7 +281,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = friendlyMessage(error);
         _loading = false;
       });
     }
@@ -284,7 +294,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyMessage(error));
     } finally {
       if (mounted) setState(() => _actingId = null);
     }
@@ -297,7 +307,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyMessage(error));
     } finally {
       if (mounted) setState(() => _actingId = null);
     }
@@ -310,7 +320,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyMessage(error));
     } finally {
       if (mounted) setState(() => _actingId = null);
     }
@@ -323,7 +333,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyMessage(error));
     } finally {
       if (mounted) setState(() => _actingId = null);
     }
@@ -336,7 +346,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyMessage(error));
     } finally {
       if (mounted) setState(() => _actingId = null);
     }
@@ -366,9 +376,19 @@ class _AdminStat extends StatelessWidget {
       ),
     );
     return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(12),
-      child: onTap == null ? child : InkWell(onTap: onTap, borderRadius: BorderRadius.circular(12), child: child),
+      color: _washFor(label),
+      borderRadius: BorderRadius.circular(16),
+      child: onTap == null ? child : InkWell(onTap: onTap, borderRadius: BorderRadius.circular(16), child: child),
     );
+  }
+
+  static Color _washFor(String label) {
+    final lower = label.toLowerCase();
+    if (lower.contains('ticket') || lower.contains('report')) return const Color(0xFFFFE4E6);
+    if (lower.contains('pending') || lower.contains('processing')) return const Color(0xFFFEF3C7);
+    if (lower.contains('review')) return const Color(0xFFEDE9FE);
+    if (lower.contains('user')) return const Color(0xFFE0F2FE);
+    if (lower.contains('business')) return const Color(0xFFD1FAE5);
+    return const Color(0xFFF0F9FF);
   }
 }

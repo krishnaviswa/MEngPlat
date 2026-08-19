@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:merchanthub_mobile/ui/friendly_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -54,7 +55,7 @@ class _FeaturedBoostPanelState extends ConsumerState<FeaturedBoostPanel> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = friendlyMessage(error);
         _loading = false;
       });
     }
@@ -78,7 +79,7 @@ class _FeaturedBoostPanelState extends ConsumerState<FeaturedBoostPanel> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyMessage(error));
     } finally {
       if (mounted) setState(() => _busySku = null);
     }

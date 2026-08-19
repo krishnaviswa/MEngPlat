@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../ui/widgets.dart';
 import '../auth/auth_provider.dart';
 import '../favorites/favorite_toggle_button.dart';
 import '../reviews/rating_stars.dart';
@@ -34,19 +35,9 @@ class BusinessDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Business')),
       body: businessAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const MhSkeleton(),
         error: (error, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(error.toString()),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: () => ref.invalidate(businessDetailProvider(slug)),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+          child: MhError(error: error, onRetry: () => ref.invalidate(businessDetailProvider(slug))),
         ),
         data: (business) => _BusinessDetailBody(business: business),
       ),

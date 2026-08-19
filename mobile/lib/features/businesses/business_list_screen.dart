@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../ui/widgets.dart';
 import '../theme/theme_toggle_button.dart';
 import 'business_card.dart';
 import 'business_list_provider.dart';
@@ -164,19 +165,9 @@ class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
           ),
           Expanded(
             child: search.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const MhSkeleton(),
               error: (error, _) => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(error.toString()),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: () => ref.invalidate(searchControllerProvider),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
+                child: MhError(error: error, onRetry: () => ref.invalidate(searchControllerProvider)),
               ),
               data: (results) {
                 if (results.items.isEmpty) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:merchanthub_mobile/ui/friendly_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -70,7 +71,7 @@ class _ReportShopSheetState extends ConsumerState<_ReportShopSheet> {
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyMessage(e));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

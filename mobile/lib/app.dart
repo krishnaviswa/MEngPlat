@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/theme/theme_provider.dart';
 import 'router.dart';
+import 'ui/theme.dart';
 
 class MerchantHubApp extends ConsumerWidget {
   const MerchantHubApp({super.key});
@@ -14,8 +15,8 @@ class MerchantHubApp extends ConsumerWidget {
 
     return MaterialApp.router(
       title: 'MerchantHub',
-      theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true, brightness: Brightness.light),
-      darkTheme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true, brightness: Brightness.dark),
+      theme: MhTheme.light(),
+      darkTheme: MhTheme.dark(),
       themeMode: themeMode,
       routerConfig: router,
     );

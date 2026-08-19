@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:merchanthub_mobile/ui/friendly_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
@@ -64,7 +65,7 @@ class _AdminCategoriesScreenState extends ConsumerState<AdminCategoriesScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = friendlyMessage(error);
         _loading = false;
       });
     }

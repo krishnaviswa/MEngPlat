@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
+import '../../ui/widgets.dart';
 import 'notifications_providers.dart';
 import 'relative_time.dart';
 
@@ -42,19 +43,9 @@ class NotificationsScreen extends ConsumerWidget {
         child: notificationsAsync.when(
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
-          loading: () => const _CenteredScroll(child: CircularProgressIndicator()),
+          loading: () => const _CenteredScroll(child: MhSkeleton()),
           error: (error, _) => _CenteredScroll(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(error.toString()),
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: () => ref.invalidate(notificationsListProvider),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
+            child: MhError(error: error, onRetry: () => ref.invalidate(notificationsListProvider)),
           ),
           data: (notifications) {
             if (notifications.isEmpty) {

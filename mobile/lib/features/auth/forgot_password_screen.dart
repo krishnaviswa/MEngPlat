@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'auth_provider.dart';
+import '../../ui/friendly_error.dart';
+import '../../ui/widgets.dart';
 
 /// Request half of forgot/reset password (S-054 / M-65). Mirrors
 /// frontend/src/components/ForgotPasswordForm.tsx. No in-app reset screen:
@@ -39,7 +41,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       await ref.read(authControllerProvider.notifier).forgotPassword(email: _emailController.text.trim());
       setState(() => _submitted = true);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -57,7 +59,14 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: _submitted ? _confirmationFields() : _formFields(),
+              children: [
+                const MhAuthHeader(
+                  title: 'Forgot password',
+                  subtitle: 'We’ll email a reset link that opens in the web app.',
+                ),
+                const SizedBox(height: 16),
+                ...(_submitted ? _confirmationFields() : _formFields()),
+              ],
             ),
           ),
         ),

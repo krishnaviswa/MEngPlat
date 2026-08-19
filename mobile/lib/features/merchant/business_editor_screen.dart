@@ -1,5 +1,6 @@
 import 'package:built_collection/built_collection.dart';
 import 'package:flutter/material.dart';
+import 'package:merchanthub_mobile/ui/friendly_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
@@ -244,7 +245,7 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
       context.go('/merchant');
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyMessage(error));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

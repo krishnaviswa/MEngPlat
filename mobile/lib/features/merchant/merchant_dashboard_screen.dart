@@ -9,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../ui/friendly_error.dart';
+import '../../ui/widgets.dart';
 import '../reviews/review_card.dart';
 import '../reviews/review_providers.dart';
 import 'ai_insights_panel.dart';
@@ -21,6 +23,8 @@ import 'review_volume_chart.dart';
 import 'sentiment_breakdown.dart';
 import 'share_review_link_sheet.dart';
 import 'whatsapp_update_panel.dart';
+
+enum MerchantSection { hub, insights, reviews, grow, all }
 
 /// S-060/M-61: `range` values the dashboard's date filter accepts, matching
 /// the backend's `range=30|90|all` query param exactly (S-033).
@@ -36,7 +40,9 @@ const _statusLabel = {
 
 /// Merchant Home (S-031 / M-50–M-53). Replaces the S-027 placeholder.
 class MerchantDashboardScreen extends ConsumerStatefulWidget {
-  const MerchantDashboardScreen({super.key});
+  const MerchantDashboardScreen({this.section = MerchantSection.hub, super.key});
+
+  final MerchantSection section;
 
   @override
   ConsumerState<MerchantDashboardScreen> createState() => _MerchantDashboardScreenState();
@@ -52,8 +58,15 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
   bool _refreshingAi = false;
   String _range = 'all';
   bool _exportingCsv = false;
+  int _loadGen = 0;
   final _reviewsKey = GlobalKey();
   final _sentimentKey = GlobalKey();
+
+  bool get _showHub => widget.section == MerchantSection.hub || widget.section == MerchantSection.all;
+  bool get _showInsights => widget.section == MerchantSection.insights || widget.section == MerchantSection.all;
+  bool get _showReviews => widget.section == MerchantSection.reviews || widget.section == MerchantSection.all;
+  bool get _showGrow => widget.section == MerchantSection.grow || widget.section == MerchantSection.all;
+  bool get _needsDashboardPayload => _showInsights || _showReviews;
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +75,18 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
     return Scaffold(
       key: const Key('merchantHomeScreen'),
       appBar: AppBar(
-        title: const Text('Merchant'),
+        title: Text(switch (widget.section) {
+          MerchantSection.insights => 'Insights',
+          MerchantSection.reviews => 'Reviews',
+          MerchantSection.grow => 'Grow',
+          _ => 'Merchant',
+        }),
+        leading: widget.section == MerchantSection.hub || widget.section == MerchantSection.all
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => context.go('/merchant'),
+              ),
         actions: [
           TextButton(
             key: const Key('addBusinessButton'),
@@ -72,8 +96,8 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
         ],
       ),
       body: ownedAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _ErrorRetry(message: '$error', onRetry: () => ref.invalidate(ownedBusinessesProvider)),
+        loading: () => const MhSkeleton(),
+        error: (error, _) => Center(child: MhError(error: error, onRetry: () => ref.invalidate(ownedBusinessesProvider))),
         data: (owned) {
           if (owned.isEmpty) {
             return Center(
@@ -82,14 +106,15 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('No business yet', key: Key('merchantEmptyState')),
-                    const SizedBox(height: 8),
-                    const Text('Register your shop or service to see reviews, stats, and AI insights here.'),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      key: const Key('createBusinessCta'),
-                      onPressed: () => context.push('/merchant/businesses/new'),
-                      child: const Text('Create your business'),
+                    MhEmpty(
+                      key: const Key('merchantEmptyState'),
+                      title: 'No business yet',
+                      body: 'Register your shop or service to see reviews, stats, and AI insights here.',
+                      action: FilledButton(
+                        key: const Key('createBusinessCta'),
+                        onPressed: () => context.push('/merchant/businesses/new'),
+                        child: const Text('Create your business'),
+                      ),
                     ),
                   ],
                 ),
@@ -103,9 +128,9 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
               setState(() => _selectedId = business.id);
-              _loadDashboard(business.id);
+              if (_needsDashboardPayload) _loadDashboard(business.id);
             });
-          } else if (_stats == null && _error == null) {
+          } else if (_needsDashboardPayload && _stats == null && _error == null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) _loadDashboard(business.id);
             });
@@ -114,8 +139,9 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(ownedBusinessesProvider);
-              await _loadDashboard(business.id);
+              if (_needsDashboardPayload) await _loadDashboard(business.id);
             },
+            child: MhCanvas(
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -168,32 +194,36 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                       'Your business is currently being reviewed by an admin. You can update details anytime; public discovery starts after approval.',
                     ),
                   ),
-                if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                if (_error != null) MhError(error: _error!, onRetry: () => _loadDashboard(business.id)),
+                if (_showHub) ...[
                 Row(
                   children: [
                     Expanded(
-                      child: _StatTile(
+                      child: MhStatTile(
                         key: const Key('totalReviewsTile'),
                         label: 'Total reviews',
-                        value: '${_stats?.totalReviews ?? 0}',
-                        onTap: () => _scrollTo(_reviewsKey),
+                        value: '${_stats?.totalReviews ?? business.reviewCount}',
+                        accent: MhAccent.sky,
+                        onTap: () => _openSection(MerchantSection.reviews, _reviewsKey),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _StatTile(
+                      child: MhStatTile(
                         key: const Key('averageRatingTile'),
                         label: 'Average rating',
-                        value: (_stats?.averageRating ?? 0).toDouble().toStringAsFixed(1),
-                        onTap: () => _scrollTo(_sentimentKey),
+                        value: (_stats?.averageRating ?? business.averageRating).toDouble().toStringAsFixed(1),
+                        accent: MhAccent.amber,
+                        onTap: () => _openSection(MerchantSection.insights, _sentimentKey),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _StatTile(
+                      child: MhStatTile(
                         key: const Key('statusTile'),
                         label: 'Status',
                         value: _statusLabel[business.status] ?? business.status.name,
+                        accent: MhAccent.mint,
                         onTap: () {
                           if (business.status == BusinessStatus.approved) {
                             context.push('/businesses/${business.slug}');
@@ -206,8 +236,35 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                   ],
                 ),
                 const SizedBox(height: 16),
-                // S-060/M-61 AC 3: date-range filter -- changing it is a live
-                // refetch (not a client-side filter of the all-time payload).
+                MhJobTile(
+                  key: const Key('merchantInsightsJob'),
+                  icon: Icons.insights_outlined,
+                  title: 'Insights',
+                  subtitle: 'Charts, range, AI suggestions',
+                  accent: MhAccent.violet,
+                  onTap: () => _openSection(MerchantSection.insights, _sentimentKey),
+                ),
+                const SizedBox(height: 8),
+                MhJobTile(
+                  key: const Key('merchantReviewsJob'),
+                  icon: Icons.rate_review_outlined,
+                  title: 'Reviews',
+                  subtitle: 'Replies and CSV export',
+                  accent: MhAccent.coral,
+                  onTap: () => _openSection(MerchantSection.reviews, _reviewsKey),
+                ),
+                const SizedBox(height: 8),
+                MhJobTile(
+                  key: const Key('merchantGrowJob'),
+                  icon: Icons.rocket_launch_outlined,
+                  title: 'Grow',
+                  subtitle: 'Featured, Google, WhatsApp, QR',
+                  accent: MhAccent.amber,
+                  onTap: () => _openSection(MerchantSection.grow, _reviewsKey),
+                ),
+                const SizedBox(height: 16),
+                ],
+                if (_showInsights) ...[
                 SegmentedButton<String>(
                   key: const Key('dashboardRangeSelector'),
                   segments: [
@@ -228,7 +285,7 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                 Row(
                   children: [
                     Expanded(
-                      child: _StatTile(
+                      child: MhStatTile(
                         key: const Key('replyRateTile'),
                         label: 'Reply rate',
                         value: _stats?.replyRate == null
@@ -240,14 +297,6 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                             : _TrendDelta(current: _stats?.replyRate, previous: _stats?.replyRatePrevious, range: _range),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton(
-                        key: const Key('exportCsvButton'),
-                        onPressed: _exportingCsv ? null : () => _exportCsv(business.id),
-                        child: Text(_exportingCsv ? 'Exporting...' : 'Export CSV'),
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -257,7 +306,7 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                 Row(
                   children: [
                     Expanded(
-                      child: _StatTile(
+                      child: MhStatTile(
                         key: const Key('reviewCountInRangeTile'),
                         label: 'Reviews in this range',
                         value: '${_stats?.reviewCountInRange ?? 0}',
@@ -271,10 +320,8 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                // Wrap, not Row: two text buttons can overflow a narrow-phone
-                // width (found via S-060's widget tests) -- wrapping to a
-                // second line beats a RenderFlex overflow.
+                ],
+                if (_showGrow) ...[
                 Wrap(
                   spacing: 8,
                   children: [
@@ -302,6 +349,8 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                   const SizedBox(height: 16),
                   WhatsAppUpdatePanel(business: business),
                 ],
+                ],
+                if (_showInsights) ...[
                 const SizedBox(height: 8),
                 KeyedSubtree(
                   key: _sentimentKey,
@@ -324,6 +373,17 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                 ),
                 const SizedBox(height: 8),
                 if (_insights != null) AiInsightsPanel(insights: _insights!, topics: _topics),
+                ],
+                if (_showReviews) ...[
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton(
+                    key: const Key('exportCsvButton'),
+                    onPressed: _exportingCsv ? null : () => _exportCsv(business.id),
+                    child: Text(_exportingCsv ? 'Exporting...' : 'Export CSV'),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 KeyedSubtree(
                   key: _reviewsKey,
@@ -345,7 +405,9 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                     ],
                   ),
                 ),
+                ],
               ],
+            ),
             ),
           );
         },
@@ -354,39 +416,47 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
   }
 
   Future<void> _loadDashboard(String businessId) async {
+    final gen = ++_loadGen;
     setState(() => _error = null);
-    try {
-      final repo = ref.read(dashboardRepositoryProvider);
-      final stats = await repo.merchantStats(businessId, range: _range);
-      MerchantInsightsResponse? insights;
-      BenchmarkResponse? benchmark;
-      TopicClusterResponse? topics;
+    final repo = ref.read(dashboardRepositoryProvider);
+
+    if (_needsDashboardPayload) {
       try {
-        insights = await repo.insights(businessId);
-      } catch (_) {
-        insights = null;
+        final stats = await repo.merchantStats(businessId, range: _range);
+        if (!mounted || gen != _loadGen) return;
+        setState(() => _stats = stats);
+      } catch (error) {
+        if (!mounted || gen != _loadGen) return;
+        setState(() => _error = friendlyMessage(error));
+        return;
       }
-      try {
-        benchmark = await repo.benchmark(businessId);
-      } catch (_) {
-        benchmark = null;
-      }
-      try {
-        topics = await repo.topicClusters(businessId);
-      } catch (_) {
-        topics = null;
-      }
-      if (!mounted) return;
-      setState(() {
-        _stats = stats;
-        _insights = insights;
-        _benchmark = benchmark;
-        _topics = topics;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _error = error.toString());
     }
+
+    if (!_showInsights) return;
+
+    await Future.wait([
+      () async {
+        try {
+          final insights = await repo.insights(businessId);
+          if (!mounted || gen != _loadGen) return;
+          setState(() => _insights = insights);
+        } catch (_) {}
+      }(),
+      () async {
+        try {
+          final benchmark = await repo.benchmark(businessId);
+          if (!mounted || gen != _loadGen) return;
+          setState(() => _benchmark = benchmark);
+        } catch (_) {}
+      }(),
+      () async {
+        try {
+          final topics = await repo.topicClusters(businessId);
+          if (!mounted || gen != _loadGen) return;
+          setState(() => _topics = topics);
+        } catch (_) {}
+      }(),
+    ]);
   }
 
   Future<void> _refreshAi(String businessId) async {
@@ -397,7 +467,7 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
       setState(() => _insights = insights);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyMessage(error))));
     } finally {
       if (mounted) setState(() => _refreshingAi = false);
     }
@@ -428,7 +498,7 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
       );
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyMessage(error));
     } finally {
       if (mounted) setState(() => _exportingCsv = false);
     }
@@ -449,6 +519,28 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
     });
   }
 
+  void _openSection(MerchantSection section, GlobalKey key) {
+    if (widget.section == MerchantSection.all) {
+      _scrollTo(key);
+      return;
+    }
+    if (GoRouter.maybeOf(context) == null) {
+      _scrollTo(key);
+      return;
+    }
+    switch (section) {
+      case MerchantSection.insights:
+        context.push('/merchant/insights');
+      case MerchantSection.reviews:
+        context.push('/merchant/reviews');
+      case MerchantSection.grow:
+        context.push('/merchant/grow');
+      case MerchantSection.hub:
+      case MerchantSection.all:
+        _scrollTo(key);
+    }
+  }
+
   void _scrollTo(GlobalKey key) {
     final target = key.currentContext;
     if (target == null) return;
@@ -456,45 +548,6 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
   }
 }
 
-class _StatTile extends StatelessWidget {
-  const _StatTile({required this.label, required this.value, required this.onTap, this.extra, super.key});
-
-  final String label;
-  final String value;
-  final VoidCallback onTap;
-  final Widget? extra;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 4),
-              Text(value, style: Theme.of(context).textTheme.titleLarge),
-              ?extra,
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Period-over-period delta badge -- mobile parity for S-037's web
-/// `StatCard` trend indicator (M-68, S-063 AC 2-4). Branches on [range]
-/// first (AC 3: all-time hides the badge entirely), then on [previous]
-/// (AC 4: an undefined previous window shows an em dash, never a fabricated
-/// percentage) -- these are two textually distinct S-037 requirements that
-/// must not be collapsed into one check (S-063 Architect spec).
 class _TrendDelta extends StatelessWidget {
   const _TrendDelta({required this.current, required this.previous, required this.range});
 
@@ -547,27 +600,6 @@ class _TrendDelta extends StatelessWidget {
           ).textTheme.bodySmall?.copyWith(color: up ? Colors.green : Theme.of(context).colorScheme.error),
         ),
       ],
-    );
-  }
-}
-
-class _ErrorRetry extends StatelessWidget {
-  const _ErrorRetry({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(message),
-          const SizedBox(height: 12),
-          OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
-        ],
-      ),
     );
   }
 }
