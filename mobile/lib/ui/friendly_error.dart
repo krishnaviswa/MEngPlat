@@ -1,8 +1,11 @@
+import 'package:dio/dio.dart';
+
 import '../core/network/api_exception.dart';
 
 /// Maps Dio/timeout/exception noise to a short line a person can act on.
 String friendlyMessage(Object error) {
   if (error is ApiException) return error.message;
+  if (error is DioException) return ApiException.fromDioException(error).message;
   final text = error.toString();
   if (text.contains('receiveTimeout') ||
       text.contains('took longer than') ||

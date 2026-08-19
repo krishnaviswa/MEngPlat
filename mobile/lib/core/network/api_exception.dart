@@ -14,10 +14,8 @@ class ApiException implements Exception {
       default:
         break;
     }
-    final data = error.response?.data;
-    final detail = data is Map<String, dynamic> ? data['detail'] : null;
     return ApiException(
-      detail is String ? detail : (error.message ?? 'Something went wrong'),
+      _messageFromBody(error.response?.data) ?? error.message ?? 'Something went wrong',
       statusCode: error.response?.statusCode,
     );
   }
@@ -27,4 +25,39 @@ class ApiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+String? _messageFromBody(Object? data) {
+  if (data is Map) {
+    return _formatDetail(data['detail']);
+  }
+  if (data is String && data.trim().isNotEmpty) {
+    return data;
+  }
+  return null;
+}
+
+String? _formatDetail(Object? detail) {
+  if (detail is String && detail.trim().isNotEmpty) {
+    return detail;
+  }
+  if (detail is List) {
+    final messages = <String>[];
+    for (final item in detail) {
+      if (item is Map && item['msg'] is String) {
+        messages.add(_stripPydanticPrefix(item['msg'] as String));
+      } else if (item is String && item.trim().isNotEmpty) {
+        messages.add(item);
+      }
+    }
+    if (messages.isNotEmpty) {
+      return messages.join(' ');
+    }
+  }
+  return null;
+}
+
+String _stripPydanticPrefix(String msg) {
+  const prefix = 'Value error, ';
+  return msg.startsWith(prefix) ? msg.substring(prefix.length) : msg;
 }

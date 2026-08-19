@@ -146,10 +146,10 @@ class _HeroSection extends StatelessWidget {
             controller: searchController,
             textInputAction: TextInputAction.search,
             onSubmitted: (_) => onExplore(),
-            style: const TextStyle(color: Color(0xFF0F172A)),
+            style: const TextStyle(color: MhTokens.ink),
             decoration: InputDecoration(
               hintText: 'Try café, salon, pharmacy, Chrompet…',
-              hintStyle: TextStyle(color: Colors.black.withValues(alpha: 0.45)),
+              hintStyle: TextStyle(color: MhTokens.ink.withValues(alpha: 0.45)),
               prefixIcon: const Icon(Icons.search, color: Color(0xFF0284C7)),
               filled: true,
               fillColor: Colors.white,
@@ -311,7 +311,8 @@ class _ProblemSection extends StatelessWidget {
                       _points[i].n,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                             letterSpacing: 1.4,
-                            color: const [MhAccent.coral, MhAccent.amber, MhAccent.violet][i].ink,
+                            color: const [MhAccent.coral, MhAccent.amber, MhAccent.violet][i]
+                                .inkFor(Theme.of(context).brightness),
                             fontWeight: FontWeight.w700,
                           ),
                     ),

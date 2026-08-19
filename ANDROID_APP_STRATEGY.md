@@ -214,7 +214,8 @@ Do these in order. Each step has a reason.
   Why: S-023–S-025 are Accepted, but most web surfaces remain `unimplemented` — a thin store listing is worse than no listing if you oversell parity.
 2. **Point release builds at production API**
   `--dart-define=API_BASE_URL=https://<your-backend>.up.railway.app`  
-   Why: store-installed apps cannot use `localhost`.
+  `--dart-define=GOOGLE_CLIENT_ID=<Web OAuth client ID>` (GitHub Actions variable `MOBILE_GOOGLE_CLIENT_ID`; same value as backend `GOOGLE_CLIENT_ID`). Empty hides **Continue with Google**. Android OAuth client + SHA-1 is still required in Google Cloud Console — see README §10 Google sign-in.  
+   Why: store-installed apps cannot use `localhost`; Gmail is compile-time, not a runtime `.env`.
 3. **Build a release/debug APK for local QA**
   `flutter build apk`  
    Why: prove camera, secure storage, permissions, and real-device behavior before Play review.  
@@ -233,8 +234,8 @@ Do these in order. Each step has a reason.
    `[.github/workflows/mobile-release-aab.yml](.github/workflows/mobile-release-aab.yml)` builds
    a signed AAB whenever a `mobile-v*` tag is pushed. **It cannot run successfully yet** — it
    reads `MOBILE_KEYSTORE_BASE64`, `MOBILE_KEYSTORE_PASSWORD`, `MOBILE_KEY_ALIAS`,
-   `MOBILE_KEY_PASSWORD` (secrets) and `MOBILE_PROD_API_BASE_URL` (repo variable), none of which
-   exist yet. See **Step-by-step: signing keystore, CI secrets, and the release-AAB job** below.
+   `MOBILE_KEY_PASSWORD` (secrets) and `MOBILE_PROD_API_BASE_URL` plus `MOBILE_GOOGLE_CLIENT_ID`
+   (repo variables). The keystore secrets do not exist yet. See **Step-by-step: signing keystore, CI secrets, and the release-AAB job** below.
 7. **Create Play Console app + privacy policy + content rating**
   Why: Play policy for accounts, reviews, photos. Upload stays blocked without listing metadata.
 8. **Upload AAB to Internal testing first**
@@ -405,6 +406,7 @@ not sensitive):
 | Name                       | Value                                                                             |
 | -------------------------- | --------------------------------------------------------------------------------- |
 | `MOBILE_PROD_API_BASE_URL` | `https://backend-production-2783.up.railway.app` (or current Railway backend URL) |
+| `MOBILE_GOOGLE_CLIENT_ID`  | Web OAuth client ID (same as backend `GOOGLE_CLIENT_ID`; empty hides Gmail)       |
 
 
 **5. Delete the local plaintext copies** (`keystore.b64`, and `mobile-release.keystore` once
@@ -420,7 +422,8 @@ git push origin mobile-v1.0.0
 
 This runs `[.github/workflows/mobile-release-aab.yml](.github/workflows/mobile-release-aab.yml)`,
 which decodes the keystore, writes `key.properties` inside the CI runner only (never committed),
-builds `flutter build appbundle --release` against `MOBILE_PROD_API_BASE_URL`, deletes the
+builds `flutter build appbundle --release` against `MOBILE_PROD_API_BASE_URL` and
+`MOBILE_GOOGLE_CLIENT_ID`, deletes the
 signing material, and uploads `app-release.aab` as a downloadable workflow artifact. Download it
 from the workflow run's **Artifacts** section — that file is what you upload to Play in the next
 section.

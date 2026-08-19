@@ -41,21 +41,33 @@ abstract final class MhTokens {
 enum MhAccent { sky, mint, amber, coral, violet }
 
 extension MhAccentColors on MhAccent {
-  Color get wash => switch (this) {
-        MhAccent.sky => MhTokens.brand100,
-        MhAccent.mint => MhTokens.mintWash,
-        MhAccent.amber => MhTokens.amberWash,
-        MhAccent.coral => MhTokens.coralWash,
-        MhAccent.violet => MhTokens.violetWash,
-      };
+  Color washFor(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    return switch (this) {
+      MhAccent.sky => dark ? const Color(0xFF082F49) : MhTokens.brand100,
+      MhAccent.mint => dark ? const Color(0xFF064E3B) : MhTokens.mintWash,
+      MhAccent.amber => dark ? const Color(0xFF78350F) : MhTokens.amberWash,
+      MhAccent.coral => dark ? const Color(0xFF4C0519) : MhTokens.coralWash,
+      MhAccent.violet => dark ? const Color(0xFF2E1065) : MhTokens.violetWash,
+    };
+  }
 
-  Color get ink => switch (this) {
-        MhAccent.sky => MhTokens.brand700,
-        MhAccent.mint => const Color(0xFF047857),
-        MhAccent.amber => const Color(0xFFB45309),
-        MhAccent.coral => const Color(0xFFBE123C),
-        MhAccent.violet => const Color(0xFF6D28D9),
-      };
+  Color inkFor(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    return switch (this) {
+      MhAccent.sky => dark ? MhTokens.brand100 : MhTokens.brand700,
+      MhAccent.mint => dark ? MhTokens.mintWash : const Color(0xFF047857),
+      MhAccent.amber => dark ? MhTokens.amberWash : const Color(0xFFB45309),
+      MhAccent.coral => dark ? MhTokens.coralWash : const Color(0xFFBE123C),
+      MhAccent.violet => dark ? MhTokens.violetWash : const Color(0xFF6D28D9),
+    };
+  }
+
+  /// Light-mode wash. Prefer [washFor] when the theme can be dark.
+  Color get wash => washFor(Brightness.light);
+
+  /// Light-mode ink. Prefer [inkFor] when the theme can be dark.
+  Color get ink => inkFor(Brightness.light);
 
   Color get bold => switch (this) {
         MhAccent.sky => MhTokens.brand500,
