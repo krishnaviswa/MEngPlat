@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
+import '../../ui/widgets.dart';
 import '../auth/auth_provider.dart';
 
 typedef ProfileAvatarPicker = Future<({List<int> bytes, String filename})?> Function();
@@ -244,15 +245,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text('Email', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                  Text(
-                    user.email ?? 'No email on file',
+                  TextFormField(
                     key: const Key('profileEmailReadOnly'),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  Text(
-                    'Email changes aren\'t supported yet.',
-                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    initialValue: user.email ?? '',
+                    readOnly: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      helperText: "Email changes aren't supported yet.",
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text('Role', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
@@ -268,10 +268,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       style: TextStyle(color: Theme.of(context).colorScheme.primary),
                     ),
                   if (_error != null)
-                    Text(
-                      _error!,
+                    MhError(
                       key: const Key('profileError'),
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      error: _error!,
                     ),
                   const SizedBox(height: 12),
                   FilledButton(

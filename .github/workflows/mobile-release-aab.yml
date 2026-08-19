@@ -45,7 +45,8 @@ jobs:
         working-directory: mobile
         run: |
           flutter build appbundle --release \
-            --dart-define=API_BASE_URL=${{ vars.MOBILE_PROD_API_BASE_URL }}
+            --dart-define=API_BASE_URL=${{ vars.MOBILE_PROD_API_BASE_URL }} \
+            --dart-define=GOOGLE_CLIENT_ID=${{ vars.MOBILE_GOOGLE_CLIENT_ID }}
 
       - name: Clean up signing material
         if: always()

@@ -38,7 +38,8 @@ class MhCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = accent?.wash ?? Theme.of(context).colorScheme.surfaceContainerHighest;
+    final brightness = Theme.of(context).brightness;
+    final color = accent?.washFor(brightness) ?? Theme.of(context).colorScheme.surfaceContainerHighest;
     final card = Material(
       color: color,
       elevation: 0,
@@ -76,8 +77,9 @@ class MhStatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final ink = accent.inkFor(theme.brightness);
     return Material(
-      color: accent.wash,
+      color: accent.washFor(theme.brightness),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(MhTokens.radiusMd),
         side: BorderSide(color: accent.bold.withValues(alpha: 0.28)),
@@ -90,11 +92,11 @@ class MhStatTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: theme.textTheme.bodySmall?.copyWith(color: accent.ink, fontWeight: FontWeight.w600)),
+              Text(label, style: theme.textTheme.bodySmall?.copyWith(color: ink, fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
               Text(
                 value,
-                style: theme.textTheme.titleLarge?.copyWith(color: accent.ink),
+                style: theme.textTheme.titleLarge?.copyWith(color: ink),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -126,6 +128,7 @@ class MhJobTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final ink = accent.inkFor(theme.brightness);
     return MhCard(
       accent: accent,
       onTap: onTap,
@@ -145,13 +148,13 @@ class MhJobTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: theme.textTheme.titleMedium?.copyWith(color: accent.ink)),
+                Text(title, style: theme.textTheme.titleMedium?.copyWith(color: ink)),
                 const SizedBox(height: 2),
-                Text(subtitle, style: theme.textTheme.bodySmall),
+                Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(color: ink.withValues(alpha: 0.85))),
               ],
             ),
           ),
-          Icon(Icons.chevron_right, color: accent.ink),
+          Icon(Icons.chevron_right, color: ink),
         ],
       ),
     );
@@ -209,11 +212,12 @@ class MhError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: MhTokens.coralWash,
+          color: dark ? const Color(0xFF4C0519) : MhTokens.coralWash,
           borderRadius: BorderRadius.circular(MhTokens.radiusMd),
         ),
         child: Padding(
@@ -223,7 +227,9 @@ class MhError extends StatelessWidget {
             children: [
               Text(
                 friendlyMessage(error),
-                style: theme.textTheme.bodyMedium?.copyWith(color: const Color(0xFFBE123C)),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: dark ? MhTokens.coralWash : const Color(0xFFBE123C),
+                ),
               ),
               if (onRetry != null) ...[
                 const SizedBox(height: 8),
@@ -247,15 +253,16 @@ class MhSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          _bar(context, height, MhTokens.brand100),
+          _bar(context, height, dark ? const Color(0xFF1E3A5F) : MhTokens.brand100),
           const SizedBox(height: 12),
-          _bar(context, height, MhTokens.amberWash),
+          _bar(context, height, dark ? const Color(0xFF78350F) : MhTokens.amberWash),
           const SizedBox(height: 12),
-          _bar(context, height * 2, MhTokens.mintWash),
+          _bar(context, height * 2, dark ? const Color(0xFF064E3B) : MhTokens.mintWash),
         ],
       ),
     );
@@ -277,12 +284,24 @@ class MhStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final (bg, fg) = switch (tone) {
-      MhTone.positive => (MhTokens.mintWash, const Color(0xFF166534)),
-      MhTone.warning => (MhTokens.amberWash, const Color(0xFF92400E)),
-      MhTone.danger => (MhTokens.coralWash, const Color(0xFF991B1B)),
-      MhTone.brand => (MhTokens.brand100, MhTokens.brand700),
-      MhTone.neutral => (Theme.of(context).colorScheme.surfaceContainerHighest, Theme.of(context).colorScheme.onSurfaceVariant),
+      MhTone.positive => dark
+          ? (const Color(0xFF064E3B), MhTokens.mintWash)
+          : (MhTokens.mintWash, const Color(0xFF166534)),
+      MhTone.warning => dark
+          ? (const Color(0xFF78350F), MhTokens.amberWash)
+          : (MhTokens.amberWash, const Color(0xFF92400E)),
+      MhTone.danger => dark
+          ? (const Color(0xFF4C0519), MhTokens.coralWash)
+          : (MhTokens.coralWash, const Color(0xFF991B1B)),
+      MhTone.brand => dark
+          ? (MhTokens.brand900, MhTokens.brand100)
+          : (MhTokens.brand100, MhTokens.brand700),
+      MhTone.neutral => (
+          Theme.of(context).colorScheme.surfaceContainerHighest,
+          Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

@@ -263,16 +263,23 @@ void main() {
     result.container.dispose();
   });
 
-  testWidgets('AC11/AC18: Google button hidden when unconfigured; skip-MFA copy still shown', (tester) async {
+  testWidgets('AC11/AC18: Google button and Gmail helper copy hidden when unconfigured', (tester) async {
     final result = await _pumpApp(tester);
     expect(find.byKey(const Key('googleSignInButton')), findsNothing);
-    expect(find.textContaining('Gmail sign-in below skips that step'), findsOneWidget);
+    expect(find.textContaining('Gmail sign-in below skips that step'), findsNothing);
 
     await tester.tap(find.byKey(const Key('createAccountLink')));
     await _pumpFrames(tester);
     expect(find.byKey(const Key('googleSignInButton')), findsNothing);
-    expect(find.textContaining('Gmail sign-in below skips that step'), findsOneWidget);
+    expect(find.textContaining('Gmail sign-in below skips that step'), findsNothing);
 
+    result.container.dispose();
+  });
+
+  testWidgets('AC11: Gmail helper copy shows when Google is configured', (tester) async {
+    final result = await _pumpApp(tester, google: _FakeGoogleClient());
+    expect(find.byKey(const Key('googleSignInButton')), findsOneWidget);
+    expect(find.textContaining('Gmail sign-in below skips that step'), findsOneWidget);
     result.container.dispose();
   });
 

@@ -9,7 +9,7 @@ import 'package:merchanthub_mobile/features/auth/auth_provider.dart';
 UserResponse _user({
   UserRole role = UserRole.customer,
   String name = 'Casey Customer',
-  String email = 'casey@example.com',
+  String? email = 'casey@example.com',
   NationalIdType? nationalIdType,
   String? nationalIdNumber,
 }) =>
@@ -85,6 +85,17 @@ void main() {
     expect(find.byKey(const Key('profileRoleReadOnly')), findsOneWidget);
     expect(find.text('casey@example.com'), findsOneWidget);
     expect(find.text('customer'), findsOneWidget);
+    expect(find.text("Email changes aren't supported yet."), findsOneWidget);
+
+    result.container.dispose();
+  });
+
+  testWidgets('blank email stays empty — no "No email on file" placeholder', (tester) async {
+    final result = await _pumpProfile(tester, user: _user(email: null));
+
+    expect(find.text('No email on file'), findsNothing);
+    final emailField = tester.widget<TextFormField>(find.byKey(const Key('profileEmailReadOnly')));
+    expect(emailField.initialValue, '');
     expect(find.text("Email changes aren't supported yet."), findsOneWidget);
 
     result.container.dispose();

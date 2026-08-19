@@ -5,6 +5,7 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 
 import 'auth_provider.dart';
 import 'google_sign_in_button.dart';
+import 'google_sign_in_client.dart';
 import 'phone_otp_panel.dart';
 import '../../ui/friendly_error.dart';
 import '../../ui/widgets.dart';
@@ -144,8 +145,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'After sign-up you will set up an authenticator app (required for email/password sign-in). '
-                    'Gmail sign-in below skips that step.',
+                    ref.watch(googleSignInClientProvider).isConfigured
+                        ? 'After sign-up you will set up an authenticator app (required for email/password sign-in). '
+                            'Gmail sign-in below skips that step.'
+                        : 'After sign-up you will set up an authenticator app (required for email/password sign-in).',
                     style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 12),
