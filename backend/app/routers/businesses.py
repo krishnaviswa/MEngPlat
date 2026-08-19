@@ -229,6 +229,21 @@ async def create_category(
     return category
 
 
+@router.get("/id/{business_id}", response_model=BusinessResponse)
+async def get_business_by_id(business_id: UUID, db: AsyncSession = Depends(get_db)) -> BusinessResponse:
+    """Public collect/QR lookup by listing UUID. Approved listings only."""
+    result = await db.execute(
+        select(Business)
+        .options(selectinload(Business.categories).selectinload(BusinessCategory.category))
+        .where(Business.id == business_id, Business.status == BusinessStatus.APPROVED)
+    )
+    business = result.scalar_one_or_none()
+    if not business:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
+    featured = await load_active_featured_ends(db)
+    return _to_response(business, is_featured=business.id in featured)
+
+
 @router.get("/{slug}", response_model=BusinessResponse)
 async def get_business(slug: str, db: AsyncSession = Depends(get_db)) -> BusinessResponse:
     """Get business profile by slug."""

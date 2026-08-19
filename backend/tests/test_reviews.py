@@ -256,6 +256,18 @@ class TestCreateReview:
         assert result.rating == 5
         assert result.status == ReviewStatus.ACTIVE
 
+    async def test_disallowed_language_is_reported_not_live(self, monkeypatch):
+        business = _make_business()
+        user = _make_user()
+        db = FakeDB(businesses=[business])
+        monkeypatch.setattr(reviews_module, "get_ai_provider", lambda: FakeProvider())
+
+        payload = ReviewCreate(
+            business_id=business.id, rating=1, title=None, body="This place is complete shit honestly"
+        )
+        result = await reviews_module.create_review(payload, BackgroundTasks(), db, user)
+        assert result.status == ReviewStatus.REPORTED
+
     async def test_eager_loads_reply(self, monkeypatch):
         """Regression test for Finding 0: the refetch query used to omit
         selectinload(Review.reply) while _review_response() unconditionally

@@ -11,7 +11,7 @@ jest.mock("next/navigation", () => ({
 jest.mock("../../../../lib/api", () => ({
   API_URL: "http://localhost:8000",
   auth: { me: jest.fn() },
-  businesses: { list: jest.fn() },
+  businesses: { getById: jest.fn() },
   reviews: { create: jest.fn(), list: jest.fn() },
 }));
 
@@ -29,8 +29,7 @@ function clickStar(count: number) {
 describe("Collect review wizard (S-040)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (businesses.list as jest.Mock).mockResolvedValue([
-      {
+    (businesses.getById as jest.Mock).mockResolvedValue({
         id: "b1",
         name: "Cafe",
         city: "Chennai",
@@ -40,7 +39,7 @@ describe("Collect review wizard (S-040)", () => {
         average_rating: 4,
         review_count: 1,
       },
-    ]);
+    );
     (reviews.list as jest.Mock).mockResolvedValue([]);
   });
 
@@ -60,7 +59,7 @@ describe("Collect review wizard (S-040)", () => {
 
   it("creates the review through the existing API when signed in", async () => {
     (auth.me as jest.Mock).mockResolvedValue({ id: "c1", role: "customer" });
-    (reviews.create as jest.Mock).mockResolvedValue({ id: "r1" });
+    (reviews.create as jest.Mock).mockResolvedValue({ id: "r1", status: "active" });
 
     render(<CollectReviewPage params={resolvedParams({ businessId: "b1" })} />);
     await screen.findByText("Cafe");

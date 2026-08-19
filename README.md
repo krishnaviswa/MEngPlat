@@ -1192,6 +1192,7 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | GET    | `/businesses/categories/all` | Public         | List categories. Optional `q` (S-081): case-insensitive substring filter on `Category.name` |
 | GET    | `/businesses/cities`         | Public         | Distinct cities from approved businesses (search filter chips)           |
 | GET    | `/businesses/stats/summary`  | Public         | Public counts: businesses, reviews, categories, cities (no admin fields) |
+| GET    | `/businesses/id/{id}`        | Public         | Get an **approved** listing by UUID (QR `/collect/{id}` shop header)    |
 | GET    | `/businesses/{slug}`         | Public         | Get by slug                                                              |
 | GET    | `/businesses/{business_id}/external-reviews` | Public | Synced Google review sample, max 5, `[]` if none (**S-048**). Does not affect `average_rating` / `review_count` |
 | POST   | `/businesses`                | Merchant       | Create business (status `pending`). 400 if merchant national ID missing  |
@@ -1215,16 +1216,16 @@ Query on `GET /businesses`: `city`, `slugs` (comma-separated exact-slug filter, 
 | GET    | `/reviews/business/{business_id}` | Public | List reviews                                                                      |
 | GET    | `/reviews/reported`               | Admin  | List reported reviews                                                             |
 | GET    | `/reviews/admin/all`              | Admin  | Browse reviews across every business/status; optional `business_id` scope (S-021) |
-| POST   | `/reviews`                        | User   | Create review (triggers AI)                                                       |
-
-
-**POST** `/reviews` **errors:** `403` if a merchant reviews their own business (`"Cannot review your own business"`); `409` if the author already reviewed that business (`"You have already reviewed this business"`), including concurrent double-submit races caught by `uq_author_business_review`.
+| POST   | `/reviews`                        | User   | Create review (triggers AI). Live immediately (`active`) unless keyword-flagged as `reported` |
 | PATCH  | `/reviews/{id}`                   | Author   | Edit review                 |
 | DELETE | `/reviews/{id}`                   | Author   | Delete review               |
 | POST   | `/reviews/{id}/like`              | User     | Like review                 |
 | POST   | `/reviews/{id}/report`            | User     | Report review               |
 | POST   | `/reviews/{id}/reply`             | Merchant | Reply to review             |
 | POST   | `/reviews/{id}/moderate`          | Admin    | Hide / restore / remove     |
+
+
+**POST** `/reviews` **errors:** `403` if a merchant reviews their own business (`"Cannot review your own business"`); `409` if the author already reviewed that business (`"You have already reviewed this business"`), including concurrent double-submit races caught by `uq_author_business_review`. Obscene/slur keyword matches set status `reported` (admin queue) instead of `active` — no merchant/admin approval is required for a clean review.
 
 ```jsonc
 // POST /reviews  →  Review with ai_analysis { sentiment, summary, suggested_response }
@@ -2447,7 +2448,7 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-68 | Merchant          | Dashboard area/line trend charts + period-over-period delta badges | `/merchant/dashboard`                           | Dashboard volume `LineChart` + area fill; reply-rate / reviews-in-range delta badges | `implemented`   | S-037 (web), S-063 (mobile) — both Accepted                  |
 | M-69 | Merchant          | Competitor rating benchmarking (category + city median)            | `/merchant/dashboard`                           | Merchant Home `BenchmarkCard`                                          | `implemented`   | S-038 (web), S-066 (mobile)                              |
 | M-70 | Merchant          | AI reply drafting ("Draft with AI" button on review cards)         | `/merchant/dashboard`                           | `ReviewCard` composer fills `suggested_response`                       | `implemented`   | S-039 (web), S-066 (mobile); suggestion, not auto-post   |
-| M-71 | Merchant/Customer | Review collection flow (public QR/link wizard, no gating)          | `/collect/[businessId]`; mobile `/collect/:slug` + merchant QR/share sheet | —                                                                      | `partial` | S-040 (web), S-059 (mobile) — mobile QR/share + in-app landing shipped; cold QR scan resolves to the web page, not a native deep link (by design, see S-059). S-077 (web, 2026-08-19): a non-approved business now shows a "not approved yet" message instead of the QR card silently disappearing — mobile unaffected, not yet mirrored |
+| M-71 | Merchant/Customer | Review collection flow (public QR/link wizard, no gating)          | `/collect/[businessId]` (shop by UUID + photo); `/businesses/{slug}/review` thanks screen | `/collect/:slug` + merchant QR/share sheet | `partial` | S-040 (web), S-059 (mobile). Cold QR still opens web `/collect`. Web loads that UUID via `GET /businesses/id/{id}` instead of the top-50 list (which hid name/photo). |
 | M-75 | Chrome            | Dark mode (system-matched default, explicit toggle, persisted)     | Navbar `ThemeToggle` (`next-themes`)            | Theme toggle (`ThemeToggleButton`) in Account + Business list app bars | `implemented`   | S-045 (web); S-057 (mobile, Accepted 2026-08-18)              |
 | M-72 | Reviews           | Review-list sort/filter/truncate/lightbox + half-star ratings      | `/businesses/[slug]` (`ReviewsList`, `ReviewCard`, `ui/RatingWidget`) | Business detail review list (`reviewFiltersButton` bottom sheet, `ReviewCard` truncation + photo lightbox) + `RatingStars` half-star on business detail header and `BusinessCard` | `implemented`   | S-046 (web); S-058 (mobile, Accepted 2026-08-18)              |
 | M-76 | Home              | Social proof rail (businesses-using-MerchantHub strip)             | `/` (`SocialProofRail`)                         | `/home` social-proof rail                                              | `implemented`   | S-047 (web); S-064 (mobile)              |

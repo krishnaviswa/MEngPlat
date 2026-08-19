@@ -51,6 +51,8 @@ def test_customer_full_journey(page: Page, api: Api) -> None:
     page.get_by_role("button", name="5 stars").click()
     page.get_by_placeholder("Share details of your experience (min 10 characters)").fill(body)
     page.get_by_role("button", name="Post review").click()
+    expect(page.get_by_text("Thank you! Your review is live.")).to_be_visible()
+    page.get_by_role("link", name=re.compile(r"Back to")).click()
     expect(page).to_have_url(re.compile(rf"/businesses/{re.escape(business.slug)}"), timeout=20_000)
     review_card = page.locator("article").filter(has_text=body)
     expect(review_card).to_be_visible()

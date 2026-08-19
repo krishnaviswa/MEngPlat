@@ -119,6 +119,7 @@ export interface Review {
   rating: number;
   title?: string;
   body: string;
+  status?: string;
   like_count: number;
   created_at: string;
   author?: User;
@@ -423,6 +424,7 @@ export const businesses = {
     return apiFetch<Business[]>(`/api/v1/businesses${qs ? `?${qs}` : ""}`);
   },
   get: (slug: string) => apiFetch<Business>(`/api/v1/businesses/${slug}`),
+  getById: (id: string) => apiFetch<Business>(`/api/v1/businesses/id/${id}`),
   mine: () => apiFetch<Business[]>("/api/v1/businesses/mine"),
   create: (data: BusinessCreateInput) =>
     apiFetch<Business>("/api/v1/businesses", { method: "POST", body: JSON.stringify(data) }),

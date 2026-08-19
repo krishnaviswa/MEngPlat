@@ -16,7 +16,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import AIAnalysis, Review, Reply
+from app.models import AIAnalysis, Reply, Review, ReviewStatus
 
 DateRange = Literal["30", "90", "all"]
 RATING_KEYS = ("1", "2", "3", "4", "5")
@@ -62,7 +62,7 @@ async def get_recent_reviews(db: AsyncSession, business_id: UUID, limit: int = 1
             selectinload(Review.reply),
             selectinload(Review.photos),
         )
-        .where(Review.business_id == business_id)
+        .where(Review.business_id == business_id, Review.status == ReviewStatus.ACTIVE)
         .order_by(Review.created_at.desc())
         .limit(limit)
     )
