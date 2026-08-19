@@ -38,6 +38,8 @@ services:
       EMAIL_PROVIDER: mock
       PAYMENTS_PROVIDER: mock
       SMS_PROVIDER: mock
+      # Temporary fixed Mobile OTP — delete with docs/agents/REMOVE-ME-demo-fixed-otp.md
+      DEMO_PHONE_OTP: "123456"
       WHATSAPP_PROVIDER: mock
       STORAGE_PROVIDER: local
       STORAGE_LOCAL_PATH: /app/uploads
