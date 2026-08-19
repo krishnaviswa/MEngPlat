@@ -183,6 +183,19 @@ describe("redirectAfterAuth", () => {
     expect(window.location.href).toBe("/merchant/dashboard");
   });
 
+  it("redirects an admin to /admin", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "u-admin", role: "admin", full_name: "A", email: "a@x.com", is_active: true }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await redirectAfterAuth({ access_token: "a", refresh_token: "r" });
+
+    expect(window.location.href).toBe("/admin");
+  });
+
   it("falls back to the given fallback destination for a non-merchant role", async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
