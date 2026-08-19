@@ -16,6 +16,9 @@ part 'platform_analytics.g.dart';
 /// * [pendingBusinesses] 
 /// * [totalReviews] 
 /// * [reportedReviews] 
+/// * [openSupportTickets] 
+/// * [repeatShopReports] 
+/// * [processingBusinesses] 
 @BuiltValue()
 abstract class PlatformAnalytics implements Built<PlatformAnalytics, PlatformAnalyticsBuilder> {
   @BuiltValueField(wireName: r'total_users')
@@ -33,12 +36,24 @@ abstract class PlatformAnalytics implements Built<PlatformAnalytics, PlatformAna
   @BuiltValueField(wireName: r'reported_reviews')
   int get reportedReviews;
 
+  @BuiltValueField(wireName: r'open_support_tickets')
+  int? get openSupportTickets;
+
+  @BuiltValueField(wireName: r'repeat_shop_reports')
+  int? get repeatShopReports;
+
+  @BuiltValueField(wireName: r'processing_businesses')
+  int? get processingBusinesses;
+
   PlatformAnalytics._();
 
   factory PlatformAnalytics([void updates(PlatformAnalyticsBuilder b)]) = _$PlatformAnalytics;
 
   @BuiltValueHook(initializeBuilder: true)
-  static void _defaults(PlatformAnalyticsBuilder b) => b;
+  static void _defaults(PlatformAnalyticsBuilder b) => b
+      ..openSupportTickets = 0
+      ..repeatShopReports = 0
+      ..processingBusinesses = 0;
 
   @BuiltValueSerializer(custom: true)
   static Serializer<PlatformAnalytics> get serializer => _$PlatformAnalyticsSerializer();
@@ -81,6 +96,27 @@ class _$PlatformAnalyticsSerializer implements PrimitiveSerializer<PlatformAnaly
       object.reportedReviews,
       specifiedType: const FullType(int),
     );
+    if (object.openSupportTickets != null) {
+      yield r'open_support_tickets';
+      yield serializers.serialize(
+        object.openSupportTickets,
+        specifiedType: const FullType(int),
+      );
+    }
+    if (object.repeatShopReports != null) {
+      yield r'repeat_shop_reports';
+      yield serializers.serialize(
+        object.repeatShopReports,
+        specifiedType: const FullType(int),
+      );
+    }
+    if (object.processingBusinesses != null) {
+      yield r'processing_businesses';
+      yield serializers.serialize(
+        object.processingBusinesses,
+        specifiedType: const FullType(int),
+      );
+    }
   }
 
   @override
@@ -138,6 +174,27 @@ class _$PlatformAnalyticsSerializer implements PrimitiveSerializer<PlatformAnaly
             specifiedType: const FullType(int),
           ) as int;
           result.reportedReviews = valueDes;
+          break;
+        case r'open_support_tickets':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(int),
+          ) as int;
+          result.openSupportTickets = valueDes;
+          break;
+        case r'repeat_shop_reports':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(int),
+          ) as int;
+          result.repeatShopReports = valueDes;
+          break;
+        case r'processing_businesses':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(int),
+          ) as int;
+          result.processingBusinesses = valueDes;
           break;
         default:
           unhandled.add(key);

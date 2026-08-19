@@ -20,6 +20,8 @@ class _$BusinessUpdate extends BusinessUpdate {
   @override
   final String? postalCode;
   @override
+  final String? country;
+  @override
   final num? latitude;
   @override
   final num? longitude;
@@ -33,6 +35,8 @@ class _$BusinessUpdate extends BusinessUpdate {
   final JsonObject? businessHours;
   @override
   final BuiltList<String>? categoryIds;
+  @override
+  final String? addressOtpCode;
 
   factory _$BusinessUpdate([void Function(BusinessUpdateBuilder)? updates]) =>
       (BusinessUpdateBuilder()..update(updates))._build();
@@ -44,13 +48,15 @@ class _$BusinessUpdate extends BusinessUpdate {
       this.city,
       this.state,
       this.postalCode,
+      this.country,
       this.latitude,
       this.longitude,
       this.phone,
       this.email,
       this.website,
       this.businessHours,
-      this.categoryIds})
+      this.categoryIds,
+      this.addressOtpCode})
       : super._();
   @override
   BusinessUpdate rebuild(void Function(BusinessUpdateBuilder) updates) =>
@@ -69,13 +75,15 @@ class _$BusinessUpdate extends BusinessUpdate {
         city == other.city &&
         state == other.state &&
         postalCode == other.postalCode &&
+        country == other.country &&
         latitude == other.latitude &&
         longitude == other.longitude &&
         phone == other.phone &&
         email == other.email &&
         website == other.website &&
         businessHours == other.businessHours &&
-        categoryIds == other.categoryIds;
+        categoryIds == other.categoryIds &&
+        addressOtpCode == other.addressOtpCode;
   }
 
   @override
@@ -87,6 +95,7 @@ class _$BusinessUpdate extends BusinessUpdate {
     _$hash = $jc(_$hash, city.hashCode);
     _$hash = $jc(_$hash, state.hashCode);
     _$hash = $jc(_$hash, postalCode.hashCode);
+    _$hash = $jc(_$hash, country.hashCode);
     _$hash = $jc(_$hash, latitude.hashCode);
     _$hash = $jc(_$hash, longitude.hashCode);
     _$hash = $jc(_$hash, phone.hashCode);
@@ -94,6 +103,7 @@ class _$BusinessUpdate extends BusinessUpdate {
     _$hash = $jc(_$hash, website.hashCode);
     _$hash = $jc(_$hash, businessHours.hashCode);
     _$hash = $jc(_$hash, categoryIds.hashCode);
+    _$hash = $jc(_$hash, addressOtpCode.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -107,13 +117,15 @@ class _$BusinessUpdate extends BusinessUpdate {
           ..add('city', city)
           ..add('state', state)
           ..add('postalCode', postalCode)
+          ..add('country', country)
           ..add('latitude', latitude)
           ..add('longitude', longitude)
           ..add('phone', phone)
           ..add('email', email)
           ..add('website', website)
           ..add('businessHours', businessHours)
-          ..add('categoryIds', categoryIds))
+          ..add('categoryIds', categoryIds)
+          ..add('addressOtpCode', addressOtpCode))
         .toString();
   }
 }
@@ -146,6 +158,10 @@ class BusinessUpdateBuilder
   String? get postalCode => _$this._postalCode;
   set postalCode(String? postalCode) => _$this._postalCode = postalCode;
 
+  String? _country;
+  String? get country => _$this._country;
+  set country(String? country) => _$this._country = country;
+
   num? _latitude;
   num? get latitude => _$this._latitude;
   set latitude(num? latitude) => _$this._latitude = latitude;
@@ -177,6 +193,11 @@ class BusinessUpdateBuilder
   set categoryIds(ListBuilder<String>? categoryIds) =>
       _$this._categoryIds = categoryIds;
 
+  String? _addressOtpCode;
+  String? get addressOtpCode => _$this._addressOtpCode;
+  set addressOtpCode(String? addressOtpCode) =>
+      _$this._addressOtpCode = addressOtpCode;
+
   BusinessUpdateBuilder() {
     BusinessUpdate._defaults(this);
   }
@@ -190,6 +211,7 @@ class BusinessUpdateBuilder
       _city = $v.city;
       _state = $v.state;
       _postalCode = $v.postalCode;
+      _country = $v.country;
       _latitude = $v.latitude;
       _longitude = $v.longitude;
       _phone = $v.phone;
@@ -197,6 +219,7 @@ class BusinessUpdateBuilder
       _website = $v.website;
       _businessHours = $v.businessHours;
       _categoryIds = $v.categoryIds?.toBuilder();
+      _addressOtpCode = $v.addressOtpCode;
       _$v = null;
     }
     return this;
@@ -226,6 +249,7 @@ class BusinessUpdateBuilder
             city: city,
             state: state,
             postalCode: postalCode,
+            country: country,
             latitude: latitude,
             longitude: longitude,
             phone: phone,
@@ -233,6 +257,7 @@ class BusinessUpdateBuilder
             website: website,
             businessHours: businessHours,
             categoryIds: _categoryIds?.build(),
+            addressOtpCode: addressOtpCode,
           );
     } catch (_) {
       late String _$failedField;

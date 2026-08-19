@@ -40,6 +40,7 @@ from app.services.business_service import (
     refresh_merchant_ai_summary_bg,
     update_business_rating,
 )
+from app.services.content_moderation import contains_disallowed_language
 from app.services.cache import cache_delete_pattern
 from app.services.email import try_send_new_review
 from app.services.notifications import SCENARIO_NEW_REVIEW, upsert_notice
@@ -173,12 +174,14 @@ async def create_review(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="You have already reviewed this business")
 
+    flagged = contains_disallowed_language(payload.title, payload.body)
     review = Review(
         business_id=payload.business_id,
         author_id=user.id,
         rating=payload.rating,
         title=payload.title,
         body=payload.body,
+        status=ReviewStatus.REPORTED if flagged else ReviewStatus.ACTIVE,
     )
     db.add(review)
     try:
@@ -212,21 +215,22 @@ async def create_review(
     )
     db.add(ai)
 
-    merchant_result = await db.execute(select(Merchant).where(Merchant.id == business.merchant_id))
-    merchant = merchant_result.scalar_one_or_none()
-    if merchant:
-        await upsert_notice(
-            db,
-            user_id=merchant.user_id,
-            scenario=SCENARIO_NEW_REVIEW,
-            ntype=NotificationType.REVIEW,
-            title="New review received",
-            message=f"New {payload.rating}-star review on {business.name}",
-            extra_data={"review_id": str(review.id), "business_id": str(business.id)},
-        )
-        merchant_user = await db.get(User, merchant.user_id)
-        if merchant_user:
-            await try_send_new_review(merchant_user.email, business.name, payload.rating)
+    if not flagged:
+        merchant_result = await db.execute(select(Merchant).where(Merchant.id == business.merchant_id))
+        merchant = merchant_result.scalar_one_or_none()
+        if merchant:
+            await upsert_notice(
+                db,
+                user_id=merchant.user_id,
+                scenario=SCENARIO_NEW_REVIEW,
+                ntype=NotificationType.REVIEW,
+                title="New review received",
+                message=f"New {payload.rating}-star review on {business.name}",
+                extra_data={"review_id": str(review.id), "business_id": str(business.id)},
+            )
+            merchant_user = await db.get(User, merchant.user_id)
+            if merchant_user:
+                await try_send_new_review(merchant_user.email, business.name, payload.rating)
 
     await update_business_rating(db, business.id)
     await cache_delete_pattern("search:*")

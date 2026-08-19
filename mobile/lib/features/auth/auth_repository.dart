@@ -159,6 +159,17 @@ class AuthRepository {
     }
   }
 
+  Future<UserResponse> uploadAvatar({required List<int> bytes, required String filename}) async {
+    try {
+      final response = await _client.api.getAuthenticationApi().uploadMyAvatarApiV1AuthMeAvatarPost(
+            file: MultipartFile.fromBytes(bytes, filename: filename),
+          );
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   Future<UserResponse> updateMe(UserProfileUpdate payload) async {
     try {
       final response = await _client.api.getAuthenticationApi().updateMeApiV1AuthMePatch(

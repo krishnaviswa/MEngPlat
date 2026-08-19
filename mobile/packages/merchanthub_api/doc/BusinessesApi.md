@@ -20,6 +20,10 @@ Method | HTTP request | Description
 [**listExternalReviewsApiV1BusinessesBusinessIdExternalReviewsGet**](BusinessesApi.md#listexternalreviewsapiv1businessesbusinessidexternalreviewsget) | **GET** /api/v1/businesses/{business_id}/external-reviews | List External Reviews
 [**listMyBusinessesApiV1BusinessesMineGet**](BusinessesApi.md#listmybusinessesapiv1businessesmineget) | **GET** /api/v1/businesses/mine | List My Businesses
 [**publicStatsSummaryApiV1BusinessesStatsSummaryGet**](BusinessesApi.md#publicstatssummaryapiv1businessesstatssummaryget) | **GET** /api/v1/businesses/stats/summary | Public Stats Summary
+[**reportBusinessApiV1BusinessesBusinessIdReportsPost**](BusinessesApi.md#reportbusinessapiv1businessesbusinessidreportspost) | **POST** /api/v1/businesses/{business_id}/reports | Report Business
+[**requestAddressVerifyApiV1BusinessesBusinessIdAddressVerifyRequestPost**](BusinessesApi.md#requestaddressverifyapiv1businessesbusinessidaddressverifyrequestpost) | **POST** /api/v1/businesses/{business_id}/address-verify/request | Request Address Verify
+[**returnToPendingApiV1BusinessesBusinessIdReturnToPendingPost**](BusinessesApi.md#returntopendingapiv1businessesbusinessidreturntopendingpost) | **POST** /api/v1/businesses/{business_id}/return-to-pending | Return To Pending
+[**startReviewApiV1BusinessesBusinessIdStartReviewPost**](BusinessesApi.md#startreviewapiv1businessesbusinessidstartreviewpost) | **POST** /api/v1/businesses/{business_id}/start-review | Start Review
 [**suspendBusinessApiV1BusinessesBusinessIdSuspendPost**](BusinessesApi.md#suspendbusinessapiv1businessesbusinessidsuspendpost) | **POST** /api/v1/businesses/{business_id}/suspend | Suspend Business
 [**updateBusinessApiV1BusinessesBusinessIdPatch**](BusinessesApi.md#updatebusinessapiv1businessesbusinessidpatch) | **PATCH** /api/v1/businesses/{business_id} | Update Business
 
@@ -289,20 +293,21 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listCategoriesApiV1BusinessesCategoriesAllGet**
-> BuiltList<CategoryResponse> listCategoriesApiV1BusinessesCategoriesAllGet()
+> BuiltList<CategoryResponse> listCategoriesApiV1BusinessesCategoriesAllGet(q)
 
 List Categories
 
-List all business categories.
+List business categories. Optional `q` filters by case-insensitive name substring (S-081).
 
 ### Example
 ```dart
 import 'package:merchanthub_api/api.dart';
 
 final api = MerchanthubApi().getBusinessesApi();
+final String q = q_example; // String | 
 
 try {
-    final response = api.listCategoriesApiV1BusinessesCategoriesAllGet();
+    final response = api.listCategoriesApiV1BusinessesCategoriesAllGet(q);
     print(response);
 } catch on DioException (e) {
     print('Exception when calling BusinessesApi->listCategoriesApiV1BusinessesCategoriesAllGet: $e\n');
@@ -310,7 +315,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **q** | **String**|  | [optional] 
 
 ### Return type
 
@@ -479,6 +487,180 @@ This endpoint does not need any parameter.
 ### Authorization
 
 No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **reportBusinessApiV1BusinessesBusinessIdReportsPost**
+> BusinessReportResponse reportBusinessApiV1BusinessesBusinessIdReportsPost(businessId, businessReportCreate)
+
+Report Business
+
+Signed-in user: report a shop (not a review). Merchants cannot report their own listing (S-089).
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getBusinessesApi();
+final String businessId = 38400000-8cf0-11bd-b23e-10b96e4ef00d; // String | 
+final BusinessReportCreate businessReportCreate = ; // BusinessReportCreate | 
+
+try {
+    final response = api.reportBusinessApiV1BusinessesBusinessIdReportsPost(businessId, businessReportCreate);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling BusinessesApi->reportBusinessApiV1BusinessesBusinessIdReportsPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **businessId** | **String**|  | 
+ **businessReportCreate** | [**BusinessReportCreate**](BusinessReportCreate.md)|  | 
+
+### Return type
+
+[**BusinessReportResponse**](BusinessReportResponse.md)
+
+### Authorization
+
+[HTTPBearer](../README.md#HTTPBearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **requestAddressVerifyApiV1BusinessesBusinessIdAddressVerifyRequestPost**
+> MessageResponse requestAddressVerifyApiV1BusinessesBusinessIdAddressVerifyRequestPost(businessId)
+
+Request Address Verify
+
+Send an OTP to confirm a 2nd+ address edit (S-073/ADR-014). Owner-only; 409 if this business has no prior address edit to re-verify.
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getBusinessesApi();
+final String businessId = 38400000-8cf0-11bd-b23e-10b96e4ef00d; // String | 
+
+try {
+    final response = api.requestAddressVerifyApiV1BusinessesBusinessIdAddressVerifyRequestPost(businessId);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling BusinessesApi->requestAddressVerifyApiV1BusinessesBusinessIdAddressVerifyRequestPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **businessId** | **String**|  | 
+
+### Return type
+
+[**MessageResponse**](MessageResponse.md)
+
+### Authorization
+
+[HTTPBearer](../README.md#HTTPBearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **returnToPendingApiV1BusinessesBusinessIdReturnToPendingPost**
+> BusinessResponse returnToPendingApiV1BusinessesBusinessIdReturnToPendingPost(businessId)
+
+Return To Pending
+
+Admin: un-claim a business under review, returning it to the plain pending queue (S-079).
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getBusinessesApi();
+final String businessId = 38400000-8cf0-11bd-b23e-10b96e4ef00d; // String | 
+
+try {
+    final response = api.returnToPendingApiV1BusinessesBusinessIdReturnToPendingPost(businessId);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling BusinessesApi->returnToPendingApiV1BusinessesBusinessIdReturnToPendingPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **businessId** | **String**|  | 
+
+### Return type
+
+[**BusinessResponse**](BusinessResponse.md)
+
+### Authorization
+
+[HTTPBearer](../README.md#HTTPBearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **startReviewApiV1BusinessesBusinessIdStartReviewPost**
+> BusinessResponse startReviewApiV1BusinessesBusinessIdStartReviewPost(businessId)
+
+Start Review
+
+Admin: mark a pending business as being actively reviewed (S-079). Visibility-only -- does not lock the business to this admin; any admin can still act on it.
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getBusinessesApi();
+final String businessId = 38400000-8cf0-11bd-b23e-10b96e4ef00d; // String | 
+
+try {
+    final response = api.startReviewApiV1BusinessesBusinessIdStartReviewPost(businessId);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling BusinessesApi->startReviewApiV1BusinessesBusinessIdStartReviewPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **businessId** | **String**|  | 
+
+### Return type
+
+[**BusinessResponse**](BusinessResponse.md)
+
+### Authorization
+
+[HTTPBearer](../README.md#HTTPBearer)
 
 ### HTTP request headers
 

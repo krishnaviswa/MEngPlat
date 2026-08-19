@@ -415,6 +415,147 @@
         ]
       }
     },
+    "/api/v1/auth/me/avatar": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Upload My Avatar",
+        "description": "Upload/replace the caller's own profile avatar (S-085). Always targets\nthe authenticated caller -- there is no `user_id` param, so this can\nnever set or change another user's avatar.\n\n**Request:** multipart form -- file (image, same content-type/size rules\nas the business/review photo upload path)\n**Response:** Updated user profile (`avatar_url` set to the new file's URL)\n**Errors:** 400 unsupported content-type or file too large, 401 not authenticated",
+        "operationId": "upload_my_avatar_api_v1_auth_me_avatar_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_my_avatar_api_v1_auth_me_avatar_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/national-id/aadhaar/mock-otp/request": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Request Aadhaar Mock Otp",
+        "description": "Start a MOCK Aadhaar OTP challenge (S-070 / ADR-013). Not a real UIDAI call --\nreuses phone_otp.py's Redis hashed-code primitives under a distinct key prefix.\nThe structurally-valid Aadhaar number is held pending in Redis (same TTL as the\ncode) until verify succeeds; it is never persisted here.",
+        "operationId": "request_aadhaar_mock_otp_api_v1_auth_national_id_aadhaar_mock_otp_request_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MockAadhaarOtpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MockAadhaarOtpResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/national-id/aadhaar/mock-otp/verify": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Verify Aadhaar Mock Otp",
+        "description": "Verify the mock Aadhaar OTP code; on success, saves the pending Aadhaar number.",
+        "operationId": "verify_aadhaar_mock_otp_api_v1_auth_national_id_aadhaar_mock_otp_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MockOtpVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/auth/google": {
       "post": {
         "tags": [
@@ -714,19 +855,41 @@
           "Businesses"
         ],
         "summary": "List Categories",
-        "description": "List all business categories.",
+        "description": "List business categories. Optional `q` filters by case-insensitive name substring (S-081).",
         "operationId": "list_categories_api_v1_businesses_categories_all_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true,
+              "title": "Q"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/CategoryResponse"
                   },
-                  "type": "array",
                   "title": "Response List Categories Api V1 Businesses Categories All Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -1025,6 +1188,55 @@
         }
       }
     },
+    "/api/v1/businesses/{business_id}/address-verify/request": {
+      "post": {
+        "tags": [
+          "Businesses"
+        ],
+        "summary": "Request Address Verify",
+        "description": "Send an OTP to confirm a 2nd+ address edit (S-073/ADR-014). Owner-only;\n409 if this business has no prior address edit to re-verify.",
+        "operationId": "request_address_verify_api_v1_businesses__business_id__address_verify_request_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/businesses/{business_id}/approve": {
       "post": {
         "tags": [
@@ -1123,6 +1335,104 @@
         }
       }
     },
+    "/api/v1/businesses/{business_id}/start-review": {
+      "post": {
+        "tags": [
+          "Businesses"
+        ],
+        "summary": "Start Review",
+        "description": "Admin: mark a pending business as being actively reviewed (S-079). Visibility-only --\ndoes not lock the business to this admin; any admin can still act on it.",
+        "operationId": "start_review_api_v1_businesses__business_id__start_review_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/businesses/{business_id}/return-to-pending": {
+      "post": {
+        "tags": [
+          "Businesses"
+        ],
+        "summary": "Return To Pending",
+        "description": "Admin: un-claim a business under review, returning it to the plain pending queue (S-079).",
+        "operationId": "return_to_pending_api_v1_businesses__business_id__return_to_pending_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/businesses/{business_id}/external-reviews": {
       "get": {
         "tags": [
@@ -1154,6 +1464,65 @@
                     "$ref": "#/components/schemas/ExternalReviewResponse"
                   },
                   "title": "Response List External Reviews Api V1 Businesses  Business Id  External Reviews Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/businesses/{business_id}/reports": {
+      "post": {
+        "tags": [
+          "Businesses"
+        ],
+        "summary": "Report Business",
+        "description": "Signed-in user: report a shop (not a review). Merchants cannot report their own listing (S-089).",
+        "operationId": "report_business_api_v1_businesses__business_id__reports_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "business_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Business Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessReportCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessReportResponse"
                 }
               }
             }
@@ -2211,7 +2580,7 @@
           "Dashboard"
         ],
         "summary": "Platform Analytics",
-        "description": "Admin platform-wide analytics.",
+        "description": "Admin platform-wide analytics (S-090 adds ops-queue snapshot counts).",
         "operationId": "platform_analytics_api_v1_dashboard_admin_platform_get",
         "responses": {
           "200": {
@@ -3527,6 +3896,474 @@
         }
       }
     },
+    "/api/v1/admin/support-tickets": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Admin List Support Tickets",
+        "description": "Admin: all support tickets, oldest first (S-088).",
+        "operationId": "admin_list_support_tickets_api_v1_admin_support_tickets_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true,
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SupportTicketResponse"
+                  },
+                  "title": "Response Admin List Support Tickets Api V1 Admin Support Tickets Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/support-tickets/{ticket_id}": {
+      "patch": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Admin Update Support Ticket",
+        "description": "Admin: set ticket status and/or response (S-088).",
+        "operationId": "admin_update_support_ticket_api_v1_admin_support_tickets__ticket_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ticket_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Ticket Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportTicketAdminUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportTicketResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/business-reports": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Admin List Business Reports",
+        "description": "Admin: shop-level reports with per-shop counts and repeat flag (S-089).",
+        "operationId": "admin_list_business_reports_api_v1_admin_business_reports_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true,
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessReportResponse"
+                  },
+                  "title": "Response Admin List Business Reports Api V1 Admin Business Reports Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/business-reports/{report_id}": {
+      "patch": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Admin Update Business Report",
+        "operationId": "admin_update_business_report_api_v1_admin_business_reports__report_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessReportAdminUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessReportResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/business-reports/{report_id}/messages": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Admin Add Business Report Message",
+        "operationId": "admin_add_business_report_message_api_v1_admin_business_reports__report_id__messages_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessReportMessageCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessReportMessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/support/contact": {
+      "get": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "Support Contact",
+        "description": "Public support email for footer / contact page (S-087).",
+        "operationId": "support_contact_api_v1_support_contact_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportContactResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/support-tickets": {
+      "post": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "Create Support Ticket",
+        "description": "Create a support ticket. Auth optional; logged-in users can later list via /mine.",
+        "operationId": "create_support_ticket_api_v1_support_tickets_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportTicketCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportTicketResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/support-tickets/mine": {
+      "get": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "List My Support Tickets",
+        "operationId": "list_my_support_tickets_api_v1_support_tickets_mine_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SupportTicketResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List My Support Tickets Api V1 Support Tickets Mine Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/business-reports/mine": {
+      "get": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "List My Business Reports",
+        "operationId": "list_my_business_reports_api_v1_business_reports_mine_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessReportResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List My Business Reports Api V1 Business Reports Mine Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/business-reports/{report_id}/messages": {
+      "post": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "Add Report Message",
+        "operationId": "add_report_message_api_v1_business_reports__report_id__messages_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessReportMessageCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessReportMessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/payments/featured/skus": {
       "get": {
         "tags": [
@@ -4462,6 +5299,20 @@
         ],
         "title": "BenchmarkResponse"
       },
+      "Body_upload_my_avatar_api_v1_auth_me_avatar_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_my_avatar_api_v1_auth_me_avatar_post"
+      },
       "Body_upload_photo_api_v1_photos_upload_post": {
         "properties": {
           "file": {
@@ -4544,12 +5395,11 @@
           },
           "phone": {
             "type": "string",
-            "nullable": true,
             "title": "Phone"
           },
           "email": {
             "type": "string",
-            "nullable": true,
+            "format": "email",
             "title": "Email"
           },
           "website": {
@@ -4576,9 +5426,161 @@
         "required": [
           "name",
           "address",
-          "city"
+          "city",
+          "phone",
+          "email"
         ],
         "title": "BusinessCreate"
+      },
+      "BusinessReportAdminUpdate": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "BusinessReportAdminUpdate"
+      },
+      "BusinessReportCreate": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 10,
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "BusinessReportCreate"
+      },
+      "BusinessReportMessageCreate": {
+        "properties": {
+          "body": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Body"
+          }
+        },
+        "type": "object",
+        "required": [
+          "body"
+        ],
+        "title": "BusinessReportMessageCreate"
+      },
+      "BusinessReportMessageResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "report_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Report Id"
+          },
+          "author_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Author Id"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "report_id",
+          "author_id",
+          "body",
+          "created_at"
+        ],
+        "title": "BusinessReportMessageResponse"
+      },
+      "BusinessReportResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "business_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Business Id"
+          },
+          "reporter_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reporter Id"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "business_name": {
+            "type": "string",
+            "nullable": true,
+            "title": "Business Name"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/BusinessReportMessageResponse"
+            },
+            "type": "array",
+            "title": "Messages"
+          },
+          "report_count": {
+            "type": "integer",
+            "nullable": true,
+            "title": "Report Count"
+          },
+          "is_repeat": {
+            "type": "boolean",
+            "title": "Is Repeat",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "business_id",
+          "reporter_id",
+          "reason",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "BusinessReportResponse"
       },
       "BusinessResponse": {
         "properties": {
@@ -4710,6 +5712,7 @@
         "type": "string",
         "enum": [
           "pending",
+          "processing",
           "approved",
           "rejected",
           "suspended"
@@ -4824,6 +5827,11 @@
             "type": "array",
             "nullable": true,
             "title": "Category Ids"
+          },
+          "address_otp_code": {
+            "type": "string",
+            "nullable": true,
+            "title": "Address Otp Code"
           }
         },
         "type": "object",
@@ -5544,6 +6552,38 @@
         ],
         "title": "MfaTotpCodeRequest"
       },
+      "MockAadhaarOtpRequest": {
+        "properties": {
+          "aadhaar_number": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Aadhaar Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "aadhaar_number"
+        ],
+        "title": "MockAadhaarOtpRequest"
+      },
+      "MockAadhaarOtpResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "dev_code": {
+            "type": "string",
+            "nullable": true,
+            "title": "Dev Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "MockAadhaarOtpResponse"
+      },
       "MockCompleteRequest": {
         "properties": {
           "provider_order_id": {
@@ -5562,6 +6602,21 @@
           "outcome"
         ],
         "title": "MockCompleteRequest"
+      },
+      "MockOtpVerifyRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 6,
+            "minLength": 6,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "MockOtpVerifyRequest"
       },
       "NationalIdType": {
         "type": "string",
@@ -5617,6 +6672,11 @@
           "is_read": {
             "type": "boolean",
             "title": "Is Read"
+          },
+          "scenario": {
+            "type": "string",
+            "nullable": true,
+            "title": "Scenario"
           },
           "extra_data": {
             "type": "object",
@@ -5991,6 +7051,21 @@
           "reported_reviews": {
             "type": "integer",
             "title": "Reported Reviews"
+          },
+          "open_support_tickets": {
+            "type": "integer",
+            "title": "Open Support Tickets",
+            "default": 0
+          },
+          "repeat_shop_reports": {
+            "type": "integer",
+            "title": "Repeat Shop Reports",
+            "default": 0
+          },
+          "processing_businesses": {
+            "type": "integer",
+            "title": "Processing Businesses",
+            "default": 0
           }
         },
         "type": "object",
@@ -6291,6 +7366,139 @@
           "negative"
         ],
         "title": "Sentiment"
+      },
+      "SupportContactResponse": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "support_path": {
+            "type": "string",
+            "title": "Support Path",
+            "default": "/support"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "SupportContactResponse"
+      },
+      "SupportTicketAdminUpdate": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "title": "Status"
+          },
+          "admin_response": {
+            "type": "string",
+            "maxLength": 4000,
+            "nullable": true,
+            "title": "Admin Response"
+          }
+        },
+        "type": "object",
+        "title": "SupportTicketAdminUpdate"
+      },
+      "SupportTicketCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 8,
+            "title": "Phone"
+          },
+          "issue": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 10,
+            "title": "Issue"
+          },
+          "business_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "title": "Business Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "phone",
+          "issue"
+        ],
+        "title": "SupportTicketCreate"
+      },
+      "SupportTicketResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "phone": {
+            "type": "string",
+            "title": "Phone"
+          },
+          "issue": {
+            "type": "string",
+            "title": "Issue"
+          },
+          "business_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "title": "Business Id"
+          },
+          "reporter_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "title": "Reporter Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "admin_response": {
+            "type": "string",
+            "nullable": true,
+            "title": "Admin Response"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "phone",
+          "issue",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SupportTicketResponse"
       },
       "TokenResponse": {
         "properties": {

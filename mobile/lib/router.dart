@@ -5,10 +5,12 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 
 import 'features/account/account_screen.dart';
 import 'features/account/profile_screen.dart';
+import 'features/admin/admin_business_reports_screen.dart';
 import 'features/admin/admin_businesses_screen.dart';
 import 'features/admin/admin_categories_screen.dart';
 import 'features/admin/admin_home_screen.dart';
 import 'features/admin/admin_reviews_screen.dart';
+import 'features/admin/admin_support_queue_screen.dart';
 import 'features/admin/admin_users_screen.dart';
 import 'features/admin/admin_whatsapp_queue_screen.dart';
 import 'features/auth/auth_provider.dart';
@@ -25,6 +27,7 @@ import 'features/merchant/merchant_dashboard_screen.dart';
 import 'features/notifications/notifications_screen.dart';
 import 'features/reviews/collect_review_screen.dart';
 import 'features/shell/app_shell.dart';
+import 'features/support/support_screen.dart';
 
 /// Bridges Riverpod's [authControllerProvider] to go_router's [GoRouter],
 /// which needs a [Listenable] to know when to re-run its `redirect` callback.
@@ -78,6 +81,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const HomeScreen(),
           ),
           GoRoute(
+            path: '/support',
+            builder: (context, state) => const SupportScreen(),
+          ),
+          GoRoute(
             path: '/businesses',
             builder: (context, state) => const BusinessListScreen(),
             routes: [
@@ -123,6 +130,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(path: 'categories', builder: (context, state) => const AdminCategoriesScreen()),
               GoRoute(path: 'users', builder: (context, state) => const AdminUsersScreen()),
               GoRoute(path: 'whatsapp', builder: (context, state) => const AdminWhatsAppQueueScreen()),
+              GoRoute(path: 'support', builder: (context, state) => const AdminSupportQueueScreen()),
+              GoRoute(path: 'business-reports', builder: (context, state) => const AdminBusinessReportsScreen()),
             ],
           ),
         ],
@@ -145,6 +154,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // S-064/Tier 5: marketing home is public, same carve-out shape as
       // Explore. Signed-in shells do not show a Home tab for this route.
       final isPublicHomeRoute = loc == '/home';
+      final isPublicSupportRoute = loc == '/support';
       // S-059/M-71: the review-collection landing view is ungated too --
       // only submitting from it (handled in the screen itself) requires a
       // session, same "view is public, action is gated" shape as above.
@@ -156,6 +166,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           !isOnForgotPassword &&
           !isPublicBusinessRoute &&
           !isPublicHomeRoute &&
+          !isPublicSupportRoute &&
           !isPublicCollectRoute) {
         return '/login';
       }

@@ -26,9 +26,9 @@ class _$BusinessCreate extends BusinessCreate {
   @override
   final num? longitude;
   @override
-  final String? phone;
+  final String phone;
   @override
-  final String? email;
+  final String email;
   @override
   final String? website;
   @override
@@ -49,8 +49,8 @@ class _$BusinessCreate extends BusinessCreate {
       this.country,
       this.latitude,
       this.longitude,
-      this.phone,
-      this.email,
+      required this.phone,
+      required this.email,
       this.website,
       this.businessHours,
       this.categoryIds})
@@ -243,8 +243,10 @@ class BusinessCreateBuilder
             country: country,
             latitude: latitude,
             longitude: longitude,
-            phone: phone,
-            email: email,
+            phone: BuiltValueNullFieldError.checkNotNull(
+                phone, r'BusinessCreate', 'phone'),
+            email: BuiltValueNullFieldError.checkNotNull(
+                email, r'BusinessCreate', 'email'),
             website: website,
             businessHours: businessHours,
             categoryIds: _categoryIds?.build(),

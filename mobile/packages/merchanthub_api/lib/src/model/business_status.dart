@@ -13,6 +13,8 @@ class BusinessStatus extends EnumClass {
 
   @BuiltValueEnumConst(wireName: r'pending')
   static const BusinessStatus pending = _$pending;
+  @BuiltValueEnumConst(wireName: r'processing')
+  static const BusinessStatus processing = _$processing;
   @BuiltValueEnumConst(wireName: r'approved')
   static const BusinessStatus approved = _$approved;
   @BuiltValueEnumConst(wireName: r'rejected')

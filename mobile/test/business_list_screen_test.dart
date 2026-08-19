@@ -93,7 +93,7 @@ class _FakeBusinessRepository extends BusinessRepository {
   Future<List<String>> listCities() async => cities;
 
   @override
-  Future<List<CategoryResponse>> listCategories() async => categories;
+  Future<List<CategoryResponse>> listCategories({String? q}) async => categories;
 
   @override
   Future<MapsConfig> mapsConfig() async => MapsConfig.fallback;

@@ -23,6 +23,7 @@ import 'package:merchanthub_api/src/api/payments_api.dart';
 import 'package:merchanthub_api/src/api/photos_api.dart';
 import 'package:merchanthub_api/src/api/reviews_api.dart';
 import 'package:merchanthub_api/src/api/search_api.dart';
+import 'package:merchanthub_api/src/api/support_api.dart';
 import 'package:merchanthub_api/src/api/webhooks_api.dart';
 
 class MerchanthubApi {
@@ -161,6 +162,12 @@ class MerchanthubApi {
   /// by doing that all interceptors will not be executed
   SearchApi getSearchApi() {
     return SearchApi(dio, serializers);
+  }
+
+  /// Get SupportApi instance, base route and serializer can be overridden by a given but be careful,
+  /// by doing that all interceptors will not be executed
+  SupportApi getSupportApi() {
+    return SupportApi(dio, serializers);
   }
 
   /// Get WebhooksApi instance, base route and serializer can be overridden by a given but be careful,

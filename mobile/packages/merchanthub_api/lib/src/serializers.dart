@@ -21,6 +21,11 @@ import 'package:merchanthub_api/src/model/admin_whats_app_draft_queue_response.d
 import 'package:merchanthub_api/src/model/admin_whats_app_draft_response.dart';
 import 'package:merchanthub_api/src/model/benchmark_response.dart';
 import 'package:merchanthub_api/src/model/business_create.dart';
+import 'package:merchanthub_api/src/model/business_report_admin_update.dart';
+import 'package:merchanthub_api/src/model/business_report_create.dart';
+import 'package:merchanthub_api/src/model/business_report_message_create.dart';
+import 'package:merchanthub_api/src/model/business_report_message_response.dart';
+import 'package:merchanthub_api/src/model/business_report_response.dart';
 import 'package:merchanthub_api/src/model/business_response.dart';
 import 'package:merchanthub_api/src/model/business_status.dart';
 import 'package:merchanthub_api/src/model/business_summary.dart';
@@ -53,7 +58,10 @@ import 'package:merchanthub_api/src/model/merchant_insights_response.dart';
 import 'package:merchanthub_api/src/model/message_response.dart';
 import 'package:merchanthub_api/src/model/mfa_token_request.dart';
 import 'package:merchanthub_api/src/model/mfa_totp_code_request.dart';
+import 'package:merchanthub_api/src/model/mock_aadhaar_otp_request.dart';
+import 'package:merchanthub_api/src/model/mock_aadhaar_otp_response.dart';
 import 'package:merchanthub_api/src/model/mock_complete_request.dart';
+import 'package:merchanthub_api/src/model/mock_otp_verify_request.dart';
 import 'package:merchanthub_api/src/model/national_id_type.dart';
 import 'package:merchanthub_api/src/model/nearby_business_request.dart';
 import 'package:merchanthub_api/src/model/notification_response.dart';
@@ -79,6 +87,10 @@ import 'package:merchanthub_api/src/model/review_response.dart';
 import 'package:merchanthub_api/src/model/review_status.dart';
 import 'package:merchanthub_api/src/model/review_update.dart';
 import 'package:merchanthub_api/src/model/sentiment.dart';
+import 'package:merchanthub_api/src/model/support_contact_response.dart';
+import 'package:merchanthub_api/src/model/support_ticket_admin_update.dart';
+import 'package:merchanthub_api/src/model/support_ticket_create.dart';
+import 'package:merchanthub_api/src/model/support_ticket_response.dart';
 import 'package:merchanthub_api/src/model/token_response.dart';
 import 'package:merchanthub_api/src/model/topic_cluster_response.dart';
 import 'package:merchanthub_api/src/model/topic_item.dart';
@@ -104,6 +116,11 @@ part 'serializers.g.dart';
   AdminWhatsAppDraftResponse,
   BenchmarkResponse,
   BusinessCreate,
+  BusinessReportAdminUpdate,
+  BusinessReportCreate,
+  BusinessReportMessageCreate,
+  BusinessReportMessageResponse,
+  BusinessReportResponse,
   BusinessResponse,
   BusinessStatus,
   BusinessSummary,
@@ -136,7 +153,10 @@ part 'serializers.g.dart';
   MessageResponse,
   MfaTokenRequest,
   MfaTotpCodeRequest,
+  MockAadhaarOtpRequest,
+  MockAadhaarOtpResponse,
   MockCompleteRequest,
+  MockOtpVerifyRequest,
   NationalIdType,
   NearbyBusinessRequest,
   NotificationResponse,
@@ -162,6 +182,10 @@ part 'serializers.g.dart';
   ReviewStatus,
   ReviewUpdate,
   Sentiment,
+  SupportContactResponse,
+  SupportTicketAdminUpdate,
+  SupportTicketCreate,
+  SupportTicketResponse,
   TokenResponse,
   TopicClusterResponse,
   TopicItem,
@@ -183,10 +207,6 @@ Serializers serializers = (_$serializers.toBuilder()
         () => ListBuilder<BusinessResponse>(),
       )
       ..addBuilderFactory(
-        const FullType(BuiltList, [FullType(ReviewResponse)]),
-        () => ListBuilder<ReviewResponse>(),
-      )
-      ..addBuilderFactory(
         const FullType(BuiltList, [FullType(ExternalReviewResponse)]),
         () => ListBuilder<ExternalReviewResponse>(),
       )
@@ -203,6 +223,22 @@ Serializers serializers = (_$serializers.toBuilder()
         () => ListBuilder<AdminPaymentRow>(),
       )
       ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(BusinessReportResponse)]),
+        () => ListBuilder<BusinessReportResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(WhatsAppDraftResponse)]),
+        () => ListBuilder<WhatsAppDraftResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(ReviewResponse)]),
+        () => ListBuilder<ReviewResponse>(),
+      )
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(SupportTicketResponse)]),
+        () => ListBuilder<SupportTicketResponse>(),
+      )
+      ..addBuilderFactory(
         const FullType(BuiltList, [FullType(UserResponse)]),
         () => ListBuilder<UserResponse>(),
       )
@@ -217,10 +253,6 @@ Serializers serializers = (_$serializers.toBuilder()
       ..addBuilderFactory(
         const FullType(BuiltList, [FullType(FeaturedSku)]),
         () => ListBuilder<FeaturedSku>(),
-      )
-      ..addBuilderFactory(
-        const FullType(BuiltList, [FullType(WhatsAppDraftResponse)]),
-        () => ListBuilder<WhatsAppDraftResponse>(),
       )
       ..add(const OneOfSerializer())
       ..add(const AnyOfSerializer())

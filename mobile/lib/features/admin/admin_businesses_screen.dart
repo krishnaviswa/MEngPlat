@@ -3,15 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../businesses/business_list_provider.dart';
+import 'admin_back_app_bar.dart';
 
-/// Admin browse of every business status (M-60).
+/// Admin browse of every business status (M-60) with processing badge (M-81).
 class AdminBusinessesScreen extends ConsumerWidget {
   const AdminBusinessesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('All businesses')),
+      appBar: adminBackAppBar(context, title: 'All businesses'),
       body: FutureBuilder<List<BusinessResponse>>(
         future: ref.read(businessRepositoryProvider).listAdminAll(),
         builder: (context, snapshot) {
@@ -33,7 +34,21 @@ class AdminBusinessesScreen extends ConsumerWidget {
               return ListTile(
                 title: Text(business.name),
                 subtitle: Text('${business.city} · ${business.status.name}'),
-                trailing: Text(business.averageRating.toStringAsFixed(1)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (business.status == BusinessStatus.processing)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Chip(
+                          key: Key('processingBadge-${business.id}'),
+                          label: const Text('Processing'),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    Text(business.averageRating.toStringAsFixed(1)),
+                  ],
+                ),
               );
             },
           );

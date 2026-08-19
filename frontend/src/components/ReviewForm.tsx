@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { RatingWidget } from "./ui/RatingWidget";
-import { photos, reviews } from "@/lib/api";
-import type { Business } from "@/lib/api";
+import { API_URL, photos, reviews } from "@/lib/api";
+import type { Business, Review } from "@/lib/api";
 
 const MAX_PHOTOS = 5;
 
@@ -22,6 +22,7 @@ export function ReviewForm({ business }: ReviewFormProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState<Review | null>(null);
 
   useEffect(() => {
     setSignedIn(!!localStorage.getItem("access_token"));
@@ -50,7 +51,7 @@ export function ReviewForm({ business }: ReviewFormProps) {
 
       if (files.length) {
         const uploads = await Promise.allSettled(
-          files.map((file) => photos.upload(file, { reviewId: review.id, photoType: "review" }))
+          files.map((file) => photos.upload(file, { reviewId: review.id, photoType: "review" })),
         );
         const failed = uploads.filter((r) => r.status === "rejected").length;
         if (failed) {
@@ -58,7 +59,7 @@ export function ReviewForm({ business }: ReviewFormProps) {
         }
       }
 
-      router.push(`/businesses/${business.slug}`);
+      setSubmitted(review);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit review");
@@ -80,9 +81,59 @@ export function ReviewForm({ business }: ReviewFormProps) {
     );
   }
 
+  if (submitted) {
+    const held = submitted.status === "reported";
+    return (
+      <div className="rounded-xl border border-border bg-surface-raised p-6 text-center shadow-sm">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-600">
+          ✓
+        </div>
+        {held ? (
+          <>
+            <p className="mt-3 text-lg font-semibold">Thanks — we received your review.</p>
+            <p className="mt-1 text-sm text-muted">
+              It is held for admin review because the text may not meet our content rules. It is not live on
+              the listing yet.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="mt-3 text-lg font-semibold">Thank you! Your review is live.</p>
+            <p className="mt-1 text-sm text-muted">
+              It is on {business.name} now. No merchant or admin approval is required.
+            </p>
+          </>
+        )}
+        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        <a
+          href={`/businesses/${business.slug}`}
+          className="mt-4 inline-block rounded bg-brand-600 px-4 py-2 text-sm text-white hover:bg-brand-700"
+        >
+          Back to {business.name}
+        </a>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
       {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-300">{error}</p>}
+      <div className="flex items-center gap-3">
+        {(business.storefront_url || business.logo_url) && (
+          <img
+            src={(() => {
+              const url = business.storefront_url || business.logo_url || "";
+              return url.startsWith("http") ? url : `${API_URL}${url}`;
+            })()}
+            alt=""
+            className="h-14 w-14 rounded-lg object-cover"
+          />
+        )}
+        <div>
+          <p className="font-semibold">{business.name}</p>
+          <p className="text-sm text-muted">{[business.address, business.city].filter(Boolean).join(", ")}</p>
+        </div>
+      </div>
       <div>
         <label className="mb-1 block text-sm font-medium text-muted">Rating</label>
         <RatingWidget value={rating} onChange={setRating} size="lg" />

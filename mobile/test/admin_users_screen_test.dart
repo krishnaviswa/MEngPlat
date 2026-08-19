@@ -41,8 +41,13 @@ class _FakeAdminRepository extends AdminRepository {
   final suspended = <String>[];
   final reactivated = <String>[];
 
+  String? lastQ;
+
   @override
-  Future<List<UserResponse>> listUsers() async => users;
+  Future<List<UserResponse>> listUsers({String? q}) async {
+    lastQ = q;
+    return users;
+  }
 
   @override
   Future<UserResponse> suspendUser(String userId) async {
@@ -144,5 +149,17 @@ void main() {
     await _pumpScreen(tester, admin: admin, users: const []);
     expect(find.text('No users'), findsOneWidget);
     expect(find.byKey(const Key('adminUsersScreen')), findsOneWidget);
+  });
+
+  testWidgets('S-093: role chips render and search debounce calls listUsers with q', (tester) async {
+    final repo = await _pumpScreen(
+      tester,
+      admin: admin,
+      users: [_user(id: 'cust-1', role: UserRole.customer)],
+    );
+    expect(find.byKey(const Key('roleChip-cust-1')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('adminUsersSearchField')), 'ada');
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(repo.lastQ, 'ada');
   });
 }

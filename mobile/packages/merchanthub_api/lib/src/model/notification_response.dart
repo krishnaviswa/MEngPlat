@@ -17,6 +17,7 @@ part 'notification_response.g.dart';
 /// * [title] 
 /// * [message] 
 /// * [isRead] 
+/// * [scenario] 
 /// * [extraData] 
 /// * [createdAt] 
 @BuiltValue()
@@ -35,6 +36,9 @@ abstract class NotificationResponse implements Built<NotificationResponse, Notif
 
   @BuiltValueField(wireName: r'is_read')
   bool get isRead;
+
+  @BuiltValueField(wireName: r'scenario')
+  String? get scenario;
 
   @BuiltValueField(wireName: r'extra_data')
   JsonObject? get extraData;
@@ -90,6 +94,13 @@ class _$NotificationResponseSerializer implements PrimitiveSerializer<Notificati
       object.isRead,
       specifiedType: const FullType(bool),
     );
+    if (object.scenario != null) {
+      yield r'scenario';
+      yield serializers.serialize(
+        object.scenario,
+        specifiedType: const FullType.nullable(String),
+      );
+    }
     if (object.extraData != null) {
       yield r'extra_data';
       yield serializers.serialize(
@@ -159,6 +170,14 @@ class _$NotificationResponseSerializer implements PrimitiveSerializer<Notificati
             specifiedType: const FullType(bool),
           ) as bool;
           result.isRead = valueDes;
+          break;
+        case r'scenario':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.scenario = valueDes;
           break;
         case r'extra_data':
           final valueDes = serializers.deserialize(

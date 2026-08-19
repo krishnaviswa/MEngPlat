@@ -26,12 +26,21 @@ MOBILE_DIR = REPO_ROOT / "mobile"
 OPENAPI_JSON = MOBILE_DIR / "openapi.json"
 CLIENT_OUT_DIR = MOBILE_DIR / "packages" / "merchanthub_api"
 
+def _win_exe(path: str) -> str:
+    """Windows flutter/dart launchers are .bat; CreateProcess rejects the extensionless shim."""
+    if os.name == "nt" and not path.lower().endswith((".exe", ".bat", ".cmd")):
+        bat = path + ".bat"
+        if Path(bat).exists():
+            return bat
+    return path
+
+
 JAVA_BIN = os.environ.get("JAVA_BIN", "C:/src/jre/bin/java")
 OPENAPI_GENERATOR_JAR = os.environ.get(
     "OPENAPI_GENERATOR_JAR", "C:/src/openapi-generator/openapi-generator-cli-7.14.0.jar"
 )
-FLUTTER_BIN = os.environ.get("FLUTTER_BIN", "C:/src/flutter/bin/flutter")
-DART_BIN = os.environ.get("DART_BIN", "C:/src/flutter/bin/dart")
+FLUTTER_BIN = _win_exe(os.environ.get("FLUTTER_BIN", "C:/src/flutter/bin/flutter"))
+DART_BIN = _win_exe(os.environ.get("DART_BIN", "C:/src/flutter/bin/dart"))
 
 
 def _blank_to_none(value: object) -> object:
@@ -68,6 +77,8 @@ def _fix_nullable(node: object) -> None:
 def export_openapi_schema() -> None:
     sys.path.insert(0, str(BACKEND_DIR))
     os.environ.setdefault("PYTHONPATH", str(BACKEND_DIR))
+    # Schema export only — Settings requires secret_key; this dummy is never used to sign tokens.
+    os.environ.setdefault("SECRET_KEY", "openapi-codegen-dummy")
     from fastapi.openapi.utils import get_openapi  # noqa: PLC0415
 
     from app.main import app  # noqa: PLC0415

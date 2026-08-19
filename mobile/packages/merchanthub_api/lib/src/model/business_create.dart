@@ -57,10 +57,10 @@ abstract class BusinessCreate implements Built<BusinessCreate, BusinessCreateBui
   num? get longitude;
 
   @BuiltValueField(wireName: r'phone')
-  String? get phone;
+  String get phone;
 
   @BuiltValueField(wireName: r'email')
-  String? get email;
+  String get email;
 
   @BuiltValueField(wireName: r'website')
   String? get website;
@@ -153,20 +153,16 @@ class _$BusinessCreateSerializer implements PrimitiveSerializer<BusinessCreate> 
         specifiedType: const FullType.nullable(num),
       );
     }
-    if (object.phone != null) {
-      yield r'phone';
-      yield serializers.serialize(
-        object.phone,
-        specifiedType: const FullType.nullable(String),
-      );
-    }
-    if (object.email != null) {
-      yield r'email';
-      yield serializers.serialize(
-        object.email,
-        specifiedType: const FullType.nullable(String),
-      );
-    }
+    yield r'phone';
+    yield serializers.serialize(
+      object.phone,
+      specifiedType: const FullType(String),
+    );
+    yield r'email';
+    yield serializers.serialize(
+      object.email,
+      specifiedType: const FullType(String),
+    );
     if (object.website != null) {
       yield r'website';
       yield serializers.serialize(
@@ -282,17 +278,15 @@ class _$BusinessCreateSerializer implements PrimitiveSerializer<BusinessCreate> 
         case r'phone':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType.nullable(String),
-          ) as String?;
-          if (valueDes == null) continue;
+            specifiedType: const FullType(String),
+          ) as String;
           result.phone = valueDes;
           break;
         case r'email':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType.nullable(String),
-          ) as String?;
-          if (valueDes == null) continue;
+            specifiedType: const FullType(String),
+          ) as String;
           result.email = valueDes;
           break;
         case r'website':

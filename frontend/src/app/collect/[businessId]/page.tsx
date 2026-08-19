@@ -24,17 +24,22 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
   const [error, setError] = useState("");
   const [business, setBusiness] = useState<Business | null>(null);
   const [recentReviews, setRecentReviews] = useState<Review[]>([]);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [submitted, setSubmitted] = useState<Review | null>(null);
 
   useEffect(() => {
     businesses
-      .list()
-      .then((list) => {
-        const match = list.find((b) => b.id === businessId) ?? null;
+      .getById(businessId)
+      .then((match) => {
         setBusiness(match);
-        return match ? reviews.list(match.id) : [];
+        setLoadFailed(false);
+        return reviews.list(match.id);
       })
       .then((list) => setRecentReviews(list.slice(0, 2)))
-      .catch(() => setBusiness(null));
+      .catch(() => {
+        setBusiness(null);
+        setLoadFailed(true);
+      });
   }, [businessId]);
 
   function toggleChip(chip: string) {
@@ -63,7 +68,8 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
       return;
     }
     try {
-      await reviews.create({ business_id: businessId, rating, body });
+      const created = await reviews.create({ business_id: businessId, rating, body });
+      setSubmitted(created);
       setStep("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not submit review");
@@ -93,7 +99,9 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
             {business.categories[0].name}
           </span>
         )}
-        <h1 className="text-2xl font-bold">{business?.name ?? "Leave a review"}</h1>
+        <h1 className="text-2xl font-bold">
+          {business?.name ?? (loadFailed ? "Shop not found" : "Leave a review")}
+        </h1>
         {placeLine && <p className="mt-0.5 text-sm text-white/80">{placeLine}</p>}
         <div className="mt-1 flex items-center gap-2 text-sm">
           <RatingWidget value={business?.average_rating ?? 0} readonly size="sm" />
@@ -186,10 +194,31 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-600">
               ✓
             </div>
-            <p className="mt-3 text-lg font-semibold">Thank you! Your review is live.</p>
-            <p className="mt-1 text-sm text-muted">
-              You're one of {(business?.review_count ?? 0) + 1} people who reviewed this spot.
-            </p>
+            {submitted?.status === "reported" ? (
+              <>
+                <p className="mt-3 text-lg font-semibold">Thanks — we received your review.</p>
+                <p className="mt-1 text-sm text-muted">
+                  It is held for admin review because the text may not meet our content rules. It is not
+                  live on the listing yet.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-3 text-lg font-semibold">Thank you! Your review is live.</p>
+                <p className="mt-1 text-sm text-muted">
+                  You&apos;re one of {(business?.review_count ?? 0) + 1} people who reviewed this spot. No
+                  merchant or admin approval is required.
+                </p>
+              </>
+            )}
+            {business?.slug && submitted?.status !== "reported" && (
+              <a
+                href={`/businesses/${business.slug}`}
+                className="mt-4 inline-block text-sm font-medium text-brand-700 hover:underline"
+              >
+                See it on the listing →
+              </a>
+            )}
           </div>
 
           <a

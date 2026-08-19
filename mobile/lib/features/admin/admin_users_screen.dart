@@ -1,11 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../auth/auth_provider.dart';
+import 'admin_back_app_bar.dart';
 import 'admin_providers.dart';
 
-/// Admin user suspend/reactivate (M-64, S-061 AC 8-9).
+/// Admin user suspend/reactivate (M-64) plus search and role chips (M-82, M-85).
 class AdminUsersScreen extends ConsumerStatefulWidget {
   const AdminUsersScreen({super.key});
 
@@ -14,6 +17,8 @@ class AdminUsersScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
+  final _search = TextEditingController();
+  Timer? _debounce;
   List<UserResponse> _users = [];
   String? _error;
   bool _loading = true;
@@ -25,13 +30,25 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  Future<void> _load() async {
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () => _load(q: value.trim()));
+  }
+
+  Future<void> _load({String? q}) async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final users = await ref.read(adminRepositoryProvider).listUsers();
+      final users = await ref.read(adminRepositoryProvider).listUsers(q: q ?? _search.text.trim());
       if (!mounted) return;
       setState(() {
         _users = users;
@@ -78,50 +95,72 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
 
     return Scaffold(
       key: const Key('adminUsersScreen'),
-      appBar: AppBar(title: const Text('Users')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: _error != null
-                  ? ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                        OutlinedButton(onPressed: _load, child: const Text('Retry')),
-                      ],
-                    )
-                  : _users.isEmpty
-                      ? const Center(child: Text('No users'))
-                      : ListView.separated(
-                          itemCount: _users.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            final user = _users[index];
-                            // AC 9: hide the controls entirely for admin rows
-                            // and the signed-in admin's own row, rather than
-                            // surface-then-refuse the backend's 400.
-                            final controlsHidden = user.role == UserRole.admin || user.id == currentAdminId;
-                            return ListTile(
-                              title: Text(user.fullName),
-                              subtitle: Text('${user.email ?? user.phone ?? ''} · ${user.role.name}'),
-                              trailing: controlsHidden
-                                  ? Text(user.isActive ? 'Active' : 'Suspended')
-                                  : user.isActive
-                                      ? OutlinedButton(
-                                          key: Key('suspendUser-${user.id}'),
-                                          onPressed: _actingId == user.id ? null : () => _suspend(user.id),
-                                          child: const Text('Suspend'),
-                                        )
-                                      : FilledButton(
-                                          key: Key('reactivateUser-${user.id}'),
-                                          onPressed: _actingId == user.id ? null : () => _reactivate(user.id),
-                                          child: const Text('Reactivate'),
-                                        ),
-                            );
-                          },
-                        ),
+      appBar: adminBackAppBar(context, title: 'Users'),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: TextField(
+              key: const Key('adminUsersSearchField'),
+              controller: _search,
+              decoration: const InputDecoration(labelText: 'Search name or email', isDense: true),
+              onChanged: _onSearchChanged,
             ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: _error != null
+                        ? ListView(
+                            padding: const EdgeInsets.all(16),
+                            children: [
+                              Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                              OutlinedButton(onPressed: _load, child: const Text('Retry')),
+                            ],
+                          )
+                        : _users.isEmpty
+                            ? ListView(
+                                children: const [
+                                  SizedBox(height: 48),
+                                  Center(child: Text('No users')),
+                                ],
+                              )
+                            : ListView.separated(
+                                itemCount: _users.length,
+                                separatorBuilder: (_, _) => const Divider(height: 1),
+                                itemBuilder: (context, index) {
+                                  final user = _users[index];
+                                  final controlsHidden = user.role == UserRole.admin || user.id == currentAdminId;
+                                  return ListTile(
+                                    title: Text(user.fullName),
+                                    subtitle: Text(user.email ?? user.phone ?? ''),
+                                    leading: Chip(
+                                      key: Key('roleChip-${user.id}'),
+                                      label: Text(user.role.name),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    trailing: controlsHidden
+                                        ? Text(user.isActive ? 'Active' : 'Suspended')
+                                        : user.isActive
+                                            ? OutlinedButton(
+                                                key: Key('suspendUser-${user.id}'),
+                                                onPressed: _actingId == user.id ? null : () => _suspend(user.id),
+                                                child: const Text('Suspend'),
+                                              )
+                                            : FilledButton(
+                                                key: Key('reactivateUser-${user.id}'),
+                                                onPressed: _actingId == user.id ? null : () => _reactivate(user.id),
+                                                child: const Text('Reactivate'),
+                                              ),
+                                  );
+                                },
+                              ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

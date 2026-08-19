@@ -14,6 +14,7 @@ Name | Type | Description | Notes
 **city** | **String** |  | [optional] 
 **state** | **String** |  | [optional] 
 **postalCode** | **String** |  | [optional] 
+**country** | **String** |  | [optional] 
 **latitude** | **num** |  | [optional] 
 **longitude** | **num** |  | [optional] 
 **phone** | **String** |  | [optional] 
@@ -21,6 +22,7 @@ Name | Type | Description | Notes
 **website** | **String** |  | [optional] 
 **businessHours** | [**JsonObject**](.md) |  | [optional] 
 **categoryIds** | **BuiltList&lt;String&gt;** |  | [optional] 
+**addressOtpCode** | **String** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

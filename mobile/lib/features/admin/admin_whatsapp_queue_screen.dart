@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../merchant/whatsapp_update_panel.dart';
+import 'admin_back_app_bar.dart';
 import 'admin_providers.dart';
 
 /// Admin queue for WhatsApp-derived profile suggestions (M-79).
@@ -102,7 +103,7 @@ class _AdminWhatsAppQueueScreenState extends ConsumerState<AdminWhatsAppQueueScr
   Widget build(BuildContext context) {
     return Scaffold(
       key: const Key('adminWhatsAppQueueScreen'),
-      appBar: AppBar(title: const Text('WhatsApp drafts')),
+      appBar: adminBackAppBar(context, title: 'WhatsApp drafts'),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(

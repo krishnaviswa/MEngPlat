@@ -93,7 +93,7 @@ abstract class BusinessResponse implements Built<BusinessResponse, BusinessRespo
 
   @BuiltValueField(wireName: r'status')
   BusinessStatus get status;
-  // enum statusEnum {  pending,  approved,  rejected,  suspended,  };
+  // enum statusEnum {  pending,  processing,  approved,  rejected,  suspended,  };
 
   @BuiltValueField(wireName: r'average_rating')
   num get averageRating;

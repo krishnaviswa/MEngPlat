@@ -17,6 +17,9 @@ import 'package:merchanthub_api/src/model/logout_request.dart';
 import 'package:merchanthub_api/src/model/message_response.dart';
 import 'package:merchanthub_api/src/model/mfa_token_request.dart';
 import 'package:merchanthub_api/src/model/mfa_totp_code_request.dart';
+import 'package:merchanthub_api/src/model/mock_aadhaar_otp_request.dart';
+import 'package:merchanthub_api/src/model/mock_aadhaar_otp_response.dart';
+import 'package:merchanthub_api/src/model/mock_otp_verify_request.dart';
 import 'package:merchanthub_api/src/model/phone_otp_request.dart';
 import 'package:merchanthub_api/src/model/phone_otp_verify_request.dart';
 import 'package:merchanthub_api/src/model/reset_password_request.dart';
@@ -865,6 +868,107 @@ class AuthenticationApi {
     );
   }
 
+  /// Request Aadhaar Mock Otp
+  /// Start a MOCK Aadhaar OTP challenge (S-070 / ADR-013). Not a real UIDAI call -- reuses phone_otp.py&#39;s Redis hashed-code primitives under a distinct key prefix. The structurally-valid Aadhaar number is held pending in Redis (same TTL as the code) until verify succeeds; it is never persisted here.
+  ///
+  /// Parameters:
+  /// * [mockAadhaarOtpRequest] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [MockAadhaarOtpResponse] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<MockAadhaarOtpResponse>> requestAadhaarMockOtpApiV1AuthNationalIdAadhaarMockOtpRequestPost({ 
+    required MockAadhaarOtpRequest mockAadhaarOtpRequest,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/v1/auth/national-id/aadhaar/mock-otp/request';
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'HTTPBearer',
+          },
+        ],
+        ...?extra,
+      },
+      contentType: 'application/json',
+      validateStatus: validateStatus,
+    );
+
+    dynamic _bodyData;
+
+    try {
+      const _type = FullType(MockAadhaarOtpRequest);
+      _bodyData = _serializers.serialize(mockAadhaarOtpRequest, specifiedType: _type);
+
+    } catch(error, stackTrace) {
+      throw DioException(
+         requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final _response = await _dio.request<Object>(
+      _path,
+      data: _bodyData,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    MockAadhaarOtpResponse? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(MockAadhaarOtpResponse),
+      ) as MockAadhaarOtpResponse;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<MockAadhaarOtpResponse>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
   /// Reset Password
   /// Complete a password reset with a token from the reset email.  **Request:** token, new_password (min 12 chars, at least one letter and one digit -- same policy as register) **Response:** Confirmation message. No session tokens are issued -- sign in still requires TOTP (ADR-001). **Errors:** 422 password policy, 400 invalid/expired/already-used token (generic, does not distinguish which), 429 rate-limited (5/minute per IP), 503 Redis unreachable
   ///
@@ -1335,6 +1439,209 @@ class AuthenticationApi {
     }
 
     return Response<UserResponse>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// Upload My Avatar
+  /// Upload/replace the caller&#39;s own profile avatar (S-085). Always targets the authenticated caller -- there is no &#x60;user_id&#x60; param, so this can never set or change another user&#39;s avatar.  **Request:** multipart form -- file (image, same content-type/size rules as the business/review photo upload path) **Response:** Updated user profile (&#x60;avatar_url&#x60; set to the new file&#39;s URL) **Errors:** 400 unsupported content-type or file too large, 401 not authenticated
+  ///
+  /// Parameters:
+  /// * [file] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [UserResponse] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<UserResponse>> uploadMyAvatarApiV1AuthMeAvatarPost({ 
+    required MultipartFile file,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/v1/auth/me/avatar';
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'HTTPBearer',
+          },
+        ],
+        ...?extra,
+      },
+      contentType: 'multipart/form-data',
+      validateStatus: validateStatus,
+    );
+
+    dynamic _bodyData;
+
+    try {
+      _bodyData = FormData.fromMap(<String, dynamic>{
+        r'file': file,
+      });
+
+    } catch(error, stackTrace) {
+      throw DioException(
+         requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final _response = await _dio.request<Object>(
+      _path,
+      data: _bodyData,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    UserResponse? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(UserResponse),
+      ) as UserResponse;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<UserResponse>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// Verify Aadhaar Mock Otp
+  /// Verify the mock Aadhaar OTP code; on success, saves the pending Aadhaar number.
+  ///
+  /// Parameters:
+  /// * [mockOtpVerifyRequest] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [MessageResponse] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<MessageResponse>> verifyAadhaarMockOtpApiV1AuthNationalIdAadhaarMockOtpVerifyPost({ 
+    required MockOtpVerifyRequest mockOtpVerifyRequest,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/v1/auth/national-id/aadhaar/mock-otp/verify';
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'HTTPBearer',
+          },
+        ],
+        ...?extra,
+      },
+      contentType: 'application/json',
+      validateStatus: validateStatus,
+    );
+
+    dynamic _bodyData;
+
+    try {
+      const _type = FullType(MockOtpVerifyRequest);
+      _bodyData = _serializers.serialize(mockOtpVerifyRequest, specifiedType: _type);
+
+    } catch(error, stackTrace) {
+      throw DioException(
+         requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final _response = await _dio.request<Object>(
+      _path,
+      data: _bodyData,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    MessageResponse? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(MessageResponse),
+      ) as MessageResponse;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<MessageResponse>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

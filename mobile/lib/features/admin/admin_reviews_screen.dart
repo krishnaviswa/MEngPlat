@@ -4,6 +4,7 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../reviews/review_card.dart';
 import '../reviews/review_providers.dart';
+import 'admin_back_app_bar.dart';
 
 /// Admin browse of reviews across businesses (M-60).
 class AdminReviewsScreen extends ConsumerWidget {
@@ -12,7 +13,7 @@ class AdminReviewsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('All reviews')),
+      appBar: adminBackAppBar(context, title: 'All reviews'),
       body: FutureBuilder<List<ReviewResponse>>(
         future: ref.read(reviewRepositoryProvider).listAdminAll(),
         builder: (context, snapshot) {

@@ -18,6 +18,8 @@ class _$NotificationResponse extends NotificationResponse {
   @override
   final bool isRead;
   @override
+  final String? scenario;
+  @override
   final JsonObject? extraData;
   @override
   final DateTime createdAt;
@@ -32,6 +34,7 @@ class _$NotificationResponse extends NotificationResponse {
       required this.title,
       required this.message,
       required this.isRead,
+      this.scenario,
       this.extraData,
       required this.createdAt})
       : super._();
@@ -53,6 +56,7 @@ class _$NotificationResponse extends NotificationResponse {
         title == other.title &&
         message == other.message &&
         isRead == other.isRead &&
+        scenario == other.scenario &&
         extraData == other.extraData &&
         createdAt == other.createdAt;
   }
@@ -65,6 +69,7 @@ class _$NotificationResponse extends NotificationResponse {
     _$hash = $jc(_$hash, title.hashCode);
     _$hash = $jc(_$hash, message.hashCode);
     _$hash = $jc(_$hash, isRead.hashCode);
+    _$hash = $jc(_$hash, scenario.hashCode);
     _$hash = $jc(_$hash, extraData.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jf(_$hash);
@@ -79,6 +84,7 @@ class _$NotificationResponse extends NotificationResponse {
           ..add('title', title)
           ..add('message', message)
           ..add('isRead', isRead)
+          ..add('scenario', scenario)
           ..add('extraData', extraData)
           ..add('createdAt', createdAt))
         .toString();
@@ -109,6 +115,10 @@ class NotificationResponseBuilder
   bool? get isRead => _$this._isRead;
   set isRead(bool? isRead) => _$this._isRead = isRead;
 
+  String? _scenario;
+  String? get scenario => _$this._scenario;
+  set scenario(String? scenario) => _$this._scenario = scenario;
+
   JsonObject? _extraData;
   JsonObject? get extraData => _$this._extraData;
   set extraData(JsonObject? extraData) => _$this._extraData = extraData;
@@ -129,6 +139,7 @@ class NotificationResponseBuilder
       _title = $v.title;
       _message = $v.message;
       _isRead = $v.isRead;
+      _scenario = $v.scenario;
       _extraData = $v.extraData;
       _createdAt = $v.createdAt;
       _$v = null;
@@ -162,6 +173,7 @@ class NotificationResponseBuilder
               message, r'NotificationResponse', 'message'),
           isRead: BuiltValueNullFieldError.checkNotNull(
               isRead, r'NotificationResponse', 'isRead'),
+          scenario: scenario,
           extraData: extraData,
           createdAt: BuiltValueNullFieldError.checkNotNull(
               createdAt, r'NotificationResponse', 'createdAt'),

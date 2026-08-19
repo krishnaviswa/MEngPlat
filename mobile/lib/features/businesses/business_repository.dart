@@ -68,9 +68,11 @@ class BusinessRepository {
     }
   }
 
-  Future<List<CategoryResponse>> listCategories() async {
+  Future<List<CategoryResponse>> listCategories({String? q}) async {
     try {
-      final response = await _client.api.getBusinessesApi().listCategoriesApiV1BusinessesCategoriesAllGet();
+      final response = await _client.api.getBusinessesApi().listCategoriesApiV1BusinessesCategoriesAllGet(
+            q: q == null || q.isEmpty ? null : q,
+          );
       return response.data!.toList();
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
@@ -157,6 +159,39 @@ class BusinessRepository {
     try {
       final response = await _client.api.getBusinessesApi().listBusinessesApiV1BusinessesGet(statusFilter: status);
       return response.data!.toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<BusinessResponse> startReview(String businessId) async {
+    try {
+      final response =
+          await _client.api.getBusinessesApi().startReviewApiV1BusinessesBusinessIdStartReviewPost(businessId: businessId);
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<BusinessResponse> returnToPending(String businessId) async {
+    try {
+      final response = await _client.api
+          .getBusinessesApi()
+          .returnToPendingApiV1BusinessesBusinessIdReturnToPendingPost(businessId: businessId);
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<BusinessReportResponse> reportShop({required String businessId, required String reason}) async {
+    try {
+      final response = await _client.api.getBusinessesApi().reportBusinessApiV1BusinessesBusinessIdReportsPost(
+            businessId: businessId,
+            businessReportCreate: BusinessReportCreate((b) => b.reason = reason),
+          );
+      return response.data!;
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }

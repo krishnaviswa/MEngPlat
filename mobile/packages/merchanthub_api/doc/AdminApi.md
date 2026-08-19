@@ -9,6 +9,11 @@ All URIs are relative to *http://localhost*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
+[**adminAddBusinessReportMessageApiV1AdminBusinessReportsReportIdMessagesPost**](AdminApi.md#adminaddbusinessreportmessageapiv1adminbusinessreportsreportidmessagespost) | **POST** /api/v1/admin/business-reports/{report_id}/messages | Admin Add Business Report Message
+[**adminListBusinessReportsApiV1AdminBusinessReportsGet**](AdminApi.md#adminlistbusinessreportsapiv1adminbusinessreportsget) | **GET** /api/v1/admin/business-reports | Admin List Business Reports
+[**adminListSupportTicketsApiV1AdminSupportTicketsGet**](AdminApi.md#adminlistsupportticketsapiv1adminsupportticketsget) | **GET** /api/v1/admin/support-tickets | Admin List Support Tickets
+[**adminUpdateBusinessReportApiV1AdminBusinessReportsReportIdPatch**](AdminApi.md#adminupdatebusinessreportapiv1adminbusinessreportsreportidpatch) | **PATCH** /api/v1/admin/business-reports/{report_id} | Admin Update Business Report
+[**adminUpdateSupportTicketApiV1AdminSupportTicketsTicketIdPatch**](AdminApi.md#adminupdatesupportticketapiv1adminsupportticketsticketidpatch) | **PATCH** /api/v1/admin/support-tickets/{ticket_id} | Admin Update Support Ticket
 [**approveAdminWhatsappDraftApiV1AdminWhatsappDraftsDraftIdApprovePost**](AdminApi.md#approveadminwhatsappdraftapiv1adminwhatsappdraftsdraftidapprovepost) | **POST** /api/v1/admin/whatsapp/drafts/{draft_id}/approve | Approve Admin Whatsapp Draft
 [**listAdminWhatsappDraftsApiV1AdminWhatsappDraftsGet**](AdminApi.md#listadminwhatsappdraftsapiv1adminwhatsappdraftsget) | **GET** /api/v1/admin/whatsapp/drafts | List Admin Whatsapp Drafts
 [**listUsersApiV1AdminUsersGet**](AdminApi.md#listusersapiv1adminusersget) | **GET** /api/v1/admin/users | List Users
@@ -16,6 +21,223 @@ Method | HTTP request | Description
 [**rejectAdminWhatsappDraftApiV1AdminWhatsappDraftsDraftIdRejectPost**](AdminApi.md#rejectadminwhatsappdraftapiv1adminwhatsappdraftsdraftidrejectpost) | **POST** /api/v1/admin/whatsapp/drafts/{draft_id}/reject | Reject Admin Whatsapp Draft
 [**suspendUserApiV1AdminUsersUserIdSuspendPost**](AdminApi.md#suspenduserapiv1adminusersuseridsuspendpost) | **POST** /api/v1/admin/users/{user_id}/suspend | Suspend User
 
+
+# **adminAddBusinessReportMessageApiV1AdminBusinessReportsReportIdMessagesPost**
+> BusinessReportMessageResponse adminAddBusinessReportMessageApiV1AdminBusinessReportsReportIdMessagesPost(reportId, businessReportMessageCreate)
+
+Admin Add Business Report Message
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAdminApi();
+final String reportId = 38400000-8cf0-11bd-b23e-10b96e4ef00d; // String | 
+final BusinessReportMessageCreate businessReportMessageCreate = ; // BusinessReportMessageCreate | 
+
+try {
+    final response = api.adminAddBusinessReportMessageApiV1AdminBusinessReportsReportIdMessagesPost(reportId, businessReportMessageCreate);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AdminApi->adminAddBusinessReportMessageApiV1AdminBusinessReportsReportIdMessagesPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **reportId** | **String**|  | 
+ **businessReportMessageCreate** | [**BusinessReportMessageCreate**](BusinessReportMessageCreate.md)|  | 
+
+### Return type
+
+[**BusinessReportMessageResponse**](BusinessReportMessageResponse.md)
+
+### Authorization
+
+[HTTPBearer](../README.md#HTTPBearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **adminListBusinessReportsApiV1AdminBusinessReportsGet**
+> BuiltList<BusinessReportResponse> adminListBusinessReportsApiV1AdminBusinessReportsGet(status)
+
+Admin List Business Reports
+
+Admin: shop-level reports with per-shop counts and repeat flag (S-089).
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAdminApi();
+final String status = status_example; // String | 
+
+try {
+    final response = api.adminListBusinessReportsApiV1AdminBusinessReportsGet(status);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AdminApi->adminListBusinessReportsApiV1AdminBusinessReportsGet: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **status** | **String**|  | [optional] 
+
+### Return type
+
+[**BuiltList&lt;BusinessReportResponse&gt;**](BusinessReportResponse.md)
+
+### Authorization
+
+[HTTPBearer](../README.md#HTTPBearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **adminListSupportTicketsApiV1AdminSupportTicketsGet**
+> BuiltList<SupportTicketResponse> adminListSupportTicketsApiV1AdminSupportTicketsGet(status)
+
+Admin List Support Tickets
+
+Admin: all support tickets, oldest first (S-088).
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAdminApi();
+final String status = status_example; // String | 
+
+try {
+    final response = api.adminListSupportTicketsApiV1AdminSupportTicketsGet(status);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AdminApi->adminListSupportTicketsApiV1AdminSupportTicketsGet: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **status** | **String**|  | [optional] 
+
+### Return type
+
+[**BuiltList&lt;SupportTicketResponse&gt;**](SupportTicketResponse.md)
+
+### Authorization
+
+[HTTPBearer](../README.md#HTTPBearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **adminUpdateBusinessReportApiV1AdminBusinessReportsReportIdPatch**
+> BusinessReportResponse adminUpdateBusinessReportApiV1AdminBusinessReportsReportIdPatch(reportId, businessReportAdminUpdate)
+
+Admin Update Business Report
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAdminApi();
+final String reportId = 38400000-8cf0-11bd-b23e-10b96e4ef00d; // String | 
+final BusinessReportAdminUpdate businessReportAdminUpdate = ; // BusinessReportAdminUpdate | 
+
+try {
+    final response = api.adminUpdateBusinessReportApiV1AdminBusinessReportsReportIdPatch(reportId, businessReportAdminUpdate);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AdminApi->adminUpdateBusinessReportApiV1AdminBusinessReportsReportIdPatch: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **reportId** | **String**|  | 
+ **businessReportAdminUpdate** | [**BusinessReportAdminUpdate**](BusinessReportAdminUpdate.md)|  | 
+
+### Return type
+
+[**BusinessReportResponse**](BusinessReportResponse.md)
+
+### Authorization
+
+[HTTPBearer](../README.md#HTTPBearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **adminUpdateSupportTicketApiV1AdminSupportTicketsTicketIdPatch**
+> SupportTicketResponse adminUpdateSupportTicketApiV1AdminSupportTicketsTicketIdPatch(ticketId, supportTicketAdminUpdate)
+
+Admin Update Support Ticket
+
+Admin: set ticket status and/or response (S-088).
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAdminApi();
+final String ticketId = 38400000-8cf0-11bd-b23e-10b96e4ef00d; // String | 
+final SupportTicketAdminUpdate supportTicketAdminUpdate = ; // SupportTicketAdminUpdate | 
+
+try {
+    final response = api.adminUpdateSupportTicketApiV1AdminSupportTicketsTicketIdPatch(ticketId, supportTicketAdminUpdate);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AdminApi->adminUpdateSupportTicketApiV1AdminSupportTicketsTicketIdPatch: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **ticketId** | **String**|  | 
+ **supportTicketAdminUpdate** | [**SupportTicketAdminUpdate**](SupportTicketAdminUpdate.md)|  | 
+
+### Return type
+
+[**SupportTicketResponse**](SupportTicketResponse.md)
+
+### Authorization
+
+[HTTPBearer](../README.md#HTTPBearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **approveAdminWhatsappDraftApiV1AdminWhatsappDraftsDraftIdApprovePost**
 > WhatsAppDraftResponse approveAdminWhatsappDraftApiV1AdminWhatsappDraftsDraftIdApprovePost(draftId, adminWhatsAppDraftApproveRequest)

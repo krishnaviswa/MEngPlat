@@ -90,7 +90,7 @@ class _FakeBusinessRepository extends BusinessRepository {
   Future<List<String>> listCities() async => [];
 
   @override
-  Future<List<CategoryResponse>> listCategories() async => [];
+  Future<List<CategoryResponse>> listCategories({String? q}) async => [];
 
   @override
   Future<List<BusinessResponse>> listPublic({String? city, String? slugs}) async => businesses;
