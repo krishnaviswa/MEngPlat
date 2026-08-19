@@ -6,6 +6,7 @@ import 'package:merchanthub_mobile/core/network/api_client.dart';
 import 'package:merchanthub_mobile/features/admin/admin_providers.dart';
 import 'package:merchanthub_mobile/features/admin/admin_repository.dart';
 import 'package:merchanthub_mobile/features/auth/auth_provider.dart';
+import 'package:merchanthub_mobile/features/auth/google_sign_in_client.dart';
 import 'package:merchanthub_mobile/features/businesses/business_list_provider.dart';
 import 'package:merchanthub_mobile/features/businesses/business_repository.dart';
 import 'package:merchanthub_mobile/features/businesses/maps_config.dart';
@@ -19,6 +20,7 @@ import 'package:merchanthub_mobile/features/notifications/notifications_reposito
 import 'package:merchanthub_mobile/features/reviews/review_providers.dart';
 import 'package:merchanthub_mobile/features/reviews/review_repository.dart';
 import 'package:merchanthub_mobile/router.dart';
+import 'watch_router_app.dart';
 
 /// S-061 AC11: the new `/admin/categories` and `/admin/users` sub-routes
 /// inherit the existing `/admin` role gate -- unreachable for anonymous,
@@ -127,6 +129,7 @@ Future<ProviderContainer> _pumpAppAt(WidgetTester tester, String location, {User
   final container = ProviderContainer(
     overrides: [
       authControllerProvider.overrideWith(() => _FakeAuthController(user)),
+      googleSignInClientProvider.overrideWith((ref) async => const UnconfiguredGoogleSignInClient()),
       businessRepositoryProvider.overrideWithValue(_FakeBusinessRepository()),
       dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepository()),
       reviewRepositoryProvider.overrideWithValue(_FakeReviewRepository()),
@@ -136,12 +139,11 @@ Future<ProviderContainer> _pumpAppAt(WidgetTester tester, String location, {User
     ],
   );
 
-  final router = container.read(routerProvider);
   await tester.pumpWidget(
-    UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)),
+    UncontrolledProviderScope(container: container, child: const WatchRouterApp()),
   );
   await _pumpFrames(tester);
-  router.go(location);
+  container.read(routerProvider).go(location);
   await _pumpFrames(tester);
   return container;
 }

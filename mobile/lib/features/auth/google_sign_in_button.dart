@@ -12,8 +12,9 @@ class GoogleSignInButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final client = ref.watch(googleSignInClientProvider);
-    if (!client.isConfigured) return const SizedBox.shrink();
+    final asyncClient = ref.watch(googleSignInClientProvider);
+    final client = asyncClient.valueOrNull;
+    if (client == null || !client.isConfigured) return const SizedBox.shrink();
 
     return OutlinedButton(
       key: const Key('googleSignInButton'),

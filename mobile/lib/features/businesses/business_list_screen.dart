@@ -164,20 +164,35 @@ class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
             ),
           ),
           Expanded(
-            child: search.when(
-              loading: () => const MhSkeleton(),
-              error: (error, _) => Center(
-                child: MhError(error: error, onRetry: () => ref.invalidate(searchControllerProvider)),
+            child: RefreshIndicator(
+              onRefresh: () => ref.read(searchControllerProvider.notifier).reload(),
+              child: search.when(
+              loading: () => ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [MhSkeleton()],
+              ),
+              error: (error, _) => ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  MhError(error: error, onRetry: () => ref.invalidate(searchControllerProvider)),
+                ],
               ),
               data: (results) {
                 if (results.items.isEmpty) {
-                  return const Center(child: Text('No businesses found'));
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      SizedBox(height: 80),
+                      Center(child: Text('No businesses found')),
+                    ],
+                  );
                 }
                 if (_showMap) {
                   return _ResultsMap(results: results);
                 }
                 return _ResultsList(results: results);
               },
+            ),
             ),
           ),
         ],
@@ -202,6 +217,7 @@ class _ResultsList extends ConsumerWidget {
         return false;
       },
       child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
         itemCount: results.items.length + extra,
         itemBuilder: (context, index) {
           if (index >= results.items.length) {

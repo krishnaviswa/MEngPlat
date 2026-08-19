@@ -8,19 +8,26 @@ import '../notifications/notification_badge.dart';
 import '../notifications/notifications_providers.dart';
 
 class _Dest {
-  const _Dest({required this.location, required this.destination});
+  const _Dest({
+    required this.location,
+    required this.destination,
+    this.branchIndex,
+  });
 
   final String location;
   final NavigationDestination destination;
+  /// Null for destinations that leave the shell (guest Sign in → `/login`).
+  final int? branchIndex;
 }
 
 Widget _tabIcon(IconData data, Key key) => Icon(data, key: key);
 
-/// Primary chrome (S-027 / ADR-005): role-aware [NavigationBar] around [child].
+/// Primary chrome (S-027 / ADR-005, S-103): role-aware [NavigationBar] around
+/// a [StatefulNavigationShell] so each tab keeps its own back stack.
 class AppShell extends ConsumerWidget {
-  const AppShell({required this.child, super.key});
+  const AppShell({required this.navigationShell, super.key});
 
-  final Widget child;
+  final StatefulNavigationShell navigationShell;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,14 +39,28 @@ class AppShell extends ConsumerWidget {
     var selectedIndex = destinations.indexWhere(
       (d) => location == d.location || location.startsWith('${d.location}/'),
     );
+    if (selectedIndex < 0) {
+      selectedIndex = destinations.indexWhere((d) => d.branchIndex == navigationShell.currentIndex);
+    }
     if (selectedIndex < 0) selectedIndex = 0;
 
     return Scaffold(
-      body: child,
+      body: navigationShell,
       bottomNavigationBar: NavigationBar(
         key: const Key('primaryNav'),
-        selectedIndex: selectedIndex,
-        onDestinationSelected: (index) => context.go(destinations[index].location),
+        selectedIndex: selectedIndex.clamp(0, destinations.length - 1),
+        onDestinationSelected: (index) {
+          final dest = destinations[index];
+          final branch = dest.branchIndex;
+          if (branch == null) {
+            context.go(dest.location);
+            return;
+          }
+          navigationShell.goBranch(
+            branch,
+            initialLocation: branch == navigationShell.currentIndex,
+          );
+        },
         destinations: [for (final dest in destinations) dest.destination],
       ),
     );
@@ -50,6 +71,7 @@ class AppShell extends ConsumerWidget {
       return [
         _Dest(
           location: '/home',
+          branchIndex: 0,
           destination: NavigationDestination(
             icon: _tabIcon(Icons.home_outlined, const Key('homeTab')),
             selectedIcon: _tabIcon(Icons.home, const Key('homeTab')),
@@ -58,6 +80,7 @@ class AppShell extends ConsumerWidget {
         ),
         _Dest(
           location: '/businesses',
+          branchIndex: 1,
           destination: NavigationDestination(
             icon: _tabIcon(Icons.storefront_outlined, const Key('exploreTab')),
             selectedIcon: _tabIcon(Icons.storefront, const Key('exploreTab')),
@@ -90,6 +113,7 @@ class AppShell extends ConsumerWidget {
     );
     final notifications = _Dest(
       location: '/notifications',
+      branchIndex: 2,
       destination: NavigationDestination(
         icon: notificationsIcon,
         selectedIcon: notificationsSelected,
@@ -98,6 +122,7 @@ class AppShell extends ConsumerWidget {
     );
     final explore = _Dest(
       location: '/businesses',
+      branchIndex: user.role == UserRole.customer ? 0 : 1,
       destination: NavigationDestination(
         icon: _tabIcon(Icons.storefront_outlined, const Key('exploreTab')),
         selectedIcon: _tabIcon(Icons.storefront, const Key('exploreTab')),
@@ -106,6 +131,7 @@ class AppShell extends ConsumerWidget {
     );
     final account = _Dest(
       location: '/account',
+      branchIndex: 3,
       destination: NavigationDestination(
         icon: _tabIcon(Icons.person_outline, const Key('accountTab')),
         selectedIcon: _tabIcon(Icons.person, const Key('accountTab')),
@@ -117,6 +143,7 @@ class AppShell extends ConsumerWidget {
       return [
         _Dest(
           location: '/merchant',
+          branchIndex: 0,
           destination: NavigationDestination(
             icon: _tabIcon(Icons.dashboard_outlined, const Key('merchantHomeTab')),
             selectedIcon: _tabIcon(Icons.dashboard, const Key('merchantHomeTab')),
@@ -133,6 +160,7 @@ class AppShell extends ConsumerWidget {
       return [
         _Dest(
           location: '/admin',
+          branchIndex: 0,
           destination: NavigationDestination(
             icon: _tabIcon(Icons.admin_panel_settings_outlined, const Key('adminHomeTab')),
             selectedIcon: _tabIcon(Icons.admin_panel_settings, const Key('adminHomeTab')),
@@ -149,6 +177,7 @@ class AppShell extends ConsumerWidget {
       explore,
       _Dest(
         location: '/favorites',
+        branchIndex: 1,
         destination: NavigationDestination(
           icon: _tabIcon(Icons.favorite_border, const Key('favoritesTab')),
           selectedIcon: _tabIcon(Icons.favorite, const Key('favoritesTab')),

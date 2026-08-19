@@ -2,9 +2,9 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | Accepted |
+| **Status** | Accepted (amended S-103) |
 | **Date** | 2026-08-13 |
-| **Slice** | S-027 |
+| **Slice** | S-027; amendment S-103 |
 
 ---
 
@@ -16,12 +16,12 @@ ADR-003 already carved `/businesses` and `/businesses/:slug` out as public and k
 
 ## Decision
 
-1. Wrap primary destinations in `go_router` `ShellRoute` with a Material 3 `NavigationBar` (`AppShell`). Use a **single child** (not `StatefulShellRoute.indexedStack`) so a guest on Explore does not mount Favorites/Notifications and trigger 401s.
-2. Shell routes: `/businesses`, `/favorites`, `/notifications`, `/account`, `/merchant`, `/admin`. Visible tabs are a **role-filtered subset**; `onDestinationSelected` `context.go`s the matching path.
+1. Wrap primary destinations in `go_router` **`StatefulShellRoute.indexedStack`** with a Material 3 `NavigationBar` (`AppShell`). Each tab has its own navigator so Android Back and tab switches restore the exact previous page (S-103). **Guest (and non-customer) route trees omit Favorites / Notifications / Account branches** by rebuilding `GoRouter` when session/role changes — guests never mount those screens, so they cannot 401 (the original reason S-027 used a single `ShellRoute`).
+2. Shell routes: `/businesses`, `/favorites`, `/notifications`, `/account`, `/merchant`, `/admin`, `/home`, `/support`. Visible tabs are a **role-filtered subset**; `onDestinationSelected` calls `goBranch` (re-tap pops that branch to its root). Guest **Sign in** is not a branch — it `go`s to `/login`.
 3. Keep `/login` and `/businesses/:slug` **outside** the visible shell (full-screen). Login and detail use the **root** `navigatorKey` / `parentNavigatorKey` so they cover the `NavigationBar`.
 4. After login / session restore on `/login`, redirect to `postLoginPath(role)`: customer → `/businesses`, merchant → `/merchant`, admin → `/admin`.
 5. Remove Favorites, Notifications, and Logout **icon actions** from `BusinessListScreen`. Guest **Sign in** moves to a bottom-nav destination that `go`s to `/login`.
-6. Merchant/admin Home screens are **placeholders** (P4 dashboards stay `future`). Do not call dashboard APIs or render AI insights in this slice.
+6. Merchant/admin Home screens shipped in later P4 slices (no longer placeholders).
 7. ADR-003 public carve-out and `initialLocation: '/login'` stay unchanged. `/account`, `/merchant`, `/admin`, `/favorites`, `/notifications` stay auth-gated (plus role guards for favorites / merchant / admin).
 
 ## Consequences
@@ -29,20 +29,18 @@ ADR-003 already carved `/businesses` and `/businesses/:slug` out as public and k
 ### Positive
 
 - Logout, Favorites, and Notifications are reachable from every shell tab.
-- Role-aware landing matches tracker M-09 without shipping P4 dashboards.
-- Switching tabs does not keep an offstage widget tree (no surprise API calls).
+- Role-aware landing matches tracker M-09.
+- Tab stacks survive switches; Explore scroll/profile stack is preserved (S-103).
+- Guests still do not mount Favorites/Notifications.
 
 ### Negative / tradeoffs
 
-- Merchant/admin Home is thinner than web dashboard (documented as M-09 `partial`).
-- Explore list scroll is not preserved across tabs (`ShellRoute` remounts the child).
+- `GoRouter` is recreated on login/logout (acceptable; session boundary).
 - Business detail has no bottom nav (intentional).
 - Guest Sign in leaves the shell because login is not a branch.
 
 ### Follow-ups
 
-- P4 slices replace merchant/admin placeholders with real dashboards (M-50–M-60).
-- P2 profile edit can extend Account (M-48 / remainder of M-49).
 - Defaulting `initialLocation` to guest Explore remains an ADR-003 follow-up, not implied here.
 
 ---

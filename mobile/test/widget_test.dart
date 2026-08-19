@@ -31,6 +31,9 @@ class _FakeAuthRepository extends AuthRepository {
       ..isActive = true
       ..createdAt = DateTime(2026));
   }
+
+  @override
+  Future<String> fetchGoogleClientId() async => '';
 }
 
 void main() {

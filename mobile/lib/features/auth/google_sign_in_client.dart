@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../core/config/app_config.dart';
+import 'auth_provider.dart';
 
 /// Port for Google Identity ID-token (the `credential` `POST /auth/google` expects).
 /// Tests fake this so widget tests never hit the real SDK.
@@ -51,8 +52,21 @@ class PluginGoogleSignInClient implements GoogleSignInClient {
   }
 }
 
-final googleSignInClientProvider = Provider<GoogleSignInClient>((ref) {
-  const id = AppConfig.googleClientId;
+/// Prefer compile-time `--dart-define=GOOGLE_CLIENT_ID`; otherwise the API's public config.
+String resolveGoogleClientId({required String baked, required String remote}) {
+  if (baked.isNotEmpty) return baked;
+  return remote;
+}
+
+final googleSignInClientProvider = FutureProvider<GoogleSignInClient>((ref) async {
+  const baked = AppConfig.googleClientId;
+  if (baked.isNotEmpty) return PluginGoogleSignInClient(baked);
+  final remote = await ref.read(authRepositoryProvider).fetchGoogleClientId();
+  final id = resolveGoogleClientId(baked: baked, remote: remote);
   if (id.isEmpty) return const UnconfiguredGoogleSignInClient();
   return PluginGoogleSignInClient(id);
 });
+
+bool googleSignInIsConfigured(AsyncValue<GoogleSignInClient> value) {
+  return value.maybeWhen(data: (client) => client.isConfigured, orElse: () => false);
+}

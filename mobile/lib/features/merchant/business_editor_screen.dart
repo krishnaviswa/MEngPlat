@@ -2,9 +2,9 @@ import 'package:built_collection/built_collection.dart';
 import 'package:flutter/material.dart';
 import 'package:merchanthub_mobile/ui/friendly_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
+import '../../ui/nav.dart';
 import '../businesses/business_list_provider.dart';
 import 'merchant_providers.dart';
 
@@ -242,7 +242,7 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
       ref.invalidate(ownedBusinessesProvider);
       ref.invalidate(myBusinessIdsProvider);
       if (!mounted) return;
-      context.go('/merchant');
+      popOrGo(context, '/merchant');
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = friendlyMessage(error));

@@ -12,8 +12,8 @@ abstract final class MhTheme {
     final isDark = brightness == Brightness.dark;
     final scheme = ColorScheme(
       brightness: brightness,
-      primary: isDark ? MhTokens.brand400 : MhTokens.brand600,
-      onPrimary: isDark ? MhTokens.ink : Colors.white,
+      primary: isDark ? MhTokens.brand500 : MhTokens.brand600,
+      onPrimary: Colors.white,
       secondary: MhTokens.coral,
       onSecondary: Colors.white,
       tertiary: MhTokens.violet,

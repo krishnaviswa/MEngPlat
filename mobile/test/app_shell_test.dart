@@ -15,7 +15,9 @@ import 'package:merchanthub_mobile/features/notifications/notifications_provider
 import 'package:merchanthub_mobile/features/notifications/notifications_repository.dart';
 import 'package:merchanthub_mobile/features/reviews/review_providers.dart';
 import 'package:merchanthub_mobile/features/reviews/review_repository.dart';
+import 'package:merchanthub_mobile/features/auth/google_sign_in_client.dart';
 import 'package:merchanthub_mobile/router.dart';
+import 'watch_router_app.dart';
 
 UserResponse _user(UserRole role, {String name = 'Test User'}) => UserResponse((b) => b
   ..id = 'user-1'
@@ -114,8 +116,13 @@ class _FakeNotificationsRepository extends NotificationsRepository {
 class _FakeFavoritesRepository extends FavoritesRepository {
   _FakeFavoritesRepository() : super(ApiClient());
 
+  int listCalls = 0;
+
   @override
-  Future<List<BusinessResponse>> listFavorites() async => [];
+  Future<List<BusinessResponse>> listFavorites() async {
+    listCalls++;
+    return [];
+  }
 }
 
 class _FakeReviewRepository extends ReviewRepository {
@@ -143,12 +150,14 @@ Future<ProviderContainer> _pumpApp(
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 
+  final favorites = _FakeFavoritesRepository();
   final container = ProviderContainer(
     overrides: [
       authControllerProvider.overrideWith(() => _FakeAuthController(user)),
+      googleSignInClientProvider.overrideWith((ref) async => const UnconfiguredGoogleSignInClient()),
       businessRepositoryProvider.overrideWithValue(_FakeBusinessRepository(businesses: businesses)),
       notificationsRepositoryProvider.overrideWithValue(_FakeNotificationsRepository(notifications: notifications)),
-      favoritesRepositoryProvider.overrideWithValue(_FakeFavoritesRepository()),
+      favoritesRepositoryProvider.overrideWithValue(favorites),
       reviewRepositoryProvider.overrideWithValue(_FakeReviewRepository()),
     ],
   );
@@ -156,7 +165,7 @@ Future<ProviderContainer> _pumpApp(
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: MaterialApp.router(routerConfig: container.read(routerProvider)),
+      child: const WatchRouterApp(),
     ),
   );
   await _pumpFrames(tester);
@@ -295,6 +304,39 @@ void main() {
     await _pumpFrames(tester);
     expect(find.byType(BusinessDetailScreen), findsOneWidget);
     expect(find.byKey(const Key('primaryNav')).hitTestable(), findsNothing);
+
+    container.dispose();
+  });
+
+  testWidgets('S-103: guest Explore does not fetch Favorites', (tester) async {
+    final container = await _pumpApp(tester, user: null);
+    await tester.tap(find.byKey(const Key('continueAsGuestButton')));
+    await _pumpFrames(tester);
+    await tester.tap(find.byKey(const Key('exploreTab')));
+    await _pumpFrames(tester);
+
+    final favorites = container.read(favoritesRepositoryProvider) as _FakeFavoritesRepository;
+    expect(favorites.listCalls, 0);
+    expect(find.text('Businesses'), findsOneWidget);
+    container.dispose();
+  });
+
+  testWidgets('S-103: Account profile stack is kept when switching tabs', (tester) async {
+    final container = await _pumpApp(tester, user: _user(UserRole.customer, name: 'Casey Customer'));
+
+    await tester.tap(find.byKey(const Key('accountTab')));
+    await _pumpFrames(tester);
+    await tester.tap(find.byKey(const Key('profileLink')));
+    await _pumpFrames(tester);
+    expect(find.byKey(const Key('profileScreen')).hitTestable(), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('exploreTab')));
+    await _pumpFrames(tester);
+    expect(find.byKey(const Key('profileScreen')).hitTestable(), findsNothing);
+
+    await tester.tap(find.byKey(const Key('accountTab')));
+    await _pumpFrames(tester);
+    expect(find.byKey(const Key('profileScreen')).hitTestable(), findsOneWidget);
 
     container.dispose();
   });

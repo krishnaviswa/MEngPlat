@@ -19,6 +19,7 @@ from app.models import Merchant, NationalIdType, User, UserRole
 from app.schemas import (
     ForgotPasswordRequest,
     GoogleAuthRequest,
+    GoogleConfigResponse,
     LoginResult,
     LogoutRequest,
     MessageResponse,
@@ -471,6 +472,12 @@ async def verify_aadhaar_mock_otp(
     current_user.national_id_number = aadhaar_number
     await db.flush()
     return MessageResponse(message="Aadhaar mock-verified and saved.")
+
+
+@router.get("/google-config", response_model=GoogleConfigResponse)
+def google_config() -> GoogleConfigResponse:
+    """Public Web OAuth client ID for native Google Sign-In (not a secret)."""
+    return GoogleConfigResponse(client_id=get_settings().google_client_id or "")
 
 
 @router.post("/google", response_model=TokenResponse)

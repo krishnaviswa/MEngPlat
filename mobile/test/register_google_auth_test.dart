@@ -16,6 +16,7 @@ import 'package:merchanthub_mobile/features/notifications/notifications_reposito
 import 'package:merchanthub_mobile/features/reviews/review_providers.dart';
 import 'package:merchanthub_mobile/features/reviews/review_repository.dart';
 import 'package:merchanthub_mobile/router.dart';
+import 'watch_router_app.dart';
 
 UserResponse _makeUser(UserRole role, {String email = 'user@example.com', String name = 'Test User'}) =>
     UserResponse((b) => b
@@ -138,7 +139,7 @@ Future<({ProviderContainer container, _FakeAuthController auth})> _pumpApp(
   final container = ProviderContainer(
     overrides: [
       authControllerProvider.overrideWith(() => auth),
-      googleSignInClientProvider.overrideWithValue(google ?? const UnconfiguredGoogleSignInClient()),
+      googleSignInClientProvider.overrideWith((ref) async => google ?? const UnconfiguredGoogleSignInClient()),
       businessRepositoryProvider.overrideWithValue(_FakeBusinessRepository()),
       notificationsRepositoryProvider.overrideWithValue(_FakeNotificationsRepository()),
       favoritesRepositoryProvider.overrideWithValue(_FakeFavoritesRepository()),
@@ -149,7 +150,7 @@ Future<({ProviderContainer container, _FakeAuthController auth})> _pumpApp(
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: MaterialApp.router(routerConfig: container.read(routerProvider)),
+      child: const WatchRouterApp(),
     ),
   );
   await _pumpFrames(tester);

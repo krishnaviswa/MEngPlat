@@ -456,6 +456,12 @@ class GoogleAuthRequest(BaseModel):
     credential: str
 
 
+class GoogleConfigResponse(BaseModel):
+    """Public Web OAuth client ID (same value already shipped in the Next.js bundle)."""
+
+    client_id: str = ""
+
+
 class NearbyBusinessRequest(BaseModel):
     lat: float
     lng: float
