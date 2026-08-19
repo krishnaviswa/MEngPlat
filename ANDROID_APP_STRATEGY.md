@@ -219,9 +219,10 @@ Do these in order. Each step has a reason.
 3. **Build a release/debug APK for local QA**
   `flutter build apk`  
    Why: prove camera, secure storage, permissions, and real-device behavior before Play review.  
-   **No local Android SDK?** Use GitHub Actions → **Mobile build APK** → Run workflow
-   (`.github/workflows/mobile-build-apk.yml`). Download the `app-release-apk` artifact and
-   sideload it on your phone. That build is debug-signed (fine for personal QA, not for Play).
+   **No local Android SDK?** `[.github/workflows/mobile-build-apk.yml](.github/workflows/mobile-build-apk.yml)`
+   builds a debug-signed APK on every **push to `main`**, and still via Actions → **Mobile build APK** → Run workflow
+   (custom `api_base_url`). Download the `app-release-apk` artifact and sideload it on your phone
+   (fine for personal QA, not for Play).
 4. **Create a signing keystore; keep it out of git**
   Why: Android requires signing; Play requires a stable signing identity across updates. Losing the key means you cannot update the same listing.
 5. **Build a release AAB**

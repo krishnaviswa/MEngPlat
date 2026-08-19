@@ -2359,6 +2359,11 @@ throwaway Postgres/Redis + backend stood up in the same job -- never the Railway
 the TOTP verify step using the fixed demo secret (`otp` package, RFC 6238), and asserts the
 business list renders. Screenshot and backend log are uploaded as build artifacts either way.
 
+**CI sideload APK (**`.github/workflows/mobile-build-apk.yml`**):** on every **push to `main`**
+(and via manual `workflow_dispatch` with an optional API URL), builds a debug-signed release APK
+pointed at production (`vars.MOBILE_PROD_API_BASE_URL` or the Railway default). Download the
+`app-release-apk` artifact from Actions — not for Play (that remains `mobile-release-aab.yml`).
+
 #### Web ↔ mobile feature parity tracker
 
 Mobile is a **separate Flutter client** of `/api/v1`, not a WebView of the Next.js UI. Every
