@@ -6,7 +6,8 @@ jest.mock("../../lib/api", () => ({
   auth: { me: jest.fn() },
   clearTokens: jest.fn(),
   performLogout: jest.fn(),
-  roleLandingPath: (role: string) => (role === "merchant" ? "/merchant/dashboard" : "/"),
+  roleLandingPath: (role: string) =>
+    role === "merchant" ? "/merchant/dashboard" : role === "admin" ? "/admin" : "/",
 }));
 
 const meMock = auth.me as jest.Mock;
@@ -67,6 +68,20 @@ describe("AlreadySignedIn", () => {
 
     expect(await screen.findByText((_, el) => el?.textContent === "You're signed in as Cust (customer)." )).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /continue/i })).toHaveAttribute("href", "/");
+  });
+
+  it("shows a role-aware Continue link to /admin for a signed-in admin", async () => {
+    localStorage.setItem("access_token", "tok-1");
+    meMock.mockResolvedValue({ id: "u3", role: "admin", full_name: "Ada", email: "a@example.com" });
+
+    render(
+      <AlreadySignedIn>
+        <div>real-login-form</div>
+      </AlreadySignedIn>,
+    );
+
+    expect(await screen.findByText((_, el) => el?.textContent === "You're signed in as Ada (admin)." )).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /continue/i })).toHaveAttribute("href", "/admin");
   });
 
   // S-069/S-067 AC1/AC2: explicit "log out and continue" affordance clears the session

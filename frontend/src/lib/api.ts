@@ -197,7 +197,9 @@ export async function performLogout(redirectTo = "/login"): Promise<void> {
 
 /** The landing route for a signed-in account's role -- shared by every post-auth redirect. */
 export function roleLandingPath(role: string): string {
-  return role === "merchant" ? "/merchant/dashboard" : "/";
+  if (role === "merchant") return "/merchant/dashboard";
+  if (role === "admin") return "/admin";
+  return "/";
 }
 
 /**

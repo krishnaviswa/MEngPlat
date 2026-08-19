@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { AuthMethodToggle, type AuthMethod } from "@/components/AuthMethodToggle";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { PhoneOtpPanel } from "@/components/PhoneOtpPanel";
 import { Select } from "@/components/ui/Select";
@@ -10,7 +11,7 @@ import { auth, redirectAfterAuth, type TotpSetupResponse } from "@/lib/api";
 type Step = "credentials" | "enroll" | "verify";
 
 /**
- * LoginForm — email/password (mandatory authenticator) or Google sign-in.
+ * LoginForm — choose Authenticator (email/password + TOTP) or Mobile OTP.
  * Password path never stores session tokens until TOTP enroll/verify succeeds.
  */
 export function LoginForm() {
@@ -25,6 +26,7 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [registeredNote, setRegisteredNote] = useState(false);
   const [loginRole, setLoginRole] = useState("customer");
+  const [authMethod, setAuthMethod] = useState<AuthMethod>("authenticator");
 
   useEffect(() => {
     const prefill = searchParams.get("email");
@@ -144,42 +146,6 @@ export function LoginForm() {
 
       {step === "credentials" && (
         <>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            className="w-full rounded border px-3 py-2"
-          />
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            className="w-full rounded border px-3 py-2"
-          />
-          <a href="/forgot-password" className="block text-right text-xs text-brand-600 underline">
-            Forgot password?
-          </a>
-          <p className="text-xs text-muted">
-            Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.).
-            Or continue with Gmail below.
-          </p>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded bg-brand-600 py-2 text-white hover:bg-brand-700 disabled:opacity-50"
-          >
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
-          <div className="flex items-center gap-3 text-xs text-muted">
-            <div className="h-px flex-1 bg-border" />
-            or
-            <div className="h-px flex-1 bg-border" />
-          </div>
-          <GoogleSignInButton onCredential={handleGoogleCredential} />
           <div className="space-y-1">
             <label className="block text-sm font-medium text-ink" htmlFor="login-role">
               Signing in as
@@ -192,14 +158,63 @@ export function LoginForm() {
             >
               <option value="customer">Customer</option>
               <option value="merchant">Merchant</option>
+              <option value="admin">Admin</option>
             </Select>
-            <p className="text-xs text-muted">
-              Only affects phone sign-in below. Already have a merchant account? Phone sign-in
-              only works if you&apos;ve verified this exact number before — otherwise it creates a
-              new account. Use your password above if unsure.
-            </p>
           </div>
-          <PhoneOtpPanel role={loginRole} onError={setError} />
+          <AuthMethodToggle value={authMethod} onChange={setAuthMethod} />
+          {authMethod === "authenticator" ? (
+            <>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                className="w-full rounded border px-3 py-2"
+              />
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                className="w-full rounded border px-3 py-2"
+              />
+              <a href="/forgot-password" className="block text-right text-xs text-brand-600 underline">
+                Forgot password?
+              </a>
+              <p className="text-xs text-muted">
+                Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.).
+                Or continue with Gmail below.
+              </p>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded bg-brand-600 py-2 text-white hover:bg-brand-700 disabled:opacity-50"
+              >
+                {loading ? "Signing in..." : "Sign in"}
+              </button>
+              <div className="flex items-center gap-3 text-xs text-muted">
+                <div className="h-px flex-1 bg-border" />
+                or
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              <GoogleSignInButton onCredential={handleGoogleCredential} />
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-muted">
+                Use the mobile number saved on the account. A new number creates a customer or
+                merchant account from the role above — it cannot create an admin.
+              </p>
+              {loginRole === "admin" && (
+                <p className="text-xs text-muted">
+                  Admin Mobile OTP only matches an existing admin phone (see demo accounts in the README).
+                </p>
+              )}
+              <PhoneOtpPanel role={loginRole} onError={setError} />
+            </>
+          )}
         </>
       )}
 

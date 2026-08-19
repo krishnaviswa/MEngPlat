@@ -35,6 +35,10 @@ function fillCredentials(email = "user@example.com", password = "password123") {
   fireEvent.change(screen.getByPlaceholderText("Password"), { target: { value: password } });
 }
 
+function chooseMobileOtp() {
+  fireEvent.click(screen.getByRole("radio", { name: /mobile otp/i }));
+}
+
 describe("LoginForm", () => {
   const originalLocation = window.location;
 
@@ -178,10 +182,26 @@ describe("LoginForm", () => {
     expect(redirectAfterAuthMock).not.toHaveBeenCalled();
   });
 
-  // S-068 AC1/AC2: the login screen exposes a phone-OTP option that carries a
-  // role selector through to PhoneOtpPanel, defaulting to "customer" and
-  // mirroring RegisterForm's role choice (no "admin" option).
-  it("renders a 'Signing in as' role selector defaulting to customer, with only customer/merchant options, and passes the picked role into the phone-OTP verify call", async () => {
+  // S-092 AC1: equal-weight method chooser is on the credentials step.
+  it("shows Authenticator and Mobile OTP as a two-option chooser", () => {
+    render(<LoginForm />);
+    expect(screen.getByRole("radio", { name: /authenticator/i })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: /mobile otp/i })).toHaveAttribute("aria-checked", "false");
+  });
+
+  // S-092 AC2/AC3: only one method's fields are mounted.
+  it("hides the SMS panel until Mobile OTP is selected, then hides email/password", () => {
+    render(<LoginForm />);
+    expect(screen.getByPlaceholderText("Email")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/mobile number/i)).not.toBeInTheDocument();
+
+    chooseMobileOtp();
+    expect(screen.queryByPlaceholderText("Email")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/mobile number/i)).toBeInTheDocument();
+  });
+
+  // S-092 AC1: role selector includes admin.
+  it("renders a 'Signing in as' role selector defaulting to customer, with customer/merchant/admin, and passes the picked role into the phone-OTP verify call", async () => {
     const { phoneVerify, phoneRequest } = jest.requireMock("../../lib/api").auth as {
       phoneVerify: jest.Mock;
       phoneRequest: jest.Mock;
@@ -194,9 +214,10 @@ describe("LoginForm", () => {
     const roleSelect = screen.getByLabelText(/signing in as/i) as HTMLSelectElement;
     expect(roleSelect.value).toBe("customer");
     const optionValues = Array.from(roleSelect.options).map((o) => o.value);
-    expect(optionValues).toEqual(["customer", "merchant"]);
+    expect(optionValues).toEqual(["customer", "merchant", "admin"]);
 
     fireEvent.change(roleSelect, { target: { value: "merchant" } });
+    chooseMobileOtp();
 
     fireEvent.change(screen.getByLabelText(/mobile number/i), { target: { value: "9876543210" } });
     fireEvent.click(screen.getByRole("button", { name: /send sms code/i }));
@@ -210,12 +231,31 @@ describe("LoginForm", () => {
     );
   });
 
-  // S-068 AC5: static help copy above PhoneOtpPanel warns an existing
-  // merchant that phone sign-in only matches an already-verified number.
-  it("shows help copy above the phone panel warning phone sign-in only matches an already-verified number", () => {
+  it("passes admin as the role hint when Admin + Mobile OTP is used", async () => {
+    const { phoneVerify, phoneRequest } = jest.requireMock("../../lib/api").auth as {
+      phoneVerify: jest.Mock;
+      phoneRequest: jest.Mock;
+    };
+    phoneRequest.mockResolvedValue({ message: "sent" });
+    phoneVerify.mockResolvedValue({ access_token: "a", refresh_token: "r" });
+
     render(<LoginForm />);
-    expect(
-      screen.getByText(/only works if you.*ve verified this exact number before/i),
-    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/signing in as/i), { target: { value: "admin" } });
+    chooseMobileOtp();
+    fireEvent.change(screen.getByLabelText(/mobile number/i), { target: { value: "9000000000" } });
+    fireEvent.click(screen.getByRole("button", { name: /send sms code/i }));
+    await waitFor(() => expect(phoneRequest).toHaveBeenCalled());
+    fireEvent.change(screen.getByLabelText(/sms code/i), { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: /verify and sign in/i }));
+
+    await waitFor(() =>
+      expect(phoneVerify).toHaveBeenCalledWith(expect.objectContaining({ role: "admin" })),
+    );
+  });
+
+  it("shows help copy on the Mobile OTP path that a new number cannot create an admin", () => {
+    render(<LoginForm />);
+    chooseMobileOtp();
+    expect(screen.getByText(/cannot create an admin/i)).toBeInTheDocument();
   });
 });

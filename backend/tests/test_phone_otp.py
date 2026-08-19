@@ -89,6 +89,33 @@ async def test_verify_blocks_admin_self_register():
     assert exc.value.status_code == 403
 
 
+async def test_verify_existing_admin_issues_admin_tokens():
+    """S-092: matching User.phone logs an existing admin in (role hint ignored)."""
+    import uuid
+    from types import SimpleNamespace
+
+    from app.core.security import decode_token
+
+    user = SimpleNamespace(id=uuid.uuid4(), is_active=True, role=UserRole.ADMIN)
+
+    class FakeDB:
+        async def execute(self, stmt):
+            class R:
+                def scalar_one_or_none(self_inner):
+                    return user
+
+            return R()
+
+    with patch("app.routers.auth.consume_otp", new_callable=AsyncMock, return_value=True):
+        result = await phone_otp_verify(
+            fake_request(),
+            PhoneOtpVerifyRequest(phone="9000000000", code="123456", role=UserRole.ADMIN),
+            db=FakeDB(),
+        )
+    payload = decode_token(result.access_token)
+    assert payload.get("role") == "admin"
+
+
 def test_sms_mock_needs_no_keys(monkeypatch):
     from app.config import get_settings
     from app.services.sms import validate_startup_config

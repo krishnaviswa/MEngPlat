@@ -35,6 +35,14 @@ from scripts.seed_us import seed_us
 
 SeedMode = Literal["off", "if_empty", "if_outdated", "force"]
 
+# S-092: User.phone for Mobile OTP on seeded demo accounts (E.164; unique).
+DEMO_LOGIN_PHONES: dict[str, str] = {
+    "admin@merchanthub.ai": "+919000000000",
+    "merchant@example.com": "+919000000001",
+    "merchant2@example.com": "+919000000002",
+    "customer@example.com": "+919000000003",
+}
+
 # Shared category catalog — first-run creates all; re-runs insert any missing slugs.
 _SEED_CATEGORIES: list[tuple[str, str, str]] = [
     ("Restaurant", "restaurant", "🍽️"),
@@ -67,6 +75,14 @@ def should_run_seed(
         if has_current_version:
             return False, "SEED_MODE=if_outdated — current SEED_VERSION already applied"
         return True, "SEED_MODE=if_outdated — marker missing or outdated, running seed"
+
+
+async def _ensure_demo_login_phones(db) -> None:
+    """Keep demo User.phone in sync so Mobile OTP matches README (S-092)."""
+    for email, phone in DEMO_LOGIN_PHONES.items():
+        existing = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
+        if existing:
+            existing.phone = phone
     return False, f"Unknown SEED_MODE={mode!r} — treating as off"
 
 
@@ -96,24 +112,28 @@ async def _seed_base(db) -> tuple[Merchant, list[Category]]:
         full_name="Platform Admin",
         hashed_password=get_password_hash("admin12345ok"),
         role=UserRole.ADMIN,
+        phone=DEMO_LOGIN_PHONES["admin@merchanthub.ai"],
     )
     merchant_user = User(
         email="merchant@example.com",
         full_name="Maria Santos",
         hashed_password=get_password_hash("merchant1234"),
         role=UserRole.MERCHANT,
+        phone=DEMO_LOGIN_PHONES["merchant@example.com"],
     )
     merchant2_user = User(
         email="merchant2@example.com",
         full_name="Jordan Lee",
         hashed_password=get_password_hash("merchant1234"),
         role=UserRole.MERCHANT,
+        phone=DEMO_LOGIN_PHONES["merchant2@example.com"],
     )
     customer_user = User(
         email="customer@example.com",
         full_name="Alex Johnson",
         hashed_password=get_password_hash("customer1234"),
         role=UserRole.CUSTOMER,
+        phone=DEMO_LOGIN_PHONES["customer@example.com"],
     )
     for u in (admin_user, merchant_user, merchant2_user, customer_user):
         enable_demo_totp(u)
@@ -241,6 +261,7 @@ async def seed() -> None:
                     existing.hashed_password = get_password_hash(password)
                     if not existing.totp_enabled:
                         enable_demo_totp(existing)
+            await _ensure_demo_login_phones(db)
             merchant_result = await db.execute(
                 select(Merchant).join(User, Merchant.user_id == User.id).where(User.email == "merchant@example.com")
             )
@@ -286,6 +307,11 @@ async def seed() -> None:
         print("  Merchant2: merchant2@example.com / merchant1234 (Riverside Auto Care, pending approval)")
         print("  Customer:  customer@example.com / customer1234")
         print("  Demo TOTP secret (authenticator): JBSWY3DPEHPK3PXP")
+        print("  Demo Mobile OTP phones (mock SMS logs the code):")
+        print("    Admin     +919000000000")
+        print("    Merchant  +919000000001")
+        print("    Merchant2 +919000000002")
+        print("    Customer  +919000000003")
         print(
             f"  Chennai demo customers: demo.customer1@example.com … "
             f"demo.customer{counts_chennai['customers']}@example.com / {CHENNAI_CUSTOMER_PASSWORD}"
