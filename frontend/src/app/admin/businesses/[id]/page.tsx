@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
+import { AdminBackLink } from "@/components/AdminBackLink";
 import { ReviewCard } from "@/components/ReviewCard";
 import { RequireAuth } from "@/components/RequireAuth";
 import { businesses, payments, reviews, type Business, type PlacementResponse, type Review } from "@/lib/api";
@@ -40,6 +41,7 @@ export default function AdminBusinessDrilldownPage({ params }: { params: Promise
   return (
     <RequireAuth role="admin">
       <div className="mx-auto max-w-4xl px-4 py-8">
+        <AdminBackLink href="/admin/businesses" label="All businesses" />
         {loading && <p className="text-sm text-muted">Loading…</p>}
         {error && <p className="text-sm text-red-600">{error}</p>}
         {!loading && !error && !business && <p className="text-sm text-muted">Business not found.</p>}

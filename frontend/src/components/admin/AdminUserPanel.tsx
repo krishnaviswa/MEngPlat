@@ -1,15 +1,32 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Badge } from "@/components/ui/Badge";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Badge, type Tone } from "@/components/ui/Badge";
+import { Input } from "@/components/ui/Input";
 import { admin, auth, type User } from "@/lib/api";
 
 const PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 300;
 
-/** Admin panel — list users, suspend/reactivate non-admin accounts (S-034). Suspend/reactivate hidden for admins and the caller's own row. */
+// S-083: judgment-neutral tones (info/brand), not positive/negative, so the badge
+// doesn't misread as "customer bad, admin good" -- mirrors AllBusinessesQueue's
+// STATUS_TONE pattern, including the defensive fallback for an unmapped value.
+const ROLE_TONE: Partial<Record<User["role"], Tone>> = {
+  customer: "neutral",
+  merchant: "info",
+  admin: "brand",
+};
+
+function roleTone(role: string): Tone {
+  return ROLE_TONE[role as User["role"]] ?? "neutral";
+}
+
+/** Admin panel — list/search users, suspend/reactivate non-admin accounts (S-034, S-080, S-083). Suspend/reactivate hidden for admins and the caller's own row. */
 export function AdminUserPanel() {
   const [items, setItems] = useState<User[]>([]);
   const [page, setPage] = useState(1);
+  const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [acting, setActing] = useState<string | null>(null);
@@ -22,11 +39,27 @@ export function AdminUserPanel() {
       .catch(() => setSelfId(null));
   }, []);
 
-  const load = useCallback(async (p: number) => {
+  // AC5: reset to page 1 as soon as the search term changes, before the
+  // debounced fetch fires -- no stale page number carried into a new query.
+  // Skips the very first render so mount doesn't schedule a redundant no-op fetch.
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      setPage(1);
+      setDebouncedQ(q.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [q]);
+
+  const load = useCallback(async (p: number, query: string) => {
     setLoading(true);
     setError("");
     try {
-      setItems(await admin.users({ page: p, page_size: PAGE_SIZE }));
+      setItems(await admin.users({ page: p, page_size: PAGE_SIZE, q: query || undefined }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load users");
     } finally {
@@ -35,8 +68,8 @@ export function AdminUserPanel() {
   }, []);
 
   useEffect(() => {
-    load(page);
-  }, [load, page]);
+    load(page, debouncedQ);
+  }, [load, page, debouncedQ]);
 
   async function handleToggle(user: User) {
     setActing(user.id);
@@ -53,12 +86,19 @@ export function AdminUserPanel() {
 
   return (
     <div className="space-y-3">
+      <Input
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search by name or email"
+        aria-label="Search users"
+      />
       {error && <p className="text-sm text-red-600">{error}</p>}
       {loading ? (
         <p className="text-sm text-muted">Loading users…</p>
       ) : items.length === 0 ? (
         <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
-          No users found
+          {debouncedQ ? "No users match your search" : "No users found"}
         </p>
       ) : (
         <div className="space-y-3">
@@ -70,9 +110,12 @@ export function AdminUserPanel() {
                 className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-surface-raised p-4"
               >
                 <div>
-                  <p className="font-semibold">{u.full_name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold">{u.full_name}</p>
+                    <Badge tone={roleTone(u.role)}>{u.role}</Badge>
+                  </div>
                   <p className="text-sm text-muted">
-                    {u.email || u.phone || "no email"} · {u.role}
+                    {u.email || u.phone || "no email"}
                     {u.national_id_type
                       ? ` · ID ${u.national_id_type} ${u.national_id_number || "—"}`
                       : " · no national ID"}

@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/Input";
-import { businesses, type Category } from "@/lib/api";
+import { ApiError, businesses, type Category } from "@/lib/api";
+
+const SEARCH_DEBOUNCE_MS = 300;
 
 function slugify(name: string): string {
   return name
@@ -13,18 +15,20 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** Admin panel — list categories and create new ones (S-034). Create + list APIs already existed; this ships the admin UI. */
+/** Admin panel — list/search categories and create new ones (S-034, S-081). Create + list APIs already existed; this ships the admin UI. */
 export function AdminCategoryPanel() {
   const [items, setItems] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (query: string) => {
     setError("");
     try {
-      setItems(await businesses.categoriesAll());
+      setItems(await businesses.categoriesAll({ q: query || undefined }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load categories");
     } finally {
@@ -32,9 +36,21 @@ export function AdminCategoryPanel() {
     }
   }, []);
 
+  // Same debounce pattern as the Users search (S-080): skip the first render
+  // so mount doesn't schedule a redundant no-op fetch.
+  const isFirstRender = useRef(true);
   useEffect(() => {
-    load();
-  }, [load]);
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    const timer = setTimeout(() => setDebouncedQ(q.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [q]);
+
+  useEffect(() => {
+    load(debouncedQ);
+  }, [load, debouncedQ]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -45,9 +61,18 @@ export function AdminCategoryPanel() {
     try {
       await businesses.createCategory({ name: trimmed, slug: slugify(trimmed) });
       setName("");
-      await load();
+      await load(debouncedQ);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Create failed");
+      if (e instanceof ApiError) {
+        if (e.status === 409) setError(`A category named "${trimmed}" already exists`);
+        else if (e.status === 401 || e.status === 403) {
+          setError("Your session has expired or you don't have permission. Sign in again as an admin.");
+        } else {
+          setError("Something went wrong on our end. Please try again.");
+        }
+      } else {
+        setError("Network problem — check your connection and try again.");
+      }
     } finally {
       setCreating(false);
     }
@@ -72,10 +97,18 @@ export function AdminCategoryPanel() {
           {creating ? "Adding..." : "Add category"}
         </button>
       </form>
+      <Input
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search categories"
+        aria-label="Search categories"
+        className="sm:max-w-xs"
+      />
       {error && <p className="text-sm text-red-600">{error}</p>}
       {items.length === 0 ? (
         <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
-          No categories yet
+          {debouncedQ ? "No categories match your search" : "No categories yet"}
         </p>
       ) : (
         <ul className="flex flex-wrap gap-2">

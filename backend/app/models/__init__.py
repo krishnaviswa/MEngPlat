@@ -28,6 +28,7 @@ class UserRole(str, enum.Enum):
 
 class BusinessStatus(str, enum.Enum):
     PENDING = "pending"
+    PROCESSING = "processing"
     APPROVED = "approved"
     REJECTED = "rejected"
     SUSPENDED = "suspended"
@@ -208,6 +209,8 @@ class Business(Base):
     external_reviews: Mapped[list["ExternalReview"]] = relationship(back_populates="business")
     whatsapp_sessions: Mapped[list["WhatsAppSession"]] = relationship(back_populates="business")
     update_drafts: Mapped[list["BusinessUpdateDraft"]] = relationship(back_populates="business")
+    support_tickets: Mapped[list["SupportTicket"]] = relationship(back_populates="business")
+    shop_reports: Mapped[list["BusinessReport"]] = relationship(back_populates="business")
 
 
 class BusinessCategory(Base):
@@ -504,3 +507,64 @@ class BusinessUpdateDraft(Base):
     )
 
     business: Mapped[Business] = relationship(back_populates="update_drafts")
+
+
+class SupportTicket(Base):
+    """Platform support query (S-088). Distinct from review_reports (ADR-016)."""
+
+    __tablename__ = "support_tickets"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    phone: Mapped[str] = mapped_column(String(50), nullable=False)
+    issue: Mapped[str] = mapped_column(Text, nullable=False)
+    business_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("businesses.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    reporter_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    status: Mapped[str] = mapped_column(String(50), default="open", nullable=False)
+    admin_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    business: Mapped["Business | None"] = relationship(back_populates="support_tickets")
+    reporter: Mapped["User | None"] = relationship()
+
+
+class BusinessReport(Base):
+    """Shop-level report, not a review report (S-089, ADR-016)."""
+
+    __tablename__ = "business_reports"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"), index=True)
+    reporter_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="open", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    business: Mapped["Business"] = relationship(back_populates="shop_reports")
+    reporter: Mapped["User"] = relationship()
+    messages: Mapped[list["BusinessReportMessage"]] = relationship(back_populates="report")
+
+
+class BusinessReportMessage(Base):
+    """Admin ↔ reporter thread on a shop report (S-089)."""
+
+    __tablename__ = "business_report_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    report_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("business_reports.id", ondelete="CASCADE"), index=True)
+    author_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    report: Mapped["BusinessReport"] = relationship(back_populates="messages")
+    author: Mapped["User"] = relationship()

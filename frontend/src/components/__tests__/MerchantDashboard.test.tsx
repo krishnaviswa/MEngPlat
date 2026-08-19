@@ -197,6 +197,21 @@ describe("MerchantDashboard tile interactivity (S-022)", () => {
     expect(statusLink).toHaveAttribute("href", "/merchant/businesses/biz-3/edit");
   });
 
+  // S-079 AC9: a "processing" business shows an "under review" indicator on the
+  // merchant dashboard, not a broken/raw "processing" label or a blank status.
+  it("shows an 'under review' banner and status label when the business is processing", async () => {
+    const business = makeBusiness({ id: "biz-4", slug: "biz-four", status: "processing" });
+    mineMock.mockResolvedValue([business]);
+    merchantStatsMock.mockResolvedValue(makeStats());
+
+    render(<MerchantDashboardPage />);
+
+    expect(await screen.findByText(/currently being reviewed by an admin/i)).toBeInTheDocument();
+    expect(await screen.findByText("Under review")).toBeInTheDocument();
+    const statusLink = await screen.findByRole("link", { name: /status/i });
+    expect(statusLink).toHaveAttribute("href", "/merchant/businesses/biz-4/edit");
+  });
+
   // S-022 AC5: switching the "Your businesses" selector updates the Status
   // tile's href to the newly selected business -- no stale reference to the
   // previously selected one.
@@ -586,6 +601,106 @@ describe("MerchantDashboard benchmark + collect QR (S-038 / S-040)", () => {
   });
 });
 
+describe("MerchantDashboard review QR / WhatsApp not-yet-approved messaging (S-077 / S-078)", () => {
+  beforeAll(() => {
+    window.HTMLElement.prototype.scrollIntoView = jest.fn();
+    (global as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    stubWhatsAppAndGoogle();
+    meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
+    insightsMock.mockResolvedValue({});
+    topicsMock.mockResolvedValue(null);
+    placementMock.mockResolvedValue({
+      business_id: "biz-1",
+      active: false,
+      placement: null,
+      sku: { code: "featured_7d", duration_days: 7, listed_price_inr: 499 },
+    });
+    benchmarkMock.mockResolvedValue({
+      own_rating: 4.5,
+      category_median: null,
+      city_median: null,
+      disclaimer: "Directory medians from MerchantHub listings — not an AI judgment.",
+    });
+  });
+
+  // AC1 (reproduction): root cause confirmed to be the `status === "approved"` UI gate, not a
+  // code defect -- no console/network error, just a conditional that previously rendered nothing.
+  // AC3/AC6: instead of silent absence, a dedicated, non-AI-flavored message now explains why.
+  it("shows a 'not approved yet' message (not silent absence) for a pending business", async () => {
+    const pending = makeBusiness({ id: "biz-pend", slug: "pend", status: "pending" });
+    mineMock.mockResolvedValue([pending]);
+    merchantStatsMock.mockResolvedValue(makeStats());
+
+    render(<MerchantDashboardPage />);
+
+    await screen.findByText("Awaiting approval");
+    expect(
+      await screen.findByText(/your review qr code \(and whatsapp update link\) will be available once your business is approved/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Review collection QR")).not.toBeInTheDocument();
+    expect(screen.queryByText("Update shop via WhatsApp")).not.toBeInTheDocument();
+  });
+
+  // AC2/AC5: approved businesses render both cards exactly as before -- no regression.
+  it("renders both cards (no messaging fallback) for an approved business", async () => {
+    const approved = makeBusiness({ id: "biz-ok", slug: "ok", status: "approved" });
+    mineMock.mockResolvedValue([approved]);
+    merchantStatsMock.mockResolvedValue(makeStats());
+
+    render(<MerchantDashboardPage />);
+
+    expect(await screen.findByText("Review collection QR")).toBeInTheDocument();
+    expect(await screen.findByText("Update shop via WhatsApp")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/will be available once your business is approved/i),
+    ).not.toBeInTheDocument();
+  });
+
+  // Same messaging gate applies to suspended businesses, not just pending.
+  it("shows the same not-approved message for a suspended business", async () => {
+    const suspended = makeBusiness({ id: "biz-susp", slug: "susp", status: "suspended" });
+    mineMock.mockResolvedValue([suspended]);
+    merchantStatsMock.mockResolvedValue(makeStats());
+
+    render(<MerchantDashboardPage />);
+
+    expect(
+      await screen.findByText(/will be available once your business is approved/i),
+    ).toBeInTheDocument();
+  });
+
+  // S-078 AC2/AC4 candidate 2: an approved business with an unavailable WhatsApp provider
+  // (e.g. meta_cloud missing env config) shows the clarified "not configured yet" copy --
+  // not a blank card, and not the misleading old "ask an admin" wording.
+  it("shows a clarified not-configured message when the WhatsApp provider is unavailable", async () => {
+    const approved = makeBusiness({ id: "biz-ok", slug: "ok", status: "approved" });
+    mineMock.mockResolvedValue([approved]);
+    merchantStatsMock.mockResolvedValue(makeStats());
+    (dashboard.createWhatsAppLink as jest.Mock).mockResolvedValue({
+      available: false,
+      wa_url: null,
+      token: null,
+      expires_at: null,
+      display_number: null,
+    });
+
+    render(<MerchantDashboardPage />);
+
+    expect(
+      await screen.findByText(/needs a one-time configuration change from the merchanthub team/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/ask an admin to set the platform whatsapp number/i)).not.toBeInTheDocument();
+  });
+});
+
 describe("MerchantDashboard Google reviews card (S-048)", () => {
   beforeAll(() => {
     window.HTMLElement.prototype.scrollIntoView = jest.fn();
@@ -660,5 +775,116 @@ describe("MerchantDashboard Google reviews card (S-048)", () => {
 
     expect(await screen.findByText(/up to 5 most-relevant google reviews/i)).toBeInTheDocument();
     expect(screen.getByText(/not a full review history/i)).toBeInTheDocument();
+  });
+});
+
+describe("MerchantDashboard Google sync refresh (S-076)", () => {
+  beforeAll(() => {
+    window.HTMLElement.prototype.scrollIntoView = jest.fn();
+    (global as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    stubWhatsAppAndGoogle();
+    meMock.mockResolvedValue({ id: "u1", role: "merchant", full_name: "Merch" });
+    placementMock.mockResolvedValue({
+      business_id: "biz-1",
+      active: false,
+      placement: null,
+      sku: { code: "featured_7d", duration_days: 7, listed_price_inr: 499 },
+    });
+    benchmarkMock.mockResolvedValue({
+      own_rating: 4.5,
+      category_median: null,
+      city_median: null,
+      disclaimer: "Directory medians from MerchantHub listings — not an AI judgment.",
+    });
+    mineMock.mockResolvedValue([makeBusiness()]);
+    googleReviewsStatusMock.mockResolvedValue({
+      linked: true,
+      place_id: "mock-place-1",
+      review_count: 3,
+      last_synced_at: "2026-08-16T12:00:00Z",
+    });
+  });
+
+  // AC1/AC2/AC3: a successful sync refetches stats and insights/topics, in
+  // addition to the pre-existing sync-status card refetch.
+  it("refetches stats and insights/topics after a successful sync, alongside the sync-status card", async () => {
+    const business = makeBusiness();
+    merchantStatsMock.mockResolvedValue(makeStats({ total_reviews: 10 }));
+    insightsMock.mockResolvedValue({});
+    topicsMock.mockResolvedValue(null);
+    (dashboard.syncGoogleReviews as jest.Mock).mockResolvedValue({
+      synced_count: 2,
+      last_synced_at: "2026-08-19T00:00:00Z",
+      debounced: false,
+    });
+
+    render(<MerchantDashboardPage />);
+    const syncBtn = await screen.findByRole("button", { name: /sync now/i });
+
+    merchantStatsMock.mockResolvedValue(makeStats({ total_reviews: 12 }));
+    const initialInsightsCalls = insightsMock.mock.calls.length;
+
+    fireEvent.click(syncBtn);
+
+    await waitFor(() => expect(dashboard.syncGoogleReviews).toHaveBeenCalledWith(business.id));
+    await waitFor(() => expect(merchantStatsMock.mock.calls.length).toBeGreaterThan(1));
+    await waitFor(() => expect(insightsMock.mock.calls.length).toBeGreaterThan(initialInsightsCalls));
+    // Existing sync-card refetch (AC3) still runs -- called on initial load, then again post-sync.
+    await waitFor(() => expect(googleReviewsStatusMock.mock.calls.length).toBeGreaterThan(1));
+    await screen.findByText("Total reviews");
+    await waitFor(() =>
+      expect(screen.getByText("Total reviews").closest(".rounded-xl")).toHaveTextContent("12"),
+    );
+  });
+
+  // AC4: a failed sync leaves stats/insights untouched and shows the existing error path.
+  it("does not refetch stats or insights when the sync request fails", async () => {
+    merchantStatsMock.mockResolvedValue(makeStats({ total_reviews: 10 }));
+    insightsMock.mockResolvedValue({});
+    topicsMock.mockResolvedValue(null);
+    (dashboard.syncGoogleReviews as jest.Mock).mockRejectedValue(new Error("Sync provider timed out"));
+
+    render(<MerchantDashboardPage />);
+    const syncBtn = await screen.findByRole("button", { name: /sync now/i });
+
+    const statsCallsBefore = merchantStatsMock.mock.calls.length;
+    const insightsCallsBefore = insightsMock.mock.calls.length;
+
+    fireEvent.click(syncBtn);
+
+    expect(await screen.findByText("Sync provider timed out")).toBeInTheDocument();
+    expect(merchantStatsMock.mock.calls.length).toBe(statsCallsBefore);
+    expect(insightsMock.mock.calls.length).toBe(insightsCallsBefore);
+  });
+
+  // Edge case flagged by Architect: a sync that succeeds but whose subsequent
+  // insights refetch fails must not surface the misleading "Couldn't sync"
+  // error -- the sync itself did succeed.
+  it("does not show a sync error when only the post-sync insights refetch fails", async () => {
+    merchantStatsMock.mockResolvedValue(makeStats());
+    insightsMock.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error("insights down"));
+    topicsMock.mockResolvedValue(null);
+    (dashboard.syncGoogleReviews as jest.Mock).mockResolvedValue({
+      synced_count: 1,
+      last_synced_at: "2026-08-19T00:00:00Z",
+      debounced: false,
+    });
+
+    render(<MerchantDashboardPage />);
+    const syncBtn = await screen.findByRole("button", { name: /sync now/i });
+
+    fireEvent.click(syncBtn);
+
+    await waitFor(() => expect(dashboard.syncGoogleReviews).toHaveBeenCalled());
+    await waitFor(() => expect(googleReviewsStatusMock.mock.calls.length).toBeGreaterThan(1));
+    expect(screen.queryByText(/couldn't sync google reviews/i)).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,7 @@
 import type { User } from "@/lib/api";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Avatar } from "@/components/ui/Avatar";
 
 interface NavbarProps {
   user?: User | null;
@@ -36,8 +37,9 @@ export function Navbar({ user, onLogout }: NavbarProps) {
           {user ? (
             <>
               <NotificationBell />
-              <a href="/profile" className="text-muted hover:text-brand-600">
-                {user.full_name}
+              <a href="/profile" className="flex items-center gap-2 text-muted hover:text-brand-600">
+                <Avatar user={user} size="sm" />
+                <span className="hidden sm:inline">{user.full_name}</span>
               </a>
               <button
                 onClick={onLogout}

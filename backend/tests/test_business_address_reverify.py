@@ -123,6 +123,36 @@ async def test_first_address_edit_requires_no_otp_and_increments_count(monkeypat
     assert business.address_edit_count == 1
 
 
+async def test_country_only_first_edit_persists_without_otp(monkeypatch):
+    """S-084 AC10/AC12: BusinessUpdate.country now round-trips on PATCH."""
+    monkeypatch.setattr(businesses_module, "cache_delete_pattern", _noop_cache_delete)
+    business = _make_business(address_edit_count=0, country="IN")
+    user, merchant = _make_merchant_user(business.merchant_id)
+    db = FakeDB(businesses=[business], merchants=[merchant])
+
+    result = await businesses_module.update_business(
+        business.id, BusinessUpdate(country="US"), db, user
+    )
+
+    assert result.country == "US"
+    assert business.country == "US"
+    assert business.address_edit_count == 1
+
+
+async def test_country_only_second_edit_requires_otp(monkeypatch):
+    """S-084 AC11: a country-only change participates in the existing OTP gate."""
+    monkeypatch.setattr(businesses_module, "cache_delete_pattern", _noop_cache_delete)
+    business = _make_business(address_edit_count=1, country="IN")
+    user, merchant = _make_merchant_user(business.merchant_id)
+    db = FakeDB(businesses=[business], merchants=[merchant])
+
+    with pytest.raises(HTTPException) as exc:
+        await businesses_module.update_business(business.id, BusinessUpdate(country="US"), db, user)
+
+    assert exc.value.status_code == 400
+    assert business.country == "IN"
+
+
 # ---------------------------------------------------------------------------
 # AC6/AC7: second edit requires OTP -- missing code, wrong code, correct code.
 # ---------------------------------------------------------------------------

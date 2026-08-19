@@ -35,7 +35,7 @@ export interface User {
   totp_enabled?: boolean;
 }
 
-export type BusinessStatus = "pending" | "approved" | "rejected" | "suspended";
+export type BusinessStatus = "pending" | "processing" | "approved" | "rejected" | "suspended";
 
 export interface Business {
   id: string;
@@ -99,26 +99,10 @@ export interface BusinessUpdateInput {
   address_otp_code?: string;
 }
 
-export interface AddressSuggestion {
-  display_name: string;
-  latitude: number;
-  longitude: number;
-  city?: string;
-  postal_code?: string;
-  state?: string;
-}
-
 export interface NearbyRequest {
   lat: number;
   lng: number;
   radius_km?: number;
-}
-
-export interface GeocodeResponse {
-  message: string;
-  latitude?: number;
-  longitude?: number;
-  display_name?: string;
 }
 
 export interface MapsConfig {
@@ -280,6 +264,18 @@ async function refreshTokens(): Promise<TokenResponse> {
   return tokens;
 }
 
+/** Thrown by apiFetch for any non-2xx response reached from the server (S-082).
+ * Extends Error so every existing `e instanceof Error` call site keeps working
+ * unchanged -- `.status` lets a caller additionally branch by HTTP status when needed. */
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export async function apiFetch<T>(path: string, options: RequestInit = {}, _retried = false): Promise<T> {
   const token = getToken();
   const headers: HeadersInit = {
@@ -316,7 +312,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}, _retr
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || "Request failed");
+    throw new ApiError(err.detail || "Request failed", res.status);
   }
   if (res.status === 204) return undefined as T;
   return res.json();
@@ -342,6 +338,12 @@ export const auth = {
   me: () => apiFetch<User>("/api/v1/auth/me"),
   updateMe: (data: UserProfileUpdateInput) =>
     apiFetch<User>("/api/v1/auth/me", { method: "PATCH", body: JSON.stringify(data) }),
+  /** S-085: click-to-upload profile avatar, applied immediately -- independent of updateMe(). */
+  uploadAvatar: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return apiFetch<User>("/api/v1/auth/me/avatar", { method: "POST", body: form });
+  },
   totpSetup: (mfaToken: string) =>
     apiFetch<TotpSetupResponse>("/api/v1/auth/mfa/totp/setup", {
       method: "POST",
@@ -425,6 +427,11 @@ export const businesses = {
   update: (id: string, data: BusinessUpdateInput) =>
     apiFetch<Business>(`/api/v1/businesses/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   approve: (id: string) => apiFetch<Business>(`/api/v1/businesses/${id}/approve`, { method: "POST" }),
+  /** S-079: admin marks a pending business as being actively reviewed. 409 if not pending. */
+  startReview: (id: string) => apiFetch<Business>(`/api/v1/businesses/${id}/start-review`, { method: "POST" }),
+  /** S-079: admin un-claims a processing business back to plain pending. 409 if not processing. */
+  returnToPending: (id: string) =>
+    apiFetch<Business>(`/api/v1/businesses/${id}/return-to-pending`, { method: "POST" }),
   /** S-073: send an OTP to confirm a 2nd+ address edit. 409 if no prior edit exists yet. */
   requestAddressOtp: (id: string) =>
     apiFetch<{ message: string }>(`/api/v1/businesses/${id}/address-verify/request`, { method: "POST" }),
@@ -433,7 +440,10 @@ export const businesses = {
     const qs = new URLSearchParams(params).toString();
     return apiFetch<Business[]>(`/api/v1/search/businesses?${qs}`);
   },
-  categoriesAll: () => apiFetch<Category[]>("/api/v1/businesses/categories/all"),
+  categoriesAll: (params?: { q?: string }) => {
+    const qs = params?.q ? `?q=${encodeURIComponent(params.q)}` : "";
+    return apiFetch<Category[]>(`/api/v1/businesses/categories/all${qs}`);
+  },
   /** Admin: create a category. 409 if name or slug already exists. */
   createCategory: (data: { name: string; slug: string; description?: string; icon?: string }) =>
     apiFetch<Category>("/api/v1/businesses/categories", { method: "POST", body: JSON.stringify(data) }),
@@ -461,11 +471,6 @@ export interface Category {
 export const maps = {
   nearby: (data: NearbyRequest) =>
     apiFetch<Business[]>("/api/v1/maps/nearby", { method: "POST", body: JSON.stringify(data) }),
-  geocode: (address: string) =>
-    apiFetch<GeocodeResponse>(`/api/v1/maps/geocode?address=${encodeURIComponent(address)}`),
-  /** S-073: live suggestions, [] on no results (client falls back to "Look up address"). */
-  autocomplete: (query: string) =>
-    apiFetch<AddressSuggestion[]>(`/api/v1/maps/autocomplete?q=${encodeURIComponent(query)}`),
   config: () => apiFetch<MapsConfig>("/api/v1/maps/config"),
 };
 
@@ -853,6 +858,87 @@ export const favorites = {
       body: JSON.stringify({ business_id: businessId }),
     }),
   remove: (businessId: string) => apiFetch<void>(`/api/v1/favorites/${businessId}`, { method: "DELETE" }),
+};
+
+export type TicketStatus = "open" | "in_progress" | "resolved";
+
+export interface SupportContact {
+  email: string;
+  support_path: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  name: string;
+  phone: string;
+  issue: string;
+  business_id?: string | null;
+  reporter_id?: string | null;
+  status: TicketStatus;
+  admin_response?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BusinessReportMessage {
+  id: string;
+  report_id: string;
+  author_id: string;
+  body: string;
+  created_at: string;
+}
+
+export interface BusinessReport {
+  id: string;
+  business_id: string;
+  reporter_id: string;
+  reason: string;
+  status: TicketStatus;
+  created_at: string;
+  updated_at: string;
+  business_name?: string | null;
+  messages: BusinessReportMessage[];
+  report_count?: number | null;
+  is_repeat: boolean;
+}
+
+export const support = {
+  contact: () => apiFetch<SupportContact>("/api/v1/support/contact"),
+  createTicket: (data: { name: string; phone: string; issue: string; business_id?: string }) =>
+    apiFetch<SupportTicket>("/api/v1/support-tickets", { method: "POST", body: JSON.stringify(data) }),
+  myTickets: () => apiFetch<SupportTicket[]>("/api/v1/support-tickets/mine"),
+  adminTickets: (status?: string) =>
+    apiFetch<SupportTicket[]>(`/api/v1/admin/support-tickets${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+  updateTicket: (id: string, data: { status?: TicketStatus; admin_response?: string }) =>
+    apiFetch<SupportTicket>(`/api/v1/admin/support-tickets/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+};
+
+export const businessReports = {
+  create: (businessId: string, reason: string) =>
+    apiFetch<BusinessReport>(`/api/v1/businesses/${businessId}/reports`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+  mine: () => apiFetch<BusinessReport[]>("/api/v1/business-reports/mine"),
+  addMessage: (id: string, body: string) =>
+    apiFetch<BusinessReportMessage>(`/api/v1/business-reports/${id}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    }),
+  adminList: (status?: string) =>
+    apiFetch<BusinessReport[]>(
+      `/api/v1/admin/business-reports${status ? `?status=${encodeURIComponent(status)}` : ""}`,
+    ),
+  adminUpdate: (id: string, status: TicketStatus) =>
+    apiFetch<BusinessReport>(`/api/v1/admin/business-reports/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+  adminMessage: (id: string, body: string) =>
+    apiFetch<BusinessReportMessage>(`/api/v1/admin/business-reports/${id}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    }),
 };
 
 export { API_URL };

@@ -37,7 +37,9 @@ describe("WhatsAppUpdateCard (S-050)", () => {
       display_number: null,
     });
     render(<WhatsAppUpdateCard businessId="biz-1" />);
-    expect(await screen.findByText(/not configured yet/i)).toBeInTheDocument();
+    // S-078: clarified copy -- this is a platform config gap, not something an
+    // in-app admin action can fix.
+    expect(await screen.findByText(/needs a one-time configuration change/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /print for shop/i })).not.toBeInTheDocument();
   });
 });

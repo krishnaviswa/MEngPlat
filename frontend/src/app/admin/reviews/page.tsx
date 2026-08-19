@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminBackLink } from "@/components/AdminBackLink";
 import { AllReviewsQueue } from "@/components/admin/AllReviewsQueue";
 import { RequireAuth } from "@/components/RequireAuth";
 
@@ -8,6 +9,7 @@ export default function AdminAllReviewsPage() {
   return (
     <RequireAuth role="admin">
       <div className="mx-auto max-w-4xl px-4 py-8">
+        <AdminBackLink />
         <h1 className="text-2xl font-bold">All reviews</h1>
         <p className="text-muted">Every review on the platform, regardless of status.</p>
         <div className="mt-6">

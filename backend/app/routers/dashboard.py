@@ -11,7 +11,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import require_roles
-from app.models import Business, BusinessStatus, Merchant, Review, ReviewStatus, User, UserRole
+from app.models import (
+    Business,
+    BusinessReport,
+    BusinessStatus,
+    Merchant,
+    Review,
+    ReviewStatus,
+    SupportTicket,
+    User,
+    UserRole,
+)
 from app.schemas import (
     BenchmarkResponse,
     DashboardStats,
@@ -31,6 +41,7 @@ from app.schemas import (
 from app.routers.reviews import _review_response
 from app.services import benchmark as benchmark_service
 from app.services import merchant_dashboard as merchant_dashboard_service
+from app.services import business_reports as reports_service
 from app.services import platform_analytics as platform_analytics_service
 from app.services import review_sync_service
 from app.services import whatsapp_ingest_service
@@ -154,14 +165,25 @@ async def platform_analytics(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> PlatformAnalytics:
-    """Admin platform-wide analytics."""
-    from app.models import ReviewReport
-
+    """Admin platform-wide analytics (S-090 adds ops-queue snapshot counts)."""
     users = await db.execute(select(func.count(User.id)))
     businesses = await db.execute(select(func.count(Business.id)))
     pending = await db.execute(select(func.count(Business.id)).where(Business.status == BusinessStatus.PENDING))
+    processing = await db.execute(
+        select(func.count(Business.id)).where(Business.status == BusinessStatus.PROCESSING)
+    )
     reviews = await db.execute(select(func.count(Review.id)))
     reported = await db.execute(select(func.count(Review.id)).where(Review.status == ReviewStatus.REPORTED))
+    open_tickets = await db.execute(
+        select(func.count(SupportTicket.id)).where(SupportTicket.status.in_(("open", "in_progress")))
+    )
+    repeat_shops = (
+        select(BusinessReport.business_id)
+        .group_by(BusinessReport.business_id)
+        .having(func.count(BusinessReport.id) >= reports_service.REPEAT_THRESHOLD)
+        .subquery()
+    )
+    repeat = await db.execute(select(func.count()).select_from(repeat_shops))
 
     return PlatformAnalytics(
         total_users=users.scalar() or 0,
@@ -169,6 +191,9 @@ async def platform_analytics(
         pending_businesses=pending.scalar() or 0,
         total_reviews=reviews.scalar() or 0,
         reported_reviews=reported.scalar() or 0,
+        open_support_tickets=open_tickets.scalar() or 0,
+        repeat_shop_reports=repeat.scalar() or 0,
+        processing_businesses=processing.scalar() or 0,
     )
 
 

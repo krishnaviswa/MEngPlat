@@ -37,7 +37,6 @@ import 'package:merchanthub_api/src/model/featured_checkout_request.dart';
 import 'package:merchanthub_api/src/model/featured_checkout_response.dart';
 import 'package:merchanthub_api/src/model/featured_sku.dart';
 import 'package:merchanthub_api/src/model/forgot_password_request.dart';
-import 'package:merchanthub_api/src/model/geocode_response.dart';
 import 'package:merchanthub_api/src/model/google_auth_request.dart';
 import 'package:merchanthub_api/src/model/google_place_candidate_response.dart';
 import 'package:merchanthub_api/src/model/google_place_link_request.dart';
@@ -121,7 +120,6 @@ part 'serializers.g.dart';
   FeaturedCheckoutResponse,
   FeaturedSku,
   ForgotPasswordRequest,
-  GeocodeResponse,
   GoogleAuthRequest,
   GooglePlaceCandidateResponse,
   GooglePlaceLinkRequest,

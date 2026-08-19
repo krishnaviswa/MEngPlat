@@ -39,4 +39,4 @@ Defaults for Compose, pytest, and staging are mock/local — see `README.md` §3
 - Mock logs the OTP; Msg91 for live India SMS. Phone OTP login skips TOTP (same as Google).
 
 ## Maps
-- OpenStreetMap tiles + Nominatim (`app/routers/maps.py` + Leaflet). Google Maps env vars are unused leftovers.
+- OpenStreetMap tiles + nearby Haversine (`app/routers/maps.py` + Leaflet). Address geocoding via Nominatim was removed in S-084. Google Maps env vars are unused leftovers.

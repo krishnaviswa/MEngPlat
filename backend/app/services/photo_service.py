@@ -19,7 +19,7 @@ ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 
-def _upload_from_bytes(data: bytes, filename: str, content_type: str) -> UploadFile:
+def upload_from_bytes(data: bytes, filename: str, content_type: str) -> UploadFile:
     return UploadFile(
         file=BytesIO(data),
         filename=filename,
@@ -49,7 +49,7 @@ async def save_business_photo(
             detail=f"File too large. Max size is {MAX_UPLOAD_BYTES // (1024 * 1024)}MB.",
         )
 
-    upload = _upload_from_bytes(data, filename, content_type)
+    upload = upload_from_bytes(data, filename, content_type)
     storage = get_storage_provider()
     url = await storage.save(upload, f"businesses/{business_id}")
 

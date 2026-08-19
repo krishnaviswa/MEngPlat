@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { businesses, maps } from "@/lib/api";
-import type { AddressSuggestion, Business, BusinessCreateInput, BusinessUpdateInput, Category } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { businesses } from "@/lib/api";
+import type { Business, BusinessCreateInput, BusinessUpdateInput, Category } from "@/lib/api";
+import { getCountries, getStatesForCountry } from "@/lib/countryState";
 import { BusinessPhotoManager } from "@/components/BusinessPhotoManager";
 
 export type BusinessFormValues = {
@@ -105,38 +106,12 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; phone?: string }>({});
   const [loading, setLoading] = useState(false);
-  const [geocodeLoading, setGeocodeLoading] = useState(false);
-  const [geocodeMessage, setGeocodeMessage] = useState("");
-  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [addressOtpRequired, setAddressOtpRequired] = useState(false);
   const [addressOtpCode, setAddressOtpCode] = useState("");
-  const skipNextAutocomplete = useRef(false);
 
   useEffect(() => {
     businesses.categoriesAll().then(setCategories).catch(() => setCategories([]));
   }, []);
-
-  // S-073 AC1: live suggestions once >=3 chars, debounced so typing doesn't
-  // hammer Nominatim. Skipped once right after a suggestion is applied, since
-  // that also changes form.address and would otherwise immediately re-query.
-  useEffect(() => {
-    if (skipNextAutocomplete.current) {
-      skipNextAutocomplete.current = false;
-      return;
-    }
-    const query = form.address.trim();
-    if (query.length < 3) {
-      setSuggestions([]);
-      return;
-    }
-    const handle = setTimeout(() => {
-      maps
-        .autocomplete(query)
-        .then(setSuggestions)
-        .catch(() => setSuggestions([])); // AC8: fall back to manual entry, no dead end
-    }, 300);
-    return () => clearTimeout(handle);
-  }, [form.address]);
 
   useEffect(() => {
     if (mode === "edit" && business && categories.length > 0) {
@@ -158,51 +133,6 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
         ? prev.category_ids.filter((c) => c !== id)
         : [...prev.category_ids, id],
     }));
-  }
-
-  function selectSuggestion(suggestion: AddressSuggestion) {
-    skipNextAutocomplete.current = true;
-    setSuggestions([]);
-    setForm((prev) => ({
-      ...prev,
-      address: suggestion.display_name,
-      city: suggestion.city || prev.city, // AC3: pre-fills but stays editable
-      postal_code: suggestion.postal_code || prev.postal_code,
-      state: suggestion.state || prev.state,
-      latitude: String(suggestion.latitude),
-      longitude: String(suggestion.longitude),
-    }));
-  }
-
-  async function handleGeocode() {
-    const parts = [form.address, form.city, form.state, form.postal_code, form.country].filter(Boolean);
-    const query = parts.join(", ");
-    if (!query.trim()) {
-      setGeocodeMessage("");
-      setError("Enter an address before looking up coordinates.");
-      return;
-    }
-
-    setGeocodeLoading(true);
-    setGeocodeMessage("");
-    setError("");
-    try {
-      const result = await maps.geocode(query);
-      if (result.latitude != null && result.longitude != null) {
-        setForm((prev) => ({
-          ...prev,
-          latitude: String(result.latitude),
-          longitude: String(result.longitude),
-        }));
-        setGeocodeMessage(result.display_name ?? "Location found.");
-      } else {
-        setGeocodeMessage(result.message);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Geocode failed");
-    } finally {
-      setGeocodeLoading(false);
-    }
   }
 
   function validateRequiredFields(): boolean {
@@ -248,6 +178,10 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
       setLoading(false);
     }
   }
+
+  const countries = getCountries();
+  const states = getStatesForCountry(form.country);
+  const selectedState = states.some((s) => s.code === form.state) ? form.state : "";
 
   return (
     <form
@@ -298,7 +232,7 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
             className="mt-1 w-full rounded border px-3 py-2"
           />
         </label>
-        <label className="relative block sm:col-span-2">
+        <label className="block sm:col-span-2">
           <span className="text-sm font-medium text-muted">
             Street address <span className="text-red-600">★</span>
           </span>
@@ -306,25 +240,8 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
             required
             value={form.address}
             onChange={(e) => setForm({ ...form, address: e.target.value })}
-            autoComplete="off"
-            aria-autocomplete="list"
             className="mt-1 w-full rounded border px-3 py-2"
           />
-          {suggestions.length > 0 && (
-            <ul className="absolute z-10 mt-1 w-full rounded border bg-surface-raised shadow-lg" role="listbox">
-              {suggestions.map((s) => (
-                <li key={s.display_name}>
-                  <button
-                    type="button"
-                    onClick={() => selectSuggestion(s)}
-                    className="block w-full px-3 py-2 text-left text-sm hover:bg-surface"
-                  >
-                    {s.display_name}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
         </label>
         <label className="block">
           <span className="text-sm font-medium text-muted">
@@ -339,11 +256,19 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
         </label>
         <label className="block">
           <span className="text-sm font-medium text-muted">State</span>
-          <input
-            value={form.state}
+          <select
+            value={selectedState}
             onChange={(e) => setForm({ ...form, state: e.target.value })}
+            disabled={states.length === 0}
             className="mt-1 w-full rounded border px-3 py-2"
-          />
+          >
+            <option value="">{states.length === 0 ? "Not applicable" : "Select a state…"}</option>
+            {states.map((s) => (
+              <option key={s.code} value={s.code}>
+                {s.name}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="block">
           <span className="text-sm font-medium text-muted">Postal code</span>
@@ -355,12 +280,17 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
         </label>
         <label className="block">
           <span className="text-sm font-medium text-muted">Country</span>
-          <input
+          <select
             value={form.country}
-            onChange={(e) => setForm({ ...form, country: e.target.value })}
-            placeholder="IN"
+            onChange={(e) => setForm({ ...form, country: e.target.value, state: "" })}
             className="mt-1 w-full rounded border px-3 py-2"
-          />
+          >
+            {countries.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="block">
           <span className="text-sm font-medium text-muted">
@@ -420,20 +350,6 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
             className="mt-1 w-full rounded border px-3 py-2"
           />
         </label>
-        <div className="flex flex-col gap-2 sm:col-span-2">
-          <button
-            type="button"
-            onClick={handleGeocode}
-            disabled={geocodeLoading}
-            className="w-fit rounded border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-medium text-brand-800 hover:bg-brand-100 disabled:opacity-50 dark:border-brand-800 dark:bg-brand-900/30 dark:text-brand-300 dark:hover:bg-brand-900/50"
-          >
-            {geocodeLoading ? "Looking up…" : "Look up address"}
-          </button>
-          {geocodeMessage && <p className="text-sm text-muted">{geocodeMessage}</p>}
-          <p className="text-xs text-muted">
-            Geocoding uses OpenStreetMap Nominatim on button click only (not while typing).
-          </p>
-        </div>
       </div>
 
       {categories.length > 0 && (

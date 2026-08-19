@@ -7,15 +7,6 @@ void main() {
   final instance = MerchanthubApi().getMapsApi();
 
   group(MapsApi, () {
-    // Geocode Address
-    //
-    // Geocode an address via Nominatim (OpenStreetMap).  **Query:** address **Response:** lat/lng when found; message explains failures
-    //
-    //Future<GeocodeResponse> geocodeAddressApiV1MapsGeocodeGet(String address) async
-    test('test geocodeAddressApiV1MapsGeocodeGet', () async {
-      // TODO
-    });
-
     // Maps Config
     //
     // Return public maps configuration for frontend.

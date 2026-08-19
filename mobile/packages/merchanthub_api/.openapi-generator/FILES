@@ -31,7 +31,6 @@ doc/FeaturedCheckoutRequest.md
 doc/FeaturedCheckoutResponse.md
 doc/FeaturedSku.md
 doc/ForgotPasswordRequest.md
-doc/GeocodeResponse.md
 doc/GoogleAuthRequest.md
 doc/GooglePlaceCandidateResponse.md
 doc/GooglePlaceLinkRequest.md
@@ -144,7 +143,6 @@ lib/src/model/featured_checkout_request.dart
 lib/src/model/featured_checkout_response.dart
 lib/src/model/featured_sku.dart
 lib/src/model/forgot_password_request.dart
-lib/src/model/geocode_response.dart
 lib/src/model/google_auth_request.dart
 lib/src/model/google_place_candidate_response.dart
 lib/src/model/google_place_link_request.dart

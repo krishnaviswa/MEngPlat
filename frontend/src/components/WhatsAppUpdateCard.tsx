@@ -82,7 +82,9 @@ export function WhatsAppUpdateCard({
       <section className="rounded-xl border bg-surface-raised p-4">
         <h3 className="font-semibold">Update shop via WhatsApp</h3>
         <p className="mt-1 text-sm text-muted">
-          WhatsApp updates are not configured yet. Ask an admin to set the platform WhatsApp number.
+          WhatsApp updates aren&apos;t set up for this platform yet — this needs a one-time
+          configuration change from the MerchantHub team, not an action you or an admin can take
+          in-app.
         </p>
       </section>
     );

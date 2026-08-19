@@ -2813,49 +2813,6 @@
         }
       }
     },
-    "/api/v1/maps/geocode": {
-      "get": {
-        "tags": [
-          "Maps"
-        ],
-        "summary": "Geocode Address",
-        "description": "Geocode an address via Nominatim (OpenStreetMap).\n\n**Query:** address\n**Response:** lat/lng when found; message explains failures",
-        "operationId": "geocode_address_api_v1_maps_geocode_get",
-        "parameters": [
-          {
-            "name": "address",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Address"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GeocodeResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/maps/config": {
       "get": {
         "tags": [
@@ -4824,6 +4781,11 @@
             "nullable": true,
             "title": "Postal Code"
           },
+          "country": {
+            "type": "string",
+            "nullable": true,
+            "title": "Country"
+          },
           "latitude": {
             "type": "number",
             "nullable": true,
@@ -5239,34 +5201,6 @@
           "email"
         ],
         "title": "ForgotPasswordRequest"
-      },
-      "GeocodeResponse": {
-        "properties": {
-          "message": {
-            "type": "string",
-            "title": "Message"
-          },
-          "latitude": {
-            "type": "number",
-            "nullable": true,
-            "title": "Latitude"
-          },
-          "longitude": {
-            "type": "number",
-            "nullable": true,
-            "title": "Longitude"
-          },
-          "display_name": {
-            "type": "string",
-            "nullable": true,
-            "title": "Display Name"
-          }
-        },
-        "type": "object",
-        "required": [
-          "message"
-        ],
-        "title": "GeocodeResponse"
       },
       "GoogleAuthRequest": {
         "properties": {

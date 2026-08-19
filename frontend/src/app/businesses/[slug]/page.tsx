@@ -4,6 +4,7 @@ import { CategoryBadges } from "@/components/CategoryBadges";
 import { ExternalReviews } from "@/components/ExternalReviews";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { PhotoGallery } from "@/components/PhotoGallery";
+import { ReportShopButton } from "@/components/ReportShopButton";
 import { RatingWidget } from "@/components/ui/RatingWidget";
 import { ReviewHighlights } from "@/components/ReviewHighlights";
 import { ReviewsList } from "@/components/ReviewsList";
@@ -81,6 +82,9 @@ export default async function BusinessPage({ params }: Props) {
             {/* S-011: favorite toggle — keep separate from S-012 Details section below */}
             <div className="mt-3">
               <FavoriteButton businessId={business.id} />
+            </div>
+            <div className="mt-2">
+              <ReportShopButton businessId={business.id} />
             </div>
           </div>
           <a

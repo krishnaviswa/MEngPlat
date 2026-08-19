@@ -27,6 +27,7 @@ const RATING_STARS = ["1", "2", "3", "4", "5"] as const;
 
 const STATUS_LABEL: Record<BusinessStatus, string> = {
   pending: "Awaiting approval",
+  processing: "Under review",
   approved: "Active",
   rejected: "Rejected",
   suspended: "Suspended",
@@ -34,6 +35,7 @@ const STATUS_LABEL: Record<BusinessStatus, string> = {
 
 const STATUS_CLASS: Record<BusinessStatus, string> = {
   pending: "text-amber-600 dark:text-amber-400",
+  processing: "text-amber-600 dark:text-amber-400",
   approved: "text-green-600 dark:text-green-400",
   rejected: "text-muted",
   suspended: "text-red-600 dark:text-red-400",
@@ -180,8 +182,15 @@ export default function MerchantDashboardPage() {
     setGoogleError(null);
     try {
       await dashboard.syncGoogleReviews(business.id);
-      const status = await dashboard.getGoogleReviewsStatus(business.id);
+      const [status, freshStats] = await Promise.all([
+        dashboard.getGoogleReviewsStatus(business.id),
+        dashboard.merchant(business.id, { range }),
+      ]);
       setGoogleStatus(status);
+      setStats(freshStats);
+      // Swallow errors here (matching loadBusiness's existing call-site behavior) so a
+      // post-sync insights refetch failure doesn't surface as a misleading sync-error message.
+      await loadBusiness(business).catch(() => {});
     } catch (err) {
       // AC5's "leave existing state untouched" principle applied to sync too.
       setGoogleError(err instanceof Error ? err.message : "Couldn't sync Google reviews right now");
@@ -267,6 +276,7 @@ export default function MerchantDashboardPage() {
                 <option key={b.id} value={b.id}>
                   {b.name}
                   {b.status === "pending" ? " (pending)" : ""}
+                  {b.status === "processing" ? " (processing)" : ""}
                 </option>
               ))}
             </Select>
@@ -277,6 +287,13 @@ export default function MerchantDashboardPage() {
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-300">
             Your business is <strong>awaiting admin approval</strong>. You can update details anytime; public
             discovery starts after approval.
+          </div>
+        )}
+
+        {status === "processing" && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-300">
+            Your business is <strong>currently being reviewed by an admin</strong>. You can update details
+            anytime; public discovery starts after approval.
           </div>
         )}
 
@@ -310,10 +327,15 @@ export default function MerchantDashboardPage() {
           <MerchantNationalIdCard user={user} onSaved={setUser} />
         )}
         <FeaturedBoostPanel businessId={business.id} listingStatus={status} />
-        {status === "approved" && (
+        {status === "approved" ? (
           <div className="grid gap-4 md:grid-cols-2">
             <CollectQrCard businessId={business.id} businessName={business.name} />
             <WhatsAppUpdateCard businessId={business.id} businessName={business.name} />
+          </div>
+        ) : (
+          <div className="rounded-xl border bg-surface-raised p-4 text-sm text-muted">
+            Your review QR code (and WhatsApp update link) will be available once your business is
+            approved.
           </div>
         )}
         {status === "approved" && <WhatsAppDraftsPanel businessId={business.id} />}

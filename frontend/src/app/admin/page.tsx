@@ -6,6 +6,7 @@ import { AdminPaymentPanel } from "@/components/admin/AdminPaymentPanel";
 import { AdminUserPanel } from "@/components/admin/AdminUserPanel";
 import { PendingBusinessQueue } from "@/components/admin/PendingBusinessQueue";
 import { ReportedReviewsQueue } from "@/components/admin/ReportedReviewsQueue";
+import { AdminOpsNav } from "@/components/admin/AdminOpsNav";
 import { Charts } from "@/components/Charts";
 import { RequireAuth } from "@/components/RequireAuth";
 import { StatCard } from "@/components/ui/StatCard";
@@ -17,6 +18,9 @@ interface PlatformStats {
   pending_businesses: number;
   total_reviews: number;
   reported_reviews: number;
+  open_support_tickets: number;
+  repeat_shop_reports: number;
+  processing_businesses: number;
 }
 
 const STAT_LABELS: Record<keyof PlatformStats, string> = {
@@ -25,6 +29,9 @@ const STAT_LABELS: Record<keyof PlatformStats, string> = {
   pending_businesses: "Pending businesses",
   total_reviews: "Total reviews",
   reported_reviews: "Reported reviews",
+  open_support_tickets: "Open support tickets",
+  repeat_shop_reports: "Repeat shop reports",
+  processing_businesses: "Processing businesses",
 };
 
 // Same-page scroll targets (existing queue sections further down /admin).
@@ -33,6 +40,7 @@ const STAT_TARGETS: Partial<Record<keyof PlatformStats, string>> = {
   total_users: "admin-users",
   pending_businesses: "pending-businesses",
   reported_reviews: "reported-reviews",
+  processing_businesses: "pending-businesses",
 };
 
 // Navigate-away targets: "Total businesses"/"Total reviews" browse every
@@ -40,6 +48,8 @@ const STAT_TARGETS: Partial<Record<keyof PlatformStats, string>> = {
 const STAT_LINKS: Partial<Record<keyof PlatformStats, string>> = {
   total_businesses: "/admin/businesses",
   total_reviews: "/admin/reviews",
+  open_support_tickets: "/admin/support",
+  repeat_shop_reports: "/admin/business-reports",
 };
 
 const SERIES_META: Record<string, { title: string; subtitle?: string }> = {
@@ -74,7 +84,7 @@ function SeriesChart({ title, subtitle, data }: { title: string; subtitle?: stri
   );
 }
 
-/** Admin moderation panel — platform stats, trend charts, category and user admin, and moderation queues. */
+/** Admin operational console — ops nav, snapshot tiles, trends, and moderation queues (S-090). */
 export default function AdminPage() {
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [series, setSeries] = useState<PlatformAnalyticsSeries | null>(null);
@@ -93,9 +103,10 @@ export default function AdminPage() {
 
   return (
     <RequireAuth role="admin">
-      <div className="mx-auto max-w-4xl px-4 py-8">
+      <div className="mx-auto max-w-6xl px-4 py-8">
         <h1 className="text-2xl font-bold">Admin Panel</h1>
-        <p className="text-muted">Platform moderation and analytics</p>
+        <p className="text-muted">Operational console — queues, search, and platform facts</p>
+        <AdminOpsNav />
 
         {error && (
           <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-center dark:border-red-900/50 dark:bg-red-900/20">
@@ -156,6 +167,14 @@ export default function AdminPage() {
           </section>
         )}
 
+        <section id="admin-categories" className="mt-10 scroll-mt-20">
+          <h2 className="text-lg font-semibold">Categories</h2>
+          <p className="text-sm text-muted">Add browse categories without a developer.</p>
+          <div className="mt-4">
+            <AdminCategoryPanel />
+          </div>
+        </section>
+
         <section id="pending-businesses" className="mt-10 scroll-mt-20">
           <h2 className="text-lg font-semibold">Pending businesses</h2>
           <p className="text-sm text-muted">Approve new listings or suspend suspicious registrations.</p>
@@ -172,6 +191,37 @@ export default function AdminPage() {
           </div>
         </section>
 
+        <section id="admin-support" className="mt-10 scroll-mt-20">
+          <h2 className="text-lg font-semibold">Support</h2>
+          <p className="text-sm text-muted">
+            Platform contact:{" "}
+            <a className="text-brand-600 hover:underline" href="mailto:support@merchanthub.example">
+              support@merchanthub.example
+            </a>
+            . Customer queries and shop reports are separate queues (not review reports).
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              href="/admin/support"
+              className="inline-block rounded-lg border border-border bg-surface-raised px-4 py-2 text-sm font-medium transition hover:border-brand-300 hover:shadow-sm"
+            >
+              Support tickets →
+            </a>
+            <a
+              href="/admin/business-reports"
+              className="inline-block rounded-lg border border-border bg-surface-raised px-4 py-2 text-sm font-medium transition hover:border-brand-300 hover:shadow-sm"
+            >
+              Shop reports →
+            </a>
+            <a
+              href="/support"
+              className="inline-block rounded-lg border border-border bg-surface-raised px-4 py-2 text-sm font-medium transition hover:border-brand-300 hover:shadow-sm"
+            >
+              Public contact page →
+            </a>
+          </div>
+        </section>
+
         <section id="whatsapp-drafts" className="mt-10 scroll-mt-20">
           <h2 className="text-lg font-semibold">WhatsApp updates</h2>
           <p className="text-sm text-muted">
@@ -184,14 +234,6 @@ export default function AdminPage() {
             >
               Open review queue →
             </a>
-          </div>
-        </section>
-
-        <section id="admin-categories" className="mt-10 scroll-mt-20">
-          <h2 className="text-lg font-semibold">Categories</h2>
-          <p className="text-sm text-muted">Add browse categories without a developer.</p>
-          <div className="mt-4">
-            <AdminCategoryPanel />
           </div>
         </section>
 

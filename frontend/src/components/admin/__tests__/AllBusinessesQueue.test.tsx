@@ -74,4 +74,31 @@ describe("AllBusinessesQueue (S-021 AC 2 / AC 3)", () => {
 
     expect(await screen.findByText("Network down")).toBeInTheDocument();
   });
+
+  // S-079 AC6/AC7: a "processing" status renders a defined, visible badge
+  // (not blank/undefined), same defensive-fallback guarantee any future
+  // unmapped status value gets.
+  it("renders a defined badge for a 'processing' status", async () => {
+    adminAllMock.mockResolvedValue([makeBusiness({ id: "b-processing", name: "Processing Biz", status: "processing" })]);
+
+    render(<AllBusinessesQueue />);
+
+    const badge = await screen.findByText("processing");
+    expect(badge).toBeInTheDocument();
+    expect(badge.className).not.toBe("");
+  });
+
+  // AC7: a genuinely unmapped status (not one of the known five) still renders
+  // a visible, styled badge via the fallback -- not blank/undefined.
+  it("falls back to a visible default badge for a genuinely unmapped status", async () => {
+    adminAllMock.mockResolvedValue([
+      makeBusiness({ id: "b-future", name: "Future Status Biz", status: "archived" as Business["status"] }),
+    ]);
+
+    render(<AllBusinessesQueue />);
+
+    const badge = await screen.findByText("archived");
+    expect(badge).toBeInTheDocument();
+    expect(badge.className).not.toBe("");
+  });
 });

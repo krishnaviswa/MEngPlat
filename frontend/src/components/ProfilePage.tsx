@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Business, NationalIdType, User } from "@/lib/api";
 import { auth, clearTokens, favorites } from "@/lib/api";
 import { BusinessCard } from "@/components/BusinessCard";
+import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -19,7 +20,6 @@ export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
   const [phone, setPhone] = useState("");
   const [addressLine1, setAddressLine1] = useState("");
   const [addressLine2, setAddressLine2] = useState("");
@@ -34,11 +34,13 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [favoriteBusinesses, setFavoriteBusinesses] = useState<Business[]>([]);
   const [favoritesLoading, setFavoritesLoading] = useState(true);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const applyUser = useCallback((u: User) => {
     setUser(u);
     setFullName(u.full_name);
-    setAvatarUrl(u.avatar_url || "");
     setPhone(u.phone || "");
     setAddressLine1(u.address_line1 || "");
     setAddressLine2(u.address_line2 || "");
@@ -91,6 +93,27 @@ export default function ProfilePage() {
       .finally(() => setFavoritesLoading(false));
   }, [user]);
 
+  // S-085: avatar upload applies immediately on file selection, independent
+  // of the "Save changes" submit below -- this is not part of onSubmit.
+  async function handleAvatarChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setAvatarError(null);
+    setAvatarUploading(true);
+    try {
+      const updated = await auth.uploadAvatar(file);
+      applyUser(updated);
+      // Navbar (via ClientLayout) has its own independent user state -- this
+      // scoped event is how it hears about the change without a reload.
+      window.dispatchEvent(new CustomEvent("mh:user-updated", { detail: updated }));
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -99,7 +122,6 @@ export default function ProfilePage() {
     try {
       const updated = await auth.updateMe({
         full_name: fullName.trim(),
-        avatar_url: avatarUrl.trim() || null,
         phone: phone.trim() || null,
         address_line1: addressLine1.trim() || null,
         address_line2: addressLine2.trim() || null,
@@ -128,6 +150,36 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <Card>
         <h1 className="text-xl font-bold">Profile</h1>
+
+        <div className="mt-4 flex flex-col items-center gap-2">
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={avatarUploading}
+            aria-label="Change profile photo"
+            className="group relative overflow-hidden rounded-full disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            <Avatar user={user} size="lg" />
+            {avatarUploading ? (
+              <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 text-xs font-medium text-white">
+                Uploading…
+              </span>
+            ) : (
+              <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 text-xs font-medium text-white opacity-0 transition group-hover:bg-black/50 group-hover:opacity-100">
+                Change photo
+              </span>
+            )}
+          </button>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            hidden
+            onChange={handleAvatarChange}
+          />
+          {avatarError && <p className="text-sm text-red-600">{avatarError}</p>}
+        </div>
+
         <form onSubmit={onSubmit} className="mt-4 space-y-4">
           <div>
             <label className="text-sm text-muted" htmlFor="full_name">
@@ -155,19 +207,6 @@ export default function ProfilePage() {
             />
             <p className="mt-1 text-xs text-muted">Used for account contact. Password sign-in uses an authenticator app, not SMS.</p>
           </div>
-          <div>
-            <label className="text-sm text-muted" htmlFor="avatar_url">
-              Avatar URL
-            </label>
-            <Input
-              id="avatar_url"
-              value={avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              placeholder="https://…"
-              className="mt-1"
-            />
-          </div>
-
           <fieldset className="space-y-3 border-t pt-4">
             <legend className="text-sm font-medium text-ink">Address</legend>
             <Input

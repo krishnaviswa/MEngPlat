@@ -49,7 +49,6 @@ export 'package:merchanthub_api/src/model/featured_checkout_request.dart';
 export 'package:merchanthub_api/src/model/featured_checkout_response.dart';
 export 'package:merchanthub_api/src/model/featured_sku.dart';
 export 'package:merchanthub_api/src/model/forgot_password_request.dart';
-export 'package:merchanthub_api/src/model/geocode_response.dart';
 export 'package:merchanthub_api/src/model/google_auth_request.dart';
 export 'package:merchanthub_api/src/model/google_place_candidate_response.dart';
 export 'package:merchanthub_api/src/model/google_place_link_request.dart';

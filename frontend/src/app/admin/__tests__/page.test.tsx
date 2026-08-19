@@ -44,6 +44,9 @@ const STATS = {
   pending_businesses: 2,
   total_reviews: 40,
   reported_reviews: 1,
+  open_support_tickets: 4,
+  repeat_shop_reports: 2,
+  processing_businesses: 3,
 };
 
 describe("Admin panel stat tiles (S-021 AC 1 / AC 4; S-034 AC 4 / AC 6)", () => {
@@ -92,6 +95,27 @@ describe("Admin panel stat tiles (S-021 AC 1 / AC 4; S-034 AC 4 / AC 6)", () => 
     const scrollMock = window.HTMLElement.prototype.scrollIntoView as jest.Mock;
     await waitFor(() => expect(scrollMock).toHaveBeenCalledTimes(1));
     expect(scrollMock.mock.instances[0]).toBe(document.getElementById("admin-users"));
+  });
+
+  it("renders open support tickets and repeat shop reports as drill-down links", async () => {
+    render(<AdminPage />);
+
+    const tickets = await screen.findByRole("link", { name: /open support tickets/i });
+    expect(tickets).toHaveAttribute("href", "/admin/support");
+    expect(screen.getByRole("link", { name: /repeat shop reports/i })).toHaveAttribute(
+      "href",
+      "/admin/business-reports",
+    );
+  });
+
+  it("renders processing businesses as a button that scrolls to the approval queue", async () => {
+    render(<AdminPage />);
+
+    const button = await screen.findByRole("button", { name: /processing businesses/i });
+    fireEvent.click(button);
+    const scrollMock = window.HTMLElement.prototype.scrollIntoView as jest.Mock;
+    await waitFor(() => expect(scrollMock).toHaveBeenCalled());
+    expect(scrollMock.mock.instances.at(-1)).toBe(document.getElementById("pending-businesses"));
   });
 });
 
@@ -154,5 +178,79 @@ describe("Platform trends chart row (S-034 AC 1 / AC 8)", () => {
     // Only the 3 all-zero series fall back to the dashed empty box.
     const emptyBoxes = await screen.findAllByText("No data yet for this window");
     expect(emptyBoxes).toHaveLength(3);
+  });
+});
+
+describe("Section order (S-082 AC1)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.setItem("access_token", "tok-1");
+    meMock.mockResolvedValue({ id: "admin-1", role: "admin", full_name: "Admin" });
+    apiFetchMock.mockResolvedValue(STATS);
+    adminSeriesMock.mockResolvedValue({ granularity: "day", days: 90, series: {} });
+  });
+
+  // AC1: Categories renders immediately after the stats/trends area and before
+  // Pending businesses, Reported reviews, WhatsApp updates, Payments, Users.
+  it("renders Categories before Pending businesses / Reported reviews / WhatsApp updates / Payments / Users", async () => {
+    render(<AdminPage />);
+
+    await screen.findByRole("heading", { name: "Categories" });
+    const headings = screen
+      .getAllByRole("heading", { level: 2 })
+      .map((h) => h.textContent);
+
+    expect(headings).toEqual([
+      "Categories",
+      "Pending businesses",
+      "Reported reviews",
+      "Support",
+      "WhatsApp updates",
+      "Payments",
+      "Users",
+    ]);
+  });
+});
+
+describe("Ops nav (S-090 AC1)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.setItem("access_token", "tok-1");
+    meMock.mockResolvedValue({ id: "admin-1", role: "admin", full_name: "Admin" });
+    apiFetchMock.mockResolvedValue(STATS);
+    adminSeriesMock.mockResolvedValue({ granularity: "day", days: 90, series: {} });
+  });
+
+  it("renders the operations nav on the landing page", async () => {
+    render(<AdminPage />);
+
+    await screen.findByRole("navigation", { name: "Admin operations" });
+    expect(screen.getByRole("link", { name: "Support tickets" })).toHaveAttribute("href", "/admin/support");
+    expect(screen.getByRole("link", { name: "Shop reports" })).toHaveAttribute("href", "/admin/business-reports");
+  });
+});
+
+describe("Support block (S-087 AC3)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.setItem("access_token", "tok-1");
+    meMock.mockResolvedValue({ id: "admin-1", role: "admin", full_name: "Admin" });
+    apiFetchMock.mockResolvedValue(STATS);
+    adminSeriesMock.mockResolvedValue({ granularity: "day", days: 90, series: {} });
+  });
+
+  it("shows support email plus links to tickets, shop reports, and public /support", async () => {
+    render(<AdminPage />);
+
+    expect(await screen.findByRole("heading", { name: "Support" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "support@merchanthub.example" })).toHaveAttribute(
+      "href",
+      "mailto:support@merchanthub.example",
+    );
+    expect(screen.getByRole("link", { name: "Support tickets →" })).toHaveAttribute("href", "/admin/support");
+    expect(screen.getByRole("link", { name: "Shop reports →" })).toHaveAttribute("href", "/admin/business-reports");
+    expect(screen.getByRole("link", { name: /public contact page/i })).toHaveAttribute("href", "/support");
+    expect(screen.getByRole("heading", { name: "Reported reviews" })).toBeInTheDocument();
+    expect(screen.getByText("reported-queue-stub")).toBeInTheDocument();
   });
 });
