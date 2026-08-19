@@ -214,8 +214,8 @@ Do these in order. Each step has a reason.
   Why: S-023–S-025 are Accepted, but most web surfaces remain `unimplemented` — a thin store listing is worse than no listing if you oversell parity.
 2. **Point release builds at production API**
   `--dart-define=API_BASE_URL=https://<your-backend>.up.railway.app`  
-  `--dart-define=GOOGLE_CLIENT_ID=<Web OAuth client ID>` (GitHub Actions variable `MOBILE_GOOGLE_CLIENT_ID`; same value as backend `GOOGLE_CLIENT_ID`). Empty hides **Continue with Google**. Android OAuth client + SHA-1 is still required in Google Cloud Console — see README §10 Google sign-in.  
-   Why: store-installed apps cannot use `localhost`; Gmail is compile-time, not a runtime `.env`.
+  `--dart-define=GOOGLE_CLIENT_ID=<Web OAuth client ID>` (optional GitHub Actions variable `MOBILE_GOOGLE_CLIENT_ID`; same value as backend `GOOGLE_CLIENT_ID`). If omitted, the APK loads the client ID from `GET /api/v1/auth/google-config` on `API_BASE_URL`. Android OAuth client + SHA-1 is still required in Google Cloud Console — see README §10 Google sign-in.  
+   Why: store-installed apps cannot use `localhost`; Gmail follows the API this APK talks to unless you bake an override.
 3. **Build a release/debug APK for local QA**
   `flutter build apk`  
    Why: prove camera, secure storage, permissions, and real-device behavior before Play review.  
@@ -406,7 +406,7 @@ not sensitive):
 | Name                       | Value                                                                             |
 | -------------------------- | --------------------------------------------------------------------------------- |
 | `MOBILE_PROD_API_BASE_URL` | `https://backend-production-2783.up.railway.app` (or current Railway backend URL) |
-| `MOBILE_GOOGLE_CLIENT_ID`  | Web OAuth client ID (same as backend `GOOGLE_CLIENT_ID`; empty hides Gmail)       |
+| `MOBILE_GOOGLE_CLIENT_ID`  | Optional Web OAuth client ID override (same as backend `GOOGLE_CLIENT_ID`; empty uses `GET /auth/google-config`) |
 
 
 **5. Delete the local plaintext copies** (`keystore.b64`, and `mobile-release.keystore` once

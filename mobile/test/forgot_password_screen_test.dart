@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:merchanthub_mobile/core/network/api_exception.dart';
 import 'package:merchanthub_mobile/features/auth/auth_provider.dart';
+import 'package:merchanthub_mobile/features/auth/google_sign_in_client.dart';
 import 'package:merchanthub_mobile/router.dart';
+import 'watch_router_app.dart';
 
 /// S-054 (M-65): mobile forgot/reset password, request half only. Pumps the
 /// full app router (like register_google_auth_test.dart) since
@@ -49,13 +51,16 @@ Future<({ProviderContainer container, _FakeAuthController auth})> _pumpApp(
 
   final auth = _FakeAuthController(forgotPasswordError: forgotPasswordError);
   final container = ProviderContainer(
-    overrides: [authControllerProvider.overrideWith(() => auth)],
+    overrides: [
+      authControllerProvider.overrideWith(() => auth),
+      googleSignInClientProvider.overrideWith((ref) async => const UnconfiguredGoogleSignInClient()),
+    ],
   );
 
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: MaterialApp.router(routerConfig: container.read(routerProvider)),
+      child: const WatchRouterApp(),
     ),
   );
   await _pumpFrames(tester);

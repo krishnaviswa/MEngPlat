@@ -99,6 +99,11 @@ class SearchController extends AutoDisposeAsyncNotifier<SearchResults> {
       state = AsyncData(current.copyWith(isLoadingMore: false));
     }
   }
+
+  Future<void> reload() async {
+    final query = state.valueOrNull?.query ?? const SearchQuery();
+    state = await AsyncValue.guard(() => _fetch(query));
+  }
 }
 
 final searchControllerProvider = AsyncNotifierProvider.autoDispose<SearchController, SearchResults>(

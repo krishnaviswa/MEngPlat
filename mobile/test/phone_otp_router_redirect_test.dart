@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:merchanthub_mobile/core/network/api_client.dart';
 import 'package:merchanthub_mobile/features/auth/auth_provider.dart';
+import 'package:merchanthub_mobile/features/auth/google_sign_in_client.dart';
 import 'package:merchanthub_mobile/features/businesses/business_list_provider.dart';
 import 'package:merchanthub_mobile/features/businesses/business_repository.dart';
 import 'package:merchanthub_mobile/features/businesses/search_query.dart';
@@ -12,6 +13,7 @@ import 'package:merchanthub_mobile/features/favorites/favorites_repository.dart'
 import 'package:merchanthub_mobile/features/notifications/notifications_providers.dart';
 import 'package:merchanthub_mobile/features/notifications/notifications_repository.dart';
 import 'package:merchanthub_mobile/router.dart';
+import 'watch_router_app.dart';
 
 /// S-055 (M-74) AC4: "on success I am signed in ... and routed the same way
 /// any other successful sign-in routes (per postLoginPath)". Phone sign-in
@@ -99,6 +101,7 @@ Future<ProviderContainer> _pumpRouter(WidgetTester tester) async {
   final container = ProviderContainer(
     overrides: [
       authControllerProvider.overrideWith(() => auth),
+      googleSignInClientProvider.overrideWith((ref) async => const UnconfiguredGoogleSignInClient()),
       businessRepositoryProvider.overrideWithValue(_FakeBusinessRepository()),
       notificationsRepositoryProvider.overrideWithValue(_FakeNotificationsRepository()),
       favoritesRepositoryProvider.overrideWithValue(_FakeFavoritesRepository()),
@@ -107,7 +110,7 @@ Future<ProviderContainer> _pumpRouter(WidgetTester tester) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: MaterialApp.router(routerConfig: container.read(routerProvider)),
+      child: const WatchRouterApp(),
     ),
   );
   await _pumpFrames(tester);

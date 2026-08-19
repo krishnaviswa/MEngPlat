@@ -28,6 +28,7 @@ import 'features/notifications/notifications_screen.dart';
 import 'features/reviews/collect_review_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/support/support_screen.dart';
+import 'ui/nav.dart';
 
 /// Bridges Riverpod's [authControllerProvider] to go_router's [GoRouter],
 /// which needs a [Listenable] to know when to re-run its `redirect` callback.
@@ -37,10 +38,18 @@ class _AuthRefreshNotifier extends ChangeNotifier {
   }
 }
 
+String _sessionKey(UserResponse? user) {
+  if (user == null) return 'guest';
+  return '${user.role.name}:${user.id}';
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   final refreshNotifier = _AuthRefreshNotifier(ref);
   final rootNavigatorKey = GlobalKey<NavigatorState>();
-  final shellNavigatorKey = GlobalKey<NavigatorState>();
+  // Rebuild the route tree when role/session changes so guest never mounts
+  // Favorites/Notifications (ADR-005 / S-103).
+  ref.watch(authControllerProvider.select((state) => _sessionKey(state.valueOrNull)));
+  final user = ref.read(authControllerProvider).valueOrNull;
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
@@ -65,111 +74,29 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
-      // Public, ungated review-collection landing (S-059/M-71) -- sibling of
-      // /login, not nested in the ShellRoute, matching the Architect spec.
       GoRoute(
         path: '/collect/:slug',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => CollectReviewScreen(slug: state.pathParameters['slug']!),
       ),
-      ShellRoute(
-        navigatorKey: shellNavigatorKey,
-        builder: (context, state, child) => AppShell(child: child),
-        routes: [
-          GoRoute(
-            path: '/home',
-            builder: (context, state) => const HomeScreen(),
-          ),
-          GoRoute(
-            path: '/support',
-            builder: (context, state) => const SupportScreen(),
-          ),
-          GoRoute(
-            path: '/businesses',
-            builder: (context, state) => const BusinessListScreen(),
-            routes: [
-              // Full-screen over the shell (S-027 AC13).
-              GoRoute(
-                path: ':slug',
-                parentNavigatorKey: rootNavigatorKey,
-                builder: (context, state) => BusinessDetailScreen(slug: state.pathParameters['slug']!),
-              ),
-            ],
-          ),
-          GoRoute(path: '/favorites', builder: (context, state) => const FavoritesScreen()),
-          GoRoute(path: '/notifications', builder: (context, state) => const NotificationsScreen()),
-          GoRoute(
-            path: '/account',
-            builder: (context, state) => const AccountScreen(),
-            routes: [
-              GoRoute(path: 'profile', builder: (context, state) => const ProfileScreen()),
-            ],
-          ),
-          GoRoute(
-            path: '/merchant',
-            builder: (context, state) => const MerchantDashboardScreen(),
-            routes: [
-              GoRoute(
-                path: 'insights',
-                builder: (context, state) => const MerchantDashboardScreen(section: MerchantSection.insights),
-              ),
-              GoRoute(
-                path: 'reviews',
-                builder: (context, state) => const MerchantDashboardScreen(section: MerchantSection.reviews),
-              ),
-              GoRoute(
-                path: 'grow',
-                builder: (context, state) => const MerchantDashboardScreen(section: MerchantSection.grow),
-              ),
-              GoRoute(
-                path: 'businesses/new',
-                builder: (context, state) => const BusinessEditorScreen(),
-              ),
-              GoRoute(
-                path: 'businesses/:id/edit',
-                builder: (context, state) => BusinessEditorScreen(businessId: state.pathParameters['id']),
-              ),
-            ],
-          ),
-          GoRoute(
-            path: '/admin',
-            builder: (context, state) => const AdminHomeScreen(),
-            routes: [
-              GoRoute(path: 'businesses', builder: (context, state) => const AdminBusinessesScreen()),
-              GoRoute(path: 'reviews', builder: (context, state) => const AdminReviewsScreen()),
-              // M-63/M-64 (S-061): siblings of the two routes above, same
-              // free role-gate inheritance from the parent /admin redirect.
-              GoRoute(path: 'categories', builder: (context, state) => const AdminCategoriesScreen()),
-              GoRoute(path: 'users', builder: (context, state) => const AdminUsersScreen()),
-              GoRoute(path: 'whatsapp', builder: (context, state) => const AdminWhatsAppQueueScreen()),
-              GoRoute(path: 'support', builder: (context, state) => const AdminSupportQueueScreen()),
-              GoRoute(path: 'business-reports', builder: (context, state) => const AdminBusinessReportsScreen()),
-            ],
-          ),
-        ],
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) => AppShell(navigationShell: navigationShell),
+        branches: _branchesFor(user, rootNavigatorKey),
       ),
     ],
     redirect: (context, state) {
       final authState = ref.read(authControllerProvider);
       if (authState.isLoading) return null;
 
-      final user = authState.valueOrNull;
-      final isLoggedIn = user != null;
+      final session = authState.valueOrNull;
+      final isLoggedIn = session != null;
       final loc = state.matchedLocation;
       final isOnLogin = loc == '/login';
       final isOnRegister = loc == '/register';
       final isOnForgotPassword = loc == '/forgot-password';
-      // Public carve-out (ADR-003): business browsing and its reviews are
-      // reachable without a session. Shell chrome on `/businesses` is fine
-      // for guests; every other shell route stays auth-gated (ADR-005).
       final isPublicBusinessRoute = loc == '/businesses' || loc.startsWith('/businesses/');
-      // S-064/Tier 5: marketing home is public, same carve-out shape as
-      // Explore. Signed-in shells do not show a Home tab for this route.
       final isPublicHomeRoute = loc == '/home';
       final isPublicSupportRoute = loc == '/support';
-      // S-059/M-71: the review-collection landing view is ungated too --
-      // only submitting from it (handled in the screen itself) requires a
-      // session, same "view is public, action is gated" shape as above.
       final isPublicCollectRoute = loc.startsWith('/collect/');
 
       if (!isLoggedIn &&
@@ -183,21 +110,211 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
       if (isLoggedIn && (isOnLogin || isOnRegister)) {
-        // S-059 AC4: after signing in via the /login?next=/collect/{slug}
-        // round trip, return to that screen instead of the role's usual
-        // post-login destination. Allow-listed to /collect/ so this can't
-        // become an open redirect.
         final next = state.uri.queryParameters['next'];
         if (next != null && next.startsWith('/collect/')) return next;
-        return postLoginPath(user.role);
+        return postLoginPath(session.role);
       }
 
       if (isLoggedIn) {
-        if (loc == '/favorites' && user.role != UserRole.customer) return postLoginPath(user.role);
-        if (loc.startsWith('/merchant') && user.role != UserRole.merchant) return postLoginPath(user.role);
-        if (loc.startsWith('/admin') && user.role != UserRole.admin) return postLoginPath(user.role);
+        if (loc == '/favorites' && session.role != UserRole.customer) return postLoginPath(session.role);
+        if (loc.startsWith('/merchant') && session.role != UserRole.merchant) return postLoginPath(session.role);
+        if (loc.startsWith('/admin') && session.role != UserRole.admin) return postLoginPath(session.role);
       }
       return null;
     },
   );
 });
+
+List<StatefulShellBranch> _branchesFor(UserResponse? user, GlobalKey<NavigatorState> rootNavigatorKey) {
+  final explore = StatefulShellBranch(
+    routes: [
+      GoRoute(
+        path: '/businesses',
+        builder: (context, state) => const BusinessListScreen(),
+        routes: [
+          GoRoute(
+            path: ':slug',
+            parentNavigatorKey: rootNavigatorKey,
+            pageBuilder: (context, state) => mhSlidePage(
+              key: state.pageKey,
+              child: BusinessDetailScreen(slug: state.pathParameters['slug']!),
+            ),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/support',
+        pageBuilder: (context, state) => mhSlidePage(
+          key: state.pageKey,
+          child: const SupportScreen(),
+        ),
+      ),
+    ],
+  );
+
+  final notifications = StatefulShellBranch(
+    routes: [
+      GoRoute(path: '/notifications', builder: (context, state) => const NotificationsScreen()),
+    ],
+  );
+
+  final account = StatefulShellBranch(
+    routes: [
+      GoRoute(
+        path: '/account',
+        builder: (context, state) => const AccountScreen(),
+        routes: [
+          GoRoute(
+            path: 'profile',
+            pageBuilder: (context, state) => mhSlidePage(
+              key: state.pageKey,
+              child: const ProfileScreen(),
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+
+  if (user == null) {
+    return [
+      StatefulShellBranch(
+        routes: [
+          GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+        ],
+      ),
+      explore,
+    ];
+  }
+
+  if (user.role == UserRole.merchant) {
+    return [
+      StatefulShellBranch(
+        routes: [
+          GoRoute(
+            path: '/merchant',
+            builder: (context, state) => const MerchantDashboardScreen(),
+            routes: [
+              GoRoute(
+                path: 'insights',
+                pageBuilder: (context, state) => mhSlidePage(
+                  key: state.pageKey,
+                  child: const MerchantDashboardScreen(section: MerchantSection.insights),
+                ),
+              ),
+              GoRoute(
+                path: 'reviews',
+                pageBuilder: (context, state) => mhSlidePage(
+                  key: state.pageKey,
+                  child: const MerchantDashboardScreen(section: MerchantSection.reviews),
+                ),
+              ),
+              GoRoute(
+                path: 'grow',
+                pageBuilder: (context, state) => mhSlidePage(
+                  key: state.pageKey,
+                  child: const MerchantDashboardScreen(section: MerchantSection.grow),
+                ),
+              ),
+              GoRoute(
+                path: 'businesses/new',
+                pageBuilder: (context, state) => mhSlidePage(
+                  key: state.pageKey,
+                  child: const BusinessEditorScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'businesses/:id/edit',
+                pageBuilder: (context, state) => mhSlidePage(
+                  key: state.pageKey,
+                  child: BusinessEditorScreen(businessId: state.pathParameters['id']),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      explore,
+      notifications,
+      account,
+    ];
+  }
+
+  if (user.role == UserRole.admin) {
+    return [
+      StatefulShellBranch(
+        routes: [
+          GoRoute(
+            path: '/admin',
+            builder: (context, state) => const AdminHomeScreen(),
+            routes: [
+              GoRoute(
+                path: 'businesses',
+                pageBuilder: (context, state) => mhSlidePage(
+                  key: state.pageKey,
+                  child: const AdminBusinessesScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'reviews',
+                pageBuilder: (context, state) => mhSlidePage(
+                  key: state.pageKey,
+                  child: const AdminReviewsScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'categories',
+                pageBuilder: (context, state) => mhSlidePage(
+                  key: state.pageKey,
+                  child: const AdminCategoriesScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'users',
+                pageBuilder: (context, state) => mhSlidePage(
+                  key: state.pageKey,
+                  child: const AdminUsersScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'whatsapp',
+                pageBuilder: (context, state) => mhSlidePage(
+                  key: state.pageKey,
+                  child: const AdminWhatsAppQueueScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'support',
+                pageBuilder: (context, state) => mhSlidePage(
+                  key: state.pageKey,
+                  child: const AdminSupportQueueScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'business-reports',
+                pageBuilder: (context, state) => mhSlidePage(
+                  key: state.pageKey,
+                  child: const AdminBusinessReportsScreen(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      explore,
+      notifications,
+      account,
+    ];
+  }
+
+  return [
+    explore,
+    StatefulShellBranch(
+      routes: [
+        GoRoute(path: '/favorites', builder: (context, state) => const FavoritesScreen()),
+      ],
+    ),
+    notifications,
+    account,
+  ];
+}

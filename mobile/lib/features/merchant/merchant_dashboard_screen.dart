@@ -10,6 +10,7 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../ui/friendly_error.dart';
+import '../../ui/nav.dart';
 import '../../ui/widgets.dart';
 import '../reviews/review_card.dart';
 import '../reviews/review_providers.dart';
@@ -85,7 +86,7 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
             ? null
             : IconButton(
                 icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.go('/merchant'),
+                onPressed: () => popOrGo(context, '/merchant'),
               ),
         actions: [
           TextButton(

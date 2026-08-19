@@ -197,4 +197,17 @@ class AuthRepository {
   Future<bool> hasSession() async {
     return await _client.tokenStorage.readAccessToken() != null;
   }
+
+  /// Public Web OAuth client ID from the API this build talks to.
+  Future<String> fetchGoogleClientId() async {
+    try {
+      final response = await _client.authFreeApi.dio.get<Map<String, dynamic>>(
+        '/api/v1/auth/google-config',
+      );
+      final id = response.data?['client_id'];
+      return id is String ? id.trim() : '';
+    } on DioException {
+      return '';
+    }
+  }
 }

@@ -288,7 +288,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
       const SizedBox(height: 12),
       Text(
-        ref.watch(googleSignInClientProvider).isConfigured
+        googleSignInIsConfigured(ref.watch(googleSignInClientProvider))
             ? 'Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.). '
                 'Gmail sign-in below skips that step.'
             : 'Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.).',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../../core/media_url.dart';
+import '../../ui/tokens.dart';
 import '../favorites/favorite_toggle_button.dart';
 import '../reviews/rating_stars.dart';
 
@@ -75,9 +76,16 @@ class BusinessCard extends StatelessWidget {
                       child: Chip(
                         key: const Key('featuredBadge'),
                         visualDensity: VisualDensity.compact,
-                        backgroundColor: const Color(0xFFFEF3C7),
+                        backgroundColor: MhAccent.amber.washFor(Theme.of(context).brightness),
                         side: BorderSide.none,
-                        label: const Text('Featured', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFB45309))),
+                        label: Text(
+                          'Featured',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: MhAccent.amber.inkFor(Theme.of(context).brightness),
+                          ),
+                        ),
                       ),
                     ),
                 ],
@@ -120,16 +128,21 @@ class _PhotoPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return DecoratedBox(
       key: const Key('businessPhotoPlaceholder'),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFE0F2FE), Color(0xFFEDE9FE), Color(0xFFFFE4E6)],
+          colors: dark
+              ? const [Color(0xFF082F49), Color(0xFF2E1065), Color(0xFF4C0519)]
+              : const [Color(0xFFE0F2FE), Color(0xFFEDE9FE), Color(0xFFFFE4E6)],
         ),
       ),
-      child: const Center(child: Icon(Icons.storefront, size: 48, color: Color(0xFF0284C7))),
+      child: Center(
+        child: Icon(Icons.storefront, size: 48, color: dark ? MhTokens.brand400 : const Color(0xFF0284C7)),
+      ),
     );
   }
 }
