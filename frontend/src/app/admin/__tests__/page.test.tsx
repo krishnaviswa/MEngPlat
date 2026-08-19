@@ -156,3 +156,33 @@ describe("Platform trends chart row (S-034 AC 1 / AC 8)", () => {
     expect(emptyBoxes).toHaveLength(3);
   });
 });
+
+describe("Section order (S-082 AC1)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.setItem("access_token", "tok-1");
+    meMock.mockResolvedValue({ id: "admin-1", role: "admin", full_name: "Admin" });
+    apiFetchMock.mockResolvedValue(STATS);
+    adminSeriesMock.mockResolvedValue({ granularity: "day", days: 90, series: {} });
+  });
+
+  // AC1: Categories renders immediately after the stats/trends area and before
+  // Pending businesses, Reported reviews, WhatsApp updates, Payments, Users.
+  it("renders Categories before Pending businesses / Reported reviews / WhatsApp updates / Payments / Users", async () => {
+    render(<AdminPage />);
+
+    await screen.findByText("Categories");
+    const headings = screen
+      .getAllByRole("heading", { level: 2 })
+      .map((h) => h.textContent);
+
+    expect(headings).toEqual([
+      "Categories",
+      "Pending businesses",
+      "Reported reviews",
+      "WhatsApp updates",
+      "Payments",
+      "Users",
+    ]);
+  });
+});

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import get_optional_user, require_roles, slugify
+from app.dependencies import get_current_user, get_optional_user, require_roles, slugify
 from app.models import (
     Business,
     BusinessCategory,
@@ -22,6 +22,8 @@ from app.models import (
 )
 from app.schemas import (
     BusinessCreate,
+    BusinessReportCreate,
+    BusinessReportResponse,
     BusinessResponse,
     BusinessUpdate,
     CategoryCreate,
@@ -30,6 +32,7 @@ from app.schemas import (
     MessageResponse,
     PublicPlatformStats,
 )
+from app.services import business_reports as reports_service
 from app.services import review_sync_service
 from app.services.cache import cache_delete_pattern
 from app.services.email import try_send_listing_approved
@@ -108,9 +111,12 @@ async def list_businesses(
 
 
 @router.get("/categories/all", response_model=list[CategoryResponse])
-async def list_categories(db: AsyncSession = Depends(get_db)) -> list[CategoryResponse]:
-    """List all business categories."""
-    result = await db.execute(select(Category).order_by(Category.name))
+async def list_categories(q: str | None = None, db: AsyncSession = Depends(get_db)) -> list[CategoryResponse]:
+    """List business categories. Optional `q` filters by case-insensitive name substring (S-081)."""
+    query = select(Category).order_by(Category.name)
+    if q:
+        query = query.where(Category.name.ilike(f"%{q}%"))
+    result = await db.execute(query)
     return list(result.scalars().all())
 
 
@@ -439,6 +445,57 @@ async def suspend_business(
     return MessageResponse(message="Business suspended")
 
 
+@router.post("/{business_id}/start-review", response_model=BusinessResponse)
+async def start_review(
+    business_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+) -> BusinessResponse:
+    """Admin: mark a pending business as being actively reviewed (S-079). Visibility-only --
+    does not lock the business to this admin; any admin can still act on it."""
+    from app.models import AuditLog
+
+    business = await db.get(Business, business_id)
+    if not business:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
+    if business.status != BusinessStatus.PENDING:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Business is not pending")
+    business.status = BusinessStatus.PROCESSING
+    db.add(AuditLog(admin_id=admin.id, action="start_review", entity_type="business", entity_id=str(business_id)))
+    result = await db.execute(
+        select(Business)
+        .options(selectinload(Business.categories).selectinload(BusinessCategory.category))
+        .where(Business.id == business_id)
+    )
+    return _to_response(result.scalar_one())
+
+
+@router.post("/{business_id}/return-to-pending", response_model=BusinessResponse)
+async def return_to_pending(
+    business_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+) -> BusinessResponse:
+    """Admin: un-claim a business under review, returning it to the plain pending queue (S-079)."""
+    from app.models import AuditLog
+
+    business = await db.get(Business, business_id)
+    if not business:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
+    if business.status != BusinessStatus.PROCESSING:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Business is not being processed")
+    business.status = BusinessStatus.PENDING
+    db.add(
+        AuditLog(admin_id=admin.id, action="return_to_pending", entity_type="business", entity_id=str(business_id))
+    )
+    result = await db.execute(
+        select(Business)
+        .options(selectinload(Business.categories).selectinload(BusinessCategory.category))
+        .where(Business.id == business_id)
+    )
+    return _to_response(result.scalar_one())
+
+
 @router.get("/{business_id}/external-reviews", response_model=list[ExternalReviewResponse])
 async def list_external_reviews(
     business_id: UUID,
@@ -455,3 +512,36 @@ async def list_external_reviews(
     """
     rows = await review_sync_service.list_external_reviews(db, business_id)
     return [ExternalReviewResponse.model_validate(row) for row in rows]
+
+
+@router.post(
+    "/{business_id}/reports",
+    response_model=BusinessReportResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def report_business(
+    business_id: UUID,
+    payload: BusinessReportCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> BusinessReportResponse:
+    """Signed-in user: report a shop (not a review). Merchants cannot report their own listing (S-089)."""
+    try:
+        report = await reports_service.create_report(
+            db, business_id=business_id, reporter=user, reason=payload.reason
+        )
+    except reports_service.ReportNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found") from None
+    except reports_service.OwnShopReportError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot report your own business") from None
+    return BusinessReportResponse(
+        id=report.id,
+        business_id=report.business_id,
+        reporter_id=report.reporter_id,
+        reason=report.reason,
+        status=report.status,
+        created_at=report.created_at,
+        updated_at=report.updated_at,
+        messages=[],
+        is_repeat=False,
+    )

@@ -118,7 +118,6 @@ Class | Method | HTTP request | Description
 [*FavoritesApi*](doc/FavoritesApi.md) | [**createFavoriteApiV1FavoritesPost**](doc/FavoritesApi.md#createfavoriteapiv1favoritespost) | **POST** /api/v1/favorites | Create Favorite
 [*FavoritesApi*](doc/FavoritesApi.md) | [**deleteFavoriteApiV1FavoritesBusinessIdDelete**](doc/FavoritesApi.md#deletefavoriteapiv1favoritesbusinessiddelete) | **DELETE** /api/v1/favorites/{business_id} | Delete Favorite
 [*FavoritesApi*](doc/FavoritesApi.md) | [**listFavoritesApiV1FavoritesGet**](doc/FavoritesApi.md#listfavoritesapiv1favoritesget) | **GET** /api/v1/favorites | List Favorites
-[*MapsApi*](doc/MapsApi.md) | [**geocodeAddressApiV1MapsGeocodeGet**](doc/MapsApi.md#geocodeaddressapiv1mapsgeocodeget) | **GET** /api/v1/maps/geocode | Geocode Address
 [*MapsApi*](doc/MapsApi.md) | [**mapsConfigApiV1MapsConfigGet**](doc/MapsApi.md#mapsconfigapiv1mapsconfigget) | **GET** /api/v1/maps/config | Maps Config
 [*MapsApi*](doc/MapsApi.md) | [**nearbyBusinessesApiV1MapsNearbyPost**](doc/MapsApi.md#nearbybusinessesapiv1mapsnearbypost) | **POST** /api/v1/maps/nearby | Nearby Businesses
 [*MerchantAnalyticsApi*](doc/MerchantAnalyticsApi.md) | [**analyticsSummaryApiV1AnalyticsMerchantBusinessIdSummaryGet**](doc/MerchantAnalyticsApi.md#analyticssummaryapiv1analyticsmerchantbusinessidsummaryget) | **GET** /api/v1/analytics/merchant/{business_id}/summary | Analytics Summary
@@ -179,7 +178,6 @@ Class | Method | HTTP request | Description
  - [FeaturedCheckoutResponse](doc/FeaturedCheckoutResponse.md)
  - [FeaturedSku](doc/FeaturedSku.md)
  - [ForgotPasswordRequest](doc/ForgotPasswordRequest.md)
- - [GeocodeResponse](doc/GeocodeResponse.md)
  - [GoogleAuthRequest](doc/GoogleAuthRequest.md)
  - [GooglePlaceCandidateResponse](doc/GooglePlaceCandidateResponse.md)
  - [GooglePlaceLinkRequest](doc/GooglePlaceLinkRequest.md)

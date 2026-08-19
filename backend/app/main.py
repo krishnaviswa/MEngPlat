@@ -25,6 +25,7 @@ from app.routers import (
     photos,
     reviews,
     search,
+    support,
     webhooks,
 )
 from app.services.ai import validate_startup_config as validate_ai_startup_config
@@ -91,6 +92,7 @@ app.include_router(analytics.router, prefix=api_prefix)
 app.include_router(notifications.router, prefix=api_prefix)
 app.include_router(favorites.router, prefix=api_prefix)
 app.include_router(admin.router, prefix=api_prefix)
+app.include_router(support.router, prefix=api_prefix)
 app.include_router(payments.router, prefix=api_prefix)
 app.include_router(webhooks.router, prefix=api_prefix)
 

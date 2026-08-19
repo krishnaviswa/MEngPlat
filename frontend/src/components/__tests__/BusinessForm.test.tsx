@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { BusinessForm } from "@/components/BusinessForm";
-import { businesses, maps } from "@/lib/api";
+import { businesses } from "@/lib/api";
 
 jest.mock("../../lib/api", () => ({
   businesses: {
@@ -9,7 +9,29 @@ jest.mock("../../lib/api", () => ({
     update: jest.fn(),
     requestAddressOtp: jest.fn(),
   },
-  maps: { geocode: jest.fn(), autocomplete: jest.fn().mockResolvedValue([]) },
+}));
+
+jest.mock("../../lib/countryState", () => ({
+  getCountries: () => [
+    { code: "IN", name: "India" },
+    { code: "US", name: "United States" },
+    { code: "SG", name: "Singapore" },
+  ],
+  getStatesForCountry: (countryCode: string) => {
+    if (countryCode === "IN") {
+      return [
+        { code: "TN", name: "Tamil Nadu" },
+        { code: "KA", name: "Karnataka" },
+      ];
+    }
+    if (countryCode === "US") {
+      return [
+        { code: "CA", name: "California" },
+        { code: "NY", name: "New York" },
+      ];
+    }
+    return [];
+  },
 }));
 
 jest.mock("../../components/BusinessPhotoManager", () => ({
@@ -22,7 +44,8 @@ const categoriesAllMock = businesses.categoriesAll as jest.Mock;
 const createMock = businesses.create as jest.Mock;
 const updateMock = businesses.update as jest.Mock;
 const requestAddressOtpMock = businesses.requestAddressOtp as jest.Mock;
-const autocompleteMock = maps.autocomplete as jest.Mock;
+
+const sampleCategory = { id: "cat-1", name: "Cafe", slug: "cafe" };
 
 function fillRequiredBaseFields() {
   fireEvent.change(screen.getByLabelText(/business name/i), { target: { value: "Test Shop" } });
@@ -36,8 +59,6 @@ describe("BusinessForm", () => {
     createMock.mockReset();
     updateMock.mockReset();
     requestAddressOtpMock.mockReset();
-    autocompleteMock.mockReset();
-    autocompleteMock.mockResolvedValue([]);
   });
 
   // S-072 AC1: legend visible near the top of the form.
@@ -138,64 +159,93 @@ describe("BusinessForm", () => {
     status: "approved",
   } as any;
 
-  // S-073 AC1: typing >=3 characters into the address field triggers a live,
-  // debounced autocomplete lookup and renders a suggestion dropdown.
-  it("shows a live suggestion dropdown once >=3 characters are typed into the address field (S-073 AC1)", async () => {
-    autocompleteMock.mockResolvedValue([
-      { display_name: "1 Main St, Chennai, TN, India", latitude: 13.08, longitude: 80.27, city: "Chennai", postal_code: "600001", state: "TN" },
-    ]);
+  // S-084 AC3: Country is a <select> defaulting to India ("IN").
+  it("renders Country as a select defaulting to India (S-084 AC3)", async () => {
     render(<BusinessForm mode="create" />);
-    await screen.findByLabelText(/required field legend/i);
-    fireEvent.change(screen.getByLabelText(/street address/i), { target: { value: "1 Main" } });
-
-    await waitFor(() => expect(autocompleteMock).toHaveBeenCalledWith("1 Main"), { timeout: 2000 });
-    expect(await screen.findByRole("listbox")).toBeInTheDocument();
-    expect(screen.getByText("1 Main St, Chennai, TN, India")).toBeInTheDocument();
+    const country = await screen.findByLabelText(/^country$/i);
+    expect(country.tagName).toBe("SELECT");
+    expect((country as HTMLSelectElement).value).toBe("IN");
+    expect(screen.getByRole("option", { name: "India" })).toBeInTheDocument();
   });
 
-  // S-073 AC2/AC3: selecting a suggestion pre-fills city/postal/lat/lng, and
-  // those fields remain editable afterwards (not locked).
-  it("pre-fills city, postal code, and coordinates on suggestion select, and leaves them editable (S-073 AC2/AC3)", async () => {
-    autocompleteMock.mockResolvedValue([
-      { display_name: "1 Main St, Chennai, TN, India", latitude: 13.08, longitude: 80.27, city: "Chennai", postal_code: "600001", state: "TN" },
-    ]);
+  // S-084 AC4: State options belong to the selected country.
+  it("populates State options from the selected country (S-084 AC4)", async () => {
     render(<BusinessForm mode="create" />);
-    await screen.findByLabelText(/required field legend/i);
-    fireEvent.change(screen.getByLabelText(/street address/i), { target: { value: "1 Main" } });
-    const suggestionButton = await screen.findByRole("button", { name: "1 Main St, Chennai, TN, India" });
-    fireEvent.click(suggestionButton);
-
-    expect((screen.getByLabelText(/^city/i) as HTMLInputElement).value).toBe("Chennai");
-    expect((screen.getByLabelText(/postal code/i) as HTMLInputElement).value).toBe("600001");
-    expect((screen.getByLabelText(/latitude/i) as HTMLInputElement).value).toBe("13.08");
-    expect((screen.getByLabelText(/longitude/i) as HTMLInputElement).value).toBe("80.27");
-
-    // AC3: still editable -- override the pre-filled city.
-    fireEvent.change(screen.getByLabelText(/^city/i), { target: { value: "Coimbatore" } });
-    expect((screen.getByLabelText(/^city/i) as HTMLInputElement).value).toBe("Coimbatore");
+    await screen.findByLabelText(/^state$/i);
+    expect(screen.getByRole("option", { name: "Tamil Nadu" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "California" })).not.toBeInTheDocument();
   });
 
-  // S-073 AC8: no suggestions returned -> dropdown doesn't appear, and the
-  // existing "Look up address" button fallback still works, no dead end.
-  it("falls back to the manual Look up address button when autocomplete returns no suggestions (S-073 AC8)", async () => {
-    autocompleteMock.mockResolvedValue([]);
-    const geocodeMock = maps.geocode as jest.Mock;
-    geocodeMock.mockResolvedValue({ message: "OK", latitude: 1, longitude: 2, display_name: "Somewhere" });
+  // S-084 AC5: changing Country clears State and repopulates options.
+  it("clears State and repopulates options when Country changes (S-084 AC5)", async () => {
+    render(<BusinessForm mode="create" />);
+    const state = (await screen.findByLabelText(/^state$/i)) as HTMLSelectElement;
+    fireEvent.change(state, { target: { value: "TN" } });
+    expect(state.value).toBe("TN");
 
+    fireEvent.change(screen.getByLabelText(/^country$/i), { target: { value: "US" } });
+    expect((screen.getByLabelText(/^state$/i) as HTMLSelectElement).value).toBe("");
+    expect(screen.getByRole("option", { name: "California" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Tamil Nadu" })).not.toBeInTheDocument();
+  });
+
+  // S-084 AC6: matching stored state is pre-selected on edit load.
+  it("pre-selects a stored State that matches the country's options (S-084 AC6)", async () => {
+    categoriesAllMock.mockResolvedValue([sampleCategory]);
+    render(<BusinessForm mode="edit" business={existingBusiness} />);
+    await waitFor(() => expect((screen.getByLabelText(/^state$/i) as HTMLSelectElement).value).toBe("TN"));
+    expect((screen.getByLabelText(/^country$/i) as HTMLSelectElement).value).toBe("IN");
+  });
+
+  // S-084 AC7: unmatched legacy state shows the placeholder, does not block the form.
+  it("shows an unselected State placeholder for unmatched legacy data (S-084 AC7)", async () => {
+    categoriesAllMock.mockResolvedValue([sampleCategory]);
+    render(
+      <BusinessForm
+        mode="edit"
+        business={{ ...existingBusiness, state: "Tamil Nadu" }}
+      />,
+    );
+    await waitFor(() => expect(screen.getByLabelText(/business name/i)).toHaveValue("Existing Shop"));
+    expect((screen.getByLabelText(/^state$/i) as HTMLSelectElement).value).toBe("");
+    expect(screen.getByRole("option", { name: /select a state/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /save changes/i })).toBeEnabled();
+  });
+
+  // S-084 AC1/AC2: street address is plain text; lookup UI is gone; typing does not call maps.
+  it("treats street address as a plain field with no lookup UI or network calls (S-084 AC1/AC2)", async () => {
     render(<BusinessForm mode="create" />);
     await screen.findByLabelText(/required field legend/i);
-    fireEvent.change(screen.getByLabelText(/street address/i), { target: { value: "sparse coverage rd" } });
+    fireEvent.change(screen.getByLabelText(/street address/i), { target: { value: "1 Main Street" } });
 
-    await waitFor(() => expect(autocompleteMock).toHaveBeenCalled(), { timeout: 2000 });
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /look up address/i }));
-    await waitFor(() => expect(geocodeMock).toHaveBeenCalled());
-    expect(await screen.findByText("Somewhere")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /look up address/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/nominatim/i)).not.toBeInTheDocument();
   });
 
-  // S-073 AC4: creating a business (even with an address set via autocomplete)
-  // never requires an OTP/re-verification step.
+  // S-084 AC8/AC9: city stays a text input; lat/lng stay optional number inputs.
+  it("keeps City as free text and Latitude/Longitude as optional number inputs (S-084 AC8/AC9)", async () => {
+    render(<BusinessForm mode="create" />);
+    await screen.findByLabelText(/required field legend/i);
+    expect(screen.getByLabelText(/^city/i).tagName).toBe("INPUT");
+    expect(screen.getByLabelText(/^latitude$/i)).toHaveAttribute("type", "number");
+    expect(screen.getByLabelText(/^longitude$/i)).toHaveAttribute("type", "number");
+  });
+
+  // S-084 AC10: a country-only edit is included in the PATCH payload.
+  it("includes the new Country in businesses.update on edit (S-084 AC10)", async () => {
+    categoriesAllMock.mockResolvedValue([sampleCategory]);
+    updateMock.mockResolvedValue({ ...existingBusiness, country: "US" });
+    render(<BusinessForm mode="edit" business={existingBusiness} />);
+    await waitFor(() => expect(screen.getByLabelText(/business name/i)).toHaveValue("Existing Shop"));
+    fireEvent.change(screen.getByLabelText(/^country$/i), { target: { value: "US" } });
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(updateMock).toHaveBeenCalled());
+    expect(updateMock.mock.calls[0][1]).toMatchObject({ country: "US" });
+  });
+
+  // S-073 AC4: creating a business never requires an OTP/re-verification step.
   it("does not require address re-verification when creating a business (S-073 AC4)", async () => {
     createMock.mockResolvedValue({ id: "b1", name: "Test Shop" });
     render(<BusinessForm mode="create" />);

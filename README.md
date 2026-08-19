@@ -260,7 +260,7 @@ flowchart TB
     AI --> LLM[OpenAI-compatible / Mock]
     MAIL --> MailVend[Mock log / Resend]
     PAY --> PayVend[Mock / Razorpay]
-    API --> Maps[OpenStreetMap / Nominatim + Leaflet]
+    API --> Maps[OpenStreetMap tiles + Leaflet]
 ```
 
 
@@ -373,7 +373,7 @@ The **logical loop in §2 is implemented** (customer review → AI suggestion �
 | Topic | Original design | Built | Verdict |
 | ----- | --------------- | ----- | ------- |
 | Shape | Layered monolith + 2 ports | Same monolith + **4** ports | Pattern held; seams grew on purpose |
-| Maps | Google Maps env vars | Leaflet + OSM + Nominatim (ADR-006) | Intentional swap; keys unused |
+| Maps | Google Maps env vars | Leaflet + OSM tiles (ADR-006); Nominatim address lookup removed in S-084 | Intentional swap; keys unused |
 | Auth | JWT in `localStorage` | Same + mandatory TOTP + Google ID-token | S-026 httpOnly cookies still Draft |
 | AI | Suggestions only | Enforced in UI copy + mock default | No drift |
 | Customer edit/delete review | Named in early actor table | No UI either client (M-40/M-41) | **Doc over-promise** — corrected in §2 |
@@ -442,6 +442,11 @@ erDiagram
     reviews ||--o| replies : "merchant reply"
     users ||--o{ review_likes : likes
     users ||--o{ review_reports : reports
+    users ||--o{ support_tickets : "opens"
+    businesses ||--o{ support_tickets : "optional link"
+    users ||--o{ business_reports : "shop reports"
+    businesses ||--o{ business_reports : "flagged"
+    business_reports ||--o{ business_report_messages : thread
     users ||--o{ favorites : saves
     users ||--o{ notifications : receives
     businesses ||--o{ payments : "featured checkout"
@@ -547,6 +552,9 @@ erDiagram
 | `audit_logs`          | Admin action trail                                                  |
 | `review_likes`        | Customer likes on reviews                                           |
 | `review_reports`      | Reported reviews queue                                              |
+| `support_tickets`     | Customer/merchant platform queries (S-088); optional shop link      |
+| `business_reports`    | Shop-level reports, distinct from review reports (S-089)            |
+| `business_report_messages` | Admin ↔ reporter thread on a shop report (S-089)               |
 | `seed_runs`           | Demo seed version markers (`SEED_VERSION`) — skip re-upsert on boot |
 | `payments`            | Featured-boost charges (SKU, paise, fee split, approve timestamps, no PAN) — S-036/S-042 |
 | `featured_placements` | Time-bounded paid search boost (`starts_at` / `ends_at` / `disabled_at`) |
@@ -555,7 +563,7 @@ erDiagram
 | `business_update_drafts` | AI-extracted profile fields (`pending`/`applied`/`discarded`) — never auto-live (**S-052**) |
 
 
-SQLAlchemy models live in a single file: `[backend/app/models/__init__.py](backend/app/models/__init__.py)`. `Business.external_platform_refs` is nullable JSONB (`{"google": "<place_id>"}` once linked; `NULL` when not). `Business.address_edit_count` (S-073) counts address-field edits since creation; `0` means the next address change needs no OTP, `>=1` means it does (see §7 `PATCH /businesses/{id}`).
+SQLAlchemy models live in a single file: `[backend/app/models/__init__.py](backend/app/models/__init__.py)`. `Business.external_platform_refs` is nullable JSONB (`{"google": "<place_id>"}` once linked; `NULL` when not). `Business.address_edit_count` (S-073) counts address-field edits since creation; `0` means the next address change needs no OTP, `>=1` means it does (see §7 `PATCH /businesses/{id}`). `BusinessUpdate.country` is included on PATCH (S-084); the `Business.country` column itself already existed.
 
 ### Relationships
 
@@ -588,7 +596,7 @@ SQLAlchemy models live in a single file: `[backend/app/models/__init__.py](backe
 | Enum             | Values                                         |
 | ---------------- | ---------------------------------------------- |
 | `UserRole`       | `customer`, `merchant`, `admin`                |
-| `BusinessStatus` | `pending`, `approved`, `rejected`, `suspended` |
+| `BusinessStatus` | `pending`, `processing`, `approved`, `rejected`, `suspended` (**S-079**: `processing` is an optional, admin-triggered in-between state entered via "Start review" and left via "Return to pending" or the existing approve/suspend actions — visibility only, not a lock) |
 | `ReviewStatus`   | `active`, `hidden`, `reported`, `removed`      |
 | `PaymentStatus`  | `created`, `paid`, `failed`, `refunded`        |
 | `DraftStatus`    | `pending`, `applied`, `discarded` (WhatsApp AI drafts, **S-052**; moved from `pending` to `applied`/`discarded` only by admin approve/reject since **S-053**, not merchant) |
@@ -899,20 +907,17 @@ sequenceDiagram
 
 ### Merchant business registration
 
-Merchants create listings at `/merchant/businesses/new` (wrapped in `RequireAuth role="merchant"`). The shared `BusinessForm` posts to `POST /businesses`; new rows start with `status=pending`. Country defaults to `IN` in the form (backend model default is `US` if omitted). Optional coordinates can be entered manually or filled once via **Look up address**, which calls `GET /maps/geocode` (Nominatim) on button click only — not per keystroke.
+Merchants create listings at `/merchant/businesses/new` (wrapped in `RequireAuth role="merchant"`). The shared `BusinessForm` posts to `POST /businesses`; new rows start with `status=pending`. Country defaults to `IN` in the form (backend model default is `US` if omitted) and is a bundled ISO-3166 `<select>`; State is a cascading `<select>` of that country's subdivisions (S-084). Street address and city are plain text. Optional latitude/longitude can still be typed by hand — there is no address lookup or geocode button (S-084 product decision; see §14).
 
 ```mermaid
 sequenceDiagram
     participant M as Merchant
     participant UI as BusinessForm
+    participant Data as Bundled country/state list
     participant API as FastAPI
-    participant OSM as Nominatim
 
-    M->>UI: Fill address + optional "Look up address"
-    UI->>API: GET /maps/geocode?address=...
-    API->>OSM: Forward geocode (User-Agent set)
-    OSM-->>API: lat/lng + display_name
-    API-->>UI: GeocodeResponse
+    M->>UI: Fill address, city; pick Country then State
+    UI->>Data: getCountries / getStatesForCountry (no network)
     M->>UI: Submit for approval
     UI->>API: POST /businesses (Bearer merchant)
     API-->>UI: Business status=pending
@@ -1046,7 +1051,6 @@ curl -s "$API/api/v1/reviews/business/<business-uuid>"
 
 # Maps
 curl -s "$API/api/v1/maps/config"
-curl -s --get --data-urlencode "address=Chrompet, Chennai" "$API/api/v1/maps/geocode"
 ```
 
 **Auth + Bearer calls**
@@ -1179,16 +1183,19 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | GET    | `/businesses`                | Public         | List businesses (default `status_filter=approved`)                       |
 | GET    | `/businesses/mine`           | Merchant       | List businesses owned by current merchant (any status)                   |
 | GET    | `/businesses/admin/all`      | Admin          | Browse businesses of every status, newest-registered first (S-021)       |
-| GET    | `/businesses/categories/all` | Public         | List categories                                                          |
+| GET    | `/businesses/categories/all` | Public         | List categories. Optional `q` (S-081): case-insensitive substring filter on `Category.name` |
 | GET    | `/businesses/cities`         | Public         | Distinct cities from approved businesses (search filter chips)           |
 | GET    | `/businesses/stats/summary`  | Public         | Public counts: businesses, reviews, categories, cities (no admin fields) |
 | GET    | `/businesses/{slug}`         | Public         | Get by slug                                                              |
 | GET    | `/businesses/{business_id}/external-reviews` | Public | Synced Google review sample, max 5, `[]` if none (**S-048**). Does not affect `average_rating` / `review_count` |
 | POST   | `/businesses`                | Merchant       | Create business (status `pending`). 400 if merchant national ID missing  |
-| PATCH  | `/businesses/{id}`           | Merchant/Admin | Update business. S-073: merchant edits to `address`/`city`/`state`/`postal_code` require `address_otp_code` once `address_edit_count >= 1` (400 missing, 401 wrong/expired). Admin edits bypass this gate. |
+| PATCH  | `/businesses/{id}`           | Merchant/Admin | Update business. `BusinessUpdate` includes `country` (S-084). S-073: merchant edits to `address`/`city`/`state`/`postal_code`/`country` require `address_otp_code` once `address_edit_count >= 1` (400 missing, 401 wrong/expired). Admin edits bypass this gate. |
 | POST   | `/businesses/{id}/address-verify/request` | Merchant (owner) | S-073: sends an OTP to confirm a 2nd+ address edit (SMS to business phone, falling back to the merchant's own phone). 409 if no prior address edit yet, 400 if no phone is on file |
-| POST   | `/businesses/{id}/approve`   | Admin          | Approve listing                                                          |
-| POST   | `/businesses/{id}/suspend`   | Admin          | Suspend listing                                                          |
+| POST   | `/businesses/{id}/approve`   | Admin          | Approve listing (works from `pending` or `processing`)                  |
+| POST   | `/businesses/{id}/suspend`   | Admin          | Suspend listing (works from `pending` or `processing`)                  |
+| POST   | `/businesses/{id}/start-review` | Admin       | S-079: mark a `pending` business as `processing` (visibility only, not a lock). `409` if not currently `pending` |
+| POST   | `/businesses/{id}/return-to-pending` | Admin  | S-079: revert a `processing` business back to `pending`. `409` if not currently `processing` |
+| POST   | `/businesses/{id}/reports`   | User           | S-089: report a shop (not a review). `403` if the caller owns the listing |
 | POST   | `/businesses/categories`     | Admin          | Create category. `409` if name or slug already exists (S-034)            |
 
 
@@ -1276,6 +1283,22 @@ Upload form fields: `file`, `business_id`, `review_id`, `photo_type`, `caption`.
 | GET    | `/admin/whatsapp/drafts`       | Admin | Global, cross-business queue of pending `business_update_drafts`, oldest first. `page`, `page_size` (cap 100), `total` count (**S-053**) |
 | POST   | `/admin/whatsapp/drafts/{id}/approve` | Admin | Write the (optionally edited) fields to the live `Business` row; `audit_logs` (`entity_type=business_update_draft`, `details.ai_fields`/`applied_fields`) + merchant `Notification` + best-effort email. `404`/`409` (**S-053**) |
 | POST   | `/admin/whatsapp/drafts/{id}/reject` | Admin | Leave the live `Business` row untouched; `audit_logs` + merchant `Notification`. `404`/`409` (**S-053**) |
+| GET    | `/admin/support-tickets` | Admin | S-088: list support tickets; optional `status` |
+| PATCH  | `/admin/support-tickets/{id}` | Admin | S-088: set `status` and/or `admin_response` |
+| GET    | `/admin/business-reports` | Admin | S-089: shop reports with `report_count` and `is_repeat` (≥3) |
+| PATCH  | `/admin/business-reports/{id}` | Admin | S-089: set report `status` |
+| POST   | `/admin/business-reports/{id}/messages` | Admin | S-089: reply on a shop-report thread |
+
+
+### Support — `/support`, `/support-tickets`, `/business-reports`
+
+| Method | Path | Auth | Description |
+| ------ | ---- | ---- | ----------- |
+| GET | `/support/contact` | Public | `{ email, support_path }` from `SUPPORT_EMAIL` (S-087) |
+| POST | `/support-tickets` | Optional | Create ticket: name, phone, issue, optional `business_id` (S-088) |
+| GET | `/support-tickets/mine` | User | Caller's tickets (S-088) |
+| GET | `/business-reports/mine` | User | Caller's shop reports + messages (S-089) |
+| POST | `/business-reports/{id}/messages` | Reporter | Follow-up on own shop report (S-089) |
 
 
 Suspended/reactivated accounts are always `customer` or `merchant` — an admin can never suspend themselves or another admin. Existing login/refresh/`get_current_user` already reject `is_active=false` (S-034).
@@ -1356,18 +1379,16 @@ Legacy aliases. The frontend must use `/dashboard` and `/ai`, not these routes. 
 
 ### Maps — `/maps` (OpenStreetMap)
 
-Uses **Nominatim** for geocoding and **Haversine** bounding-box queries for nearby approved businesses. The frontend map is **Leaflet + OSM tiles** — no Google Maps API key required.
+Uses **Haversine** bounding-box queries for nearby approved businesses that already have coordinates. The frontend map is **Leaflet + OSM tiles** — no Google Maps API key required. Forward geocoding (`GET /maps/geocode`) and address autocomplete (`GET /maps/autocomplete`) were removed in **S-084**; merchants enter address text and pick Country/State from bundled dropdowns instead.
 
 
 | Method | Path            | Auth   | Description                                       |
 | ------ | --------------- | ------ | ------------------------------------------------- |
 | POST   | `/maps/nearby`  | Public | Approved businesses within `radius_km` of a point |
-| GET    | `/maps/geocode` | Public | Forward-geocode an address via Nominatim          |
-| GET    | `/maps/autocomplete` | Public | S-073: live address suggestions via Nominatim (`?q=`), up to 5, `[]` on no results — debounced client-side, `BusinessForm`'s live suggestion dropdown |
 | GET    | `/maps/config`  | Public | Provider config (`provider: osm`, tile URL)       |
 
 
-`GET /maps/geocode` returns `{ message, latitude?, longitude?, display_name? }`. Respect Nominatim usage policy — the merchant form geocodes on button click only, not per keystroke. `GET /maps/autocomplete` returns `list[{ display_name, latitude, longitude, city?, postal_code?, state? }]` and is debounced (≥300ms, ≥3 chars) client-side for the same reason.
+Listings without `latitude`/`longitude` are omitted from nearby/map results (see §14).
 
 ### Health
 
@@ -1501,7 +1522,10 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | -------------------------- | ------------------------------------------------------------------------------ |
 | `Navbar.tsx`               | Global nav, auth state, role-aware links                                       |
 | `NotificationBell.tsx`     | Navbar notifications dropdown (S-015)                                          |
-| `Footer.tsx`               | Multi-column site map: Discover, merchants, Account                            |
+| `Footer.tsx`               | Multi-column site map: Discover, merchants, Account, Support (S-087) |
+| `AdminBackLink.tsx`        | Shared “← Admin panel” on admin drill-downs (S-086)                    |
+| `SupportTicketForm.tsx`    | Public support query form + my tickets / shop reports (S-088, S-089) |
+| `ReportShopButton.tsx`     | Report a listing from the public profile (S-089)                       |
 | `home/TrustMetrics.tsx`    | Editorial live platform counts on the home page                                |
 | `home/CityIndex.tsx`       | Neighborhood links with listing counts                                         |
 | `home/CategoryIndex.tsx`   | Category search index with counts                                              |
@@ -1517,7 +1541,7 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 | `FilterPanel.tsx`          | City chips from API + category/rating filters (preserves location params)      |
 | `UseLocationButton.tsx`    | Browser geolocation → `/search?lat=&lng=`                                      |
 | `BusinessMap.tsx`          | Leaflet map with OSM tiles for search results                                  |
-| `BusinessForm.tsx`         | Merchant create/edit business form + geocode                                   |
+| `BusinessForm.tsx`         | Merchant create/edit business form; Country/State dropdowns (S-084)            |
 | `RequireAuth.tsx`          | Client route guard by role (JWT in localStorage)                               |
 | `PendingBusinessQueue.tsx` | Admin pending-business approval queue                                          |
 | `ReportedReviewsQueue.tsx` | Admin reported-review moderation queue (shop-name link via `showBusinessLink`) |
@@ -1548,6 +1572,10 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 The API client lives in `[frontend/src/lib/api.ts](frontend/src/lib/api.ts)` and calls the backend directly via `NEXT_PUBLIC_API_URL` / `API_URL_INTERNAL` — there is no BFF or rewrite layer.
 
 **File download pattern (S-033):** `dashboard.reviewsCsv()` is the first non-JSON API call — it can't route through the shared `apiFetch<T>()` JSON helper, so it does a plain authenticated `fetch()` and returns a `Blob`. Callers turn that into a download via `URL.createObjectURL` + a synthetic `<a download>` click (see `MerchantDashboard.tsx`'s `handleExportCsv`), not a direct link to the API URL (would drop the auth header).
+
+**Status-aware error handling (S-082):** `apiFetch` throws `ApiError extends Error` (adds `.status`, the HTTP status code) instead of a plain `Error` on any non-2xx response reached from the server. Every existing `e instanceof Error ? e.message : "..."` call site keeps working unchanged (it's additive, not a breaking refactor); a caller that needs to branch by cause checks `e instanceof ApiError` first — a true network failure (fetch itself rejects — offline/DNS/CORS) is *not* an `ApiError` (no `Response` ever existed), so `instanceof ApiError` false + `instanceof Error` true distinguishes "reached the server" from "never reached the server". `AdminCategoryPanel.tsx`'s "Add category" error handling is the first adopter (409 duplicate vs. 401/403 auth vs. 5xx/network, each a distinct message) — other forms still use the older generic `e.message` pattern until they have a reason to adopt status-aware branching too.
+
+**`Badge` tone palette (S-083):** `Badge`'s `Tone` union now includes `info`/`brand` alongside the original `positive`/`negative`/`neutral`. The original three carry a good/bad/neutral *judgment* meaning (AI sentiment on `ReviewCard`, active/suspended account status) — `info`/`brand` are for judgment-neutral *classification* instead (e.g. `AdminUserPanel.tsx`'s role badge: `customer`→`neutral`, `merchant`→`info`, `admin`→`brand`), so a role never misreads as "this person is good/bad." Purely additive — no existing `Tone` value or caller changed.
 
 ### Design system (Figma)
 
@@ -1946,7 +1974,7 @@ On Render/Railway the disk is ephemeral. `S3StorageProvider` (boto3) is implemen
 
 ### Maps (OpenStreetMap)
 
-Search and merchant geocoding use **Leaflet + OSM tiles** and **Nominatim** — no Google Maps API key is required for the current implementation. Legacy `GOOGLE_MAPS_API_KEY` / `NEXT_PUBLIC_GOOGLE_MAPS_KEY` env vars remain in config but are unused by the OSM path.
+Search uses **Leaflet + OSM tiles** — no Google Maps API key is required. Legacy `GOOGLE_MAPS_API_KEY` / `NEXT_PUBLIC_GOOGLE_MAPS_KEY` env vars remain in config but are unused by the OSM path. Merchant listings no longer call Nominatim (S-084).
 
 ### Google sign-in
 
@@ -2388,7 +2416,7 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-51 | Merchant          | Stats tiles + sentiment chart                                      | Dashboard                                       | Dashboard tiles + bars                                                 | `implemented`   | S-031                                                        |
 | M-52 | Merchant          | AI insights + refresh                                              | `AIInsights`                                    | `AiInsightsPanel`                                                      | `implemented`   | S-031; suggestion-only                                       |
 | M-53 | Merchant          | Reply to reviews                                                   | Dashboard `ReviewCard`                          | Dashboard `ReviewCard`                                                 | `implemented`   | S-031                                                        |
-| M-54 | Merchant          | Create / edit business                                             | `/merchant/businesses/…`                        | `/merchant/businesses/new` + `…/:id/edit`                              | `implemented`   | S-031; no hours/gallery UI (M-55/M-56)                       |
+| M-54 | Merchant          | Create / edit business                                             | `/merchant/businesses/…`                        | `/merchant/businesses/new` + `…/:id/edit`                              | `partial`       | S-031; S-084 web Country/State `<select>`s (bundled ISO data); mobile editor is still free-text address/city/state/country |
 | M-55 | Merchant          | Storefront / logo / gallery upload UI                              | —                                               | —                                                                      | `n/a`           | API exists; no web form yet                                  |
 | M-56 | Merchant          | Business hours editor                                              | —                                               | —                                                                      | `n/a`           | Display-only on web                                          |
 | M-57 | Admin             | Admin home + platform stats                                        | `/admin`                                        | `/admin`                                                               | `implemented`   | S-031                                                        |
@@ -2406,19 +2434,26 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-68 | Merchant          | Dashboard area/line trend charts + period-over-period delta badges | `/merchant/dashboard`                           | Dashboard volume `LineChart` + area fill; reply-rate / reviews-in-range delta badges | `implemented`   | S-037 (web), S-063 (mobile) — both Accepted                  |
 | M-69 | Merchant          | Competitor rating benchmarking (category + city median)            | `/merchant/dashboard`                           | Merchant Home `BenchmarkCard`                                          | `implemented`   | S-038 (web), S-066 (mobile)                              |
 | M-70 | Merchant          | AI reply drafting ("Draft with AI" button on review cards)         | `/merchant/dashboard`                           | `ReviewCard` composer fills `suggested_response`                       | `implemented`   | S-039 (web), S-066 (mobile); suggestion, not auto-post   |
-| M-71 | Merchant/Customer | Review collection flow (public QR/link wizard, no gating)          | `/collect/[businessId]`; mobile `/collect/:slug` + merchant QR/share sheet | —                                                                      | `partial` | S-040 (web), S-059 (mobile) — mobile QR/share + in-app landing shipped; cold QR scan resolves to the web page, not a native deep link (by design, see S-059) |
+| M-71 | Merchant/Customer | Review collection flow (public QR/link wizard, no gating)          | `/collect/[businessId]`; mobile `/collect/:slug` + merchant QR/share sheet | —                                                                      | `partial` | S-040 (web), S-059 (mobile) — mobile QR/share + in-app landing shipped; cold QR scan resolves to the web page, not a native deep link (by design, see S-059). S-077 (web, 2026-08-19): a non-approved business now shows a "not approved yet" message instead of the QR card silently disappearing — mobile unaffected, not yet mirrored |
 | M-75 | Chrome            | Dark mode (system-matched default, explicit toggle, persisted)     | Navbar `ThemeToggle` (`next-themes`)            | Theme toggle (`ThemeToggleButton`) in Account + Business list app bars | `implemented`   | S-045 (web); S-057 (mobile, Accepted 2026-08-18)              |
 | M-72 | Reviews           | Review-list sort/filter/truncate/lightbox + half-star ratings      | `/businesses/[slug]` (`ReviewsList`, `ReviewCard`, `ui/RatingWidget`) | Business detail review list (`reviewFiltersButton` bottom sheet, `ReviewCard` truncation + photo lightbox) + `RatingStars` half-star on business detail header and `BusinessCard` | `implemented`   | S-046 (web); S-058 (mobile, Accepted 2026-08-18)              |
 | M-76 | Home              | Social proof rail (businesses-using-MerchantHub strip)             | `/` (`SocialProofRail`)                         | `/home` social-proof rail                                              | `implemented`   | S-047 (web); S-064 (mobile)              |
 | M-77 | Home              | Problem section (three named product gaps, numbered layout)        | `/` (`ProblemSection`)                          | `/home` problem section                                                | `implemented`   | S-047 (web); S-064 (mobile)              |
 | M-78 | Merchant          | AI topic clustering (named themes, count + sentiment, "Common Themes" panel) | `/merchant/dashboard` (`AIInsights`)  | `AiInsightsPanel` Common Themes                                        | `implemented`   | S-049 (web), S-066 (mobile)                              |
-| M-80 | Merchant/Customer | External review sync (Google) — dashboard link/sync + public sample | `/merchant/dashboard` Google card + `/businesses/[slug]` (`ExternalReviews`) | Merchant `GoogleReviewsPanel` + public `ExternalReviewsSection` | `implemented` | S-048 (web), S-066 (mobile); native ratings unchanged |
-| M-79 | Merchant          | WhatsApp shop-data ingestion (link/QR, photos, AI text drafts, admin approval gate) | `/merchant/dashboard` card + inbound webhook + `/admin/whatsapp` review queue | Merchant QR/share + draft list; admin `/admin/whatsapp` | `implemented` | S-050..053 (web); S-066 (mobile UI on existing APIs) |
+| M-80 | Merchant/Customer | External review sync (Google) — dashboard link/sync + public sample | `/merchant/dashboard` Google card + `/businesses/[slug]` (`ExternalReviews`) | Merchant `GoogleReviewsPanel` + public `ExternalReviewsSection` | `implemented` | S-048 (web), S-066 (mobile); native ratings unchanged. S-076 (web, 2026-08-19): "Sync now" now also refetches dashboard stats/AI insights, not just the sync card — mobile unaffected, not yet mirrored |
+| M-79 | Merchant          | WhatsApp shop-data ingestion (link/QR, photos, AI text drafts, admin approval gate) | `/merchant/dashboard` card + inbound webhook + `/admin/whatsapp` review queue | Merchant QR/share + draft list; admin `/admin/whatsapp` | `implemented` | S-050..053 (web); S-066 (mobile UI on existing APIs). S-078 (web, 2026-08-19): same "not approved yet" messaging as M-71, plus clarified copy when the WhatsApp provider itself isn't configured — mobile unaffected, not yet mirrored |
+| M-81 | Admin             | Processing business status (admin-triggered visibility state between Pending and Approve/Suspend) | `/admin` Pending queue "Start review"/"Return to pending" + status badges | —                                                                      | `unimplemented` | S-079 (web, 2026-08-19); not yet on mobile admin ops (Tier 4, S-061) |
+| M-82 | Admin             | Admin Users panel search (by name/email)                            | `/admin` Users panel                            | —                                                                      | `unimplemented` | S-080 (web, 2026-08-19); not yet on mobile admin ops (Tier 4, S-061) |
+| M-83 | Admin             | Admin Categories panel search (by name)                              | `/admin` Categories panel                       | —                                                                      | `unimplemented` | S-081 (web, 2026-08-19); not yet on mobile admin ops (Tier 4, S-061) |
+| M-84 | Admin             | Categories panel repositioned to top of `/admin`; distinct "Add category" error messages (409/401-403/network) | `/admin` Categories panel                       | —                                                                      | `unimplemented` | S-082 (web, 2026-08-19); not yet on mobile admin ops (Tier 4, S-061) |
+| M-85 | Admin             | Admin Users panel role badge (customer/merchant/admin classification) | `/admin` Users panel                            | —                                                                      | `unimplemented` | S-083 (web, 2026-08-19); not yet on mobile admin ops (Tier 4, S-061) |
+| M-86 | Admin             | Back navigation on admin drill-down screens                         | `/admin/whatsapp`, `/admin/reviews`, `/admin/businesses`, `/admin/businesses/[id]` | —                                                                      | `unimplemented` | S-086 (web, 2026-08-19); Tester hold |
+| M-87 | Chrome            | Support contact in footer + `/support`                              | `Footer`, `/support`                            | —                                                                      | `unimplemented` | S-087 (web); not in Navbar (S-085 owns header) |
+| M-88 | Support           | Customer support tickets + admin queue                              | `/support`, `/admin/support`                    | —                                                                      | `unimplemented` | S-088 (web, 2026-08-19); Tester hold |
+| M-89 | Support           | Shop-level reports (not review reports) + admin queue               | public profile, `/admin/business-reports`       | —                                                                      | `unimplemented` | S-089 (web, 2026-08-19); Tester hold |
 
 
-
-
-**Rollup (2026-08-18):** `implemented` 69 · `partial` 3 · `unimplemented` 0 · `n/a` 7 · `future` 1 · **total 80**.
+**Rollup (2026-08-19):** `implemented` 68 · `partial` 4 (M-10 chrome, M-54 merchant editor Country/State dropdowns on web only — S-084, M-65 reset completion, M-71 cold QR) · `unimplemented` 9 (M-81–M-89) · `n/a` 7 · `future` 1 · **total 89**.
 
 #### Mobile parity roadmap
 
@@ -2626,6 +2661,10 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-051 | WhatsApp photo ingestion (reuse existing photo/storage pipeline)               | 2 Core       | Testing (pytest not run; not Accepted)   |
 | S-052 | WhatsApp AI text drafts (extract → merchant Apply/Discard)                     | 3 AI         | Testing (Jest pass; pytest not run; not Accepted) |
 | S-053 | WhatsApp admin approval gate (global review queue, editable AI suggestions, merchant self-apply removed) | 4 Dashboards | **Accepted** |
+| S-086 | Admin back navigation on drill-downs | 5 Polish | In Progress (Tester hold) |
+| S-087 | Support contact in footer + `/support` | 5 Polish | In Progress (Tester hold) |
+| S-088 | Customer support tickets | 2 Core | In Progress (Tester hold) |
+| S-089 | Shop-level business reports | 2 Core | In Progress (Tester hold) |
 
 
 
@@ -2664,7 +2703,7 @@ An honest delta between the original specification and what the code actually do
 
 | Area            | State                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend routers | 13, all wired into `main.py` (includes favorites, admin, payments)                                                                                                                                                                                                                                                                                                                          |
+| Backend routers | 14, all wired into `main.py` (includes favorites, admin, payments, support) |
 | Data models     | SQLAlchemy models in `app/models/__init__.py` (incl. `external_reviews`, S-048)                                                                                                                                                                                                                                                                                                           |
 | Auth            | JWT access/refresh with refresh `jti` rotation, bcrypt, RBAC, Redis logout blocklist + best-effort login lockout, mandatory TOTP for password login, Google OAuth and Phone OTP exempt                                                                                                                                                                                                   |
 | AI layer        | **In the product today.** Review submit runs text + photo analysis + merchant rolling summary via `AIProvider`. Default `mock` (no key, no cost). Real vendors are env + key. Output is **suggestions**, never verdicts. `monthly_trends` (mock or real) are AI-estimated, not review dates — shown as a labeled suggestion list only, never charted as fact (S-033).                    |
@@ -2673,9 +2712,11 @@ An honest delta between the original specification and what the code actually do
 | Payments        | `mock` and `razorpay` via `PaymentProvider` port. Three SKUs (₹299/7d, ₹499/15d, ₹899/30d); capture then admin-approve; PAN never stored (S-042)                                                                                                                                                                        |
 | SMS             | `mock` and `msg91` via `SmsProvider` port. Phone OTP login (S-044)                                                                                                                                                                                                                                                       |
 | Frontend        | Home (+ social proof rail, problem section, S-047), search (map + location, paid **Featured** badge), business detail (+ "Also reviewed on Google", S-048), login (MFA steps) + forgot/reset password (S-035, Accepted), register, enriched profile, settings, merchant dashboard (+ time-series volume/rating-mix/reply-rate/CSV export, S-033; featured boost CTA, S-036; AI topic clustering "Common Themes" panel, S-049; Google reviews link/sync card, S-048) + business create/edit, admin moderation queues (+ platform trend charts, category admin, user suspend/reactivate, S-034; placement disable/refund) |
-| Maps            | Leaflet + OpenStreetMap tiles; Nominatim geocode; nearby search via Haversine                                                                                                                                                                                                                                                                                                            |
+| Maps            | Leaflet + OpenStreetMap tiles; nearby search via Haversine. Nominatim address geocode/autocomplete removed (S-084).                                                                                                                                                                                                      |
 | Seeding         | `scripts/seed.py` — Portland + Chennai + US; gated by `SEED_MODE` / `seed_runs` (Railway: not on boot)                                                                                                                                                                                                                                                                                   |
 | Local dev       | `docker compose up --build`                                                                                                                                                                                                                                                                                                                                                              |
+| Admin ops (S-076–S-083) | Google review sync now refetches stats/insights, not just the sync card (S-076); merchant review-QR and WhatsApp-QR cards show a clear "not approved yet" / "not configured yet" message instead of silently disappearing (S-077, S-078); admin queue gained an optional `Processing` business status between Pending and Approve/Suspend, admin-triggered, visibility-only (S-079); admin Users and Categories panels gained debounced search (S-080, S-081); Categories panel moved to the top of `/admin` and "Add category" now shows distinct 409/401-403/network error messages via a new `ApiError` HTTP-status-carrying class (S-082); admin Users panel shows a role badge (customer/merchant/admin) alongside the existing account-status badge (S-083). All admin-only or merchant-dashboard-only — no new customer-facing surface. |
+| Support & shop reports (S-086–S-089) | **Built, Tester hold (not Accepted).** Admin drill-downs have a shared back link (S-086). Footer + `/support` + `GET /support/contact` (S-087; Navbar unchanged). `support_tickets` + admin `/admin/support` (S-088). Shop-level `business_reports` + thread, repeat flag at 3+, `/admin/business-reports`, public “Report this shop” (S-089). Distinct from `review_reports`. Run `alembic upgrade head`. |
 
 
 
@@ -2697,6 +2738,7 @@ An honest delta between the original specification and what the code actually do
 | **Dark mode hex values are placeholder** | Dark mode itself is shipped (S-045, Accepted — `next-themes`, class-based Tailwind, 5 semantic tokens, ~65-file sweep). What's still open: every dark-mode hex (`globals.css` `--mh-*` vars, `Charts.tsx` `CHART_COLORS.dark`, Badge/RatingWidget `dark:` pairs) is a contrast-checked, Material-3-grounded placeholder — the real Figma `Color` collection (`X0XXhJiwW8SxFdMf39n2t3`, 99 variables, Light+Dark) is local/unpublished and unreachable via Figma MCP tooling this session. A human needs to open the file directly, diff the real values against the table in the S-045 slice spec, and file a follow-up patch if they drift. |
 | **WhatsApp shop-data ingestion** | **S-053 Accepted; S-050..052 still `Testing`.** S-053 closes the "merchant approves their own AI draft" gap — a `BusinessUpdateDraft` now only reaches the live `Business` row via admin approve at `/admin/whatsapp`, not merchant self-apply; formal Tester report + PM Accept complete (`pytest tests/test_whatsapp.py` 21/21, `tests/test_whatsapp_admin_asgi.py` 20/20 against real Postgres, Jest 197/197). Along the way, S-053's Tester found and Builder fixed a real bug shared by all four slices: the Postgres `draftstatus` enum only accepted lowercase labels while SQLAlchemy wrote uppercase names, so no `BusinessUpdateDraft.status` write had ever actually succeeded against a real database (`backend/app/models/__init__.py`, one-line `values_callable` fix, no migration). S-050..052's own Tester reports predate both that fix and a working pytest environment (most of their AC are marked "not run" for unrelated environment reasons) — PM did not accept them by inference and instead flagged a follow-up: re-run their test suites for real, then bring back for an accept/rework decision. Live Meta is a later **env/ops cutover**: [Going live with Meta WhatsApp](#going-live-with-meta-whatsapp-cloud-api). |
 | **No automatic Google review polling** | **S-048** ships merchant-triggered Sync now only (Google's Place Details cap of 5 most-relevant reviews). Scheduled polling is backlog. Native `average_rating` / `review_count` stay first-party only. |
+| **Listings often lack map coordinates** | **S-084** dropped Nominatim lookup from the merchant address form (product decision: typed address + Country/State dropdowns, no live geocode). Latitude/longitude remain optional manual fields, so most new/edited listings will have no coordinates and will not appear in `POST /maps/nearby` distance search or on the search map until a merchant types them by hand. |
 
 
 
@@ -2802,11 +2844,12 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `META_WHATSAPP_VERIFY_TOKEN`  | *(empty)*                                                                | Shared secret for the webhook GET handshake (`hub.verify_token`)                              |
 | `META_WHATSAPP_APP_SECRET`    | *(empty)*                                                                | HMAC for `X-Hub-Signature-256` (app secret, not the access token). Mock uses `mock-webhook-secret` if empty |
 | `CORS_ORIGINS`                | `http://localhost:3000`                                                  | Comma-separated allowlist                                                                     |
-| `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap/Nominatim                                                     |
+| `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap tiles                                                         |
 | `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
 | `GOOGLE_PLACES_API_KEY`       | *(empty)*                                                                | Places Text Search + Place Details. Empty → mock review-source provider (**S-048**). Must stay `""`, not `"placeholder"` |
 | `SEED_MODE`                   | `off`                                                                    | `off`                                                                                         |
 | `SEED_VERSION`                | `2026-08-13-password-policy-v1`                                          | Marker written to `seed_runs`; bump when demo seed content changes                            |
+| `SUPPORT_EMAIL`               | `support@merchanthub.example`                                            | Public support inbox shown via `GET /support/contact` and the footer (S-087)                  |
 
 
 

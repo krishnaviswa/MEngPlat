@@ -1,10 +1,10 @@
-/** Footer — multi-column site map: Discover, For merchants, Account. */
+/** Footer — multi-column site map: Discover, For merchants, Account, Support. */
 export function Footer() {
   const year = new Date().getFullYear();
 
   return (
     <footer className="mt-auto border-t border-slate-800 bg-slate-950 text-slate-300">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-5">
         <div className="sm:col-span-2 lg:col-span-1">
           <p className="font-display text-xl font-semibold text-white">MerchantHub AI</p>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-slate-400">
@@ -72,6 +72,22 @@ export function Footer() {
             <li>
               <a href="/profile" className="hover:text-brand-300">
                 Profile & favorites
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <p className="font-display text-sm font-semibold uppercase tracking-wider text-white">Support</p>
+          <ul className="mt-4 space-y-2 text-sm">
+            <li>
+              <a href="/support" className="hover:text-brand-300">
+                Contact support
+              </a>
+            </li>
+            <li>
+              <a href="mailto:support@merchanthub.example" className="hover:text-brand-300">
+                support@merchanthub.example
               </a>
             </li>
           </ul>

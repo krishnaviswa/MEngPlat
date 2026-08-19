@@ -5,12 +5,21 @@ import { Badge } from "@/components/ui/Badge";
 import { RatingWidget } from "@/components/ui/RatingWidget";
 import { businesses, type Business, type BusinessStatus } from "@/lib/api";
 
-const STATUS_TONE: Record<BusinessStatus, "positive" | "negative" | "neutral"> = {
+type Tone = "positive" | "negative" | "neutral";
+
+const STATUS_TONE: Partial<Record<BusinessStatus, Tone>> = {
   approved: "positive",
   pending: "neutral",
+  processing: "neutral",
   rejected: "negative",
   suspended: "negative",
 };
+
+/** Defensive fallback so an unmapped status (present or future) renders a visible
+ * neutral badge instead of a blank/undefined one -- never silently drop a key. */
+function statusTone(status: BusinessStatus): Tone {
+  return STATUS_TONE[status] ?? "neutral";
+}
 
 /** Admin browse — businesses of every status (approved, pending, rejected, suspended). */
 export function AllBusinessesQueue() {
@@ -64,7 +73,7 @@ export function AllBusinessesQueue() {
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <RatingWidget value={b.average_rating} readonly size="sm" />
-            {b.status && <Badge tone={STATUS_TONE[b.status]}>{b.status}</Badge>}
+            {b.status && <Badge tone={statusTone(b.status)}>{b.status}</Badge>}
           </div>
         </a>
       ))}

@@ -55,3 +55,20 @@ async def test_list_cities(client):
     assert isinstance(body, list)
     assert all(isinstance(city, str) and city for city in body)
     assert body == sorted(body)
+
+
+@pytest.mark.asyncio
+async def test_removed_maps_geocode_and_autocomplete_are_404(client):
+    geocode = await client.get("/api/v1/maps/geocode", params={"address": "x"})
+    autocomplete = await client.get("/api/v1/maps/autocomplete", params={"q": "foo"})
+    assert geocode.status_code == 404
+    assert autocomplete.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_maps_config_unchanged(client):
+    response = await client.get("/api/v1/maps/config")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["provider"] == "osm"
+    assert "tile_url" in body

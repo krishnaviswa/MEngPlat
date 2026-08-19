@@ -215,6 +215,7 @@ class BusinessUpdate(BaseModel):
     city: str | None = None
     state: str | None = None
     postal_code: str | None = None
+    country: str | None = None
     latitude: float | None = None
     longitude: float | None = None
     phone: str | None = None
@@ -225,15 +226,6 @@ class BusinessUpdate(BaseModel):
     # S-073: required only when this business's address_edit_count >= 1 and the
     # payload changes an address-bearing field.
     address_otp_code: str | None = None
-
-
-class AddressSuggestion(BaseModel):
-    display_name: str
-    latitude: float
-    longitude: float
-    city: str | None = None
-    postal_code: str | None = None
-    state: str | None = None
 
 
 class BusinessResponse(BaseModel):
@@ -441,13 +433,6 @@ class NotificationResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
-
-
-class GeocodeResponse(BaseModel):
-    message: str
-    latitude: float | None = None
-    longitude: float | None = None
-    display_name: str | None = None
 
 
 class PhoneOtpRequest(BaseModel):
@@ -703,3 +688,73 @@ class AdminWhatsAppDraftApproveRequest(BaseModel):
 class WhatsAppWebhookAck(BaseModel):
     ok: bool = True
     processed: int = 0
+
+
+class SupportContactResponse(BaseModel):
+    email: str
+    support_path: str = "/support"
+
+
+class SupportTicketCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    phone: str = Field(min_length=8, max_length=50)
+    issue: str = Field(min_length=10, max_length=4000)
+    business_id: UUID | None = None
+
+
+class SupportTicketResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    phone: str
+    issue: str
+    business_id: UUID | None = None
+    reporter_id: UUID | None = None
+    status: str
+    admin_response: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class SupportTicketAdminUpdate(BaseModel):
+    status: str | None = None
+    admin_response: str | None = Field(default=None, max_length=4000)
+
+
+class BusinessReportCreate(BaseModel):
+    reason: str = Field(min_length=10, max_length=4000)
+
+
+class BusinessReportMessageCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class BusinessReportMessageResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    report_id: UUID
+    author_id: UUID
+    body: str
+    created_at: datetime
+
+
+class BusinessReportResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    business_id: UUID
+    reporter_id: UUID
+    reason: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    business_name: str | None = None
+    messages: list[BusinessReportMessageResponse] = Field(default_factory=list)
+    report_count: int | None = None
+    is_repeat: bool = False
+
+
+class BusinessReportAdminUpdate(BaseModel):
+    status: str

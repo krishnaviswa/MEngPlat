@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,6 +37,7 @@ from app.schemas import (
     UserRegister,
     UserResponse,
 )
+from app.services.avatar_service import update_user_avatar
 from app.services.cache import (
     blocklist_token,
     clear_login_failures,
@@ -390,6 +391,32 @@ async def update_me(
     await db.flush()
     await db.refresh(current_user)
     return current_user
+
+
+@router.post("/me/avatar", response_model=UserResponse)
+async def upload_my_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """
+    Upload/replace the caller's own profile avatar (S-085). Always targets
+    the authenticated caller -- there is no `user_id` param, so this can
+    never set or change another user's avatar.
+
+    **Request:** multipart form -- file (image, same content-type/size rules
+    as the business/review photo upload path)
+    **Response:** Updated user profile (`avatar_url` set to the new file's URL)
+    **Errors:** 400 unsupported content-type or file too large, 401 not authenticated
+    """
+    content = await file.read()
+    return await update_user_avatar(
+        db,
+        user=current_user,
+        data=content,
+        content_type=file.content_type or "application/octet-stream",
+        filename=file.filename or "avatar.jpg",
+    )
 
 
 def _aadhaar_mock_key(user_id: object) -> str:

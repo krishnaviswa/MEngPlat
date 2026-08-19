@@ -10,10 +10,18 @@ from app.schemas import (
     AdminWhatsAppDraftApproveRequest,
     AdminWhatsAppDraftQueueResponse,
     AdminWhatsAppDraftResponse,
+    BusinessReportAdminUpdate,
+    BusinessReportMessageCreate,
+    BusinessReportMessageResponse,
+    BusinessReportResponse,
+    SupportTicketAdminUpdate,
+    SupportTicketResponse,
     UserResponse,
     WhatsAppDraftResponse,
 )
 from app.services import admin_users as admin_users_service
+from app.services import business_reports as reports_service
+from app.services import support_tickets as tickets_service
 from app.services import whatsapp_ingest_service
 from app.services.admin_users import SelfOrAdminTargetError
 
@@ -137,3 +145,108 @@ async def reject_admin_whatsapp_draft(
     """Admin: reject a WhatsApp draft. The live Business row is left untouched (S-053)."""
     draft = await whatsapp_ingest_service.admin_reject_draft(db, draft_id, admin.id)
     return WhatsAppDraftResponse.model_validate(draft)
+
+
+def _admin_report_response(report, counts: dict) -> BusinessReportResponse:
+    count = counts.get(report.business_id, 0)
+    name = report.business.name if getattr(report, "business", None) else None
+    return BusinessReportResponse(
+        id=report.id,
+        business_id=report.business_id,
+        reporter_id=report.reporter_id,
+        reason=report.reason,
+        status=report.status,
+        created_at=report.created_at,
+        updated_at=report.updated_at,
+        business_name=name,
+        messages=[BusinessReportMessageResponse.model_validate(m) for m in (report.messages or [])],
+        report_count=count,
+        is_repeat=count >= reports_service.REPEAT_THRESHOLD,
+    )
+
+
+@router.get("/support-tickets", response_model=list[SupportTicketResponse])
+async def admin_list_support_tickets(
+    status_filter: str | None = Query(None, alias="status"),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+) -> list[SupportTicketResponse]:
+    """Admin: all support tickets, oldest first (S-088)."""
+    try:
+        tickets = await tickets_service.list_admin(db, status_filter)
+    except tickets_service.InvalidTicketStatusError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status") from None
+    return [SupportTicketResponse.model_validate(t) for t in tickets]
+
+
+@router.patch("/support-tickets/{ticket_id}", response_model=SupportTicketResponse)
+async def admin_update_support_ticket(
+    ticket_id: UUID,
+    payload: SupportTicketAdminUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+) -> SupportTicketResponse:
+    """Admin: set ticket status and/or response (S-088)."""
+    try:
+        ticket = await tickets_service.update_admin(
+            db, ticket_id, status=payload.status, admin_response=payload.admin_response
+        )
+    except tickets_service.TicketNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
+    except tickets_service.InvalidTicketStatusError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status") from None
+    return SupportTicketResponse.model_validate(ticket)
+
+
+@router.get("/business-reports", response_model=list[BusinessReportResponse])
+async def admin_list_business_reports(
+    status_filter: str | None = Query(None, alias="status"),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+) -> list[BusinessReportResponse]:
+    """Admin: shop-level reports with per-shop counts and repeat flag (S-089)."""
+    try:
+        reports = await reports_service.list_admin(db, status_filter)
+    except reports_service.InvalidReportStatusError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status") from None
+    counts = await reports_service.counts_by_business(db)
+    return [_admin_report_response(r, counts) for r in reports]
+
+
+@router.patch("/business-reports/{report_id}", response_model=BusinessReportResponse)
+async def admin_update_business_report(
+    report_id: UUID,
+    payload: BusinessReportAdminUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+) -> BusinessReportResponse:
+    try:
+        await reports_service.update_status(db, report_id, payload.status)
+        reports = await reports_service.list_admin(db, None)
+    except reports_service.ReportNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found") from None
+    except reports_service.InvalidReportStatusError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status") from None
+    counts = await reports_service.counts_by_business(db)
+    report = next((r for r in reports if r.id == report_id), None)
+    if not report:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+    return _admin_report_response(report, counts)
+
+
+@router.post(
+    "/business-reports/{report_id}/messages",
+    response_model=BusinessReportMessageResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def admin_add_business_report_message(
+    report_id: UUID,
+    payload: BusinessReportMessageCreate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+) -> BusinessReportMessageResponse:
+    try:
+        msg = await reports_service.add_message(db, report_id, admin, payload.body, as_admin=True)
+    except reports_service.ReportNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found") from None
+    return BusinessReportMessageResponse.model_validate(msg)

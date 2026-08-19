@@ -34,6 +34,9 @@ def test_rbac_matrix(api: Api) -> None:
     listings = api.list_businesses()
     biz_id = listings[0].id if listings else api.create_business(merch.access_token, "Rbac Shop").id
     assert api.post(f"businesses/{biz_id}/approve", token=merch.access_token).status == 403
+    # S-079: start-review/return-to-pending share approve/suspend's require_roles(ADMIN) gate.
+    assert api.post(f"businesses/{biz_id}/start-review", token=merch.access_token).status == 403
+    assert api.post(f"businesses/{biz_id}/return-to-pending", token=merch.access_token).status == 403
     if listings:
         fake_review = str(uuid4())
         assert api.post(

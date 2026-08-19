@@ -32,7 +32,21 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
       if (e.persisted) loadUser();
     };
     window.addEventListener("pageshow", onPageShow);
-    return () => window.removeEventListener("pageshow", onPageShow);
+
+    // S-085: ProfilePage's avatar upload applies immediately and independent
+    // of any page reload/navigation -- this is the small, scoped sync
+    // mechanism (no shared user store today) that lets the Navbar's avatar
+    // update right away too.
+    const onUserUpdated = (e: Event) => {
+      const detail = (e as CustomEvent<User>).detail;
+      if (detail) setUser(detail);
+    };
+    window.addEventListener("mh:user-updated", onUserUpdated);
+
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("mh:user-updated", onUserUpdated);
+    };
   }, []);
 
   async function handleLogout() {

@@ -167,6 +167,9 @@ class Settings(BaseSettings):
     seed_mode: Literal["off", "if_empty", "if_outdated", "force"] = "off"
     seed_version: str = "2026-08-18-minimal-scenario-seed-v1"
 
+    # Public support inbox (S-087). Display-only; not a vendor integration.
+    support_email: str = "support@merchanthub.example"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

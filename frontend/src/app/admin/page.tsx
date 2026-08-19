@@ -156,6 +156,14 @@ export default function AdminPage() {
           </section>
         )}
 
+        <section id="admin-categories" className="mt-10 scroll-mt-20">
+          <h2 className="text-lg font-semibold">Categories</h2>
+          <p className="text-sm text-muted">Add browse categories without a developer.</p>
+          <div className="mt-4">
+            <AdminCategoryPanel />
+          </div>
+        </section>
+
         <section id="pending-businesses" className="mt-10 scroll-mt-20">
           <h2 className="text-lg font-semibold">Pending businesses</h2>
           <p className="text-sm text-muted">Approve new listings or suspend suspicious registrations.</p>
@@ -172,6 +180,37 @@ export default function AdminPage() {
           </div>
         </section>
 
+        <section id="admin-support" className="mt-10 scroll-mt-20">
+          <h2 className="text-lg font-semibold">Support</h2>
+          <p className="text-sm text-muted">
+            Platform contact:{" "}
+            <a className="text-brand-600 hover:underline" href="mailto:support@merchanthub.example">
+              support@merchanthub.example
+            </a>
+            . Customer queries and shop reports are separate queues (not review reports).
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              href="/admin/support"
+              className="inline-block rounded-lg border border-border bg-surface-raised px-4 py-2 text-sm font-medium transition hover:border-brand-300 hover:shadow-sm"
+            >
+              Support tickets →
+            </a>
+            <a
+              href="/admin/business-reports"
+              className="inline-block rounded-lg border border-border bg-surface-raised px-4 py-2 text-sm font-medium transition hover:border-brand-300 hover:shadow-sm"
+            >
+              Shop reports →
+            </a>
+            <a
+              href="/support"
+              className="inline-block rounded-lg border border-border bg-surface-raised px-4 py-2 text-sm font-medium transition hover:border-brand-300 hover:shadow-sm"
+            >
+              Public contact page →
+            </a>
+          </div>
+        </section>
+
         <section id="whatsapp-drafts" className="mt-10 scroll-mt-20">
           <h2 className="text-lg font-semibold">WhatsApp updates</h2>
           <p className="text-sm text-muted">
@@ -184,14 +223,6 @@ export default function AdminPage() {
             >
               Open review queue →
             </a>
-          </div>
-        </section>
-
-        <section id="admin-categories" className="mt-10 scroll-mt-20">
-          <h2 className="text-lg font-semibold">Categories</h2>
-          <p className="text-sm text-muted">Add browse categories without a developer.</p>
-          <div className="mt-4">
-            <AdminCategoryPanel />
           </div>
         </section>
 
