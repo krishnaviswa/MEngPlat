@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { AdminSupportQueue } from "@/app/admin/support/page";
+import { AdminSupportQueue } from "@/components/admin/AdminSupportQueue";
 import { support } from "@/lib/api";
 
-jest.mock("../../../../lib/api", () => ({
+jest.mock("../../../lib/api", () => ({
   support: { adminTickets: jest.fn(), updateTicket: jest.fn() },
 }));
 

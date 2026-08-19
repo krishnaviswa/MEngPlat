@@ -1,8 +1,8 @@
 import { render, screen } from "@testing-library/react";
-import { AdminBusinessReportsQueue } from "@/app/admin/business-reports/page";
+import { AdminBusinessReportsQueue } from "@/components/admin/AdminBusinessReportsQueue";
 import { businessReports } from "@/lib/api";
 
-jest.mock("../../../../lib/api", () => ({
+jest.mock("../../../lib/api", () => ({
   businessReports: { adminList: jest.fn(), adminMessage: jest.fn(), adminUpdate: jest.fn() },
 }));
 
