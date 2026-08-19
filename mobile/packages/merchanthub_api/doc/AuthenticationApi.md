@@ -18,11 +18,14 @@ Method | HTTP request | Description
 [**phoneOtpVerifyApiV1AuthPhoneVerifyPost**](AuthenticationApi.md#phoneotpverifyapiv1authphoneverifypost) | **POST** /api/v1/auth/phone/verify | Phone Otp Verify
 [**refreshTokenApiV1AuthRefreshPost**](AuthenticationApi.md#refreshtokenapiv1authrefreshpost) | **POST** /api/v1/auth/refresh | Refresh Token
 [**registerApiV1AuthRegisterPost**](AuthenticationApi.md#registerapiv1authregisterpost) | **POST** /api/v1/auth/register | Register
+[**requestAadhaarMockOtpApiV1AuthNationalIdAadhaarMockOtpRequestPost**](AuthenticationApi.md#requestaadhaarmockotpapiv1authnationalidaadhaarmockotprequestpost) | **POST** /api/v1/auth/national-id/aadhaar/mock-otp/request | Request Aadhaar Mock Otp
 [**resetPasswordApiV1AuthResetPasswordPost**](AuthenticationApi.md#resetpasswordapiv1authresetpasswordpost) | **POST** /api/v1/auth/reset-password | Reset Password
 [**totpConfirmApiV1AuthMfaTotpConfirmPost**](AuthenticationApi.md#totpconfirmapiv1authmfatotpconfirmpost) | **POST** /api/v1/auth/mfa/totp/confirm | Totp Confirm
 [**totpSetupApiV1AuthMfaTotpSetupPost**](AuthenticationApi.md#totpsetupapiv1authmfatotpsetuppost) | **POST** /api/v1/auth/mfa/totp/setup | Totp Setup
 [**totpVerifyApiV1AuthMfaTotpVerifyPost**](AuthenticationApi.md#totpverifyapiv1authmfatotpverifypost) | **POST** /api/v1/auth/mfa/totp/verify | Totp Verify
 [**updateMeApiV1AuthMePatch**](AuthenticationApi.md#updatemeapiv1authmepatch) | **PATCH** /api/v1/auth/me | Update Me
+[**uploadMyAvatarApiV1AuthMeAvatarPost**](AuthenticationApi.md#uploadmyavatarapiv1authmeavatarpost) | **POST** /api/v1/auth/me/avatar | Upload My Avatar
+[**verifyAadhaarMockOtpApiV1AuthNationalIdAadhaarMockOtpVerifyPost**](AuthenticationApi.md#verifyaadhaarmockotpapiv1authnationalidaadhaarmockotpverifypost) | **POST** /api/v1/auth/national-id/aadhaar/mock-otp/verify | Verify Aadhaar Mock Otp
 
 
 # **forgotPasswordApiV1AuthForgotPasswordPost**
@@ -408,6 +411,49 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **requestAadhaarMockOtpApiV1AuthNationalIdAadhaarMockOtpRequestPost**
+> MockAadhaarOtpResponse requestAadhaarMockOtpApiV1AuthNationalIdAadhaarMockOtpRequestPost(mockAadhaarOtpRequest)
+
+Request Aadhaar Mock Otp
+
+Start a MOCK Aadhaar OTP challenge (S-070 / ADR-013). Not a real UIDAI call -- reuses phone_otp.py's Redis hashed-code primitives under a distinct key prefix. The structurally-valid Aadhaar number is held pending in Redis (same TTL as the code) until verify succeeds; it is never persisted here.
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAuthenticationApi();
+final MockAadhaarOtpRequest mockAadhaarOtpRequest = ; // MockAadhaarOtpRequest | 
+
+try {
+    final response = api.requestAadhaarMockOtpApiV1AuthNationalIdAadhaarMockOtpRequestPost(mockAadhaarOtpRequest);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AuthenticationApi->requestAadhaarMockOtpApiV1AuthNationalIdAadhaarMockOtpRequestPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **mockAadhaarOtpRequest** | [**MockAadhaarOtpRequest**](MockAadhaarOtpRequest.md)|  | 
+
+### Return type
+
+[**MockAadhaarOtpResponse**](MockAadhaarOtpResponse.md)
+
+### Authorization
+
+[HTTPBearer](../README.md#HTTPBearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **resetPasswordApiV1AuthResetPasswordPost**
 > MessageResponse resetPasswordApiV1AuthResetPasswordPost(resetPasswordRequest)
 
@@ -611,6 +657,92 @@ Name | Type | Description  | Notes
 ### Return type
 
 [**UserResponse**](UserResponse.md)
+
+### Authorization
+
+[HTTPBearer](../README.md#HTTPBearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **uploadMyAvatarApiV1AuthMeAvatarPost**
+> UserResponse uploadMyAvatarApiV1AuthMeAvatarPost(file)
+
+Upload My Avatar
+
+Upload/replace the caller's own profile avatar (S-085). Always targets the authenticated caller -- there is no `user_id` param, so this can never set or change another user's avatar.  **Request:** multipart form -- file (image, same content-type/size rules as the business/review photo upload path) **Response:** Updated user profile (`avatar_url` set to the new file's URL) **Errors:** 400 unsupported content-type or file too large, 401 not authenticated
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAuthenticationApi();
+final MultipartFile file = BINARY_DATA_HERE; // MultipartFile | 
+
+try {
+    final response = api.uploadMyAvatarApiV1AuthMeAvatarPost(file);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AuthenticationApi->uploadMyAvatarApiV1AuthMeAvatarPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **file** | **MultipartFile**|  | 
+
+### Return type
+
+[**UserResponse**](UserResponse.md)
+
+### Authorization
+
+[HTTPBearer](../README.md#HTTPBearer)
+
+### HTTP request headers
+
+ - **Content-Type**: multipart/form-data
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **verifyAadhaarMockOtpApiV1AuthNationalIdAadhaarMockOtpVerifyPost**
+> MessageResponse verifyAadhaarMockOtpApiV1AuthNationalIdAadhaarMockOtpVerifyPost(mockOtpVerifyRequest)
+
+Verify Aadhaar Mock Otp
+
+Verify the mock Aadhaar OTP code; on success, saves the pending Aadhaar number.
+
+### Example
+```dart
+import 'package:merchanthub_api/api.dart';
+
+final api = MerchanthubApi().getAuthenticationApi();
+final MockOtpVerifyRequest mockOtpVerifyRequest = ; // MockOtpVerifyRequest | 
+
+try {
+    final response = api.verifyAadhaarMockOtpApiV1AuthNationalIdAadhaarMockOtpVerifyPost(mockOtpVerifyRequest);
+    print(response);
+} catch on DioException (e) {
+    print('Exception when calling AuthenticationApi->verifyAadhaarMockOtpApiV1AuthNationalIdAadhaarMockOtpVerifyPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **mockOtpVerifyRequest** | [**MockOtpVerifyRequest**](MockOtpVerifyRequest.md)|  | 
+
+### Return type
+
+[**MessageResponse**](MessageResponse.md)
 
 ### Authorization
 

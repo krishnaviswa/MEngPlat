@@ -33,7 +33,7 @@ abstract class BusinessSummary implements Built<BusinessSummary, BusinessSummary
 
   @BuiltValueField(wireName: r'status')
   BusinessStatus get status;
-  // enum statusEnum {  pending,  approved,  rejected,  suspended,  };
+  // enum statusEnum {  pending,  processing,  approved,  rejected,  suspended,  };
 
   BusinessSummary._();
 

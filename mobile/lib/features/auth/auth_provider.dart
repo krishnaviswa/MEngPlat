@@ -99,6 +99,12 @@ class AuthController extends AsyncNotifier<UserResponse?> {
     return user;
   }
 
+  Future<UserResponse> uploadAvatar({required List<int> bytes, required String filename}) async {
+    final user = await ref.read(authRepositoryProvider).uploadAvatar(bytes: bytes, filename: filename);
+    state = AsyncValue.data(user);
+    return user;
+  }
+
   Future<void> logout() async {
     await ref.read(authRepositoryProvider).logout();
     state = const AsyncValue.data(null);

@@ -69,6 +69,11 @@ Class | Method | HTTP request | Description
 [*AIAnalysisApi*](doc/AIAnalysisApi.md) | [**getReviewAnalysisApiV1AiReviewsReviewIdGet**](doc/AIAnalysisApi.md#getreviewanalysisapiv1aireviewsreviewidget) | **GET** /api/v1/ai/reviews/{review_id} | Get Review Analysis
 [*AIAnalysisApi*](doc/AIAnalysisApi.md) | [**getTopicClustersApiV1AiBusinessesBusinessIdTopicsGet**](doc/AIAnalysisApi.md#gettopicclustersapiv1aibusinessesbusinessidtopicsget) | **GET** /api/v1/ai/businesses/{business_id}/topics | Get Topic Clusters
 [*AIAnalysisApi*](doc/AIAnalysisApi.md) | [**refreshInsightsApiV1AiBusinessesBusinessIdRefreshPost**](doc/AIAnalysisApi.md#refreshinsightsapiv1aibusinessesbusinessidrefreshpost) | **POST** /api/v1/ai/businesses/{business_id}/refresh | Refresh Insights
+[*AdminApi*](doc/AdminApi.md) | [**adminAddBusinessReportMessageApiV1AdminBusinessReportsReportIdMessagesPost**](doc/AdminApi.md#adminaddbusinessreportmessageapiv1adminbusinessreportsreportidmessagespost) | **POST** /api/v1/admin/business-reports/{report_id}/messages | Admin Add Business Report Message
+[*AdminApi*](doc/AdminApi.md) | [**adminListBusinessReportsApiV1AdminBusinessReportsGet**](doc/AdminApi.md#adminlistbusinessreportsapiv1adminbusinessreportsget) | **GET** /api/v1/admin/business-reports | Admin List Business Reports
+[*AdminApi*](doc/AdminApi.md) | [**adminListSupportTicketsApiV1AdminSupportTicketsGet**](doc/AdminApi.md#adminlistsupportticketsapiv1adminsupportticketsget) | **GET** /api/v1/admin/support-tickets | Admin List Support Tickets
+[*AdminApi*](doc/AdminApi.md) | [**adminUpdateBusinessReportApiV1AdminBusinessReportsReportIdPatch**](doc/AdminApi.md#adminupdatebusinessreportapiv1adminbusinessreportsreportidpatch) | **PATCH** /api/v1/admin/business-reports/{report_id} | Admin Update Business Report
+[*AdminApi*](doc/AdminApi.md) | [**adminUpdateSupportTicketApiV1AdminSupportTicketsTicketIdPatch**](doc/AdminApi.md#adminupdatesupportticketapiv1adminsupportticketsticketidpatch) | **PATCH** /api/v1/admin/support-tickets/{ticket_id} | Admin Update Support Ticket
 [*AdminApi*](doc/AdminApi.md) | [**approveAdminWhatsappDraftApiV1AdminWhatsappDraftsDraftIdApprovePost**](doc/AdminApi.md#approveadminwhatsappdraftapiv1adminwhatsappdraftsdraftidapprovepost) | **POST** /api/v1/admin/whatsapp/drafts/{draft_id}/approve | Approve Admin Whatsapp Draft
 [*AdminApi*](doc/AdminApi.md) | [**listAdminWhatsappDraftsApiV1AdminWhatsappDraftsGet**](doc/AdminApi.md#listadminwhatsappdraftsapiv1adminwhatsappdraftsget) | **GET** /api/v1/admin/whatsapp/drafts | List Admin Whatsapp Drafts
 [*AdminApi*](doc/AdminApi.md) | [**listUsersApiV1AdminUsersGet**](doc/AdminApi.md#listusersapiv1adminusersget) | **GET** /api/v1/admin/users | List Users
@@ -84,11 +89,14 @@ Class | Method | HTTP request | Description
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**phoneOtpVerifyApiV1AuthPhoneVerifyPost**](doc/AuthenticationApi.md#phoneotpverifyapiv1authphoneverifypost) | **POST** /api/v1/auth/phone/verify | Phone Otp Verify
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**refreshTokenApiV1AuthRefreshPost**](doc/AuthenticationApi.md#refreshtokenapiv1authrefreshpost) | **POST** /api/v1/auth/refresh | Refresh Token
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**registerApiV1AuthRegisterPost**](doc/AuthenticationApi.md#registerapiv1authregisterpost) | **POST** /api/v1/auth/register | Register
+[*AuthenticationApi*](doc/AuthenticationApi.md) | [**requestAadhaarMockOtpApiV1AuthNationalIdAadhaarMockOtpRequestPost**](doc/AuthenticationApi.md#requestaadhaarmockotpapiv1authnationalidaadhaarmockotprequestpost) | **POST** /api/v1/auth/national-id/aadhaar/mock-otp/request | Request Aadhaar Mock Otp
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**resetPasswordApiV1AuthResetPasswordPost**](doc/AuthenticationApi.md#resetpasswordapiv1authresetpasswordpost) | **POST** /api/v1/auth/reset-password | Reset Password
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**totpConfirmApiV1AuthMfaTotpConfirmPost**](doc/AuthenticationApi.md#totpconfirmapiv1authmfatotpconfirmpost) | **POST** /api/v1/auth/mfa/totp/confirm | Totp Confirm
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**totpSetupApiV1AuthMfaTotpSetupPost**](doc/AuthenticationApi.md#totpsetupapiv1authmfatotpsetuppost) | **POST** /api/v1/auth/mfa/totp/setup | Totp Setup
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**totpVerifyApiV1AuthMfaTotpVerifyPost**](doc/AuthenticationApi.md#totpverifyapiv1authmfatotpverifypost) | **POST** /api/v1/auth/mfa/totp/verify | Totp Verify
 [*AuthenticationApi*](doc/AuthenticationApi.md) | [**updateMeApiV1AuthMePatch**](doc/AuthenticationApi.md#updatemeapiv1authmepatch) | **PATCH** /api/v1/auth/me | Update Me
+[*AuthenticationApi*](doc/AuthenticationApi.md) | [**uploadMyAvatarApiV1AuthMeAvatarPost**](doc/AuthenticationApi.md#uploadmyavatarapiv1authmeavatarpost) | **POST** /api/v1/auth/me/avatar | Upload My Avatar
+[*AuthenticationApi*](doc/AuthenticationApi.md) | [**verifyAadhaarMockOtpApiV1AuthNationalIdAadhaarMockOtpVerifyPost**](doc/AuthenticationApi.md#verifyaadhaarmockotpapiv1authnationalidaadhaarmockotpverifypost) | **POST** /api/v1/auth/national-id/aadhaar/mock-otp/verify | Verify Aadhaar Mock Otp
 [*BusinessesApi*](doc/BusinessesApi.md) | [**approveBusinessApiV1BusinessesBusinessIdApprovePost**](doc/BusinessesApi.md#approvebusinessapiv1businessesbusinessidapprovepost) | **POST** /api/v1/businesses/{business_id}/approve | Approve Business
 [*BusinessesApi*](doc/BusinessesApi.md) | [**createBusinessApiV1BusinessesPost**](doc/BusinessesApi.md#createbusinessapiv1businessespost) | **POST** /api/v1/businesses | Create Business
 [*BusinessesApi*](doc/BusinessesApi.md) | [**createCategoryApiV1BusinessesCategoriesPost**](doc/BusinessesApi.md#createcategoryapiv1businessescategoriespost) | **POST** /api/v1/businesses/categories | Create Category
@@ -100,6 +108,10 @@ Class | Method | HTTP request | Description
 [*BusinessesApi*](doc/BusinessesApi.md) | [**listExternalReviewsApiV1BusinessesBusinessIdExternalReviewsGet**](doc/BusinessesApi.md#listexternalreviewsapiv1businessesbusinessidexternalreviewsget) | **GET** /api/v1/businesses/{business_id}/external-reviews | List External Reviews
 [*BusinessesApi*](doc/BusinessesApi.md) | [**listMyBusinessesApiV1BusinessesMineGet**](doc/BusinessesApi.md#listmybusinessesapiv1businessesmineget) | **GET** /api/v1/businesses/mine | List My Businesses
 [*BusinessesApi*](doc/BusinessesApi.md) | [**publicStatsSummaryApiV1BusinessesStatsSummaryGet**](doc/BusinessesApi.md#publicstatssummaryapiv1businessesstatssummaryget) | **GET** /api/v1/businesses/stats/summary | Public Stats Summary
+[*BusinessesApi*](doc/BusinessesApi.md) | [**reportBusinessApiV1BusinessesBusinessIdReportsPost**](doc/BusinessesApi.md#reportbusinessapiv1businessesbusinessidreportspost) | **POST** /api/v1/businesses/{business_id}/reports | Report Business
+[*BusinessesApi*](doc/BusinessesApi.md) | [**requestAddressVerifyApiV1BusinessesBusinessIdAddressVerifyRequestPost**](doc/BusinessesApi.md#requestaddressverifyapiv1businessesbusinessidaddressverifyrequestpost) | **POST** /api/v1/businesses/{business_id}/address-verify/request | Request Address Verify
+[*BusinessesApi*](doc/BusinessesApi.md) | [**returnToPendingApiV1BusinessesBusinessIdReturnToPendingPost**](doc/BusinessesApi.md#returntopendingapiv1businessesbusinessidreturntopendingpost) | **POST** /api/v1/businesses/{business_id}/return-to-pending | Return To Pending
+[*BusinessesApi*](doc/BusinessesApi.md) | [**startReviewApiV1BusinessesBusinessIdStartReviewPost**](doc/BusinessesApi.md#startreviewapiv1businessesbusinessidstartreviewpost) | **POST** /api/v1/businesses/{business_id}/start-review | Start Review
 [*BusinessesApi*](doc/BusinessesApi.md) | [**suspendBusinessApiV1BusinessesBusinessIdSuspendPost**](doc/BusinessesApi.md#suspendbusinessapiv1businessesbusinessidsuspendpost) | **POST** /api/v1/businesses/{business_id}/suspend | Suspend Business
 [*BusinessesApi*](doc/BusinessesApi.md) | [**updateBusinessApiV1BusinessesBusinessIdPatch**](doc/BusinessesApi.md#updatebusinessapiv1businessesbusinessidpatch) | **PATCH** /api/v1/businesses/{business_id} | Update Business
 [*DashboardApi*](doc/DashboardApi.md) | [**createWhatsappLinkApiV1DashboardMerchantBusinessIdWhatsappLinkPost**](doc/DashboardApi.md#createwhatsapplinkapiv1dashboardmerchantbusinessidwhatsapplinkpost) | **POST** /api/v1/dashboard/merchant/{business_id}/whatsapp/link | Create Whatsapp Link
@@ -149,6 +161,11 @@ Class | Method | HTTP request | Description
 [*ReviewsApi*](doc/ReviewsApi.md) | [**reportReviewApiV1ReviewsReviewIdReportPost**](doc/ReviewsApi.md#reportreviewapiv1reviewsreviewidreportpost) | **POST** /api/v1/reviews/{review_id}/report | Report Review
 [*ReviewsApi*](doc/ReviewsApi.md) | [**updateReviewApiV1ReviewsReviewIdPatch**](doc/ReviewsApi.md#updatereviewapiv1reviewsreviewidpatch) | **PATCH** /api/v1/reviews/{review_id} | Update Review
 [*SearchApi*](doc/SearchApi.md) | [**searchBusinessesApiV1SearchBusinessesGet**](doc/SearchApi.md#searchbusinessesapiv1searchbusinessesget) | **GET** /api/v1/search/businesses | Search Businesses
+[*SupportApi*](doc/SupportApi.md) | [**addReportMessageApiV1BusinessReportsReportIdMessagesPost**](doc/SupportApi.md#addreportmessageapiv1businessreportsreportidmessagespost) | **POST** /api/v1/business-reports/{report_id}/messages | Add Report Message
+[*SupportApi*](doc/SupportApi.md) | [**createSupportTicketApiV1SupportTicketsPost**](doc/SupportApi.md#createsupportticketapiv1supportticketspost) | **POST** /api/v1/support-tickets | Create Support Ticket
+[*SupportApi*](doc/SupportApi.md) | [**listMyBusinessReportsApiV1BusinessReportsMineGet**](doc/SupportApi.md#listmybusinessreportsapiv1businessreportsmineget) | **GET** /api/v1/business-reports/mine | List My Business Reports
+[*SupportApi*](doc/SupportApi.md) | [**listMySupportTicketsApiV1SupportTicketsMineGet**](doc/SupportApi.md#listmysupportticketsapiv1supportticketsmineget) | **GET** /api/v1/support-tickets/mine | List My Support Tickets
+[*SupportApi*](doc/SupportApi.md) | [**supportContactApiV1SupportContactGet**](doc/SupportApi.md#supportcontactapiv1supportcontactget) | **GET** /api/v1/support/contact | Support Contact
 [*WebhooksApi*](doc/WebhooksApi.md) | [**whatsappInboundApiV1WebhooksWhatsappPost**](doc/WebhooksApi.md#whatsappinboundapiv1webhookswhatsapppost) | **POST** /api/v1/webhooks/whatsapp | Whatsapp Inbound
 [*WebhooksApi*](doc/WebhooksApi.md) | [**whatsappVerifyApiV1WebhooksWhatsappGet**](doc/WebhooksApi.md#whatsappverifyapiv1webhookswhatsappget) | **GET** /api/v1/webhooks/whatsapp | Whatsapp Verify
 
@@ -162,6 +179,11 @@ Class | Method | HTTP request | Description
  - [AdminWhatsAppDraftResponse](doc/AdminWhatsAppDraftResponse.md)
  - [BenchmarkResponse](doc/BenchmarkResponse.md)
  - [BusinessCreate](doc/BusinessCreate.md)
+ - [BusinessReportAdminUpdate](doc/BusinessReportAdminUpdate.md)
+ - [BusinessReportCreate](doc/BusinessReportCreate.md)
+ - [BusinessReportMessageCreate](doc/BusinessReportMessageCreate.md)
+ - [BusinessReportMessageResponse](doc/BusinessReportMessageResponse.md)
+ - [BusinessReportResponse](doc/BusinessReportResponse.md)
  - [BusinessResponse](doc/BusinessResponse.md)
  - [BusinessStatus](doc/BusinessStatus.md)
  - [BusinessSummary](doc/BusinessSummary.md)
@@ -194,7 +216,10 @@ Class | Method | HTTP request | Description
  - [MessageResponse](doc/MessageResponse.md)
  - [MfaTokenRequest](doc/MfaTokenRequest.md)
  - [MfaTotpCodeRequest](doc/MfaTotpCodeRequest.md)
+ - [MockAadhaarOtpRequest](doc/MockAadhaarOtpRequest.md)
+ - [MockAadhaarOtpResponse](doc/MockAadhaarOtpResponse.md)
  - [MockCompleteRequest](doc/MockCompleteRequest.md)
+ - [MockOtpVerifyRequest](doc/MockOtpVerifyRequest.md)
  - [NationalIdType](doc/NationalIdType.md)
  - [NearbyBusinessRequest](doc/NearbyBusinessRequest.md)
  - [NotificationResponse](doc/NotificationResponse.md)
@@ -220,6 +245,10 @@ Class | Method | HTTP request | Description
  - [ReviewStatus](doc/ReviewStatus.md)
  - [ReviewUpdate](doc/ReviewUpdate.md)
  - [Sentiment](doc/Sentiment.md)
+ - [SupportContactResponse](doc/SupportContactResponse.md)
+ - [SupportTicketAdminUpdate](doc/SupportTicketAdminUpdate.md)
+ - [SupportTicketCreate](doc/SupportTicketCreate.md)
+ - [SupportTicketResponse](doc/SupportTicketResponse.md)
  - [TokenResponse](doc/TokenResponse.md)
  - [TopicClusterResponse](doc/TopicClusterResponse.md)
  - [TopicItem](doc/TopicItem.md)

@@ -915,4 +915,13 @@ void main() {
     expect(find.byKey(const Key('whatsAppSuggestionDisclaimer')), findsOneWidget);
     expect(find.textContaining('not configured'), findsOneWidget);
   });
+
+  testWidgets('S-093: processing listing shows under-review banner', (tester) async {
+    await _pumpDashboard(tester, mine: [_owned(status: BusinessStatus.processing)]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.byKey(const Key('processingUnderReviewBanner')), findsOneWidget);
+    expect(find.text('Under review'), findsOneWidget);
+  });
 }

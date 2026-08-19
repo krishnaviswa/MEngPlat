@@ -95,7 +95,13 @@ class _FakeAdminRepository extends AdminRepository {
   _FakeAdminRepository() : super(ApiClient());
 
   @override
-  Future<List<UserResponse>> listUsers() async => [];
+  Future<List<UserResponse>> listUsers({String? q}) async => [];
+
+  @override
+  Future<List<SupportTicketResponse>> listSupportTickets({String? status}) async => [];
+
+  @override
+  Future<List<BusinessReportResponse>> listBusinessReports({String? status}) async => [];
 }
 
 class _FakeNotificationsRepository extends NotificationsRepository {
@@ -169,6 +175,17 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     final second = await _pumpAppAt(tester, '/admin/users', user: _user(UserRole.admin));
     expect(find.byKey(const Key('adminUsersScreen')), findsOneWidget);
+    second.dispose();
+  });
+
+  testWidgets('S-094: a customer cannot open admin support or shop-report queues', (tester) async {
+    final first = await _pumpAppAt(tester, '/admin/support', user: _user(UserRole.customer));
+    expect(find.byKey(const Key('adminSupportQueueScreen')), findsNothing);
+    first.dispose();
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    final second = await _pumpAppAt(tester, '/admin/business-reports', user: _user(UserRole.customer));
+    expect(find.byKey(const Key('adminBusinessReportsScreen')), findsNothing);
     second.dispose();
   });
 }

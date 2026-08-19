@@ -639,4 +639,17 @@ void main() {
     expect(find.text('Also reviewed on Google'), findsOneWidget);
     expect(find.text('Great coffee'), findsOneWidget);
   });
+
+  testWidgets('S-094: signed-in customer sees Report this shop; owner does not', (tester) async {
+    await _pumpDetailScreen(tester, user: _user(id: 'cust-1', role: UserRole.customer));
+    expect(find.byKey(const Key('reportShopButton')), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pumpDetailScreen(
+      tester,
+      user: _user(id: 'm-1', role: UserRole.merchant),
+      mine: [_business()],
+    );
+    expect(find.byKey(const Key('reportShopButton')), findsNothing);
+  });
 }

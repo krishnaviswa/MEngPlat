@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../auth/auth_provider.dart';
+
+typedef ProfileAvatarPicker = Future<({List<int> bytes, String filename})?> Function();
 
 String? _blankToNull(String value) {
   final trimmed = value.trim();
@@ -12,7 +15,9 @@ String? _blankToNull(String value) {
 /// Editable profile (S-029 / M-48). Email and role stay read-only.
 /// Favorites remain on `/favorites` (M-43), not duplicated here.
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({this.pickAvatar, super.key});
+
+  final ProfileAvatarPicker? pickAvatar;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -22,7 +27,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _avatarController = TextEditingController();
   final _address1Controller = TextEditingController();
   final _address2Controller = TextEditingController();
   final _cityController = TextEditingController();
@@ -41,7 +45,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
-    _avatarController.dispose();
     _address1Controller.dispose();
     _address2Controller.dispose();
     _cityController.dispose();
@@ -55,7 +58,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _hydrate(UserResponse user) {
     _nameController.text = user.fullName;
     _phoneController.text = user.phone ?? '';
-    _avatarController.text = user.avatarUrl ?? '';
     _address1Controller.text = user.addressLine1 ?? '';
     _address2Controller.text = user.addressLine2 ?? '';
     _cityController.text = user.city ?? '';
@@ -65,6 +67,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _nationalIdType = user.nationalIdType;
     _nationalIdController.text = user.nationalIdNumber ?? '';
     _hydrated = true;
+  }
+
+  Future<void> _changeAvatar() async {
+    setState(() {
+      _saving = true;
+      _success = null;
+      _error = null;
+    });
+    try {
+      final picker = widget.pickAvatar ??
+          () async {
+            final file = await ImagePicker().pickImage(source: ImageSource.gallery);
+            if (file == null) return null;
+            return (bytes: await file.readAsBytes(), filename: file.name);
+          };
+      final picked = await picker();
+      if (picked == null) return;
+      await ref.read(authControllerProvider.notifier).uploadAvatar(bytes: picked.bytes, filename: picked.filename);
+      setState(() => _success = 'Photo updated.');
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _save() async {
@@ -79,7 +105,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             UserProfileUpdate((b) => b
               ..fullName = _nameController.text.trim()
               ..phone = _blankToNull(_phoneController.text)
-              ..avatarUrl = _blankToNull(_avatarController.text)
               ..addressLine1 = _blankToNull(_address1Controller.text)
               ..addressLine2 = _blankToNull(_address2Controller.text)
               ..city = _blankToNull(_cityController.text)
@@ -148,10 +173,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    key: const Key('avatarUrlField'),
-                    controller: _avatarController,
-                    decoration: const InputDecoration(labelText: 'Avatar URL'),
+                  OutlinedButton.icon(
+                    key: const Key('changeAvatarButton'),
+                    onPressed: _saving ? null : _changeAvatar,
+                    icon: const Icon(Icons.photo_camera_outlined),
+                    label: const Text('Change photo'),
                   ),
                   const SizedBox(height: 16),
                   Text('Address', style: Theme.of(context).textTheme.titleSmall),

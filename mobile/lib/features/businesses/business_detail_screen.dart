@@ -18,6 +18,7 @@ import 'external_reviews_section.dart';
 import 'maps_config.dart';
 import 'osm_map_view.dart';
 import 'photo_gallery.dart';
+import 'report_shop_button.dart';
 
 /// Public business profile (ADR-003): header, contact/hours/photos/map/AI
 /// overview (S-028), plus reviews + "Add review" (S-023).
@@ -163,6 +164,8 @@ class _BusinessDetailBodyState extends ConsumerState<_BusinessDetailBody> {
                   _GalleryBlock(business: business),
                   _DetailMap(business: business),
                   _ExternalReviewsBlock(businessId: business.id),
+                  const SizedBox(height: 12),
+                  ReportShopButton(businessId: business.id, isOwnBusiness: isOwnBusiness),
                   if (showAddReview) ...[
                     const SizedBox(height: 16),
                     FilledButton.icon(

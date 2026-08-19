@@ -1,12 +1,8 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
-
 part of 'business_status.dart';
 
-// **************************************************************************
-// BuiltValueGenerator
-// **************************************************************************
-
 const BusinessStatus _$pending = const BusinessStatus._('pending');
+const BusinessStatus _$processing = const BusinessStatus._('processing');
 const BusinessStatus _$approved = const BusinessStatus._('approved');
 const BusinessStatus _$rejected = const BusinessStatus._('rejected');
 const BusinessStatus _$suspended = const BusinessStatus._('suspended');
@@ -15,6 +11,8 @@ BusinessStatus _$valueOf(String name) {
   switch (name) {
     case 'pending':
       return _$pending;
+    case 'processing':
+      return _$processing;
     case 'approved':
       return _$approved;
     case 'rejected':
@@ -29,6 +27,7 @@ BusinessStatus _$valueOf(String name) {
 final BuiltSet<BusinessStatus> _$values =
     BuiltSet<BusinessStatus>(const <BusinessStatus>[
   _$pending,
+  _$processing,
   _$approved,
   _$rejected,
   _$suspended,
@@ -37,6 +36,7 @@ final BuiltSet<BusinessStatus> _$values =
 class _$BusinessStatusMeta {
   const _$BusinessStatusMeta();
   BusinessStatus get pending => _$pending;
+  BusinessStatus get processing => _$processing;
   BusinessStatus get approved => _$approved;
   BusinessStatus get rejected => _$rejected;
   BusinessStatus get suspended => _$suspended;
@@ -45,23 +45,23 @@ class _$BusinessStatusMeta {
 }
 
 abstract class _$BusinessStatusMixin {
-  // ignore: non_constant_identifier_names
   _$BusinessStatusMeta get BusinessStatus => const _$BusinessStatusMeta();
 }
 
 Serializer<BusinessStatus> _$businessStatusSerializer =
     _$BusinessStatusSerializer();
 
-class _$BusinessStatusSerializer
-    implements PrimitiveSerializer<BusinessStatus> {
+class _$BusinessStatusSerializer implements PrimitiveSerializer<BusinessStatus> {
   static const Map<String, Object> _toWire = const <String, Object>{
     'pending': 'pending',
+    'processing': 'processing',
     'approved': 'approved',
     'rejected': 'rejected',
     'suspended': 'suspended',
   };
   static const Map<Object, String> _fromWire = const <Object, String>{
     'pending': 'pending',
+    'processing': 'processing',
     'approved': 'approved',
     'rejected': 'rejected',
     'suspended': 'suspended',
@@ -83,5 +83,3 @@ class _$BusinessStatusSerializer
       BusinessStatus.valueOf(
           _fromWire[serialized] ?? (serialized is String ? serialized : ''));
 }
-
-// ignore_for_file: deprecated_member_use_from_same_package,type=lint

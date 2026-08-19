@@ -17,6 +17,12 @@ class _$PlatformAnalytics extends PlatformAnalytics {
   final int totalReviews;
   @override
   final int reportedReviews;
+  @override
+  final int? openSupportTickets;
+  @override
+  final int? repeatShopReports;
+  @override
+  final int? processingBusinesses;
 
   factory _$PlatformAnalytics(
           [void Function(PlatformAnalyticsBuilder)? updates]) =>
@@ -27,7 +33,10 @@ class _$PlatformAnalytics extends PlatformAnalytics {
       required this.totalBusinesses,
       required this.pendingBusinesses,
       required this.totalReviews,
-      required this.reportedReviews})
+      required this.reportedReviews,
+      this.openSupportTickets,
+      this.repeatShopReports,
+      this.processingBusinesses})
       : super._();
   @override
   PlatformAnalytics rebuild(void Function(PlatformAnalyticsBuilder) updates) =>
@@ -45,7 +54,10 @@ class _$PlatformAnalytics extends PlatformAnalytics {
         totalBusinesses == other.totalBusinesses &&
         pendingBusinesses == other.pendingBusinesses &&
         totalReviews == other.totalReviews &&
-        reportedReviews == other.reportedReviews;
+        reportedReviews == other.reportedReviews &&
+        openSupportTickets == other.openSupportTickets &&
+        repeatShopReports == other.repeatShopReports &&
+        processingBusinesses == other.processingBusinesses;
   }
 
   @override
@@ -56,6 +68,9 @@ class _$PlatformAnalytics extends PlatformAnalytics {
     _$hash = $jc(_$hash, pendingBusinesses.hashCode);
     _$hash = $jc(_$hash, totalReviews.hashCode);
     _$hash = $jc(_$hash, reportedReviews.hashCode);
+    _$hash = $jc(_$hash, openSupportTickets.hashCode);
+    _$hash = $jc(_$hash, repeatShopReports.hashCode);
+    _$hash = $jc(_$hash, processingBusinesses.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -67,7 +82,10 @@ class _$PlatformAnalytics extends PlatformAnalytics {
           ..add('totalBusinesses', totalBusinesses)
           ..add('pendingBusinesses', pendingBusinesses)
           ..add('totalReviews', totalReviews)
-          ..add('reportedReviews', reportedReviews))
+          ..add('reportedReviews', reportedReviews)
+          ..add('openSupportTickets', openSupportTickets)
+          ..add('repeatShopReports', repeatShopReports)
+          ..add('processingBusinesses', processingBusinesses))
         .toString();
   }
 }
@@ -99,6 +117,21 @@ class PlatformAnalyticsBuilder
   set reportedReviews(int? reportedReviews) =>
       _$this._reportedReviews = reportedReviews;
 
+  int? _openSupportTickets;
+  int? get openSupportTickets => _$this._openSupportTickets;
+  set openSupportTickets(int? openSupportTickets) =>
+      _$this._openSupportTickets = openSupportTickets;
+
+  int? _repeatShopReports;
+  int? get repeatShopReports => _$this._repeatShopReports;
+  set repeatShopReports(int? repeatShopReports) =>
+      _$this._repeatShopReports = repeatShopReports;
+
+  int? _processingBusinesses;
+  int? get processingBusinesses => _$this._processingBusinesses;
+  set processingBusinesses(int? processingBusinesses) =>
+      _$this._processingBusinesses = processingBusinesses;
+
   PlatformAnalyticsBuilder() {
     PlatformAnalytics._defaults(this);
   }
@@ -111,6 +144,9 @@ class PlatformAnalyticsBuilder
       _pendingBusinesses = $v.pendingBusinesses;
       _totalReviews = $v.totalReviews;
       _reportedReviews = $v.reportedReviews;
+      _openSupportTickets = $v.openSupportTickets;
+      _repeatShopReports = $v.repeatShopReports;
+      _processingBusinesses = $v.processingBusinesses;
       _$v = null;
     }
     return this;
@@ -142,6 +178,9 @@ class PlatformAnalyticsBuilder
               totalReviews, r'PlatformAnalytics', 'totalReviews'),
           reportedReviews: BuiltValueNullFieldError.checkNotNull(
               reportedReviews, r'PlatformAnalytics', 'reportedReviews'),
+          openSupportTickets: openSupportTickets,
+          repeatShopReports: repeatShopReports,
+          processingBusinesses: processingBusinesses,
         );
     replace(_$result);
     return _$result;

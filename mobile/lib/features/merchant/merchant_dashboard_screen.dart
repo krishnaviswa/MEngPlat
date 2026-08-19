@@ -28,6 +28,7 @@ const _rangeOptions = {'30': 'Last 30 days', '90': 'Last 90 days', 'all': 'All t
 
 const _statusLabel = {
   BusinessStatus.pending: 'Awaiting approval',
+  BusinessStatus.processing: 'Under review',
   BusinessStatus.approved: 'Active',
   BusinessStatus.rejected: 'Rejected',
   BusinessStatus.suspended: 'Suspended',
@@ -129,7 +130,13 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                       for (final item in owned)
                         DropdownMenuItem(
                           value: item.id,
-                          child: Text(item.status == BusinessStatus.pending ? '${item.name} (pending)' : item.name),
+                          child: Text(
+                            item.status == BusinessStatus.pending
+                                ? '${item.name} (pending)'
+                                : item.status == BusinessStatus.processing
+                                    ? '${item.name} (processing)'
+                                    : item.name,
+                          ),
                         ),
                     ],
                     onChanged: (id) {
@@ -151,6 +158,14 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                     padding: EdgeInsets.only(bottom: 16),
                     child: Text(
                       'Your business is awaiting admin approval. You can update details anytime; public discovery starts after approval.',
+                    ),
+                  ),
+                if (business.status == BusinessStatus.processing)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      key: Key('processingUnderReviewBanner'),
+                      'Your business is currently being reviewed by an admin. You can update details anytime; public discovery starts after approval.',
                     ),
                   ),
                 if (_error != null) Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),

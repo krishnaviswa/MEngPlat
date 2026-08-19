@@ -13,10 +13,64 @@ class AdminRepository {
 
   final ApiClient _client;
 
-  Future<List<UserResponse>> listUsers() async {
+  Future<List<UserResponse>> listUsers({String? q}) async {
     try {
-      final response = await _client.api.getAdminApi().listUsersApiV1AdminUsersGet();
+      final response = await _client.api.getAdminApi().listUsersApiV1AdminUsersGet(
+            q: q == null || q.isEmpty ? null : q,
+          );
       return response.data!.toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<List<SupportTicketResponse>> listSupportTickets({String? status}) async {
+    try {
+      final response = await _client.api.getAdminApi().adminListSupportTicketsApiV1AdminSupportTicketsGet(
+            status: status == null || status.isEmpty ? null : status,
+          );
+      return response.data!.toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<SupportTicketResponse> updateSupportTicket({
+    required String ticketId,
+    String? status,
+    String? adminResponse,
+  }) async {
+    try {
+      final response = await _client.api.getAdminApi().adminUpdateSupportTicketApiV1AdminSupportTicketsTicketIdPatch(
+            ticketId: ticketId,
+            supportTicketAdminUpdate: SupportTicketAdminUpdate((b) => b
+              ..status = status
+              ..adminResponse = adminResponse),
+          );
+      return response.data!;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<List<BusinessReportResponse>> listBusinessReports({String? status}) async {
+    try {
+      final response = await _client.api.getAdminApi().adminListBusinessReportsApiV1AdminBusinessReportsGet(
+            status: status == null || status.isEmpty ? null : status,
+          );
+      return response.data!.toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<BusinessReportResponse> updateBusinessReport({required String reportId, required String status}) async {
+    try {
+      final response = await _client.api.getAdminApi().adminUpdateBusinessReportApiV1AdminBusinessReportsReportIdPatch(
+            reportId: reportId,
+            businessReportAdminUpdate: BusinessReportAdminUpdate((b) => b.status = status),
+          );
+      return response.data!;
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }

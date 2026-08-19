@@ -26,8 +26,13 @@ class _FakeBusinessRepository extends BusinessRepository {
   Object? createError;
   CategoryCreate? lastCreate;
 
+  String? lastQ;
+
   @override
-  Future<List<CategoryResponse>> listCategories() async => categories;
+  Future<List<CategoryResponse>> listCategories({String? q}) async {
+    lastQ = q;
+    return categories;
+  }
 
   @override
   Future<CategoryResponse> createCategory(CategoryCreate payload) async {
@@ -104,14 +109,14 @@ void main() {
     expect(find.byKey(const Key('noCategoriesEmptyState')), findsNothing);
   });
 
-  testWidgets('a create failure surfaces inline and does not clear the typed name', (tester) async {
-    await _pumpScreen(tester, categories: const [], createError: ApiException('Category already exists'));
+  testWidgets('S-093: 409 create shows a named duplicate message', (tester) async {
+    await _pumpScreen(tester, categories: const [], createError: ApiException('exists', statusCode: 409));
 
     await tester.enterText(find.byKey(const Key('newCategoryNameField')), 'Cafe');
     await tester.tap(find.byKey(const Key('addCategoryButton')));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Category already exists'), findsOneWidget);
+    expect(find.textContaining('A category named "Cafe" already exists'), findsOneWidget);
   });
 
   testWidgets('AC6: tapping a category chip navigates to /businesses pre-filtered by that category slug',

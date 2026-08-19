@@ -14,6 +14,11 @@ Serializers _$serializers = (Serializers().toBuilder()
       ..add(AdminWhatsAppDraftResponse.serializer)
       ..add(BenchmarkResponse.serializer)
       ..add(BusinessCreate.serializer)
+      ..add(BusinessReportAdminUpdate.serializer)
+      ..add(BusinessReportCreate.serializer)
+      ..add(BusinessReportMessageCreate.serializer)
+      ..add(BusinessReportMessageResponse.serializer)
+      ..add(BusinessReportResponse.serializer)
       ..add(BusinessResponse.serializer)
       ..add(BusinessStatus.serializer)
       ..add(BusinessSummary.serializer)
@@ -46,7 +51,10 @@ Serializers _$serializers = (Serializers().toBuilder()
       ..add(MessageResponse.serializer)
       ..add(MfaTokenRequest.serializer)
       ..add(MfaTotpCodeRequest.serializer)
+      ..add(MockAadhaarOtpRequest.serializer)
+      ..add(MockAadhaarOtpResponse.serializer)
       ..add(MockCompleteRequest.serializer)
+      ..add(MockOtpVerifyRequest.serializer)
       ..add(NationalIdType.serializer)
       ..add(NearbyBusinessRequest.serializer)
       ..add(NotificationResponse.serializer)
@@ -73,6 +81,10 @@ Serializers _$serializers = (Serializers().toBuilder()
       ..add(ReviewStatus.serializer)
       ..add(ReviewUpdate.serializer)
       ..add(Sentiment.serializer)
+      ..add(SupportContactResponse.serializer)
+      ..add(SupportTicketAdminUpdate.serializer)
+      ..add(SupportTicketCreate.serializer)
+      ..add(SupportTicketResponse.serializer)
       ..add(TokenResponse.serializer)
       ..add(TopicClusterResponse.serializer)
       ..add(TopicItem.serializer)
@@ -159,6 +171,18 @@ Serializers _$serializers = (Serializers().toBuilder()
       ..addBuilderFactory(
           const FullType(BuiltList, const [const FullType(ReviewResponse)]),
           () => ListBuilder<ReviewResponse>())
+      ..addBuilderFactory(
+          const FullType(
+              BuiltList, const [const FullType(BusinessReportMessageResponse)]),
+          () => ListBuilder<BusinessReportMessageResponse>())
+      ..addBuilderFactory(
+          const FullType(
+              BuiltList, const [const FullType(BusinessReportResponse)]),
+          () => ListBuilder<BusinessReportResponse>())
+      ..addBuilderFactory(
+          const FullType(
+              BuiltList, const [const FullType(SupportTicketResponse)]),
+          () => ListBuilder<SupportTicketResponse>())
       ..addBuilderFactory(
           const FullType(BuiltList, const [const FullType(JsonObject)]),
           () => ListBuilder<JsonObject>())

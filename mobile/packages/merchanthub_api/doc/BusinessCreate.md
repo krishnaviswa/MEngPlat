@@ -17,8 +17,8 @@ Name | Type | Description | Notes
 **country** | **String** |  | [optional] [default to 'US']
 **latitude** | **num** |  | [optional] 
 **longitude** | **num** |  | [optional] 
-**phone** | **String** |  | [optional] 
-**email** | **String** |  | [optional] 
+**phone** | **String** |  | 
+**email** | **String** |  | 
 **website** | **String** |  | [optional] 
 **businessHours** | [**JsonObject**](.md) |  | [optional] 
 **categoryIds** | **BuiltList&lt;String&gt;** |  | [optional] [default to ListBuilder()]

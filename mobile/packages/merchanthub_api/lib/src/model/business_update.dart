@@ -19,6 +19,7 @@ part 'business_update.g.dart';
 /// * [city] 
 /// * [state] 
 /// * [postalCode] 
+/// * [country] 
 /// * [latitude] 
 /// * [longitude] 
 /// * [phone] 
@@ -26,6 +27,7 @@ part 'business_update.g.dart';
 /// * [website] 
 /// * [businessHours] 
 /// * [categoryIds] 
+/// * [addressOtpCode] 
 @BuiltValue()
 abstract class BusinessUpdate implements Built<BusinessUpdate, BusinessUpdateBuilder> {
   @BuiltValueField(wireName: r'name')
@@ -45,6 +47,9 @@ abstract class BusinessUpdate implements Built<BusinessUpdate, BusinessUpdateBui
 
   @BuiltValueField(wireName: r'postal_code')
   String? get postalCode;
+
+  @BuiltValueField(wireName: r'country')
+  String? get country;
 
   @BuiltValueField(wireName: r'latitude')
   num? get latitude;
@@ -66,6 +71,9 @@ abstract class BusinessUpdate implements Built<BusinessUpdate, BusinessUpdateBui
 
   @BuiltValueField(wireName: r'category_ids')
   BuiltList<String>? get categoryIds;
+
+  @BuiltValueField(wireName: r'address_otp_code')
+  String? get addressOtpCode;
 
   BusinessUpdate._();
 
@@ -132,6 +140,13 @@ class _$BusinessUpdateSerializer implements PrimitiveSerializer<BusinessUpdate> 
         specifiedType: const FullType.nullable(String),
       );
     }
+    if (object.country != null) {
+      yield r'country';
+      yield serializers.serialize(
+        object.country,
+        specifiedType: const FullType.nullable(String),
+      );
+    }
     if (object.latitude != null) {
       yield r'latitude';
       yield serializers.serialize(
@@ -179,6 +194,13 @@ class _$BusinessUpdateSerializer implements PrimitiveSerializer<BusinessUpdate> 
       yield serializers.serialize(
         object.categoryIds,
         specifiedType: const FullType.nullable(BuiltList, [FullType(String)]),
+      );
+    }
+    if (object.addressOtpCode != null) {
+      yield r'address_otp_code';
+      yield serializers.serialize(
+        object.addressOtpCode,
+        specifiedType: const FullType.nullable(String),
       );
     }
   }
@@ -252,6 +274,14 @@ class _$BusinessUpdateSerializer implements PrimitiveSerializer<BusinessUpdate> 
           if (valueDes == null) continue;
           result.postalCode = valueDes;
           break;
+        case r'country':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.country = valueDes;
+          break;
         case r'latitude':
           final valueDes = serializers.deserialize(
             value,
@@ -307,6 +337,14 @@ class _$BusinessUpdateSerializer implements PrimitiveSerializer<BusinessUpdate> 
           ) as BuiltList<String>?;
           if (valueDes == null) continue;
           result.categoryIds.replace(valueDes);
+          break;
+        case r'address_otp_code':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
+          result.addressOtpCode = valueDes;
           break;
         default:
           unhandled.add(key);

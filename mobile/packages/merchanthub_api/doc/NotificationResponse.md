@@ -13,6 +13,7 @@ Name | Type | Description | Notes
 **title** | **String** |  | 
 **message** | **String** |  | 
 **isRead** | **bool** |  | 
+**scenario** | **String** |  | [optional] 
 **extraData** | [**JsonObject**](.md) |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 

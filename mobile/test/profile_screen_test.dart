@@ -200,4 +200,11 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     }
   });
+
+  testWidgets('S-095: Change photo control exists and Avatar URL field is gone', (tester) async {
+    final result = await _pumpProfile(tester, user: _user());
+    expect(find.byKey(const Key('avatarUrlField')), findsNothing);
+    expect(find.byKey(const Key('changeAvatarButton')), findsOneWidget);
+    result.container.dispose();
+  });
 }

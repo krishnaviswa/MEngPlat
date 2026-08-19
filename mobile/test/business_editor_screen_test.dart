@@ -14,7 +14,7 @@ class _FakeBusinessRepository extends BusinessRepository {
   BusinessCreate? created;
 
   @override
-  Future<List<CategoryResponse>> listCategories() async => [];
+  Future<List<CategoryResponse>> listCategories({String? q}) async => [];
 
   @override
   Future<List<String>> listCities() async => [];

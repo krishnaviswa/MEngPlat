@@ -334,7 +334,7 @@ Name | Type | Description  | Notes
 
 Platform Analytics
 
-Admin platform-wide analytics.
+Admin platform-wide analytics (S-090 adds ops-queue snapshot counts).
 
 ### Example
 ```dart
