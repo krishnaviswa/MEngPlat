@@ -11,7 +11,7 @@ bcrypt==4.3.0
 python-multipart==0.0.20
 redis==5.2.1
 httpx==0.28.1
-openai==1.57.4
+openai==3.1.0
 google-auth==2.56.3
 requests==2.34.2
 pyotp==2.9.0
