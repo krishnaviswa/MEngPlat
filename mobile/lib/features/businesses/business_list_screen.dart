@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../../ui/widgets.dart';
 import '../theme/theme_toggle_button.dart';
@@ -97,6 +98,11 @@ class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
   Widget build(BuildContext context) {
     final search = ref.watch(searchControllerProvider);
     final query = search.valueOrNull?.query ?? const SearchQuery();
+    final typed = _searchController.text.trim();
+    final catalog = search.valueOrNull?.items ?? const <BusinessResponse>[];
+    final suggestions = typed.length >= 2
+        ? catalog.where((b) => b.name.toLowerCase().contains(typed.toLowerCase())).take(6).toList()
+        : const <BusinessResponse>[];
 
     return Scaffold(
       appBar: AppBar(title: const Text('Businesses'), actions: const [ThemeToggleButton()]),
@@ -114,9 +120,37 @@ class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
-              onChanged: ref.read(searchControllerProvider.notifier).setQueryText,
+              onChanged: (value) {
+                setState(() {});
+                ref.read(searchControllerProvider.notifier).setQueryText(value);
+              },
             ),
           ),
+          if (suggestions.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Material(
+                key: const Key('searchSuggestions'),
+                elevation: 2,
+                borderRadius: BorderRadius.circular(12),
+                child: Column(
+                  children: [
+                    for (final business in suggestions)
+                      ListTile(
+                        key: Key('searchSuggestion-${business.slug}'),
+                        dense: true,
+                        title: Text(business.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(
+                          business.city,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () => context.push('/businesses/${business.slug}'),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Wrap(
@@ -151,15 +185,13 @@ class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
-          // S-062/M-66 AC 2: always shown, not gated on any result being
-          // featured -- avoids a layout shift on scroll, matches web's
-          // unconditional placement (search/page.tsx).
           Padding(
             key: const Key('featuredDisclaimerText'),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: Text(
-              'Listings marked Featured paid for a fixed-period search boost (7, 15, or 30 days) — '
-              'that is not an AI quality score and does not mean the business is better.',
+              'Featured = paid boost, not a quality score.',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -167,6 +199,8 @@ class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
             child: RefreshIndicator(
               onRefresh: () => ref.read(searchControllerProvider.notifier).reload(),
               child: search.when(
+              skipLoadingOnReload: true,
+              skipLoadingOnRefresh: true,
               loading: () => ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: const [MhSkeleton()],

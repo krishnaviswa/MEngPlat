@@ -57,6 +57,8 @@ void main() {
 
     expect(find.text('Sign in'), findsWidgets);
 
+    await tester.tap(find.byKey(const Key('loginMethodPassword')));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('emailField')), 'test@example.com');
     await tester.enterText(find.byKey(const Key('passwordField')), 'password123');
     final submit = find.byKey(const Key('submitButton'));

@@ -27,6 +27,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
   String? _error;
   bool _loading = true;
   String? _actingId;
+  int _seriesDays = 90;
 
   @override
   void initState() {
@@ -165,32 +166,79 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                   ],
                   if (_series != null) ...[
                     const SizedBox(height: 24),
+                    SegmentedButton<int>(
+                      key: const Key('platformSeriesRange'),
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment(value: 7, label: Text('7d')),
+                        ButtonSegment(value: 30, label: Text('30d')),
+                        ButtonSegment(value: 90, label: Text('90d')),
+                      ],
+                      selected: {_seriesDays},
+                      onSelectionChanged: (next) {
+                        if (next.isEmpty) return;
+                        _loadSeries(next.first);
+                      },
+                    ),
+                    const SizedBox(height: 8),
                     PlatformSeriesChart(series: _series!),
                   ],
                   const SizedBox(height: 12),
-                  TextButton.icon(
-                    key: const Key('manageCategoriesButton'),
-                    onPressed: () => context.push('/admin/categories'),
-                    icon: const Icon(Icons.category_outlined),
-                    label: const Text('Manage categories'),
-                  ),
-                  TextButton.icon(
-                    key: const Key('manageSupportTicketsButton'),
-                    onPressed: () => context.push('/admin/support'),
-                    icon: const Icon(Icons.support_agent_outlined),
-                    label: const Text('Support tickets'),
-                  ),
-                  TextButton.icon(
-                    key: const Key('manageShopReportsButton'),
-                    onPressed: () => context.push('/admin/business-reports'),
-                    icon: const Icon(Icons.flag_outlined),
-                    label: const Text('Shop reports'),
-                  ),
-                  TextButton.icon(
-                    key: const Key('manageWhatsAppDraftsButton'),
-                    onPressed: () => context.push('/admin/whatsapp'),
-                    icon: const Icon(Icons.chat_outlined),
-                    label: const Text('WhatsApp drafts'),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = (constraints.maxWidth - 8) / 2;
+                      Widget cell({
+                        required Key key,
+                        required IconData icon,
+                        required String label,
+                        required VoidCallback onPressed,
+                      }) {
+                        return SizedBox(
+                          width: width,
+                          child: OutlinedButton.icon(
+                            key: key,
+                            onPressed: onPressed,
+                            icon: Icon(icon, size: 18),
+                            label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(48),
+                              alignment: Alignment.centerLeft,
+                            ),
+                          ),
+                        );
+                      }
+
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          cell(
+                            key: const Key('manageCategoriesButton'),
+                            icon: Icons.category_outlined,
+                            label: 'Categories',
+                            onPressed: () => context.push('/admin/categories'),
+                          ),
+                          cell(
+                            key: const Key('manageSupportTicketsButton'),
+                            icon: Icons.support_agent_outlined,
+                            label: 'Support',
+                            onPressed: () => context.push('/admin/support'),
+                          ),
+                          cell(
+                            key: const Key('manageShopReportsButton'),
+                            icon: Icons.flag_outlined,
+                            label: 'Shop reports',
+                            onPressed: () => context.push('/admin/business-reports'),
+                          ),
+                          cell(
+                            key: const Key('manageWhatsAppDraftsButton'),
+                            icon: Icons.chat_outlined,
+                            label: 'WhatsApp',
+                            onPressed: () => context.push('/admin/whatsapp'),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 24),
                   Text('Pending & processing', key: const Key('pendingQueueHeading'), style: Theme.of(context).textTheme.titleMedium),
@@ -273,7 +321,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
       late final List<ReviewResponse> reported;
       await Future.wait([
         dash.platformAnalytics().then((v) => stats = v),
-        dash.platformAnalyticsSeries().then((v) => series = v),
+        dash.platformAnalyticsSeries(days: _seriesDays).then((v) => series = v),
         businesses.listByStatus(BusinessStatus.pending).then((v) => pending = v),
         businesses.listByStatus(BusinessStatus.processing).then((v) => processing = v),
         reviews.listReported().then((v) => reported = v),
@@ -292,6 +340,18 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
         _error = friendlyMessage(error);
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadSeries(int days) async {
+    setState(() => _seriesDays = days);
+    try {
+      final series = await ref.read(dashboardRepositoryProvider).platformAnalyticsSeries(days: days);
+      if (!mounted) return;
+      setState(() => _series = series);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = friendlyMessage(error));
     }
   }
 

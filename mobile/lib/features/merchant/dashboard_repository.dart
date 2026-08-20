@@ -175,12 +175,12 @@ class DashboardRepository {
     }
   }
 
-  /// Platform-wide time series (new users, businesses approved, new reviews,
-  /// new reports) behind the admin home screen's chart row (M-62, S-061).
-  /// Day granularity / 90-day window, matching web's own default.
-  Future<PlatformAnalyticsSeries> platformAnalyticsSeries() async {
+  /// Day granularity; [days] is 1-365 (API default 90).
+  Future<PlatformAnalyticsSeries> platformAnalyticsSeries({int days = 90}) async {
     try {
-      final response = await _client.api.getDashboardApi().platformAnalyticsSeriesApiV1DashboardAdminPlatformSeriesGet();
+      final response = await _client.api.getDashboardApi().platformAnalyticsSeriesApiV1DashboardAdminPlatformSeriesGet(
+            days: days,
+          );
       return response.data!;
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);

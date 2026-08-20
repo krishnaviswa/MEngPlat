@@ -201,6 +201,21 @@ void main() {
     expect(repo.lastQuery?.q, 'chrompet');
   });
 
+  testWidgets('typing shows suggestions without replacing the list with a skeleton', (tester) async {
+    await _pumpExplore(tester, user: _user(), businesses: [_business()]);
+    expect(find.text('Cafe Demo'), findsWidgets);
+    expect(find.byKey(const Key('searchSuggestions')), findsNothing);
+
+    await tester.enterText(find.byKey(const Key('searchField')), 'caf');
+    await tester.pump();
+
+    expect(find.byKey(const Key('searchSuggestions')), findsOneWidget);
+    expect(find.byKey(const Key('searchSuggestion-cafe-demo')), findsOneWidget);
+    expect(find.text('Cafe Demo'), findsWidgets);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+  });
+
   testWidgets('AC19: search error shows Retry', (tester) async {
     await _pumpExplore(tester, user: _user(), searchError: ApiException('Network error'));
     expect(find.text('Network error'), findsOneWidget);
@@ -327,10 +342,7 @@ void main() {
   testWidgets('S-062 AC2: featured disclaimer is always shown, including on empty results', (tester) async {
     await _pumpExplore(tester, user: _user(), businesses: const []);
     expect(find.byKey(const Key('featuredDisclaimerText')), findsOneWidget);
-    expect(
-      find.textContaining('not an AI quality score and does not mean the business is better'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Featured = paid boost, not a quality score.'), findsOneWidget);
   });
 
   testWidgets('S-062 AC2: featured disclaimer is shown when results are present too', (tester) async {

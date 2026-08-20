@@ -133,7 +133,7 @@ void main() {
       (tester) async {
     final container = await _pumpRouter(tester);
 
-    await tester.tap(find.byKey(const Key('loginMethodPhone')));
+    await tester.tap(find.byKey(const Key('loginMethodOtp')));
     await _pumpFrames(tester);
     await tester.enterText(find.byKey(const Key('phoneNumberField')), '9876543210');
     await tester.pump();

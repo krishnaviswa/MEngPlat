@@ -99,14 +99,14 @@ Future<void> _sendCode(WidgetTester tester, {String number = '9876543210'}) asyn
   await tester.pumpAndSettle();
 }
 
-Future<void> _selectLoginPhone(WidgetTester tester) async {
-  await tester.tap(find.byKey(const Key('loginMethodPhone')));
+Future<void> _selectLoginOtp(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('loginMethodOtp')));
   await tester.pumpAndSettle();
 }
 
 void main() {
   group('PhoneOtpPanel standalone (default fullName/role null, as on login)', () {
-    testWidgets('AC1: shows country code selector (+91 default), number field, and Send SMS code button',
+    testWidgets('AC1: shows country code selector (+91 default), number field, and Get OTP button',
         (tester) async {
       final result = await _pumpWidget(tester, const Scaffold(body: PhoneOtpPanel()));
 
@@ -114,7 +114,7 @@ void main() {
       expect(find.text('+91'), findsOneWidget);
       expect(find.byKey(const Key('phoneNumberField')), findsOneWidget);
       expect(find.byKey(const Key('sendPhoneCodeButton')), findsOneWidget);
-      expect(find.text('Send SMS code'), findsOneWidget);
+      expect(find.text('Get OTP'), findsOneWidget);
       // Code field/verify button not shown until a code has been sent.
       expect(find.byKey(const Key('phoneCodeField')), findsNothing);
       expect(find.byKey(const Key('verifyPhoneCodeButton')), findsNothing);
@@ -122,7 +122,7 @@ void main() {
       result.container.dispose();
     });
 
-    testWidgets('Send SMS code is disabled until a number is entered', (tester) async {
+    testWidgets('Get OTP is disabled until a number is entered', (tester) async {
       final result = await _pumpWidget(tester, const Scaffold(body: PhoneOtpPanel()));
 
       final buttonBefore = tester.widget<FilledButton>(find.byKey(const Key('sendPhoneCodeButton')));
@@ -166,7 +166,7 @@ void main() {
       result.container.dispose();
     });
 
-    testWidgets('Verify and sign in is disabled until the code field has at least 4 characters', (tester) async {
+    testWidgets('Verify OTP is disabled until the code field has at least 4 characters', (tester) async {
       final result = await _pumpWidget(tester, const Scaffold(body: PhoneOtpPanel()));
       await _sendCode(tester);
 
@@ -214,7 +214,7 @@ void main() {
   group('PhoneOtpPanel embedded in LoginScreen (no fullName/role passed)', () {
     testWidgets('AC1: panel is present below the credentials fields', (tester) async {
       final result = await _pumpWidget(tester, const LoginScreen());
-      await _selectLoginPhone(tester);
+      await _selectLoginOtp(tester);
       expect(find.byKey(const Key('phoneNumberField')), findsOneWidget);
       expect(find.byKey(const Key('sendPhoneCodeButton')), findsOneWidget);
       result.container.dispose();
@@ -223,7 +223,7 @@ void main() {
     testWidgets('AC5: verifying a brand-new number from login omits full_name unless the optional name is filled',
         (tester) async {
       final result = await _pumpWidget(tester, const LoginScreen());
-      await _selectLoginPhone(tester);
+      await _selectLoginOtp(tester);
       await _sendCode(tester);
       expect(find.byKey(const Key('phoneOptionalNameField')), findsOneWidget);
       await tester.enterText(find.byKey(const Key('phoneCodeField')), '123456');
@@ -240,7 +240,7 @@ void main() {
 
     testWidgets('successful verify from login flips authControllerProvider to a signed-in user', (tester) async {
       final result = await _pumpWidget(tester, const LoginScreen());
-      await _selectLoginPhone(tester);
+      await _selectLoginOtp(tester);
       await _sendCode(tester);
       await tester.enterText(find.byKey(const Key('phoneCodeField')), '123456');
       await tester.pump();

@@ -91,7 +91,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final loginContext = tester.element(find.byKey(const Key('emailField')));
+    final loginContext = tester.element(find.byKey(const Key('continueAsGuestButton')));
     expect(Theme.of(loginContext).colorScheme.onSurface, MhTokens.inkDark);
     expect(Theme.of(loginContext).textTheme.bodyMedium?.color, MhTokens.inkDark);
   });

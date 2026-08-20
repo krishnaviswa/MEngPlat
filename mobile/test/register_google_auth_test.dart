@@ -187,6 +187,8 @@ Future<void> _fillRegisterForm(
   String email = 'casey@example.com',
   String password = 'password1234',
 }) async {
+  await tester.tap(find.byKey(const Key('registerMethodPassword')));
+  await _pumpFrames(tester);
   await tester.enterText(find.byKey(const Key('registerFullNameField')), name);
   await tester.enterText(find.byKey(const Key('registerEmailField')), email);
   await tester.enterText(find.byKey(const Key('registerPasswordField')), password);
@@ -202,13 +204,15 @@ void main() {
     await _pumpFrames(tester);
 
     expect(find.text('Create account'), findsWidgets);
+    await tester.tap(find.byKey(const Key('registerMethodPassword')));
+    await _pumpFrames(tester);
     expect(find.byKey(const Key('registerSubmitButton')), findsOneWidget);
     expect(find.byKey(const Key('primaryNav')), findsNothing);
     expect(find.byKey(const Key('signInLink')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('signInLink')));
     await _pumpFrames(tester);
-    expect(find.byKey(const Key('submitButton')), findsOneWidget);
+    expect(find.byKey(const Key('loginMethodOtp')), findsOneWidget);
     expect(find.text('Sign in'), findsWidgets);
 
     result.container.dispose();
@@ -225,6 +229,8 @@ void main() {
     expect(result.auth.lastRegister?.role, UserRole.customer);
     expect(result.auth.lastRegister?.email, 'casey@example.com');
     expect(find.byKey(const Key('registeredNote')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('loginMethodPassword')));
+    await _pumpFrames(tester);
     expect(find.text('casey@example.com'), findsOneWidget);
     expect(find.byKey(const Key('mfaCodeField')), findsNothing);
     expect(result.auth._user, isNull);
@@ -274,6 +280,8 @@ void main() {
   testWidgets('AC5: invalid email and short password block submit', (tester) async {
     final result = await _pumpApp(tester);
     await tester.tap(find.byKey(const Key('createAccountLink')));
+    await _pumpFrames(tester);
+    await tester.tap(find.byKey(const Key('registerMethodPassword')));
     await _pumpFrames(tester);
     await tester.enterText(find.byKey(const Key('registerFullNameField')), 'Casey');
     await tester.enterText(find.byKey(const Key('registerEmailField')), 'not-an-email');
@@ -353,7 +361,7 @@ void main() {
     await _pumpFrames(tester);
 
     expect(result.auth.lastGoogleCredential, isNull);
-    expect(find.byKey(const Key('emailField')), findsOneWidget);
+    expect(find.byKey(const Key('continueAsGuestButton')), findsOneWidget);
     expect(find.byKey(const Key('registerError')), findsNothing);
 
     result.container.dispose();
@@ -365,7 +373,7 @@ void main() {
     await _pumpFrames(tester);
 
     expect(result.auth.lastGoogleCredential, isNull);
-    expect(find.byKey(const Key('emailField')), findsOneWidget);
+    expect(find.byKey(const Key('continueAsGuestButton')), findsOneWidget);
     expect(
       find.textContaining('SHA-1'),
       findsOneWidget,
@@ -379,7 +387,7 @@ void main() {
     final result = await _pumpApp(tester);
     result.container.read(routerProvider).go('/account/profile');
     await _pumpFrames(tester);
-    expect(find.byKey(const Key('emailField')), findsOneWidget);
+    expect(find.byKey(const Key('continueAsGuestButton')), findsOneWidget);
     expect(find.byKey(const Key('profileScreen')), findsNothing);
     result.container.dispose();
   });

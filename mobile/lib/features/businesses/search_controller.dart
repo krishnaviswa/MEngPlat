@@ -61,7 +61,8 @@ class SearchController extends AutoDisposeAsyncNotifier<SearchResults> {
 
   Future<void> applyQuery(SearchQuery query) async {
     _debounceTimer?.cancel();
-    state = const AsyncLoading();
+    final previous = state;
+    state = const AsyncLoading<SearchResults>().copyWithPrevious(previous);
     state = await AsyncValue.guard(() => _fetch(query));
   }
 
