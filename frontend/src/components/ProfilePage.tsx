@@ -117,6 +117,7 @@ export default function ProfilePage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!user) return;
     setSaving(true);
     setSuccess(null);
     setError(null);
