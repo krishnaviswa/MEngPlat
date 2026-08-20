@@ -14,7 +14,7 @@ import '../theme/theme_toggle_button.dart';
 
 enum _Step { credentials, enroll, verify }
 
-enum _LoginMethod { password, phone, authenticator }
+enum _LoginMethod { otp, password }
 
 /// Password login (mandatory authenticator, see S-020): credentials, then
 /// either a first-time enrollment step (QR + secret) or a returning-user
@@ -36,7 +36,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _codeController = TextEditingController();
 
   _Step _step = _Step.credentials;
-  _LoginMethod _loginMethod = _LoginMethod.password;
+  _LoginMethod _loginMethod = _LoginMethod.otp;
   String? _mfaToken;
   TotpSetupResponse? _setup;
   bool _loading = false;
@@ -177,7 +177,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   MhAuthHeader(
                     title: 'MerchantHub',
-                    subtitle: _step == _Step.credentials ? 'Sign in to continue' : null,
+                    subtitle: _step == _Step.credentials ? 'Sign in, or browse as a guest' : null,
                   ),
                   const SizedBox(height: 24),
                   if (widget.registered && _step == _Step.credentials)
@@ -200,7 +200,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   if (_step == _Step.credentials) ..._credentialsFields(),
                   if (_step == _Step.enroll) ..._enrollFields(),
                   if (_step == _Step.verify) ..._verifyFields(),
-                  if (_step != _Step.credentials || _loginMethod != _LoginMethod.phone) ...[
+                  if (_step != _Step.credentials || _loginMethod != _LoginMethod.otp) ...[
                     const SizedBox(height: 12),
                     FilledButton(
                       key: const Key('submitButton'),
@@ -242,6 +242,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
+                    if (googleSignInIsConfigured(ref.watch(googleSignInClientProvider)))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'Gmail sign-in below skips that step.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        ),
+                      ),
                     GoogleSignInButton(
                       onCredential: _onGoogleCredential,
                       onError: (message) => setState(() => _error = message),
@@ -264,16 +273,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         showSelectedIcon: false,
         segments: const [
           ButtonSegment(
+            value: _LoginMethod.otp,
+            label: Text('OTP', key: Key('loginMethodOtp')),
+          ),
+          ButtonSegment(
             value: _LoginMethod.password,
             label: Text('Password', key: Key('loginMethodPassword')),
-          ),
-          ButtonSegment(
-            value: _LoginMethod.phone,
-            label: Text('Phone', key: Key('loginMethodPhone')),
-          ),
-          ButtonSegment(
-            value: _LoginMethod.authenticator,
-            label: Text('Authenticator', key: Key('loginMethodAuthenticator')),
           ),
         ],
         selected: {_loginMethod},
@@ -283,8 +288,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         },
       ),
       const SizedBox(height: 16),
-      if (_loginMethod == _LoginMethod.phone) const PhoneOtpPanel(),
-      if (_loginMethod != _LoginMethod.phone) ...[
+      if (_loginMethod == _LoginMethod.otp) const PhoneOtpPanel(),
+      if (_loginMethod == _LoginMethod.password) ...[
         TextFormField(
           key: const Key('emailField'),
           controller: _emailController,
@@ -310,12 +315,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          _loginMethod == _LoginMethod.authenticator
-              ? "You'll enter your authenticator code next"
-              : googleSignInIsConfigured(ref.watch(googleSignInClientProvider))
-                  ? 'Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.). '
-                      'Gmail sign-in below skips that step.'
-                  : 'Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.).',
+          googleSignInIsConfigured(ref.watch(googleSignInClientProvider))
+              ? 'Password sign-in uses an authenticator app next. Gmail sign-in below skips that step.'
+              : 'Password sign-in uses an authenticator app next.',
           style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
       ],

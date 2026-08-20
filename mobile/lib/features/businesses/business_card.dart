@@ -88,31 +88,32 @@ class BusinessCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  Positioned(
+                    right: 4,
+                    bottom: 4,
+                    child: FavoriteToggleButton(businessId: business.id, onToggled: onFavoriteToggled),
+                  ),
                 ],
               ),
             ),
             ListTile(
-              title: Text(business.name),
-              subtitle: place.isEmpty ? null : Text(place),
-              trailing: Row(
+              dense: true,
+              title: Text(business.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: place.isEmpty ? null : Text(place, maxLines: 1, overflow: TextOverflow.ellipsis),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          RatingStars(rating: business.averageRating, size: 14),
-                          const SizedBox(width: 4),
-                          Text(business.averageRating.toStringAsFixed(1)),
-                        ],
-                      ),
-                      Text('${business.reviewCount} reviews', style: Theme.of(context).textTheme.bodySmall),
+                      RatingStars(rating: business.averageRating, size: 14),
+                      const SizedBox(width: 4),
+                      Text(business.averageRating.toStringAsFixed(1)),
                     ],
                   ),
-                  FavoriteToggleButton(businessId: business.id, onToggled: onFavoriteToggled),
+                  Text('${business.reviewCount} reviews', style: Theme.of(context).textTheme.bodySmall),
                 ],
               ),
             ),

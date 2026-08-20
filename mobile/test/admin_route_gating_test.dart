@@ -90,7 +90,7 @@ class _FakeDashboardRepository extends DashboardRepository {
     ..reportedReviews = 0);
 
   @override
-  Future<PlatformAnalyticsSeries> platformAnalyticsSeries() async => PlatformAnalyticsSeries((b) => b
+  Future<PlatformAnalyticsSeries> platformAnalyticsSeries({int days = 90}) async => PlatformAnalyticsSeries((b) => b
     ..granularity = PlatformAnalyticsSeriesGranularityEnum.day
     ..days = 0);
 }
@@ -177,7 +177,7 @@ void main() {
   testWidgets('AC11: an anonymous visitor is redirected to login, not the admin sub-routes', (tester) async {
     final container = await _pumpAppAt(tester, '/admin/categories', user: null);
     expect(find.byKey(const Key('adminCategoriesScreen')), findsNothing);
-    expect(find.byKey(const Key('emailField')), findsOneWidget);
+    expect(find.byKey(const Key('continueAsGuestButton')), findsOneWidget);
     container.dispose();
   });
 

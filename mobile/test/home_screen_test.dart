@@ -222,8 +222,8 @@ void main() {
   testWidgets('AC3: hero copy, suggestion language, explore and register actions', (tester) async {
     final router = await _pumpHome(tester, payload: _payload());
 
-    expect(find.text('Local businesses, reviewed with clarity'), findsOneWidget);
-    expect(find.textContaining('AI notes are suggestions'), findsOneWidget);
+    expect(find.text('Find local shops'), findsOneWidget);
+    expect(find.textContaining('AI is a suggestion'), findsOneWidget);
     expect(find.byKey(const Key('homeSearchField')), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('homeSearchField')), 'salon');
@@ -241,7 +241,7 @@ void main() {
   testWidgets('AC4/AC5: social proof label, fallback names, no invented stats on the rail', (tester) async {
     await _pumpHome(tester, payload: _payload());
 
-    expect(find.text('BUSINESSES USING MERCHANTHUB'), findsOneWidget);
+    expect(find.text('SHOPS ON MERCHANTHUB'), findsOneWidget);
     expect(find.text('Copper Kettle Cafe'), findsOneWidget);
     final rail = find.byKey(const Key('socialProofRail'));
     expect(
@@ -326,7 +326,7 @@ void main() {
     );
     expect(find.text('Explore Springfield'), findsOneWidget);
     expect(find.text('Cafe Demo'), findsWidgets);
-    expect(find.textContaining('Why locals love it (suggestion):'), findsOneWidget);
+    expect(find.textContaining('AI (suggestion):'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await _pumpHome(tester, payload: _payload(loadError: 'API down'));
@@ -346,9 +346,8 @@ void main() {
       ),
     );
     await tester.ensureVisible(find.byKey(const Key('reviewVoices')));
-    expect(find.text('Voices from the neighborhood'), findsOneWidget);
+    expect(find.text('Recent reviews'), findsOneWidget);
     expect(find.textContaining('In a nutshell (suggestion):'), findsNothing);
-    expect(find.textContaining('AI notes on listing pages are suggestions'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await _pumpHome(tester, payload: _payload());

@@ -77,6 +77,10 @@ class _SingleSeriesChart extends StatelessWidget {
     final raw = series.series[seriesKey];
     final points = (raw?.toList() ?? const <JsonObject>[]).map(_SeriesPoint.fromJsonObject).toList();
 
+    final counts = points.map((p) => p.count).toList();
+    final maxCount = counts.isEmpty ? 1 : counts.reduce((a, b) => a > b ? a : b);
+    final maxY = (maxCount < 1 ? 1 : maxCount) * 1.15;
+
     final theme = Theme.of(context);
     return SizedBox(
       width: double.infinity,
@@ -90,6 +94,7 @@ class _SingleSeriesChart extends StatelessWidget {
             child: LineChart(
               LineChartData(
                 minY: 0,
+                maxY: maxY,
                 titlesData: const FlTitlesData(show: false),
                 gridData: const FlGridData(show: false),
                 borderData: FlBorderData(show: false),
@@ -102,7 +107,7 @@ class _SingleSeriesChart extends StatelessWidget {
                       else
                         for (var i = 0; i < points.length; i++) FlSpot(i.toDouble(), points[i].count.toDouble()),
                     ],
-                    isCurved: true,
+                    isCurved: false,
                     barWidth: 2.5,
                     color: theme.colorScheme.primary,
                     dotData: const FlDotData(show: false),

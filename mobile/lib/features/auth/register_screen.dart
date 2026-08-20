@@ -11,9 +11,11 @@ import '../../ui/friendly_error.dart';
 import '../../ui/widgets.dart';
 import '../theme/theme_toggle_button.dart';
 
+enum _RegisterMethod { otp, password }
+
 /// Customer / merchant sign-up. Password accounts must still enroll TOTP on
 /// first login (web `RegisterForm`). Google skips MFA and always creates a
-/// customer when the account is new.
+/// customer when the account is new. OTP-first, matching Rapido/Ola.
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
@@ -28,15 +30,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _passwordController = TextEditingController();
 
   UserRole _role = UserRole.customer;
+  _RegisterMethod _method = _RegisterMethod.otp;
   bool _loading = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    // PhoneOtpPanel below reads _nameController.text/_role at build time, so
-    // it needs a rebuild whenever the in-progress name changes too, not just
-    // when _role's own onChanged fires setState.
     _nameController.addListener(_onNameChanged);
   }
 
@@ -99,7 +99,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  MhAuthHeader(title: 'Create account', subtitle: 'Join MerchantHub in a minute'),
+                  const MhAuthHeader(title: 'Create account', subtitle: 'Join MerchantHub in a minute'),
                   const SizedBox(height: 24),
                   if (_error != null)
                     Padding(
@@ -115,23 +115,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     controller: _nameController,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(labelText: 'Full name'),
-                    validator: (value) => (value == null || value.trim().isEmpty) ? 'Enter your name' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    key: const Key('registerEmailField'),
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    validator: (value) => (value == null || !value.contains('@')) ? 'Enter a valid email' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    key: const Key('registerPasswordField'),
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Password (min 12 chars, letter + digit)'),
-                    validator: (value) => (value == null || value.length < 12) ? 'Password is too short' : null,
+                    validator: (value) {
+                      if (_method != _RegisterMethod.password) return null;
+                      return (value == null || value.trim().isEmpty) ? 'Enter your name' : null;
+                    },
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<UserRole>(
@@ -146,26 +133,68 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     onChanged: _loading ? null : (value) => setState(() => _role = value ?? UserRole.customer),
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    googleSignInIsConfigured(ref.watch(googleSignInClientProvider))
-                        ? 'After sign-up you will set up an authenticator app (required for email/password sign-in). '
-                            'Gmail sign-in below skips that step.'
-                        : 'After sign-up you will set up an authenticator app (required for email/password sign-in).',
-                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  SegmentedButton<_RegisterMethod>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(
+                        value: _RegisterMethod.otp,
+                        label: Text('OTP', key: Key('registerMethodOtp')),
+                      ),
+                      ButtonSegment(
+                        value: _RegisterMethod.password,
+                        label: Text('Password', key: Key('registerMethodPassword')),
+                      ),
+                    ],
+                    selected: {_method},
+                    onSelectionChanged: (next) {
+                      if (_loading || next.isEmpty) return;
+                      setState(() => _method = next.first);
+                    },
                   ),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    key: const Key('registerSubmitButton'),
-                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                    onPressed: _loading ? null : _submit,
-                    child: _loading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Sign up'),
-                  ),
+                  const SizedBox(height: 16),
+                  if (_method == _RegisterMethod.otp)
+                    PhoneOtpPanel(
+                      fullName: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(),
+                      role: _role,
+                    )
+                  else ...[
+                    TextFormField(
+                      key: const Key('registerEmailField'),
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(labelText: 'Email'),
+                      validator: (value) => (value == null || !value.contains('@')) ? 'Enter a valid email' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: const Key('registerPasswordField'),
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(labelText: 'Password (min 12 chars, letter + digit)'),
+                      validator: (value) => (value == null || value.length < 12) ? 'Password is too short' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      googleSignInIsConfigured(ref.watch(googleSignInClientProvider))
+                          ? 'After sign-up you will set up an authenticator app (required for email/password sign-in). '
+                              'Gmail sign-in below skips that step.'
+                          : 'After sign-up you will set up an authenticator app (required for email/password sign-in).',
+                      style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      key: const Key('registerSubmitButton'),
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                      onPressed: _loading ? null : _submit,
+                      child: _loading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Sign up'),
+                    ),
+                  ],
                   TextButton(
                     key: const Key('signInLink'),
                     onPressed: _loading ? null : () => context.go('/login'),
@@ -180,15 +209,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
+                  if (googleSignInIsConfigured(ref.watch(googleSignInClientProvider)))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'Gmail sign-in below skips that step.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                    ),
                   GoogleSignInButton(
                     onCredential: _onGoogleCredential,
                     onError: (message) => setState(() => _error = message),
                     enabled: !_loading,
-                  ),
-                  const SizedBox(height: 8),
-                  PhoneOtpPanel(
-                    fullName: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(),
-                    role: _role,
                   ),
                 ],
               ),

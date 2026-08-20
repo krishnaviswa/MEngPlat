@@ -29,6 +29,8 @@ class _FakeAuthController extends AuthController {
 class _FakeDashboardRepository extends DashboardRepository {
   _FakeDashboardRepository() : super(ApiClient());
 
+  final daysRequested = <int>[];
+
   @override
   Future<PlatformAnalytics> platformAnalytics() async {
     return PlatformAnalytics((b) => b
@@ -40,10 +42,11 @@ class _FakeDashboardRepository extends DashboardRepository {
   }
 
   @override
-  Future<PlatformAnalyticsSeries> platformAnalyticsSeries() async {
+  Future<PlatformAnalyticsSeries> platformAnalyticsSeries({int days = 90}) async {
+    daysRequested.add(days);
     return PlatformAnalyticsSeries((b) => b
       ..granularity = PlatformAnalyticsSeriesGranularityEnum.day
-      ..days = 90);
+      ..days = days);
   }
 }
 
@@ -173,6 +176,35 @@ void main() {
     await tester.tap(find.byKey(const Key('manageWhatsAppDraftsButton')));
     await tester.pumpAndSettle();
     expect(find.text('WHATSAPP_SCREEN'), findsOneWidget);
+  });
+
+  testWidgets('platform trends range 7d refetches series with days=7', (tester) async {
+    await _tallSurface(tester);
+    final dash = _FakeDashboardRepository();
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith(_FakeAuthController.new),
+        dashboardRepositoryProvider.overrideWithValue(dash),
+        businessRepositoryProvider.overrideWithValue(_FakeBusinessRepository()),
+        reviewRepositoryProvider.overrideWithValue(_FakeReviewRepository()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: AdminHomeScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(dash.daysRequested, [90]);
+    await tester.ensureVisible(find.byKey(const Key('platformSeriesRange')));
+    await tester.tap(find.text('7d'));
+    await tester.pumpAndSettle();
+    expect(dash.daysRequested, [90, 7]);
   });
 
   testWidgets('S-031 AC16: admin home shows platform stats, not the web placeholder', (tester) async {

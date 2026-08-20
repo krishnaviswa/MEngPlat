@@ -142,7 +142,7 @@ class _PhoneOtpPanelState extends ConsumerState<PhoneOtpPanel> {
             key: const Key('sendPhoneCodeButton'),
             style: FilledButton.styleFrom(minimumSize: _filled48),
             onPressed: canSend ? _sendCode : null,
-            child: const Text('Send SMS code'),
+            child: const Text('Get OTP'),
           )
         else ...[
           if (widget.fullName == null || widget.fullName!.isEmpty)
@@ -170,7 +170,7 @@ class _PhoneOtpPanelState extends ConsumerState<PhoneOtpPanel> {
             key: const Key('verifyPhoneCodeButton'),
             style: FilledButton.styleFrom(minimumSize: _filled48),
             onPressed: canVerify ? _verifyCode : null,
-            child: const Text('Verify and sign in'),
+            child: const Text('Verify OTP'),
           ),
         ],
       ],

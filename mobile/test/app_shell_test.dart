@@ -233,7 +233,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('signInTab')));
     await _pumpFrames(tester);
-    expect(find.byKey(const Key('emailField')), findsOneWidget);
+    expect(find.byKey(const Key('loginMethodOtp')), findsOneWidget);
     expect(find.byKey(const Key('primaryNav')).hitTestable(), findsNothing);
 
     container.dispose();
@@ -273,7 +273,7 @@ void main() {
     await _pumpFrames(tester);
     await container.read(authControllerProvider.notifier).logout();
     await _pumpFrames(tester);
-    expect(find.byKey(const Key('emailField')), findsOneWidget);
+    expect(find.byKey(const Key('continueAsGuestButton')), findsOneWidget);
     expect(find.byKey(const Key('accountIdentity')), findsNothing);
 
     container.dispose();

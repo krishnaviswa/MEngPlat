@@ -60,7 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         key: const Key('listBusinessCustomerDialog'),
         title: const Text('List a business'),
         content: const Text(
-          'This login is a customer account. Shop tools, QR, and payments are on a merchant login. Sign out and register as a merchant, or use the demo merchant account.',
+          'Shop tools need a merchant login. Sign out and register as a merchant.',
         ),
         actions: [
           FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
@@ -213,15 +213,19 @@ class _HeroSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Local businesses, reviewed with clarity',
+            'Find local shops',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
                 ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
-            'Find neighborhood shops with photos and ratings. AI notes are suggestions, not verdicts.',
+            'Photos and ratings. AI is a suggestion.',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white.withValues(alpha: 0.92)),
           ),
           const SizedBox(height: 20),
@@ -275,7 +279,7 @@ class _HeroSection extends StatelessWidget {
                 key: const Key('homeExploreButton'),
                 style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF0369A1)),
                 onPressed: onExplore,
-                child: const Text('Explore listings'),
+                child: const Text('Explore'),
               ),
               OutlinedButton(
                 key: const Key('homeRegisterButton'),
@@ -307,7 +311,7 @@ class _SocialProofRail extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'BUSINESSES USING MERCHANTHUB',
+            'SHOPS ON MERCHANTHUB',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   letterSpacing: 1.6,
                   fontWeight: FontWeight.w600,
@@ -473,7 +477,7 @@ class _CityIndex extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Neighborhoods on the map', style: Theme.of(context).textTheme.titleMedium),
+          Text('Neighborhoods', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           for (final city in cities)
             ListTile(
@@ -551,7 +555,7 @@ class _FeaturedGrid extends StatelessWidget {
     final title = featuredCity != null ? 'Explore $featuredCity' : 'Featured businesses';
     return Padding(
       key: const Key('featuredGrid'),
-      padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+      padding: const EdgeInsets.fromLTRB(4, 16, 4, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -560,19 +564,14 @@ class _FeaturedGrid extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: Theme.of(context).textTheme.headlineSmall),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Photos, ratings, AI suggestions',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 ),
-                TextButton(onPressed: onViewAll, child: Text(featuredCity != null ? 'View all in $featuredCity' : 'View all')),
+                TextButton(onPressed: onViewAll, child: const Text('See all')),
               ],
             ),
           ),
@@ -586,13 +585,13 @@ class _FeaturedGrid extends StatelessWidget {
                     TextSpan(
                       children: [
                         const TextSpan(
-                          text: 'Why locals love it (suggestion): ',
+                          text: 'AI (suggestion): ',
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                         TextSpan(text: business.aiMerchantSummary),
                       ],
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -619,45 +618,61 @@ class _ReviewVoices extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       key: const Key('reviewVoices'),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Voices from the neighborhood', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 4),
-          Text(
-            'Recent reviews. AI notes on listing pages are suggestions.',
-            style: Theme.of(context).textTheme.bodyMedium,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              'Recent reviews',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           for (final item in items)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      RatingStars(rating: item.review.rating),
-                      const SizedBox(width: 8),
-                      Text(item.review.rating.toStringAsFixed(1)),
-                    ],
-                  ),
-                  if (item.review.title != null && item.review.title!.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(item.review.title!, style: Theme.of(context).textTheme.titleMedium),
-                  ],
-                  const SizedBox(height: 4),
-                  Text(item.review.body, maxLines: 2, overflow: TextOverflow.ellipsis),
-                  TextButton(
-                    onPressed: () => GoRouter.of(context).push('/businesses/${item.business.slug}'),
-                    child: Text(
-                      item.business.city.isEmpty
-                          ? item.business.name
-                          : '${item.business.name} · ${item.business.city}',
+            Card(
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        RatingStars(rating: item.review.rating, size: 16),
+                        const SizedBox(width: 8),
+                        Text(item.review.rating.toStringAsFixed(1)),
+                      ],
                     ),
-                  ),
-                ],
+                    if (item.review.title != null && item.review.title!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        item.review.title!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    Text(item.review.body, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: () => GoRouter.of(context).push('/businesses/${item.business.slug}'),
+                        child: Text(
+                          item.business.city.isEmpty
+                              ? item.business.name
+                              : '${item.business.name} · ${item.business.city}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],

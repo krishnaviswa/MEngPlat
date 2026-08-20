@@ -22,14 +22,10 @@ class GoogleSignInButton extends ConsumerWidget {
     final client = asyncClient.valueOrNull;
     if (client == null || !client.isConfigured) return const SizedBox.shrink();
 
-    final scheme = Theme.of(context).colorScheme;
-
-    return FilledButton(
+    return OutlinedButton(
       key: const Key('googleSignInButton'),
-      style: FilledButton.styleFrom(
+      style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(48),
-        backgroundColor: scheme.surfaceContainerHighest,
-        foregroundColor: scheme.onSurface,
       ),
       onPressed: enabled
           ? () async {
