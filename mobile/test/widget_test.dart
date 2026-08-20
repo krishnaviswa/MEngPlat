@@ -43,6 +43,11 @@ void main() {
     );
     addTearDown(container.dispose);
 
+    tester.view.physicalSize = const Size(400, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -54,7 +59,9 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('emailField')), 'test@example.com');
     await tester.enterText(find.byKey(const Key('passwordField')), 'password123');
-    await tester.tap(find.byKey(const Key('submitButton')));
+    final submit = find.byKey(const Key('submitButton'));
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('mfaCodeField')), findsOneWidget);

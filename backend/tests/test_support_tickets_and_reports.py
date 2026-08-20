@@ -174,6 +174,34 @@ async def test_mine_tickets_anonymous_401(client):
 
 
 @pytest.mark.asyncio
+async def test_get_own_ticket_200_other_user_404_admin_200(client):
+    customer = await _register(client, "customer")
+    other = await _register(client, "customer", email=f"other-{uuid.uuid4().hex[:8]}@example.com")
+    created = await client.post("/api/v1/support-tickets", json=TICKET_BODY, headers=customer["headers"])
+    assert created.status_code == 201
+    ticket_id = created.json()["id"]
+
+    own = await client.get(f"/api/v1/support-tickets/{ticket_id}", headers=customer["headers"])
+    assert own.status_code == 200, own.text
+    assert own.json()["id"] == ticket_id
+    assert own.json()["issue"] == TICKET_BODY["issue"]
+
+    stranger = await client.get(f"/api/v1/support-tickets/{ticket_id}", headers=other["headers"])
+    assert stranger.status_code == 404
+
+    admin = await _register_admin(client)
+    as_admin = await client.get(f"/api/v1/support-tickets/{ticket_id}", headers=admin["headers"])
+    assert as_admin.status_code == 200
+    assert as_admin.json()["id"] == ticket_id
+
+    anon = await client.get(f"/api/v1/support-tickets/{ticket_id}")
+    assert anon.status_code == 401
+
+    missing = await client.get(f"/api/v1/support-tickets/{uuid.uuid4()}", headers=customer["headers"])
+    assert missing.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_create_shop_report_201_and_anonymous_401(client):
     merchant = await _register(client, "merchant")
     business = await _create_business(client, merchant["headers"])

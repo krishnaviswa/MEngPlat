@@ -8,6 +8,15 @@
 Full evaluation model (pyramid, mocks, staging, Playwright plan): `README.md` §11 and
 `docs/agents/adrs/ADR-009-web-functional-e2e.md`.
 
+## Feature → test index (keep current)
+
+Master lookup: `README.md` §11 **Feature → test index**. Slice TRs remain the AC-level map.
+
+- **Default:** run only the backend / web / mobile files on that row. Do not run the whole suite on every fix.
+- **Full cheap pack** (`pytest`, `npm test`, `flutter test`): pre-merge, shared helper (`auth_helpers`, `security.py`, `api.ts`, app shell), or when asked.
+- **Playwright / emulator:** only when the index e2e column applies (auth, payments, review create, SSR) or when asked.
+- Same PR as new or moved tests: add or adjust the index row.
+
 ## Backend (pytest)
 - `httpx.AsyncClient` + `ASGITransport` against `app.main:app`
 - Test auth, RBAC, happy path per router
@@ -21,7 +30,7 @@ Full evaluation model (pyramid, mocks, staging, Playwright plan): `README.md` §
 - GitHub: `.github/workflows/web-e2e.yml` is **`workflow_dispatch` only** — not on push/PR, not a deploy step. Download `playwright-traces`.
 - Run against Compose or staging, never live LLM/payment keys
 
-## Before merge
+## Before merge (full cheap pack — not the day-to-day default)
 - `cd backend && pytest`
 - `cd frontend && npm test`
 - `cd mobile && flutter analyze && flutter test` (also enforced by `.githooks/pre-commit` when `mobile/` is staged)

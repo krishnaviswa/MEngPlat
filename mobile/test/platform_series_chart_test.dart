@@ -37,6 +37,8 @@ void main() {
     expect(find.text('Businesses approved'), findsOneWidget);
     expect(find.text('New reviews'), findsOneWidget);
     expect(find.text('New reports'), findsOneWidget);
+
+    expect(tester.getSize(find.byKey(const Key('platformSeriesChart'))).width, greaterThan(300));
   });
 
   testWidgets('AC4: chart labels never present the data as AI output', (tester) async {

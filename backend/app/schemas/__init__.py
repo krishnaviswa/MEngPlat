@@ -111,9 +111,11 @@ class UserResponse(BaseModel):
 
 
 class UserProfileUpdate(BaseModel):
-    """Self-service PATCH /auth/me. email, role, is_active, and TOTP secrets are omitted."""
+    """Self-service PATCH /auth/me. role, is_active, and TOTP secrets are omitted.
+    `email` is applied only when a valid `reauth_token` is supplied."""
 
     full_name: str | None = Field(default=None, min_length=1, max_length=255)
+    email: EmailStr | None = None
     avatar_url: str | None = None
     phone: str | None = Field(default=None, max_length=50)
     address_line1: str | None = Field(default=None, max_length=255)
@@ -260,13 +262,13 @@ class ReviewCreate(BaseModel):
     business_id: UUID
     rating: int = Field(ge=1, le=5)
     title: str | None = None
-    body: str = Field(min_length=10)
+    body: str = Field(min_length=1)
 
 
 class ReviewUpdate(BaseModel):
     rating: int | None = Field(default=None, ge=1, le=5)
     title: str | None = None
-    body: str | None = Field(default=None, min_length=10)
+    body: str | None = Field(default=None, min_length=1)
 
 
 class AIAnalysisResponse(BaseModel):
@@ -436,6 +438,19 @@ class NotificationResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class ReauthRequest(BaseModel):
+    """Exactly one of: password, totp_code, or phone+otp_code."""
+
+    password: str | None = None
+    totp_code: str | None = Field(default=None, max_length=16)
+    phone: str | None = Field(default=None, max_length=20)
+    otp_code: str | None = Field(default=None, max_length=16)
+
+
+class ReauthResponse(BaseModel):
+    reauth_token: str
 
 
 class PhoneOtpRequest(BaseModel):

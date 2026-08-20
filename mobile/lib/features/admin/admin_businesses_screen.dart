@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../businesses/business_list_provider.dart';
@@ -32,8 +33,17 @@ class AdminBusinessesScreen extends ConsumerWidget {
             itemBuilder: (context, index) {
               final business = items[index];
               return ListTile(
-                title: Text(business.name),
-                subtitle: Text('${business.city} · ${business.status.name}'),
+                title: Text(business.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text(
+                  '${business.city} · ${business.status.name}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () {
+                  final router = GoRouter.maybeOf(context);
+                  if (router == null) return;
+                  router.push('/businesses/${business.slug}');
+                },
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

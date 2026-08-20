@@ -10,8 +10,11 @@ import 'google_sign_in_client.dart';
 import 'phone_otp_panel.dart';
 import '../../ui/friendly_error.dart';
 import '../../ui/widgets.dart';
+import '../theme/theme_toggle_button.dart';
 
 enum _Step { credentials, enroll, verify }
+
+enum _LoginMethod { password, phone, authenticator }
 
 /// Password login (mandatory authenticator, see S-020): credentials, then
 /// either a first-time enrollment step (QR + secret) or a returning-user
@@ -33,6 +36,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _codeController = TextEditingController();
 
   _Step _step = _Step.credentials;
+  _LoginMethod _loginMethod = _LoginMethod.password;
   String? _mfaToken;
   TotpSetupResponse? _setup;
   bool _loading = false;
@@ -158,19 +162,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_titleFor(_step))),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              const Color(0xFFBAE6FD),
-              const Color(0xFFEDE9FE),
-              Theme.of(context).colorScheme.surface,
-            ],
-          ),
-        ),
+      appBar: AppBar(title: Text(_titleFor(_step)), actions: const [ThemeToggleButton()]),
+      body: MhCanvas(
         child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 400),
@@ -207,18 +200,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   if (_step == _Step.credentials) ..._credentialsFields(),
                   if (_step == _Step.enroll) ..._enrollFields(),
                   if (_step == _Step.verify) ..._verifyFields(),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    key: const Key('submitButton'),
-                    onPressed: _loading || (_step == _Step.enroll && _setup == null) ? null : _submit,
-                    child: _loading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(_buttonLabelFor(_step)),
-                  ),
+                  if (_step != _Step.credentials || _loginMethod != _LoginMethod.phone) ...[
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      key: const Key('submitButton'),
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                      onPressed: _loading || (_step == _Step.enroll && _setup == null) ? null : _submit,
+                      child: _loading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(_buttonLabelFor(_step)),
+                    ),
+                  ],
                   if (_step != _Step.credentials)
                     TextButton(
                       key: const Key('backButton'),
@@ -231,10 +227,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onPressed: _loading ? null : () => context.go('/register'),
                       child: const Text('Create account'),
                     ),
-                    // ADR-003 / S-064: guest browsing entry — marketing home
-                    // first, Explore still one tab away.
-                    TextButton(
+                    FilledButton(
                       key: const Key('continueAsGuestButton'),
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                       onPressed: _loading ? null : () => context.go('/home'),
                       child: const Text('Continue without signing in'),
                     ),
@@ -247,9 +242,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    GoogleSignInButton(onCredential: _onGoogleCredential, enabled: !_loading),
-                    const SizedBox(height: 8),
-                    const PhoneOtpPanel(),
+                    GoogleSignInButton(
+                      onCredential: _onGoogleCredential,
+                      onError: (message) => setState(() => _error = message),
+                      enabled: !_loading,
+                    ),
                   ],
                 ],
               ),
@@ -263,37 +260,65 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   List<Widget> _credentialsFields() {
     return [
-      TextFormField(
-        key: const Key('emailField'),
-        controller: _emailController,
-        keyboardType: TextInputType.emailAddress,
-        decoration: const InputDecoration(labelText: 'Email'),
-        validator: (value) => (value == null || !value.contains('@')) ? 'Enter a valid email' : null,
+      SegmentedButton<_LoginMethod>(
+        showSelectedIcon: false,
+        segments: const [
+          ButtonSegment(
+            value: _LoginMethod.password,
+            label: Text('Password', key: Key('loginMethodPassword')),
+          ),
+          ButtonSegment(
+            value: _LoginMethod.phone,
+            label: Text('Phone', key: Key('loginMethodPhone')),
+          ),
+          ButtonSegment(
+            value: _LoginMethod.authenticator,
+            label: Text('Authenticator', key: Key('loginMethodAuthenticator')),
+          ),
+        ],
+        selected: {_loginMethod},
+        onSelectionChanged: (next) {
+          if (_loading || next.isEmpty) return;
+          setState(() => _loginMethod = next.first);
+        },
       ),
-      const SizedBox(height: 12),
-      TextFormField(
-        key: const Key('passwordField'),
-        controller: _passwordController,
-        obscureText: true,
-        decoration: const InputDecoration(labelText: 'Password'),
-        validator: (value) => (value == null || value.length < 8) ? 'Password is too short' : null,
-      ),
-      Align(
-        alignment: Alignment.centerRight,
-        child: TextButton(
-          key: const Key('forgotPasswordLink'),
-          onPressed: _loading ? null : () => context.go('/forgot-password'),
-          child: const Text('Forgot password?'),
+      const SizedBox(height: 16),
+      if (_loginMethod == _LoginMethod.phone) const PhoneOtpPanel(),
+      if (_loginMethod != _LoginMethod.phone) ...[
+        TextFormField(
+          key: const Key('emailField'),
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(labelText: 'Email'),
+          validator: (value) => (value == null || !value.contains('@')) ? 'Enter a valid email' : null,
         ),
-      ),
-      const SizedBox(height: 12),
-      Text(
-        googleSignInIsConfigured(ref.watch(googleSignInClientProvider))
-            ? 'Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.). '
-                'Gmail sign-in below skips that step.'
-            : 'Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.).',
-        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
-      ),
+        const SizedBox(height: 12),
+        TextFormField(
+          key: const Key('passwordField'),
+          controller: _passwordController,
+          obscureText: true,
+          decoration: const InputDecoration(labelText: 'Password'),
+          validator: (value) => (value == null || value.length < 8) ? 'Password is too short' : null,
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            key: const Key('forgotPasswordLink'),
+            onPressed: _loading ? null : () => context.go('/forgot-password'),
+            child: const Text('Forgot password?'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          _loginMethod == _LoginMethod.authenticator
+              ? "You'll enter your authenticator code next"
+              : googleSignInIsConfigured(ref.watch(googleSignInClientProvider))
+                  ? 'Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.). '
+                      'Gmail sign-in below skips that step.'
+                  : 'Email and password sign-in requires an authenticator app (Google Authenticator, Authy, etc.).',
+          style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+      ],
     ];
   }
 

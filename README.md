@@ -18,7 +18,7 @@ Built as a portfolio-grade full-stack MVP demonstrating Forward Deployed Enginee
 | **Architect**           | [§2 Logical design](#2-logical-design), [§3 Architecture](#3-architecture), [§4 Why this stack](#4-why-this-stack), [§9 Security](#9-security)                                                                   | Shape of the system, the pattern behind it, the trade-offs taken            |
 | **Senior developer**    | §3, [§5 Domain model](#5-domain-model), [§6 Flows](#6-feature-flows), §9, [§14 Known gaps](#14-known-gaps--roadmap), [web↔mobile parity](#web--mobile-feature-parity-tracker)                                    | Where the seams are, what is not finished, and mobile gap status            |
 | **Developer**           | [§1 Quick start](#1-quick-start), [§7 API](#7-api-reference), [§8 Frontend](#8-frontend-guide), [§12 Repo layout](#12-repo-layout--conventions) (incl. [web↔mobile parity](#web--mobile-feature-parity-tracker)) | Get running, then find the file — and the mobile status of each web feature |
-| **Tester**              | [§11 Testing](#11-testing) (evaluation model), then §6, §7, §9, [§13 Workflow](#13-multi-agent-workflow), [ADR-009](docs/agents/adrs/ADR-009-web-functional-e2e.md)                                               | What is proven today, how new slices stay covered, Playwright staging plan  |
+| **Tester**              | [§11 Testing](#11-testing) (evaluation model + [feature → test index](#feature--test-index)), then §6, §7, §9, [§13 Workflow](#13-multi-agent-workflow), [ADR-009](docs/agents/adrs/ADR-009-web-functional-e2e.md) | Index-row files for a fix; AC matrix for a slice; Playwright only when the e2e column applies |
 | **Industry / investor** | [§16 Industry and investor overview](#16-industry-and-investor-overview), then §2 and §14                                                                                                                        | Honest loop, what is shipped vs planned, fee model                          |
 
 
@@ -43,7 +43,7 @@ Built as a portfolio-grade full-stack MVP demonstrating Forward Deployed Enginee
 | 8   | [Frontend guide](#8-frontend-guide)                                                                                                  |
 | 9   | [Security](#9-security)                                                                                                              |
 | 10  | [Deployment](#10-deployment)                                                                                                         |
-| 11  | [Testing](#11-testing)                                                                                                               |
+| 11  | [Testing](#11-testing) (incl. [feature → test index](#feature--test-index))                                                            |
 | 12  | [Repo layout & conventions](#12-repo-layout--conventions) (incl. [Web ↔ mobile parity tracker](#web--mobile-feature-parity-tracker), [Mobile parity roadmap](#mobile-parity-roadmap)) |
 | 13  | [Multi-agent workflow](#13-multi-agent-workflow)                                                                                     |
 | 14  | [Known gaps & roadmap](#14-known-gaps--roadmap)                                                                                      |
@@ -1142,12 +1142,13 @@ All ten routers are mounted with the `/api/v1` prefix in `[main.py](backend/app/
 | POST   | `/auth/mfa/totp/verify`  | MFA verify token | Verify TOTP → session tokens                                                                  |
 | POST   | `/auth/refresh`          | Public           | Refresh tokens                                                                                |
 | GET    | `/auth/me`               | Bearer           | Current user                                                                                  |
-| PATCH  | `/auth/me`               | Bearer           | Update profile (name, phone, address, national ID: pan/aadhaar/other). Schema still accepts `avatar_url`; the web profile form no longer submits it (**S-085** uses `POST /auth/me/avatar`). Merchant ID required before `POST /businesses`. Admin user list returns a **masked** number. |
+| PATCH  | `/auth/me`               | Bearer           | Update profile (name, phone, address, national ID: pan/aadhaar/other). Optional `email` is applied only with a valid short-lived `reauth_token` query param (or `X-Reauth-Token` header) from `POST /auth/reauth`. Schema still accepts `avatar_url`; the web profile form no longer submits it (**S-085** uses `POST /auth/me/avatar`). Merchant ID required before `POST /businesses`. Admin user list returns a **masked** number. |
 | POST   | `/auth/me/avatar`        | Bearer           | **S-085:** upload/replace the caller's own profile photo (`multipart` `file`; same type/size rules as photo upload). Returns `UserResponse`. Own-user only (no `user_id`). 400 unsupported type or >5MB; 401 unauthenticated. Not `POST /photos/upload` — no `Photo` row, no AI image analysis. |
+| POST   | `/auth/reauth`           | Bearer           | Step-up check before email change. Body: exactly one of `password`, `totp_code`, or `phone`+`otp_code`. Returns `{ "reauth_token": "..." }` (JWT `type=reauth`, ~5 minutes). 401 invalid credentials; 400 wrong method mix. |
 | GET    | `/auth/google-config`    | Public           | Web OAuth client ID for native Google Sign-In (`{ "client_id": "" }` when unset). Not a secret — same value as `NEXT_PUBLIC_GOOGLE_CLIENT_ID`. |
 | POST   | `/auth/google`           | Public           | Google ID-token sign-in (register-or-login; no TOTP)                                          |
 | POST   | `/auth/phone/request`    | Public           | Send SMS OTP (generic 200; mock logs the code). 400 invalid number; 503 if Redis/SMS down     |
-| POST   | `/auth/phone/verify`     | Public           | Verify OTP → JWT (skips TOTP). First visit needs `full_name`; optional `role` customer/merchant for **new** numbers only. Existing `User.phone` (incl. admin) uses the stored role. New `role=admin` → 403 (**S-092**) |
+| POST   | `/auth/phone/verify`     | Public           | Verify OTP → JWT (skips TOTP). First visit without `full_name` gets `User {last 4 of E.164}` (**S-109**). Optional `role` customer/merchant for **new** numbers only. Existing `User.phone` (incl. admin) uses the stored role. New `role=admin` → 403 (**S-092**) |
 | POST   | `/auth/national-id/aadhaar/mock-otp/request` | Bearer | S-070: start a MOCK Aadhaar OTP challenge (`{aadhaar_number}`, 12 digits). Not UIDAI — returns `dev_code` only when `DEBUG=true` |
 | POST   | `/auth/national-id/aadhaar/mock-otp/verify`  | Bearer | S-070: verify the mock code (`{code}`); on success saves `national_id_type=aadhaar` + the number. 401 on wrong/expired code |
 | POST   | `/auth/logout`           | Bearer           | Blocklist caller's access token (+ optional refresh token)                                    |
@@ -1305,6 +1306,7 @@ Upload form fields: `file`, `business_id`, `review_id`, `photo_type`, `caption`.
 | GET | `/support/contact` | Public | `{ email, support_path }` from `SUPPORT_EMAIL` (S-087) |
 | POST | `/support-tickets` | Optional | Create ticket: name, phone, issue, optional `business_id` (S-088) |
 | GET | `/support-tickets/mine` | User | Caller's tickets (S-088) |
+| GET | `/support-tickets/{ticket_id}` | Reporter or admin | Single ticket; 404 if missing or not the reporter (admin may fetch any) (S-108) |
 | GET | `/business-reports/mine` | User | Caller's shop reports + messages (S-089) |
 | POST | `/business-reports/{id}/messages` | Reporter | Follow-up on own shop report (S-089) |
 
@@ -2001,7 +2003,7 @@ Search uses **Leaflet + OSM tiles** — no Google Maps API key is required. Lega
 
 ID-token flow via Google Identity Services — no client secret, no redirect route. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials): create an **OAuth client ID** of type **Web application**, and add both your local (`http://localhost:3000`) and deployed frontend origins under **Authorized JavaScript origins** (no path, no trailing slash — Google matches the origin exactly). Set the resulting client ID as `GOOGLE_CLIENT_ID` on the backend and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` on the frontend — same value, both places. `POST /api/v1/auth/google` verifies the token's signature, audience, and issuer server-side before ever trusting it.
 
-**Flutter** uses that same **Web** client ID. `--dart-define=GOOGLE_CLIENT_ID=...` is an optional local override (`AppConfig.googleClientId`). If it is empty, Login/Register call `GET /api/v1/auth/google-config` on `API_BASE_URL` and show **Continue with Google** when the backend has `GOOGLE_CLIENT_ID` set. Sideload APK / Play AAB CI may still pass `vars.MOBILE_GOOGLE_CLIENT_ID` as a bake-time override. Native Android also needs a separate **Android** OAuth client in the same Google Cloud project: package `com.merchanthub.merchanthub_mobile` plus the SHA-1 of the **debug** keystore (GitHub-hosted sideload APKs) and of the **release** keystore (Play). Do not create a second backend audience — `serverClientId` stays the Web client ID so the ID token `aud` matches `GOOGLE_CLIENT_ID`.
+**Flutter** uses that same **Web** client ID. `--dart-define=GOOGLE_CLIENT_ID=...` is an optional local override (`AppConfig.googleClientId`). If it is empty, Login/Register call `GET /api/v1/auth/google-config` on `API_BASE_URL` and show **Continue with Google** when the backend has `GOOGLE_CLIENT_ID` set. Sideload APK / Play AAB CI may still pass `vars.MOBILE_GOOGLE_CLIENT_ID` as a bake-time override. Native Android also needs a separate **Android** OAuth client in the same Google Cloud project: package `com.merchanthub.merchanthub_mobile` plus the SHA-1 of the **sideload** keystore (`mobile/android/sideload.keystore`, used by GitHub Actions APKs when `key.properties` is absent) **and** of the **release** keystore (Play). Paste this SHA-1 on that Android OAuth client: `C0:6D:89:4E:25:E3:92:DA:DD:DE:95:75:5E:8B:68:72:7F:B8:A4:D6`. Do not create a second backend audience — `serverClientId` stays the Web client ID so the ID token `aud` matches `GOOGLE_CLIENT_ID`.
 
 ### CI/CD
 
@@ -2062,13 +2064,71 @@ Do not invent a second checklist file. Use this sequence every time:
 1. **Product** — numbered Given/When/Then on the slice (`docs/agents/slices/`). If an AC is unnumbered, Tester cannot map it.
 2. **Architecture** — API/RBAC/data/cache on the same slice; ADR only if a vendor or auth/schema pattern changes.
 3. **Builder** — code + this README (§6/§7/§12/§14 as applicable).
-4. **Tester** — `TP-S-XXX` then `TR-S-XXX` with an AC coverage matrix. **Every AC** → pytest and/or RTL **or** an explicit Manual ID.
-5. **Regression pack** — `cd backend && pytest` and `cd frontend && npm test` with `AI_PROVIDER=mock` (and email/payments/storage defaults). This is the pack that must stay green when someone “just fixes” a dashboard tile.
-6. **Browser layer (S-010)** — local: Compose up, then `E2E=1 pytest tests/e2e`. GitHub: Actions → **Web e2e (Playwright)** → Run workflow → download `playwright-traces`. Not after every fix. A test with no `expect()` is a recording, not a test.
+4. **Tester** — `TP-S-XXX` then `TR-S-XXX` with an AC coverage matrix. **Every AC** → pytest and/or RTL **or** an explicit Manual ID. Same PR updates the [feature → test index](#feature--test-index) below.
+5. **Targeted tests (default)** — run **only the files on the index row** for the feature you changed (backend + web and/or mobile as they exist). Do **not** run the whole cheap suite on every fix.
+6. **Full cheap pack (when necessary)** — `cd backend && pytest` and `cd frontend && npm test` (and `cd mobile && flutter analyze && flutter test` if mobile changed) with `AI_PROVIDER=mock`. Use this for pre-merge, a shared helper (`auth_helpers`, `security.py`, `api.ts`, app shell), or when asked. This is the pack that must stay green before `main`.
+7. **Browser layer (S-010)** — local: Compose up, then `E2E=1 pytest tests/e2e`. GitHub: Actions → **Web e2e (Playwright)** → Run workflow → download `playwright-traces`. Not after every fix. Run the matching e2e column if the change touches auth, payments, review create, or SSR data fetching. A test with no `expect()` is a recording, not a test.
 
-If the change is a **tiny fix** (copy, CSS, one handler): still run layers 1–3 locally. If it touches auth, payments, review create, or SSR data fetching: that is when you need layer 5, even if Jest is green.
+**Growth rule:** new user-facing web capability → new or extended Playwright flow in TP-S-010 **plus** a §12 parity row. New port/vendor → adapter tests, not a live key in CI. New AC → a named test **and** an index-row update, not “covered by the old dashboard file.”
 
-**Growth rule:** new user-facing web capability → new or extended Playwright flow in TP-S-010 **plus** a §12 parity row. New port/vendor → adapter tests, not a live key in CI. New AC → a named test, not “covered by the old dashboard file.”
+### Feature → test index
+
+This table is the **master lookup**. Slice reports (`docs/agents/test-reports/TR-S-XXX-*.md`) stay the AC-level map (criterion → exact test name). This index stays the “which files do I run for this feature?” map. **Keep it current in the same PR as new or moved tests.**
+
+**Default run (from each package root, `AI_PROVIDER=mock`):**
+
+```bash
+# Backend — one or more files from the row (ASGI cases need local Postgres/Redis)
+cd backend && python -m pytest tests/test_phone_otp.py -q
+
+# Web RTL
+cd frontend && npx jest src/components/__tests__/PhoneOtpPanel.test.tsx
+
+# Mobile widget (not the emulator)
+cd mobile && flutter test test/phone_otp_panel_test.dart
+```
+
+`backend/tests/e2e/` is skipped unless `E2E=1`. Emulator integration is `mobile/integration_test/app_test.dart` (CI / dispatch only). Helpers that are **not** suites: `backend/tests/auth_helpers.py`, `backend/tests/e2e/pages/`, `mobile/test/watch_router_app.dart`.
+
+Paths below are shortened: backend `tests/` = `backend/tests/`; web files live under `frontend/src/`; mobile files live under `mobile/test/` unless noted.
+
+
+| Area | Backend (pytest) | Web (Jest / RTL) | Mobile (`flutter test`) | Browser e2e (`E2E=1`) | Slice TRs |
+| ---- | ---------------- | ---------------- | ----------------------- | --------------------- | --------- |
+| Health / security headers | `test_api.py` (health) | — | `app_config_test.dart` | `test_smoke_compose.py` | — |
+| Register / login / JWT / Google | `test_api.py`, `test_auth_hardening.py`, `test_google_auth.py`, `test_google_config.py`, `test_s018_s020_login_profile.py` | `LoginForm`, `RegisterForm`, `AlreadySignedIn`, `RequireAuth`, `AuthMethodToggle`, `lib/__tests__/api.test.ts` | `register_google_auth_test.dart`, `google_client_id_test.dart`, `post_login_path_test.dart`, `widget_test.dart` | `test_flow_anonymous.py`, `test_flow_customer.py`, `test_token_security.py` | TR-S-018, 067, 092, 098, 102 |
+| Logout / session | `test_auth_logout.py`, `test_cache_blocklist.py`, `test_dependencies_blocklist.py` | `RequireAuth`, `Navbar` | `app_shell_test.dart`, `post_login_path_test.dart` | `test_token_security.py` | TR-S-018, 067 |
+| MFA / TOTP | `test_mfa.py`, `test_s018_s020_login_profile.py` | `LoginForm.test.tsx` | — | — | TR-S-020 |
+| Phone OTP | `test_phone_otp.py` | `PhoneOtpPanel`, `AuthMethodToggle` | `phone_otp_panel_test.dart`, `phone_otp_router_redirect_test.dart` | — | TR-S-044, 055, 068, 092 |
+| Forgot / reset password | `test_forgot_reset_password.py`, `test_password_reset.py` | `ForgotPasswordForm`, `ResetPasswordForm` | `forgot_password_screen_test.dart` | — | TR-S-054 |
+| Step-up / reauth | `test_reauth.py` | — | — | — | (add TR when sliced) |
+| Profile / national ID / avatar | `test_national_id.py`, `test_avatar.py`, `test_s018_s020_login_profile.py` | `ProfilePage`, `MerchantNationalIdCard`, `ui/Avatar` | `profile_screen_test.dart` | — | TR-S-019, 043, 056, 070, 071, 072, 085, 095 |
+| List / edit business, address, hours, onboarding | `test_businesses_mine.py`, `test_business_address_reverify.py`, `test_business_service_summary.py`, `test_business_processing_status.py` | `BusinessForm`, `BusinessHours`, `GooglePlacePicker`, `OnboardingGuidancePanel`, `BusinessPhotoManager` | `business_editor_screen_test.dart`, `business_hours_test.dart`, `my_business_ids_provider_test.dart` | `test_flow_merchant.py` | TR-S-069, 073, 074, 075, 079, 084 |
+| Business list/detail / slugs / cache | `test_businesses_slugs_filter.py`, `test_businesses_cache_invalidation.py`, `test_cache_lock.py` | `BusinessCard`, `search/page` | `business_list_screen_test.dart`, `business_detail_screen_test.dart`, `business_card_test.dart`, `search_controller_test.dart` | `test_flow_anonymous.py` | TR-S-028, 066 |
+| Photos / storage | `test_photos.py`, `test_storage.py` | `BusinessPhotoManager` | (detail/editor photo paths) | — | TR-S-051, 075 |
+| Reviews write / moderate | `test_reviews.py`, `test_content_moderation.py` | `ReviewForm`, `ReviewCard` | `review_form_sheet_test.dart`, `review_card_test.dart`, `reviews_controller_test.dart`, `rating_stars_test.dart` | `test_flow_customer.py` | TR-S-023, 030 |
+| Review list sort / filter / photos | — (API in `test_reviews.py`) | `ReviewsList`, `ReviewCard`, `ui/RatingWidget` | `review_card_test.dart`, `reviews_controller_test.dart` | — | TR-S-046, 058 |
+| Collect review / merchant QR | — | `CollectQrCard`, `app/collect/[businessId]/page` | `collect_review_screen_test.dart`, `share_review_link_sheet_test.dart` | — | TR-S-037–040, 059, 077 |
+| Favorites | `test_favorites.py`, `test_s011_s016_batch.py` | (profile favorites in `ProfilePage`) | `favorites_screen_test.dart`, `favorites_controller_test.dart`, `favorite_toggle_button_test.dart` | — | S-011, TR-S-024 |
+| Search / categories / home marketing | `test_categories_search.py` | `search/page`, `FeaturedGrid`, `CategoryBadges`, `home/SocialProofRail`, `home/ProblemSection` | `home_screen_test.dart`, `search_controller_test.dart` | `test_flow_anonymous.py`, `test_smoke_compose.py` | TR-S-041, 047, 064, 081, 099 |
+| Merchant dashboard / analytics / trends | `test_dashboard.py`, `test_dashboard_deltas.py`, `test_benchmark.py` | `MerchantDashboard`, `Dashboard`, `Charts`, `BenchmarkCard`, `ui/StatCard` | `merchant_dashboard_screen_test.dart`, `dashboard_hub_test.dart`, `platform_series_chart_test.dart`, `role_home_screen_test.dart` | `test_flow_merchant.py` | TR-S-022, 033, 060, 063, 100 |
+| Featured boost / payments | `test_payments.py` | `FeaturedBoostPanel`, `admin/AdminPaymentPanel` | `merchant_dashboard_screen_test.dart` (grow/boost) | — | TR-S-036, 042, 062 |
+| Admin platform / queues / ops nav | `test_admin_platform.py`, `test_admin_platform_asgi.py`, `test_admin_browse.py`, `test_admin_browse_asgi.py`, `test_dashboard.py` (platform keys) | `app/admin/page`, `AdminOpsNav`, `PendingBusinessQueue`, `AllBusinessesQueue`, `AllReviewsQueue`, `drilldown-back-links`, `AdminBackLink` | `admin_home_screen_test.dart`, `admin_route_gating_test.dart`, `admin_copy_test.dart` | `test_flow_admin.py`, `test_rbac_matrix.py` | TR-S-021, 034, 079, 086, 091, 093, 101 |
+| Admin users / categories | (browse + platform files) | `AdminUserPanel`, `AdminCategoryPanel`, `app/admin/businesses/page` | `admin_users_screen_test.dart`, `admin_categories_screen_test.dart` | — | TR-S-041, 080, 082, 083 |
+| Notifications | `test_notifications.py`, `test_notification_scenarios.py` | `NotificationBell` | `notifications_screen_test.dart`, `notification_badge_test.dart`, `unread_count_provider_test.dart` | — | TR-S-025 |
+| Support contact / tickets | `test_support_tickets_and_reports.py` | `SupportTicketForm`, `app/support/page`, `admin/AdminSupportQueue`, `Footer` | `support_screen_test.dart`, `admin_support_queue_screen_test.dart` | — | TR-S-087, 088, 094 |
+| Shop / business reports | `test_support_tickets_and_reports.py` | `ReportShopButton`, `admin/AdminBusinessReportsQueue` | `admin_business_reports_screen_test.dart`, `business_detail_screen_test.dart` | — | TR-S-089, 094 |
+| WhatsApp link / drafts / admin | `test_whatsapp.py`, `test_whatsapp_admin_asgi.py` | `WhatsAppDraftsPanel`, `WhatsAppUpdateCard`, `AdminWhatsAppDraftsQueue`, `CollectQrCard` | `admin_whatsapp_queue_screen_test.dart` | — | TR-S-050, 051, 052, 053, 078 |
+| Google review aggregator | `test_google_reviews.py`, `test_google_config.py` | `ExternalReviews`, `GooglePlacePicker` | — | — | TR-S-048, 076 |
+| AI suggestions / topics / providers | `test_ai_contract.py`, `test_ai_gateway.py`, `test_ai_registry.py`, `test_ai_topics.py`, `test_ai_openai_family.py`, `test_ai_anthropic.py`, `test_ai_provider_config.py`, `test_ai_startup_validation.py` | `AIInsights` | (merchant insights panel via dashboard tests) | — | TR-S-037–040, 049 |
+| Transactional email | `test_email_provider.py`, `test_email_templates.py`, `test_transactional_email_side_effects.py` | — | — | — | TR-S-035 |
+| Rate limit / seed | `test_rate_limit.py`, `test_seed_mode.py` | — | — | — | — |
+| Theme / chrome / dark contrast | — | `ThemeToggle`, `Navbar`, `Footer`, `app/ClientLayout`, `ui/Select` | `app_shell_test.dart`, `theme_toggle_button_test.dart`, `dark_contrast_test.dart`, `widget_test.dart` | — | TR-S-027, 045, 057, 096, 103, 104 |
+| Mobile friendly errors / restyle | — | — | `friendly_error_test.dart`, `relative_time_test.dart`, `home_screen_test.dart`, `merchant_dashboard_screen_test.dart`, `admin_home_screen_test.dart` | — | TR-S-097, 098, 099, 100, 101 |
+| Full role journeys (opt-in) | — | — | `../integration_test/app_test.dart` (emulator, not `flutter test`) | `test_flow_*.py`, `test_rbac_matrix.py`, `test_smoke_compose.py`, `test_token_security.py` | TP-S-010, TR-S-091 |
+
+
+If a file is listed on **more than one row**, run it once when the change sits on that overlap (for example `test_dashboard.py` for merchant stats **and** admin platform keys).
 
 ### Mocked vendors are in-scope functional behaviour
 
@@ -2102,6 +2162,8 @@ Treat mocks as **the staging truth** until keys exist. Assertions belong on the 
 | Structured request logs / APM | **Not built** |
 
 ### How to run (today)
+
+Day-to-day: look up the [feature → test index](#feature--test-index) and run **only those files**. Commands below are the **full cheap pack** (pre-merge / shared helper / when asked).
 
 ```bash
 # Always mock AI (and keep Compose defaults for email/payments/storage)
@@ -2137,7 +2199,7 @@ SSR caveat (must stay in the e2e design): Home, Search, and Business detail fetc
 
 ### CI honesty
 
-README §10 still describes pytest/Jest on every PR. **Current YAML:** `backend-tests.yml` and `frontend-tests.yml` are `workflow_dispatch` only (PR/push commented as a POC). Playwright is a **third** workflow, [`web-e2e.yml`](.github/workflows/web-e2e.yml), also dispatch-only — it must stay off push/PR and off deploy. Re-enabling pytest/Jest on PR is a separate choice and does **not** make Chromium a required check. Until then, **local pytest + npm test is the day-to-day gate.**
+README §10 still describes pytest/Jest on every PR. **Current YAML:** `backend-tests.yml` and `frontend-tests.yml` are `workflow_dispatch` only (PR/push commented as a POC). Playwright is a **third** workflow, [`web-e2e.yml`](.github/workflows/web-e2e.yml), also dispatch-only — it must stay off push/PR and off deploy. Re-enabling pytest/Jest on PR is a separate choice and does **not** make Chromium a required check. Until then, **the §11 index row is the day-to-day gate**; the full local pytest + npm test pack is for pre-merge or shared-helper changes.
 
 ---
 
@@ -2288,7 +2350,7 @@ flutter run -d web-server --web-port=5000 \
 `API_BASE_URL` **flavors** (read via `String.fromEnvironment` in `lib/core/config/app_config.dart`,
 set with `--dart-define`): `http://localhost:8000` for local Compose/local backend; the Railway
 backend URL for staging/prod builds. Same JWT login/refresh flow either way -- only the base URL
-changes. `GOOGLE_CLIENT_ID` dart-define is an optional Web OAuth override; if empty, Login/Register fetch `GET /api/v1/auth/google-config`. Android SHA-1 setup is under [Google sign-in](#google-sign-in).
+changes. `GOOGLE_CLIENT_ID` dart-define is an optional Web OAuth override; if empty, Login/Register fetch `GET /api/v1/auth/google-config`. Sideload CI (`.github/workflows/mobile-build-apk.yml`) also bakes `WEB_BASE_URL` from `vars.MOBILE_WEB_BASE_URL` (default `https://frontend-production-ed77.up.railway.app`). GitHub-hosted sideload APKs are signed with `mobile/android/sideload.keystore` (alias `sideload`); paste SHA-1 `C0:6D:89:4E:25:E3:92:DA:DD:DE:95:75:5E:8B:68:72:7F:B8:A4:D6` on the Android OAuth client for package `com.merchanthub.merchanthub_mobile`. Android SHA-1 setup is under [Google sign-in](#google-sign-in).
 
 **OpenAPI codegen (**`mobile/packages/merchanthub_api/`**):** models and the Dio-based API client
 are generated from the backend's live OpenAPI schema via `openapi-generator-cli` (`dart-dio`
@@ -2360,9 +2422,10 @@ the TOTP verify step using the fixed demo secret (`otp` package, RFC 6238), and 
 business list renders. Screenshot and backend log are uploaded as build artifacts either way.
 
 **CI sideload APK (**`.github/workflows/mobile-build-apk.yml`**):** on every **push to `main`**
-(and via manual `workflow_dispatch` with an optional API URL), builds a debug-signed release APK
-pointed at production (`vars.MOBILE_PROD_API_BASE_URL` or the Railway default). Download the
-`app-release-apk` artifact from Actions — not for Play (that remains `mobile-release-aab.yml`).
+(and via manual `workflow_dispatch` with an optional API URL), builds a sideload-keystore-signed
+release APK pointed at production (`vars.MOBILE_PROD_API_BASE_URL` or the Railway default, plus
+`WEB_BASE_URL` / `GOOGLE_CLIENT_ID` dart-defines). Download the `app-release-apk` artifact from
+Actions — not for Play (that remains `mobile-release-aab.yml`).
 
 #### Web ↔ mobile feature parity tracker
 
@@ -2398,7 +2461,7 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-02 | Auth              | MFA enroll (TOTP QR + secret)                                      | `/login` enroll step                            | `/login` enroll step                                                   | `implemented`   | S-020                                                        |
 | M-03 | Auth              | MFA verify (TOTP code)                                             | `/login` verify step                            | `/login` verify step                                                   | `implemented`   | S-020                                                        |
 | M-04 | Auth              | Google / Gmail sign-in                                             | `/login`, `/register` (`GoogleSignInButton`)    | `/login`, `/register` (`GoogleSignInButton`)                           | `implemented`   | S-029/S-102; skips MFA; dart-define optional; else `GET /auth/google-config`. Android OAuth + SHA-1 still required |
-| M-74 | Auth              | Phone OTP sign-in                                                  | `/login`, `/register` (`AuthMethodToggle` + `PhoneOtpPanel`) | `/login`, `/register` (`PhoneOtpPanel`)                                | `partial`       | S-044/S-055; **S-092** web chooser + admin OTP. Flutter still stacked / no admin OTP chooser |
+| M-74 | Auth              | Phone OTP sign-in                                                  | `/login`, `/register` (`AuthMethodToggle` + `PhoneOtpPanel`) | `/login` SegmentedButton Password/Phone/Authenticator + `PhoneOtpPanel`; `/register` still stacked | `partial`       | S-044/S-055; **S-092** web chooser; **W3** mobile login chooser. Register still stacked |
 | M-05 | Auth              | Register (customer / merchant)                                     | `/register`                                     | `/register`                                                            | `implemented`   | S-029; then TOTP on first password login                     |
 | M-06 | Auth              | Logout                                                             | Navbar, `/settings`, already-signed-in gate     | Account screen (`/account`)                                            | `implemented`   | S-027; was list app-bar only                                 |
 | M-07 | Auth              | Session restore + refresh                                          | `ClientLayout` / `auth.me`                      | `AuthInterceptor` + secure storage                                     | `implemented`   |                                                              |
@@ -2442,7 +2505,7 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-45 | Notifications     | Full list + mark one / mark all                                    | Bell dropdown                                   | `/notifications`                                                       | `implemented`   | S-025                                                        |
 | M-46 | Notifications     | Deep-link to business/review                                       | Weak / none                                     | None                                                                   | `n/a`           | Shared gap                                                   |
 | M-47 | Notifications     | Push (FCM)                                                         | —                                               | —                                                                      | `future`        | Phase 4+; polling today                                      |
-| M-48 | Account           | Profile edit                                                       | `/profile`                                      | `/account/profile`                                                     | `implemented`   | S-029; email/role read-only; favorites stay M-43             |
+| M-48 | Account           | Profile edit                                                       | `/profile`                                      | `/account/profile`                                                     | `implemented`   | S-029; **S-107** email editable with reauth; role chip; favorites stay M-43 |
 | M-49 | Account           | Settings (profile link + logout)                                   | `/settings`                                     | `/account` + `/account/profile` + logout                               | `implemented`   | S-027; profile edit is M-48                                  |
 | M-50 | Merchant          | Dashboard shell + multi-business                                   | `/merchant/dashboard`                           | `/merchant`                                                            | `implemented`   | S-031                                                        |
 | M-51 | Merchant          | Stats tiles + sentiment chart                                      | Dashboard                                       | Dashboard tiles + bars                                                 | `implemented`   | S-031                                                        |
@@ -2466,7 +2529,7 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-68 | Merchant          | Dashboard area/line trend charts + period-over-period delta badges | `/merchant/dashboard`                           | Dashboard volume `LineChart` + area fill; reply-rate / reviews-in-range delta badges | `implemented`   | S-037 (web), S-063 (mobile) — both Accepted                  |
 | M-69 | Merchant          | Competitor rating benchmarking (category + city median)            | `/merchant/dashboard`                           | Merchant Home `BenchmarkCard`                                          | `implemented`   | S-038 (web), S-066 (mobile)                              |
 | M-70 | Merchant          | AI reply drafting ("Draft with AI" button on review cards)         | `/merchant/dashboard`                           | `ReviewCard` composer fills `suggested_response`                       | `implemented`   | S-039 (web), S-066 (mobile); suggestion, not auto-post   |
-| M-71 | Merchant/Customer | Review collection flow (public QR/link wizard, no gating)          | `/collect/[businessId]` (shop by UUID + photo); `/businesses/{slug}/review` thanks screen | `/collect/:slug` + merchant QR/share sheet | `partial` | S-040 (web), S-059 (mobile). Cold QR still opens web `/collect`. Web loads that UUID via `GET /businesses/id/{id}` instead of the top-50 list (which hid name/photo). |
+| M-71 | Merchant/Customer | Review collection flow (public QR/link wizard, no gating)          | `/collect/[businessId]` (shop by slug or UUID); `/businesses/{slug}/review` thanks screen | `/collect/:slug` + merchant QR/share sheet | `partial` | S-040 (web), S-059 / S-106 (mobile). Cold QR still opens web `/collect`. Web resolves UUID via `GET /businesses/id/{id}` or slug via `GET /businesses/{slug}` (404 slug then id). |
 | M-75 | Chrome            | Dark mode (system-matched default, explicit toggle, persisted)     | Navbar `ThemeToggle` (`next-themes`)            | Theme toggle (`ThemeToggleButton`) in Account + Business list app bars | `implemented`   | S-045 (web); S-057 (mobile, Accepted 2026-08-18)              |
 | M-72 | Reviews           | Review-list sort/filter/truncate/lightbox + half-star ratings      | `/businesses/[slug]` (`ReviewsList`, `ReviewCard`, `ui/RatingWidget`) | Business detail review list (`reviewFiltersButton` bottom sheet, `ReviewCard` truncation + photo lightbox) + `RatingStars` half-star on business detail header and `BusinessCard` | `implemented`   | S-046 (web); S-058 (mobile, Accepted 2026-08-18)              |
 | M-76 | Home              | Social proof rail (businesses-using-MerchantHub strip)             | `/` (`SocialProofRail`)                         | `/home` social-proof rail                                              | `implemented`   | S-047 (web); S-064 (mobile)              |
@@ -2481,7 +2544,7 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-85 | Admin             | Admin Users panel role badge (customer/merchant/admin classification) | `/admin` Users panel                            | `/admin/users` role chips                                              | `implemented`   | S-083 (web); **S-093** (mobile) |
 | M-86 | Admin             | Back navigation on admin drill-down screens                         | `/admin/whatsapp`, `/admin/reviews`, `/admin/businesses`, `/admin/businesses/[id]` | `adminBackAppBar` → `/admin` on drill-downs                            | `implemented`   | S-086 (web); **S-093** (mobile) |
 | M-87 | Chrome            | Support contact in footer + `/support`                              | `Footer`, `/support`                            | Account Support tile + public `/support`                               | `implemented`   | S-087 (web); **S-094** (mobile, native chrome not cloned footer) |
-| M-88 | Support           | Customer support tickets + admin queue                              | `/support`, `/admin/support`                    | `/support` + `/admin/support`                                          | `implemented`   | S-088 (web); **S-094** (mobile) |
+| M-88 | Support           | Customer support tickets + admin queue                              | `/support`, `/admin/support`                    | `/support` + `/support/:id` + `/admin/support`                         | `implemented`   | S-088 (web); **S-094** / S-108 (mobile ticket detail, `MH-` short ref) |
 | M-89 | Support           | Shop-level reports (not review reports) + admin queue               | public profile, `/admin/business-reports`       | Report this shop + `/admin/business-reports`                           | `implemented`   | S-089 (web); **S-094** (mobile) |
 | M-90 | Admin             | Operational `/admin` console (ops nav + queue tiles)                | `/admin`                                        | Admin Home ops chips + extra snapshot tiles                            | `implemented`   | S-090 (web); **S-095** (mobile) |
 | M-91 | Account           | Click-to-upload profile avatar (nav + `/profile`, not URL paste)    | Navbar `Avatar` + `/profile`                    | Account avatar + Profile Change photo (`POST /auth/me/avatar`)         | `implemented`   | S-085 (web); **S-095** (mobile) |
@@ -2583,7 +2646,7 @@ flowchart LR
 
 > Do **not** implement until Status is `Specified` and the Architect checklist is complete.
 
-When a slice is **Accepted**, the **same PR** must update this README: §14 implemented vs open (and §16 “built vs next” if the change is investor-visible); §12 parity if user-facing; §6 / §7 if flow or API changed. Do **not** add a new product `.md` / `.txt` checklist — slices, ADRs, and test artifacts stay under `docs/agents/` only.
+When a slice is **Accepted**, the **same PR** must update this README: §14 implemented vs open (and §16 “built vs next” if the change is investor-visible); §12 parity if user-facing; §6 / §7 if flow or API changed; **§11 feature → test index** if tests were added or moved. Do **not** add a new product `.md` / `.txt` checklist — slices, ADRs, and test artifacts stay under `docs/agents/` only.
 
 ### Stages
 
@@ -2593,7 +2656,7 @@ When a slice is **Accepted**, the **same PR** must update this README: §14 impl
 | 1   | **Product Manager** | User story, numbered Given/When/Then acceptance criteria, UX notes, out-of-scope, dependencies, definition of done. Sets `Draft`.                                                      | `docs/agents/slices/S-00X-name.md` (copy `slices/_TEMPLATE.md`)      | *"Act as Product Manager. Create slice S-007 for admin moderation using the template."*   |
 | 2   | **Architect**       | API contract table, RBAC matrix, data-model impact, cache/side-effects, frontend route + rendering choice, flow diagram, risks. ADR if the decision is irreversible. Sets `Specified`. | Same slice file + `docs/agents/adrs/ADR-XXX-*.md`                    | *"Act as Architect. Add technical spec to S-007 including API contract and RBAC matrix."* |
 | 3   | **Builder**         | Code + doc updates. Sets `Testing`.                                                                                                                                                    | `backend/`, `frontend/`, README §7                                   | *"Implement slice S-007 per the architect spec."*                                         |
-| 4   | **Tester**          | Test plan, then test report with an AC→test coverage matrix, plus pytest/RTL tests. Recommends Ship or Rework.                                                                         | `docs/agents/test-plans/TP-S-00X-*.md`, `test-reports/TR-S-00X-*.md` | *"Act as Tester. Verify S-007 and produce a test report with AC coverage."*               |
+| 4   | **Tester**          | Test plan, then test report with an AC→test coverage matrix, plus pytest/RTL tests. Updates README §11 feature → test index. Runs **index-row files only** unless pre-merge / shared helper. Recommends Ship or Rework. | `docs/agents/test-plans/TP-S-00X-*.md`, `test-reports/TR-S-00X-*.md` | *"Act as Tester. Verify S-007 and produce a test report with AC coverage."*               |
 | 5   | **Product Manager** | Reviews the test report against the AC. Sets `Accepted`, or lists gaps and re-opens.                                                                                                   | Slice file                                                           | *"Act as Product Manager. Review TR-S-007 against the acceptance criteria."*              |
 
 
@@ -2752,7 +2815,7 @@ An honest delta between the original specification and what the code actually do
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Backend routers | 14, all wired into `main.py` (includes favorites, admin, payments, support) |
 | Data models     | SQLAlchemy models in `app/models/__init__.py` (incl. `external_reviews`, S-048)                                                                                                                                                                                                                                                                                                           |
-| Auth            | JWT access/refresh with refresh `jti` rotation, bcrypt, RBAC, Redis logout blocklist + best-effort login lockout, mandatory TOTP for **Authenticator** (password) login, Google OAuth and Mobile OTP exempt. `/login` and `/register` choose Authenticator vs Mobile OTP (S-092). Existing admin may OTP-login via seeded `User.phone`; new admin self-register remains 403. |
+| Auth            | JWT access/refresh with refresh `jti` rotation, bcrypt, RBAC, Redis logout blocklist + best-effort login lockout, mandatory TOTP for **Authenticator** (password) login, Google OAuth and Mobile OTP exempt. `/login` and `/register` choose Authenticator vs Mobile OTP (S-092). Flutter `/login` uses Password / Phone / Authenticator (`SegmentedButton`). First phone signup without a name gets `User {last 4 of E.164}` (S-109). Email change on `PATCH /auth/me` requires `POST /auth/reauth` (S-107). Existing admin may OTP-login via seeded `User.phone`; new admin self-register remains 403. |
 | AI layer        | **In the product today.** Review submit runs text + photo analysis + merchant rolling summary via `AIProvider`. Default `mock` (no key, no cost). Real vendors are env + key. Output is **suggestions**, never verdicts. `monthly_trends` (mock or real) are AI-estimated, not review dates — shown as a labeled suggestion list only, never charted as fact (S-033).                    |
 | Storage         | `local` disk and `s3` (boto3) providers implemented; `azure` still a stub                                                                                                                                                                                                                                                                                                                |
 | Email           | `mock` (logs only) and `resend` providers implemented via `EmailProvider` port. Three transactional sends: password reset, listing approved, new review — best-effort, never blocks the triggering request (S-035, Accepted). In-app bell is one notice per scenario (**S-065**). |
@@ -2766,7 +2829,7 @@ An honest delta between the original specification and what the code actually do
 | Support & shop reports (S-086–S-089) | **Accepted.** Admin drill-downs have a shared back link (S-086). Footer + `/support` + `GET /support/contact` (S-087; Navbar unchanged). `support_tickets` + admin `/admin/support` (S-088). Shop-level `business_reports` + thread, repeat flag at 3+, `/admin/business-reports`, public “Report this shop” (S-089). Distinct from `review_reports`. Run `alembic upgrade head`. |
 | Admin operational console (S-090) | **Accepted.** `/admin` is an ops console: wider shell, jump nav to existing queues/drill-downs, extra snapshot counts (open tickets, repeat shops, processing listings) on `GET /dashboard/admin/platform`. Feedback = support tickets; Complaints = shop reports. No Inspections/FAQ product. |
 | Profile avatar (S-085) | **Accepted.** Navbar shows a circular photo or initials; `/profile` click-to-upload via `POST /auth/me/avatar` (own user only, no AI analysis). Replaces the Avatar URL text field. Flutter: S-095 Account + Profile Change photo (M-91 `implemented`). |
-| Auth method chooser (S-092) | **In Progress.** `/login` and `/register` pick Authenticator or Mobile OTP. Admin OTP works for an existing `User.phone` only. Demo phones in §1. |
+| Auth method chooser (S-092) | **In Progress.** `/login` and `/register` pick Authenticator or Mobile OTP. Flutter login has Password / Phone / Authenticator. Admin OTP works for an existing `User.phone` only. Demo phones in §1. |
 
 
 

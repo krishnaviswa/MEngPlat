@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:merchanthub_mobile/ui/friendly_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/auth_provider.dart';
 import 'support_repository.dart';
+import 'ticket_ref.dart';
 
 class SupportScreen extends ConsumerStatefulWidget {
   const SupportScreen({super.key});
@@ -50,7 +52,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     try {
       final repo = ref.read(supportRepositoryProvider);
       final contact = await repo.contact();
-      final user = ref.read(authControllerProvider).valueOrNull;
+      final user = await ref.read(authControllerProvider.future);
       var tickets = <SupportTicketResponse>[];
       var reports = <BusinessReportResponse>[];
       if (user != null) {
@@ -90,7 +92,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
           );
       if (!mounted) return;
       setState(() {
-        _ok = 'Ticket submitted (${ticket.status}). Reference ${ticket.id.substring(0, ticket.id.length.clamp(0, 8))}…';
+        _ok = 'Ticket submitted (${ticket.status}). Reference ${supportTicketRef(ticket.id)}';
         _issue.clear();
         _mine = [ticket, ..._mine];
       });
@@ -159,8 +161,10 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                     Text('Your tickets', style: Theme.of(context).textTheme.titleMedium),
                     for (final t in _mine)
                       ListTile(
+                        key: Key('supportTicket-${t.id}'),
                         title: Text(t.status),
                         subtitle: Text(t.issue),
+                        onTap: () => context.push('/support/${t.id}'),
                       ),
                   ],
                   if (_reports.isNotEmpty) ...[

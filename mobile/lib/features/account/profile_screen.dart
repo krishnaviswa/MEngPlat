@@ -14,8 +14,21 @@ String? _blankToNull(String value) {
   return trimmed.isEmpty ? null : trimmed;
 }
 
-/// Editable profile (S-029 / M-48). Email and role stay read-only.
-/// Favorites remain on `/favorites` (M-43), not duplicated here.
+bool _looksMaskedNationalId(String? value) {
+  if (value == null || value.isEmpty) return false;
+  return value.contains('*') || value.contains('•');
+}
+
+String _roleLabel(UserRole role) {
+  if (role == UserRole.merchant) return 'Merchant';
+  if (role == UserRole.admin) return 'Admin';
+  return 'Customer';
+}
+
+enum _ReauthMethod { password, phone, authenticator }
+
+/// Editable profile (S-029 / M-48 / S-107). Role is a read-only chip.
+/// Email edits require step-up reauth before PATCH. Favorites stay on `/favorites`.
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({this.pickAvatar, super.key});
 
@@ -28,6 +41,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _address1Controller = TextEditingController();
   final _address2Controller = TextEditingController();
@@ -46,6 +60,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _emailController.dispose();
     _phoneController.dispose();
     _address1Controller.dispose();
     _address2Controller.dispose();
@@ -59,6 +74,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   void _hydrate(UserResponse user) {
     _nameController.text = user.fullName;
+    _emailController.text = user.email ?? '';
     _phoneController.text = user.phone ?? '';
     _address1Controller.text = user.addressLine1 ?? '';
     _address2Controller.text = user.addressLine2 ?? '';
@@ -97,24 +113,47 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    final user = ref.read(authControllerProvider).valueOrNull;
+    if (user == null) return;
+
+    final newEmail = _emailController.text.trim();
+    final oldEmail = (user.email ?? '').trim();
+    final emailChanged = newEmail != oldEmail;
+
+    String? reauthToken;
+    if (emailChanged) {
+      final method = await _pickReauthMethod();
+      if (method == null || !mounted) return;
+      reauthToken = await _completeReauth(method, user);
+      if (reauthToken == null || !mounted) return;
+    }
+
     setState(() {
       _saving = true;
       _success = null;
       _error = null;
     });
     try {
+      final idNumber = _blankToNull(_nationalIdController.text);
       await ref.read(authControllerProvider.notifier).updateProfile(
-            UserProfileUpdate((b) => b
-              ..fullName = _nameController.text.trim()
-              ..phone = _blankToNull(_phoneController.text)
-              ..addressLine1 = _blankToNull(_address1Controller.text)
-              ..addressLine2 = _blankToNull(_address2Controller.text)
-              ..city = _blankToNull(_cityController.text)
-              ..state = _blankToNull(_stateController.text)
-              ..postalCode = _blankToNull(_postalController.text)
-              ..country = _blankToNull(_countryController.text)
-              ..nationalIdType = _nationalIdType
-              ..nationalIdNumber = _blankToNull(_nationalIdController.text)),
+            UserProfileUpdate((b) {
+              b
+                ..fullName = _nameController.text.trim()
+                ..phone = _blankToNull(_phoneController.text)
+                ..addressLine1 = _blankToNull(_address1Controller.text)
+                ..addressLine2 = _blankToNull(_address2Controller.text)
+                ..city = _blankToNull(_cityController.text)
+                ..state = _blankToNull(_stateController.text)
+                ..postalCode = _blankToNull(_postalController.text)
+                ..country = _blankToNull(_countryController.text)
+                ..nationalIdType = _nationalIdType;
+              if (!_looksMaskedNationalId(idNumber)) {
+                b.nationalIdNumber = idNumber;
+              }
+            }),
+            reauthToken: reauthToken,
+            email: emailChanged ? (newEmail.isEmpty ? null : newEmail) : null,
+            includeEmail: emailChanged,
           );
       setState(() => _success = 'Profile updated.');
     } catch (e) {
@@ -124,14 +163,110 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<_ReauthMethod?> _pickReauthMethod() {
+    return showModalBottomSheet<_ReauthMethod>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              key: const Key('reauthPassword'),
+              title: const Text('Password'),
+              onTap: () => Navigator.pop(ctx, _ReauthMethod.password),
+            ),
+            ListTile(
+              key: const Key('reauthPhone'),
+              title: const Text('Phone OTP'),
+              onTap: () => Navigator.pop(ctx, _ReauthMethod.phone),
+            ),
+            ListTile(
+              key: const Key('reauthAuthenticator'),
+              title: const Text('Authenticator'),
+              onTap: () => Navigator.pop(ctx, _ReauthMethod.authenticator),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _completeReauth(_ReauthMethod method, UserResponse user) async {
+    final notifier = ref.read(authControllerProvider.notifier);
+    try {
+      switch (method) {
+        case _ReauthMethod.password:
+          final password = await _promptSecret(
+            title: 'Confirm with password',
+            label: 'Password',
+            obscure: true,
+          );
+          if (password == null || password.isEmpty) return null;
+          return notifier.reauth(password: password);
+        case _ReauthMethod.phone:
+          final phone = user.phone?.trim() ?? '';
+          if (phone.isEmpty) {
+            setState(() => _error = 'Add a mobile number before using phone verification.');
+            return null;
+          }
+          await notifier.requestPhoneOtp(phone: phone);
+          final code = await _promptSecret(
+            title: 'Enter the SMS code',
+            label: '6-digit code',
+          );
+          if (code == null || code.isEmpty) return null;
+          return notifier.reauth(phone: phone, otpCode: code);
+        case _ReauthMethod.authenticator:
+          final code = await _promptSecret(
+            title: 'Authenticator code',
+            label: '6-digit code',
+          );
+          if (code == null || code.isEmpty) return null;
+          return notifier.reauth(totpCode: code);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyMessage(e));
+      return null;
+    }
+  }
+
+  Future<String?> _promptSecret({
+    required String title,
+    required String label,
+    bool obscure = false,
+  }) async {
+    final controller = TextEditingController();
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          obscureText: obscure,
+          autofocus: true,
+          decoration: InputDecoration(labelText: label),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Continue')),
+        ],
+      ),
+    );
+    final value = controller.text.trim();
+    controller.dispose();
+    if (submitted != true) return null;
+    return value;
+  }
+
   String _securityCopy(UserResponse user) {
-    if (user.authProvider == 'google' && user.totpEnabled != true) {
+    if (user.totpEnabled == true) {
+      return 'Authenticator app enabled.';
+    }
+    if (user.authProvider == 'google') {
       return 'You sign in with Gmail/Google. Authenticator MFA is not required on that path.';
     }
-    if (user.totpEnabled == true) {
-      return 'Authenticator app enabled — required for email/password sign-in.';
-    }
-    return 'Authenticator setup is required the next time you sign in with your password.';
+    return 'You can sign in with password, phone, or an authenticator app.';
   }
 
   String _nationalIdHelperText(UserResponse user) {
@@ -247,16 +382,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     key: const Key('profileEmailReadOnly'),
-                    initialValue: user.email ?? '',
-                    readOnly: true,
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
                       labelText: 'Email',
-                      helperText: "Email changes aren't supported yet.",
+                      helperText: 'Changing email requires confirming your identity.',
                     ),
+                    validator: (value) {
+                      final trimmed = value?.trim() ?? '';
+                      if (trimmed.isEmpty) return null;
+                      if (!trimmed.contains('@')) return 'Enter a valid email';
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 12),
                   Text('Role', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                  Text(user.role.name, key: const Key('profileRoleReadOnly'), style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Chip(
+                      label: Text(
+                        _roleLabel(user.role),
+                        key: const Key('profileRoleReadOnly'),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   Text('Sign-in security', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                   Text(_securityCopy(user)),

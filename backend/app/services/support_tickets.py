@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Business, SupportTicket, User
+from app.models import Business, SupportTicket, User, UserRole
 
 TICKET_STATUSES = frozenset({"open", "in_progress", "resolved"})
 
@@ -55,6 +55,17 @@ async def list_mine(db: AsyncSession, user: User) -> list[SupportTicket]:
         select(SupportTicket).where(SupportTicket.reporter_id == user.id).order_by(SupportTicket.created_at.desc())
     )
     return list(result.scalars().all())
+
+
+async def get_mine(db: AsyncSession, user: User, ticket_id: UUID) -> SupportTicket:
+    ticket = await db.get(SupportTicket, ticket_id)
+    if not ticket:
+        raise TicketNotFoundError()
+    if user.role == UserRole.ADMIN:
+        return ticket
+    if ticket.reporter_id != user.id:
+        raise TicketNotFoundError()
+    return ticket
 
 
 async def list_admin(db: AsyncSession, status_filter: str | None = None) -> list[SupportTicket]:

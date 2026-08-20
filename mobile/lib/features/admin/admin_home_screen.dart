@@ -36,7 +36,9 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KeyedSubtree(
+      key: const Key('dashboardHubScaffold'),
+      child: Scaffold(
       key: const Key('adminHomeScreen'),
       appBar: AppBar(title: const Text('Admin')),
       body: MhCanvas(
@@ -77,45 +79,88 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                   ),
                   if (_stats != null) ...[
                     const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _AdminStat(
-                          label: 'Total users',
-                          value: '${_stats!.totalUsers}',
-                          onTap: () => context.push('/admin/users'),
-                        ),
-                        _AdminStat(
-                          label: 'Total businesses',
-                          value: '${_stats!.totalBusinesses}',
-                          onTap: () => context.push('/admin/businesses'),
-                        ),
-                        _AdminStat(label: 'Pending businesses', value: '${_stats!.pendingBusinesses}'),
-                        _AdminStat(
-                          label: 'Total reviews',
-                          value: '${_stats!.totalReviews}',
-                          onTap: () => context.push('/admin/reviews'),
-                        ),
-                        _AdminStat(label: 'Reported reviews', value: '${_stats!.reportedReviews}'),
-                        _AdminStat(
-                          key: const Key('openSupportTicketsTile'),
-                          label: 'Open support tickets',
-                          value: '${_stats!.openSupportTickets ?? 0}',
-                          onTap: () => context.push('/admin/support'),
-                        ),
-                        _AdminStat(
-                          key: const Key('repeatShopReportsTile'),
-                          label: 'Repeat shop reports',
-                          value: '${_stats!.repeatShopReports ?? 0}',
-                          onTap: () => context.push('/admin/business-reports'),
-                        ),
-                        _AdminStat(
-                          key: const Key('processingBusinessesTile'),
-                          label: 'Processing businesses',
-                          value: '${_stats!.processingBusinesses ?? 0}',
-                        ),
-                      ],
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final tileWidth = (constraints.maxWidth - 8) / 2;
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            SizedBox(
+                              width: tileWidth,
+                              child: MhStatTile(
+                                label: 'Total users',
+                                value: '${_stats!.totalUsers}',
+                                accent: _accentForAdminStat('Total users'),
+                                onTap: () => context.push('/admin/users'),
+                              ),
+                            ),
+                            SizedBox(
+                              width: tileWidth,
+                              child: MhStatTile(
+                                label: 'Total businesses',
+                                value: '${_stats!.totalBusinesses}',
+                                accent: _accentForAdminStat('Total businesses'),
+                                onTap: () => context.push('/admin/businesses'),
+                              ),
+                            ),
+                            SizedBox(
+                              width: tileWidth,
+                              child: MhStatTile(
+                                label: 'Pending businesses',
+                                value: '${_stats!.pendingBusinesses}',
+                                accent: _accentForAdminStat('Pending businesses'),
+                              ),
+                            ),
+                            SizedBox(
+                              width: tileWidth,
+                              child: MhStatTile(
+                                label: 'Total reviews',
+                                value: '${_stats!.totalReviews}',
+                                accent: _accentForAdminStat('Total reviews'),
+                                onTap: () => context.push('/admin/reviews'),
+                              ),
+                            ),
+                            SizedBox(
+                              width: tileWidth,
+                              child: MhStatTile(
+                                label: 'Reported reviews',
+                                value: '${_stats!.reportedReviews}',
+                                accent: _accentForAdminStat('Reported reviews'),
+                              ),
+                            ),
+                            SizedBox(
+                              width: tileWidth,
+                              child: MhStatTile(
+                                key: const Key('openSupportTicketsTile'),
+                                label: 'Open support tickets',
+                                value: '${_stats!.openSupportTickets ?? 0}',
+                                accent: _accentForAdminStat('Open support tickets'),
+                                onTap: () => context.push('/admin/support'),
+                              ),
+                            ),
+                            SizedBox(
+                              width: tileWidth,
+                              child: MhStatTile(
+                                key: const Key('repeatShopReportsTile'),
+                                label: 'Repeat shop reports',
+                                value: '${_stats!.repeatShopReports ?? 0}',
+                                accent: _accentForAdminStat('Repeat shop reports'),
+                                onTap: () => context.push('/admin/business-reports'),
+                              ),
+                            ),
+                            SizedBox(
+                              width: tileWidth,
+                              child: MhStatTile(
+                                key: const Key('processingBusinessesTile'),
+                                label: 'Processing businesses',
+                                value: '${_stats!.processingBusinesses ?? 0}',
+                                accent: _accentForAdminStat('Processing businesses'),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                   if (_series != null) ...[
@@ -156,56 +201,18 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                     )
                   else
                     for (final business in _pending)
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(child: Text(business.name, style: Theme.of(context).textTheme.titleMedium)),
-                                  if (business.status == BusinessStatus.processing)
-                                    const Chip(
-                                      key: Key('processingQueueBadge'),
-                                      label: Text('Processing'),
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                ],
-                              ),
-                              Text('${business.address}, ${business.city}'),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  if (business.status == BusinessStatus.pending)
-                                    OutlinedButton(
-                                      key: Key('startReview-${business.id}'),
-                                      onPressed: _actingId == business.id ? null : () => _startReview(business.id),
-                                      child: const Text('Start review'),
-                                    ),
-                                  if (business.status == BusinessStatus.processing)
-                                    OutlinedButton(
-                                      key: Key('returnToPending-${business.id}'),
-                                      onPressed: _actingId == business.id ? null : () => _returnToPending(business.id),
-                                      child: const Text('Return to pending'),
-                                    ),
-                                  FilledButton(
-                                    key: Key('approveBusiness-${business.id}'),
-                                    onPressed: _actingId == business.id ? null : () => _approve(business.id),
-                                    child: const Text('Approve'),
-                                  ),
-                                  OutlinedButton(
-                                    key: Key('suspendBusiness-${business.id}'),
-                                    onPressed: _actingId == business.id ? null : () => _suspend(business.id),
-                                    child: const Text('Suspend'),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                      _PendingQueueCard(
+                        business: business,
+                        acting: _actingId == business.id,
+                        onOpen: () {
+                          final router = GoRouter.maybeOf(context);
+                          if (router == null) return;
+                          router.push('/businesses/${business.slug}');
+                        },
+                        onStartReview: () => _startReview(business.id),
+                        onReturnToPending: () => _returnToPending(business.id),
+                        onApprove: () => _approve(business.id),
+                        onSuspend: () => _suspend(business.id),
                       ),
                   const SizedBox(height: 24),
                   Text('Reported reviews', style: Theme.of(context).textTheme.titleMedium),
@@ -246,6 +253,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
               ),
             ),
       ),
+    ),
     );
   }
 
@@ -353,42 +361,130 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
   }
 }
 
-class _AdminStat extends StatelessWidget {
-  const _AdminStat({required this.label, required this.value, this.onTap, super.key});
+class _PendingQueueCard extends StatelessWidget {
+  const _PendingQueueCard({
+    required this.business,
+    required this.acting,
+    required this.onOpen,
+    required this.onStartReview,
+    required this.onReturnToPending,
+    required this.onApprove,
+    required this.onSuspend,
+  });
 
-  final String label;
-  final String value;
-  final VoidCallback? onTap;
+  final BusinessResponse business;
+  final bool acting;
+  final VoidCallback onOpen;
+  final VoidCallback onStartReview;
+  final VoidCallback onReturnToPending;
+  final VoidCallback onApprove;
+  final VoidCallback onSuspend;
+
+  static final _compact = ButtonStyle(
+    visualDensity: VisualDensity.compact,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    minimumSize: const WidgetStatePropertyAll(Size(0, 36)),
+    padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 6)),
+  );
 
   @override
   Widget build(BuildContext context) {
-    final child = SizedBox(
-      width: 160,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
-            Text(value, style: Theme.of(context).textTheme.headlineSmall),
-          ],
-        ),
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            key: Key('openQueueBusiness-${business.id}'),
+            onTap: onOpen,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          business.name,
+                          style: Theme.of(context).textTheme.titleMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (business.status == BusinessStatus.processing)
+                        const Chip(
+                          key: Key('processingQueueBadge'),
+                          label: Text('Processing'),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                    ],
+                  ),
+                  Text(
+                    '${business.address}, ${business.city}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+            child: Row(
+              children: [
+                if (business.status == BusinessStatus.pending)
+                  Expanded(
+                    child: OutlinedButton(
+                      key: Key('startReview-${business.id}'),
+                      style: _compact,
+                      onPressed: acting ? null : onStartReview,
+                      child: const FittedBox(fit: BoxFit.scaleDown, child: Text('Start review')),
+                    ),
+                  ),
+                if (business.status == BusinessStatus.processing)
+                  Expanded(
+                    child: OutlinedButton(
+                      key: Key('returnToPending-${business.id}'),
+                      style: _compact,
+                      onPressed: acting ? null : onReturnToPending,
+                      child: const FittedBox(fit: BoxFit.scaleDown, child: Text('To pending')),
+                    ),
+                  ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: FilledButton(
+                    key: Key('approveBusiness-${business.id}'),
+                    style: _compact,
+                    onPressed: acting ? null : onApprove,
+                    child: const FittedBox(fit: BoxFit.scaleDown, child: Text('Approve')),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: OutlinedButton(
+                    key: Key('suspendBusiness-${business.id}'),
+                    style: _compact,
+                    onPressed: acting ? null : onSuspend,
+                    child: const FittedBox(fit: BoxFit.scaleDown, child: Text('Suspend')),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
-    return Material(
-      color: _washFor(label),
-      borderRadius: BorderRadius.circular(16),
-      child: onTap == null ? child : InkWell(onTap: onTap, borderRadius: BorderRadius.circular(16), child: child),
-    );
   }
+}
 
-  static Color _washFor(String label) {
-    final lower = label.toLowerCase();
-    if (lower.contains('ticket') || lower.contains('report')) return const Color(0xFFFFE4E6);
-    if (lower.contains('pending') || lower.contains('processing')) return const Color(0xFFFEF3C7);
-    if (lower.contains('review')) return const Color(0xFFEDE9FE);
-    if (lower.contains('user')) return const Color(0xFFE0F2FE);
-    if (lower.contains('business')) return const Color(0xFFD1FAE5);
-    return const Color(0xFFF0F9FF);
-  }
+MhAccent _accentForAdminStat(String label) {
+  final lower = label.toLowerCase();
+  if (lower.contains('ticket') || lower.contains('report')) return MhAccent.coral;
+  if (lower.contains('pending') || lower.contains('processing')) return MhAccent.amber;
+  if (lower.contains('review')) return MhAccent.violet;
+  if (lower.contains('user')) return MhAccent.sky;
+  if (lower.contains('business')) return MhAccent.mint;
+  return MhAccent.sky;
 }

@@ -38,7 +38,7 @@ Future<void> _pumpSheet(WidgetTester tester, {required String slug}) async {
   // RenderFlex-overflow assertion and leaves "Preview in app" off-screen for
   // tap() (same fix as S-058's Tester applied elsewhere for this class of
   // test-environment-only overflow).
-  await tester.binding.setSurfaceSize(const Size(500, 900));
+  await tester.binding.setSurfaceSize(const Size(500, 1200));
   addTearDown(() => tester.binding.setSurfaceSize(null));
 
   await tester.pumpWidget(MaterialApp.router(routerConfig: router));
@@ -56,6 +56,7 @@ void main() {
     // selectable text next to the code, which is the observable proof both
     // encode the same link.
     expect(find.text('${AppConfig.webBaseUrl}/collect/joes-diner'), findsOneWidget);
+    expect(find.textContaining('/collect/'), findsWidgets);
     expect(find.text("Joe's Diner"), findsOneWidget);
   });
 

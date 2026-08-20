@@ -3,11 +3,12 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_db
-from app.dependencies import get_current_user, get_optional_user
+from app.dependencies import get_current_user, security
 from app.models import User
 from app.schemas import (
     BusinessReportMessageCreate,
@@ -55,9 +56,17 @@ async def support_contact() -> SupportContactResponse:
 async def create_support_ticket(
     payload: SupportTicketCreate,
     db: AsyncSession = Depends(get_db),
-    user: User | None = Depends(get_optional_user),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> SupportTicketResponse:
     """Create a support ticket. Auth optional; logged-in users can later list via /mine."""
+    # Resolve optional user after get_db (not as a sibling Depends) — concurrent
+    # use of the same AsyncSession trips asyncpg: "another operation is in progress".
+    user: User | None = None
+    if credentials:
+        try:
+            user = await get_current_user(credentials, db)
+        except HTTPException:
+            user = None
     try:
         ticket = await tickets_service.create_ticket(
             db,
@@ -79,6 +88,20 @@ async def list_my_support_tickets(
 ) -> list[SupportTicketResponse]:
     tickets = await tickets_service.list_mine(db, user)
     return [_ticket_response(t) for t in tickets]
+
+
+@router.get("/support-tickets/{ticket_id}", response_model=SupportTicketResponse)
+async def get_my_support_ticket(
+    ticket_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> SupportTicketResponse:
+    """Reporter or admin: one ticket. Other users get 404."""
+    try:
+        ticket = await tickets_service.get_mine(db, user, ticket_id)
+    except tickets_service.TicketNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
+    return _ticket_response(ticket)
 
 
 @router.get("/business-reports/mine", response_model=list[BusinessReportResponse])

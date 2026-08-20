@@ -4,12 +4,24 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../../core/config/app_config.dart';
 import 'auth_provider.dart';
 
+/// User dismissed the account picker. Not an error — callers stay silent.
+class GoogleSignInCancelled implements Exception {}
+
+/// Picker or token failure that the Login/Register screen should show.
+class GoogleSignInException implements Exception {
+  GoogleSignInException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// Port for Google Identity ID-token (the `credential` `POST /auth/google` expects).
 /// Tests fake this so widget tests never hit the real SDK.
 abstract class GoogleSignInClient {
   bool get isConfigured;
 
-  /// Returns the ID token, or `null` if the user cancelled.
+  /// Returns the ID token, or `null` / [GoogleSignInCancelled] if the user cancelled.
   Future<String?> requestIdToken();
 }
 
@@ -24,31 +36,67 @@ class UnconfiguredGoogleSignInClient implements GoogleSignInClient {
 }
 
 class PluginGoogleSignInClient implements GoogleSignInClient {
-  PluginGoogleSignInClient(this.clientId);
+  PluginGoogleSignInClient(this.serverClientId);
 
-  final String clientId;
+  /// Web OAuth client ID — Android `serverClientId` only so the ID token `aud`
+  /// matches backend `GOOGLE_CLIENT_ID`. Do not pass this as Android `clientId`.
+  final String serverClientId;
 
   GoogleSignIn? _plugin;
 
   GoogleSignIn get _googleSignIn => _plugin ??= GoogleSignIn(
-        clientId: clientId,
-        serverClientId: clientId,
+        serverClientId: serverClientId,
         scopes: const ['email', 'profile'],
       );
 
   @override
-  bool get isConfigured => clientId.isNotEmpty;
+  bool get isConfigured => serverClientId.isNotEmpty;
 
   @override
   Future<String?> requestIdToken() async {
-    final account = await _googleSignIn.signIn();
-    if (account == null) return null;
-    final auth = await account.authentication;
-    final token = auth.idToken;
-    if (token == null || token.isEmpty) {
-      throw StateError('Google sign-in did not return an ID token');
+    try {
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+      final account = await _googleSignIn.signIn();
+      if (account == null) return null;
+      final auth = await account.authentication;
+      final token = auth.idToken;
+      if (token == null || token.isEmpty) {
+        throw GoogleSignInException(
+          'Google did not return an ID token. Check that the Web client ID is set as serverClientId.',
+        );
+      }
+      return token;
+    } on GoogleSignInException {
+      rethrow;
+    } catch (e) {
+      final text = e.toString();
+      if (_isCancel(text)) throw GoogleSignInCancelled();
+      if (_isDeveloperError(text)) {
+        throw GoogleSignInException(
+          'Google sign-in is not configured for this app build (SHA-1 / Android OAuth client).',
+        );
+      }
+      throw GoogleSignInException(text);
     }
-    return token;
+  }
+
+  static bool _isCancel(String text) {
+    final lower = text.toLowerCase();
+    return lower.contains('canceled') ||
+        lower.contains('cancelled') ||
+        lower.contains('signin_cancelled') ||
+        lower.contains('12501');
+  }
+
+  static bool _isDeveloperError(String text) {
+    final lower = text.toLowerCase();
+    return lower.contains('apiexception: 10') ||
+        lower.contains('developer_error') ||
+        lower.contains('api_not_connected') ||
+        lower.contains(': 10,') ||
+        lower.contains('status{statuscode=developer_error');
   }
 }
 

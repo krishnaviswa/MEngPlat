@@ -7,10 +7,8 @@ import 'auth_provider.dart';
 
 /// Phone OTP sign-in/sign-up panel (S-055 / M-74), mirrors
 /// frontend/src/components/PhoneOtpPanel.tsx. Embedded in both LoginScreen
-/// (fullName/role omitted -- a brand-new number surfaces the backend's "full
-/// name required" error, same as web) and RegisterScreen (supplies the
-/// in-progress registration form's fullName/role). Skips TOTP entirely on
-/// success, same trust model as Google.
+/// and RegisterScreen. New numbers get an optional name; the backend generates
+/// a User ID when name is omitted. Skips TOTP on success, same as Google.
 class PhoneOtpPanel extends ConsumerStatefulWidget {
   const PhoneOtpPanel({super.key, this.fullName, this.role});
 
@@ -24,16 +22,20 @@ class PhoneOtpPanel extends ConsumerStatefulWidget {
 class _PhoneOtpPanelState extends ConsumerState<PhoneOtpPanel> {
   final _phoneController = TextEditingController();
   final _codeController = TextEditingController();
+  final _nameController = TextEditingController();
 
   String _countryCode = '+91';
   bool _sent = false;
   bool _busy = false;
   String? _error;
 
+  static const _filled48 = Size.fromHeight(48);
+
   @override
   void dispose() {
     _phoneController.dispose();
     _codeController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -60,13 +62,13 @@ class _PhoneOtpPanelState extends ConsumerState<PhoneOtpPanel> {
       _error = null;
     });
     try {
+      final typed = _nameController.text.trim();
       await ref.read(authControllerProvider.notifier).signInWithPhone(
             phone: '$_countryCode${_phoneController.text.trim()}',
             code: _codeController.text.trim(),
-            fullName: widget.fullName,
+            fullName: typed.isEmpty ? widget.fullName : typed,
             role: widget.role,
           );
-      // Success flips authControllerProvider's state to a real user; router redirects.
     } catch (e) {
       setState(() => _error = friendlyMessage(e));
     } finally {
@@ -78,6 +80,7 @@ class _PhoneOtpPanelState extends ConsumerState<PhoneOtpPanel> {
   Widget build(BuildContext context) {
     final canSend = !_busy && !_sent && _phoneController.text.trim().isNotEmpty;
     final canVerify = !_busy && _codeController.text.trim().length >= 4;
+    final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -88,41 +91,73 @@ class _PhoneOtpPanelState extends ConsumerState<PhoneOtpPanel> {
             child: Text(
               _error!,
               key: const Key('phoneOtpError'),
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+              style: TextStyle(color: theme.colorScheme.error),
             ),
           ),
-        Row(
-          children: [
-            DropdownButton<String>(
-              key: const Key('phoneCountryCodeField'),
-              value: _countryCode,
-              items: const [
-                DropdownMenuItem(value: '+91', child: Text('+91')),
-                DropdownMenuItem(value: '+1', child: Text('+1')),
+        InputDecorator(
+          key: const Key('phoneNumberRow'),
+          decoration: const InputDecoration(
+            labelText: 'Mobile number',
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          ),
+          child: SizedBox(
+            height: 48,
+            child: Row(
+              children: [
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    key: const Key('phoneCountryCodeField'),
+                    value: _countryCode,
+                    items: const [
+                      DropdownMenuItem(value: '+91', child: Text('+91')),
+                      DropdownMenuItem(value: '+1', child: Text('+1')),
+                    ],
+                    onChanged: _busy || _sent ? null : (value) => setState(() => _countryCode = value ?? '+91'),
+                  ),
+                ),
+                const VerticalDivider(width: 16),
+                Expanded(
+                  child: TextField(
+                    key: const Key('phoneNumberField'),
+                    controller: _phoneController,
+                    enabled: !_busy && !_sent,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      hintText: '98765 43210',
+                      isDense: true,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
               ],
-              onChanged: _busy || _sent ? null : (value) => setState(() => _countryCode = value ?? '+91'),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                key: const Key('phoneNumberField'),
-                controller: _phoneController,
-                enabled: !_busy && !_sent,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Mobile number'),
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-          ],
+          ),
         ),
         const SizedBox(height: 8),
         if (!_sent)
-          OutlinedButton(
+          FilledButton(
             key: const Key('sendPhoneCodeButton'),
+            style: FilledButton.styleFrom(minimumSize: _filled48),
             onPressed: canSend ? _sendCode : null,
             child: const Text('Send SMS code'),
           )
         else ...[
+          if (widget.fullName == null || widget.fullName!.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: TextField(
+                key: const Key('phoneOptionalNameField'),
+                controller: _nameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Name (optional)',
+                  helperText: 'We’ll generate a User ID if you leave this blank.',
+                ),
+              ),
+            ),
           TextField(
             key: const Key('phoneCodeField'),
             controller: _codeController,
@@ -131,8 +166,9 @@ class _PhoneOtpPanelState extends ConsumerState<PhoneOtpPanel> {
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 8),
-          OutlinedButton(
+          FilledButton(
             key: const Key('verifyPhoneCodeButton'),
+            style: FilledButton.styleFrom(minimumSize: _filled48),
             onPressed: canVerify ? _verifyCode : null,
             child: const Text('Verify and sign in'),
           ),

@@ -8,9 +8,29 @@ import { API_URL, auth, businesses, reviews } from "@/lib/api";
 import type { Business, Review } from "@/lib/api";
 
 const CHIPS = ["Service", "Quality", "Value", "Atmosphere", "Cleanliness", "Speed"];
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function resolveUrl(url: string): string {
   return url.startsWith("http") ? url : `${API_URL}${url}`;
+}
+
+function isNotFound(err: unknown): boolean {
+  return typeof err === "object" && err !== null && "status" in err && (err as { status: number }).status === 404;
+}
+
+/** Public collect URL may be a listing slug or a business UUID. */
+async function resolveBusiness(param: string): Promise<Business> {
+  if (UUID_RE.test(param)) {
+    return businesses.getById(param);
+  }
+  try {
+    return await businesses.get(param);
+  } catch (err) {
+    if (isNotFound(err)) {
+      return businesses.getById(param);
+    }
+    throw err;
+  }
 }
 
 /** Public review-collection hub. All star ratings continue equally — no low-star intercept. */
@@ -28,8 +48,7 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
   const [submitted, setSubmitted] = useState<Review | null>(null);
 
   useEffect(() => {
-    businesses
-      .getById(businessId)
+    resolveBusiness(businessId)
       .then((match) => {
         setBusiness(match);
         setLoadFailed(false);
@@ -68,7 +87,7 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
       return;
     }
     try {
-      const created = await reviews.create({ business_id: businessId, rating, body });
+      const created = await reviews.create({ business_id: business!.id, rating, body });
       setSubmitted(created);
       setStep("done");
     } catch (err) {
@@ -210,6 +229,14 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
                   merchant or admin approval is required.
                 </p>
               </>
+            )}
+            {submitted && (
+              <div className="mt-4 text-left">
+                <RatingWidget value={submitted.rating} readonly size="sm" />
+                {submitted.body ? (
+                  <p className="mt-2 text-sm text-ink">{submitted.body}</p>
+                ) : null}
+              </div>
             )}
             {business?.slug && submitted?.status !== "reported" && (
               <a

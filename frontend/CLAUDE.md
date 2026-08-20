@@ -34,7 +34,8 @@ Do not commit on `main` — use a feature branch + PR. `.githooks/pre-commit` en
 ## Testing (Jest + RTL)
 - Colocate under `__tests__/`
 - Test behavior, not implementation
-- Run: `cd frontend && npm test`
+- Feature lookup: `README.md` §11 **Feature → test index**. Default: run only the Jest files on that row (`npx jest <path>`). Full `npm test` is pre-merge / shared `api.ts` / when asked.
+- Same PR as new or moved tests: update the index row.
 - Full evaluation model: `README.md` §11. Browser e2e is Playwright in `backend/tests/e2e/` (`E2E=1`), not Cypress. GitHub job `web-e2e.yml` is dispatch-only (artifact traces); not on push/PR.
 
 ## Local git hooks (every commit, IDE included)

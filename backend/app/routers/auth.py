@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +8,7 @@ from app.core.rate_limit import limiter
 from app.core.security import (
     create_access_token,
     create_mfa_token,
+    create_reauth_token,
     create_refresh_token,
     decode_token,
     get_password_hash,
@@ -30,6 +31,8 @@ from app.schemas import (
     MockOtpVerifyRequest,
     PhoneOtpRequest,
     PhoneOtpVerifyRequest,
+    ReauthRequest,
+    ReauthResponse,
     ResetPasswordRequest,
     TokenResponse,
     TotpSetupResponse,
@@ -377,18 +380,109 @@ async def get_me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+def _assert_reauth_token(token: str | None, current_user: User) -> None:
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Re-authentication required to change email",
+        )
+    try:
+        claims = decode_token(token)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid reauth token") from exc
+    if claims.get("type") != "reauth" or str(claims.get("sub")) != str(current_user.id):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid reauth token")
+
+
+@router.post("/reauth", response_model=ReauthResponse)
+@limiter.limit("10/minute")
+async def reauth(
+    request: Request,
+    payload: ReauthRequest,
+    current_user: User = Depends(get_current_user),
+) -> ReauthResponse:
+    """
+    Prove current credentials and receive a ~5 minute `reauth_token` (JWT type=reauth).
+    Body: exactly one of `password`, `totp_code`, or `phone`+`otp_code`.
+    """
+    has_password = bool(payload.password)
+    has_totp = bool(payload.totp_code)
+    has_phone = bool(payload.phone or payload.otp_code)
+    if sum((has_password, has_totp, has_phone)) != 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide exactly one of password, totp_code, or phone+otp_code",
+        )
+
+    if has_password:
+        if not current_user.hashed_password or not verify_password(payload.password or "", current_user.hashed_password):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
+    elif has_totp:
+        if not current_user.totp_enabled or not current_user.totp_secret:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Authenticator not enabled")
+        try:
+            secret = decrypt_totp_secret(current_user.totp_secret)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid TOTP secret") from exc
+        if not verify_totp_code(secret, payload.totp_code or ""):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authenticator code")
+    else:
+        if not payload.phone or not payload.otp_code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="phone and otp_code are required together",
+            )
+        try:
+            phone = normalize_phone(payload.phone)
+        except InvalidPhoneError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        if not current_user.phone:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Phone does not match this account")
+        try:
+            stored = normalize_phone(current_user.phone)
+        except InvalidPhoneError:
+            stored = current_user.phone
+        if stored != phone:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Phone does not match this account")
+        try:
+            ok = await consume_otp(phone, payload.otp_code)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Sign-in codes are temporarily unavailable. Try again shortly.",
+            ) from None
+        if not ok:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired code")
+
+    return ReauthResponse(reauth_token=create_reauth_token(str(current_user.id)))
+
+
 @router.patch("/me", response_model=UserResponse)
 async def update_me(
     payload: UserProfileUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    reauth_token: str | None = Query(None),
+    x_reauth_token: str | None = Header(None, alias="X-Reauth-Token"),
 ) -> User:
     """
     Update the caller's own profile (name, avatar, phone, address, national ID).
-    email, role, is_active, and TOTP fields are not on the schema and are silently ignored if sent.
+    Optional `email` is applied only with a valid `reauth_token` query param or `X-Reauth-Token` header.
+    role, is_active, and TOTP fields are not on the schema and are silently ignored if sent.
     """
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    new_email = updates.pop("email", None)
+    for field, value in updates.items():
         setattr(current_user, field, value)
+
+    if "email" in payload.model_fields_set and new_email != current_user.email:
+        _assert_reauth_token(reauth_token or x_reauth_token, current_user)
+        if new_email:
+            existing = await db.execute(select(User).where(User.email == new_email, User.id != current_user.id))
+            if existing.scalar_one_or_none():
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+        current_user.email = new_email
+
     await db.flush()
     await db.refresh(current_user)
     return current_user
@@ -591,12 +685,7 @@ async def phone_otp_verify(
     role = payload.role or UserRole.CUSTOMER
     if role == UserRole.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot self-register as admin")
-    name = (payload.full_name or "").strip()
-    if not name:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Full name is required the first time you sign in with this number",
-        )
+    name = (payload.full_name or "").strip() or f"User {phone[-4:]}"
     user = User(
         email=None,
         full_name=name,

@@ -24,7 +24,7 @@ class AccountScreen extends ConsumerWidget {
           const ThemeToggleButton(),
           TextButton(
             key: const Key('brandHomeLink'),
-            onPressed: () => context.go('/businesses'),
+            onPressed: () => context.go('/home'),
             child: const Text('MerchantHub AI'),
           ),
         ],

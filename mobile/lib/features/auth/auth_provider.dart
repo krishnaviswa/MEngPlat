@@ -93,8 +93,32 @@ class AuthController extends AsyncNotifier<UserResponse?> {
     state = AsyncValue.data(user);
   }
 
-  Future<UserResponse> updateProfile(UserProfileUpdate payload) async {
-    final user = await ref.read(authRepositoryProvider).updateMe(payload);
+  Future<String> reauth({
+    String? password,
+    String? totpCode,
+    String? phone,
+    String? otpCode,
+  }) {
+    return ref.read(authRepositoryProvider).reauth(
+          password: password,
+          totpCode: totpCode,
+          phone: phone,
+          otpCode: otpCode,
+        );
+  }
+
+  Future<UserResponse> updateProfile(
+    UserProfileUpdate payload, {
+    String? reauthToken,
+    String? email,
+    bool includeEmail = false,
+  }) async {
+    final user = await ref.read(authRepositoryProvider).updateMe(
+          payload,
+          reauthToken: reauthToken,
+          email: email,
+          includeEmail: includeEmail,
+        );
     state = AsyncValue.data(user);
     return user;
   }

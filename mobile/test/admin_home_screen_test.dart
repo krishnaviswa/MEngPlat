@@ -248,6 +248,58 @@ void main() {
     await tester.tap(find.byKey(const Key('startReview-p-1')));
     await tester.pumpAndSettle();
     expect(repo.started, ['p-1']);
+
+    final startDy = tester.getCenter(find.byKey(const Key('startReview-p-1'))).dy;
+    final approveDy = tester.getCenter(find.byKey(const Key('approveBusiness-p-1'))).dy;
+    final suspendDy = tester.getCenter(find.byKey(const Key('suspendBusiness-p-1'))).dy;
+    expect((startDy - approveDy).abs(), lessThan(2));
+    expect((approveDy - suspendDy).abs(), lessThan(2));
+  });
+
+  testWidgets('pending queue name opens the public business profile', (tester) async {
+    await _tallSurface(tester);
+    final pending = BusinessResponse((b) => b
+      ..id = 'p-1'
+      ..name = 'Pending Shop'
+      ..slug = 'pending-shop'
+      ..address = '1 Main'
+      ..city = 'X'
+      ..country = 'IN'
+      ..status = BusinessStatus.pending
+      ..averageRating = 0
+      ..reviewCount = 0);
+
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith(_FakeAuthController.new),
+        dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepository()),
+        businessRepositoryProvider.overrideWithValue(_QueueBusinessRepository(pending: [pending], processing: [])),
+        reviewRepositoryProvider.overrideWithValue(_FakeReviewRepository()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final router = GoRouter(
+      initialLocation: '/admin',
+      routes: [
+        GoRoute(path: '/admin', builder: (context, state) => const AdminHomeScreen()),
+        GoRoute(
+          path: '/businesses/:slug',
+          builder: (context, state) => Scaffold(body: Text('OPENED_${state.pathParameters['slug']}')),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.ensureVisible(find.byKey(const Key('openQueueBusiness-p-1')));
+    await tester.tap(find.byKey(const Key('openQueueBusiness-p-1')));
+    await tester.pumpAndSettle();
+    expect(find.text('OPENED_pending-shop'), findsOneWidget);
   });
 
   testWidgets('S-095: extra ops tiles and nav chips are present', (tester) async {
@@ -269,6 +321,7 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('adminOpsNav')), findsOneWidget);
+    expect(find.byKey(const Key('dashboardHubScaffold')), findsOneWidget);
     expect(find.byKey(const Key('openSupportTicketsTile')), findsOneWidget);
     expect(find.byKey(const Key('repeatShopReportsTile')), findsOneWidget);
     expect(find.byKey(const Key('processingBusinessesTile')), findsOneWidget);

@@ -22,7 +22,7 @@ Do not skip steps. Do not implement before Architect fills the technical section
 | PM | Slice brief | `docs/agents/slices/S-XXX-*.md` |
 | Architect | Tech spec + optional ADR | Same slice file + `docs/agents/adrs/` |
 | Builder | Code + doc updates | `backend/`, `frontend/`, `mobile/`, `README.md` §7 API reference + §12 Web ↔ mobile parity tracker when UI changes |
-| Tester | Test plan + report | `docs/agents/test-plans/`, `docs/agents/test-reports/` |
+| Tester | Test plan + report | `docs/agents/test-plans/`, `docs/agents/test-reports/`; README §11 feature → test index |
 | PM | Accept / rework | Update slice `Status` field |
 
 ## Slice sizing
@@ -60,6 +60,7 @@ Do not skip steps. Do not implement before Architect fills the technical section
 - [ ] Architect checklist complete on slice file
 - [ ] Code on a **feature branch** + PR (never commit directly on `main`; `.githooks/pre-commit` enforces this locally — see `testing.mdc` / `ANDROID_APP_STRATEGY.md`)
 - [ ] Every AC mapped to a test in test report
+- [ ] README §11 feature → test index updated if tests were added or moved
 - [ ] If the slice adds or changes a **user-facing web** capability, `README.md` §12 Web ↔ mobile feature parity tracker has a matching row (usually `unimplemented` / `partial` / `future` until mobile follows)
 - [ ] If the slice closes a **mobile** gap, the same §12 tracker row is updated to `implemented` or `partial`
 - [ ] Same PR updates `README.md` §14 (and §16 “built vs next” if investor-visible). No new product `.md` / `.txt` checklist (agent artifacts under `docs/agents/` only)

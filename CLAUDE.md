@@ -17,6 +17,7 @@ Monorepo: local-business review platform with AI insights.
 
 `README.md` is the single project document. Sections: §2 logical design, §3 architecture,
 §4 stack rationale, §5 domain model, §6 flows, §7 API, §8 frontend, §9 security,
+§11 testing (incl. feature → test index),
 §12 repo layout (incl. Web ↔ mobile feature parity tracker), §13 multi-agent workflow,
 §14 known gaps.
 
@@ -33,8 +34,10 @@ See also `[AGENTS.md](AGENTS.md)` for the repo map and where each tool's config 
 7. Local dev: `docker compose up --build`.
 8. Testing is tiered, never skipped for speed — cheap checks (lint/unit) run on every push;
    expensive checks (mobile emulator integration) only ever cancel *stale, superseded* runs,
-   never the check itself. Local `.githooks/pre-commit` refuses commits on `main` and runs
-   `flutter analyze && flutter test` when `mobile/` is staged (enable with
+   never the check itself. Day-to-day: run the files on the `README.md` §11 **feature → test
+   index** row for the feature you changed, not the whole suite. Full cheap pack is for
+   pre-merge / shared helpers / when asked. Local `.githooks/pre-commit` refuses commits on
+   `main` and runs `flutter analyze && flutter test` when `mobile/` is staged (enable with
    `git config core.hooksPath .githooks`). See `.cursor/rules/testing.mdc` and, for mobile CI
    specifics, `ANDROID_APP_STRATEGY.md` § "Testing & CI flow" (includes a known gap: `main`
    isn't yet branch-protection-gated on CI passing, so Railway can still deploy a failing build).
@@ -64,6 +67,7 @@ invoke explicitly, e.g. *"Act as Product Manager for slice S-00X"*, or the Agent
 - [ ] Architect checklist complete on slice file
 - [ ] Code on a **feature branch** + PR (never commit directly on `main`; `.githooks/pre-commit` enforces this locally — see `testing.mdc` / `ANDROID_APP_STRATEGY.md`)
 - [ ] Every AC mapped to a test in test report
+- [ ] README §11 feature → test index updated if tests were added or moved
 - [ ] If the slice adds or changes a **user-facing web** capability, `README.md` §12 Web ↔ mobile feature parity tracker has a matching row (usually `unimplemented` / `partial` / `future` until mobile follows)
 - [ ] If the slice closes a **mobile** gap, the same §12 tracker row is updated to `implemented` or `partial`
 - [ ] Same PR updates `README.md` §14 (and §16 “built vs next” if investor-visible). No new product `.md` / `.txt` checklist (agent artifacts under `docs/agents/` only)

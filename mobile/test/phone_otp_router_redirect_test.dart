@@ -12,7 +12,6 @@ import 'package:merchanthub_mobile/features/favorites/favorites_providers.dart';
 import 'package:merchanthub_mobile/features/favorites/favorites_repository.dart';
 import 'package:merchanthub_mobile/features/notifications/notifications_providers.dart';
 import 'package:merchanthub_mobile/features/notifications/notifications_repository.dart';
-import 'package:merchanthub_mobile/router.dart';
 import 'watch_router_app.dart';
 
 /// S-055 (M-74) AC4: "on success I am signed in ... and routed the same way
@@ -62,6 +61,18 @@ class _FakeBusinessRepository extends BusinessRepository {
 
   @override
   Future<List<BusinessResponse>> listMine() async => [];
+
+  @override
+  Future<List<BusinessResponse>> listPublic({String? city, String? slugs}) async => [];
+
+  @override
+  Future<List<String>> listCities() async => [];
+
+  @override
+  Future<List<CategoryResponse>> listCategories({String? q}) async => [];
+
+  @override
+  Future<PublicPlatformStats?> publicStats() async => null;
 }
 
 class _FakeNotificationsRepository extends NotificationsRepository {
@@ -118,10 +129,12 @@ Future<ProviderContainer> _pumpRouter(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('AC4: phone sign-in from login (customer, default role) lands on Explore, same as any sign-in',
+  testWidgets('AC4: phone sign-in from login (customer, default role) lands on Home, same as any sign-in',
       (tester) async {
     final container = await _pumpRouter(tester);
 
+    await tester.tap(find.byKey(const Key('loginMethodPhone')));
+    await _pumpFrames(tester);
     await tester.enterText(find.byKey(const Key('phoneNumberField')), '9876543210');
     await tester.pump();
     await tester.tap(find.byKey(const Key('sendPhoneCodeButton')));
@@ -131,7 +144,7 @@ void main() {
     await tester.tap(find.byKey(const Key('verifyPhoneCodeButton')));
     await _pumpFrames(tester);
 
-    expect(find.text('Businesses'), findsOneWidget);
+    expect(find.byKey(const Key('homeScreen')), findsOneWidget);
     expect(find.byKey(const Key('exploreTab')), findsOneWidget);
     expect(find.byKey(const Key('primaryNav')), findsOneWidget);
 
@@ -160,6 +173,7 @@ void main() {
     await tester.tap(find.byKey(const Key('verifyPhoneCodeButton')));
     await _pumpFrames(tester);
 
+    expect(find.byKey(const Key('homeScreen')), findsOneWidget);
     expect(find.byKey(const Key('merchantHomeTab')), findsOneWidget);
     expect(find.byKey(const Key('primaryNav')), findsOneWidget);
 

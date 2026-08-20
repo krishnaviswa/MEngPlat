@@ -32,6 +32,8 @@ Brief description of what this plan covers.
 | 2 | Manual | M-001 |
 | 3 | Automated | `Component.test.tsx` |
 
+After tests land, update `README.md` §11 **Feature → test index** (add/adjust the row). Default verification: run **only those files**, not the whole suite.
+
 ---
 
 ## RBAC test cases

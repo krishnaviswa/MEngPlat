@@ -78,16 +78,28 @@ class _FakeAuthController extends AuthController {
 }
 
 class _FakeGoogleClient implements GoogleSignInClient {
-  _FakeGoogleClient({this.credential = 'google-id-token', this.cancel = false});
+  _FakeGoogleClient({
+    this.credential = 'google-id-token',
+    this.cancel = false,
+    this.developerError = false,
+  });
 
   final String credential;
   final bool cancel;
+  final bool developerError;
 
   @override
   bool get isConfigured => true;
 
   @override
-  Future<String?> requestIdToken() async => cancel ? null : credential;
+  Future<String?> requestIdToken() async {
+    if (developerError) {
+      throw GoogleSignInException(
+        'Google sign-in is not configured for this app build (SHA-1 / Android OAuth client).',
+      );
+    }
+    return cancel ? null : credential;
+  }
 }
 
 class _FakeBusinessRepository extends BusinessRepository {
@@ -95,6 +107,18 @@ class _FakeBusinessRepository extends BusinessRepository {
 
   @override
   Future<List<BusinessResponse>> searchBusinesses({SearchQuery query = const SearchQuery(), int page = 1, int pageSize = SearchQuery.pageSize}) async => [];
+
+  @override
+  Future<List<BusinessResponse>> listPublic({String? city, String? slugs}) async => [];
+
+  @override
+  Future<List<String>> listCities() async => [];
+
+  @override
+  Future<List<CategoryResponse>> listCategories({String? q}) async => [];
+
+  @override
+  Future<PublicPlatformStats?> publicStats() async => null;
 }
 
 class _FakeNotificationsRepository extends NotificationsRepository {
@@ -298,7 +322,7 @@ void main() {
 
     expect(result.auth.lastGoogleCredential, 'google-id-token');
     expect(find.byKey(const Key('mfaCodeField')), findsNothing);
-    expect(find.text('Businesses'), findsOneWidget);
+    expect(find.byKey(const Key('homeScreen')), findsOneWidget);
     expect(find.byKey(const Key('exploreTab')), findsOneWidget);
 
     result.container.dispose();
@@ -318,7 +342,7 @@ void main() {
 
     expect(result.auth.lastGoogleCredential, 'reg-id-token');
     expect(find.byKey(const Key('mfaCodeField')), findsNothing);
-    expect(find.text('Businesses'), findsOneWidget);
+    expect(find.byKey(const Key('homeScreen')), findsOneWidget);
 
     result.container.dispose();
   });
@@ -331,6 +355,22 @@ void main() {
     expect(result.auth.lastGoogleCredential, isNull);
     expect(find.byKey(const Key('emailField')), findsOneWidget);
     expect(find.byKey(const Key('registerError')), findsNothing);
+
+    result.container.dispose();
+  });
+
+  testWidgets('developer_error on login shows SHA-1 / not configured message', (tester) async {
+    final result = await _pumpApp(tester, google: _FakeGoogleClient(developerError: true));
+    await tester.tap(find.byKey(const Key('googleSignInButton')));
+    await _pumpFrames(tester);
+
+    expect(result.auth.lastGoogleCredential, isNull);
+    expect(find.byKey(const Key('emailField')), findsOneWidget);
+    expect(
+      find.textContaining('SHA-1'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('not configured'), findsOneWidget);
 
     result.container.dispose();
   });

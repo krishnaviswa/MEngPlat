@@ -23,7 +23,7 @@ async def test_patch_me_updates_name_and_ignores_role(client):
     res = await client.patch(
         "/api/v1/auth/me",
         headers=headers,
-        json={"full_name": "Updated Name", "role": "admin", "email": "hacker@example.com"},
+        json={"full_name": "Updated Name", "role": "admin"},
     )
     assert res.status_code == 200
     body = res.json()

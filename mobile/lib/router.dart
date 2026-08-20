@@ -28,6 +28,7 @@ import 'features/notifications/notifications_screen.dart';
 import 'features/reviews/collect_review_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/support/support_screen.dart';
+import 'features/support/support_ticket_detail_screen.dart';
 import 'ui/nav.dart';
 
 /// Bridges Riverpod's [authControllerProvider] to go_router's [GoRouter],
@@ -148,6 +149,15 @@ List<StatefulShellBranch> _branchesFor(UserResponse? user, GlobalKey<NavigatorSt
           key: state.pageKey,
           child: const SupportScreen(),
         ),
+        routes: [
+          GoRoute(
+            path: ':id',
+            pageBuilder: (context, state) => mhSlidePage(
+              key: state.pageKey,
+              child: SupportTicketDetailScreen(ticketId: state.pathParameters['id']!),
+            ),
+          ),
+        ],
       ),
     ],
   );
@@ -187,8 +197,15 @@ List<StatefulShellBranch> _branchesFor(UserResponse? user, GlobalKey<NavigatorSt
     ];
   }
 
+  final home = StatefulShellBranch(
+    routes: [
+      GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+    ],
+  );
+
   if (user.role == UserRole.merchant) {
     return [
+      home,
       StatefulShellBranch(
         routes: [
           GoRoute(
@@ -242,6 +259,7 @@ List<StatefulShellBranch> _branchesFor(UserResponse? user, GlobalKey<NavigatorSt
 
   if (user.role == UserRole.admin) {
     return [
+      home,
       StatefulShellBranch(
         routes: [
           GoRoute(
@@ -308,6 +326,7 @@ List<StatefulShellBranch> _branchesFor(UserResponse? user, GlobalKey<NavigatorSt
   }
 
   return [
+    home,
     explore,
     StatefulShellBranch(
       routes: [

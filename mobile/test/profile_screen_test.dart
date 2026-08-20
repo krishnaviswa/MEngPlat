@@ -35,7 +35,12 @@ class _FakeAuthController extends AuthController {
   Future<UserResponse?> build() async => _user;
 
   @override
-  Future<UserResponse> updateProfile(UserProfileUpdate payload) async {
+  Future<UserResponse> updateProfile(
+    UserProfileUpdate payload, {
+    String? reauthToken,
+    String? email,
+    bool includeEmail = false,
+  }) async {
     lastPayload = payload;
     if (failSave) throw ApiException('Update failed');
     _user = _user.rebuild((b) {
@@ -43,6 +48,7 @@ class _FakeAuthController extends AuthController {
       if (payload.phone != null) b.phone = payload.phone;
       if (payload.nationalIdType != null) b.nationalIdType = payload.nationalIdType;
       if (payload.nationalIdNumber != null) b.nationalIdNumber = payload.nationalIdNumber;
+      if (includeEmail) b.email = email;
     });
     state = AsyncValue.data(_user);
     return _user;
@@ -54,7 +60,7 @@ Future<({ProviderContainer container, _FakeAuthController auth})> _pumpProfile(
   required UserResponse user,
   bool failSave = false,
 }) async {
-  tester.view.physicalSize = const Size(400, 1200);
+  tester.view.physicalSize = const Size(400, 1600);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -74,7 +80,7 @@ Future<({ProviderContainer container, _FakeAuthController auth})> _pumpProfile(
 }
 
 void main() {
-  testWidgets('AC13/AC17: profile is an edit form with read-only email and role', (tester) async {
+  testWidgets('AC13/AC17: profile is an edit form with editable email and a role chip', (tester) async {
     final result = await _pumpProfile(tester, user: _user());
 
     expect(find.byKey(const Key('profileScreen')), findsOneWidget);
@@ -82,10 +88,19 @@ void main() {
     expect(find.byKey(const Key('phoneField')), findsOneWidget);
     expect(find.byKey(const Key('saveProfileButton')), findsOneWidget);
     expect(find.byKey(const Key('profileEmailReadOnly')), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(of: find.byKey(const Key('profileEmailReadOnly')), matching: find.byType(TextField)),
+          )
+          .readOnly,
+      isFalse,
+    );
     expect(find.byKey(const Key('profileRoleReadOnly')), findsOneWidget);
     expect(find.text('casey@example.com'), findsOneWidget);
-    expect(find.text('customer'), findsOneWidget);
-    expect(find.text("Email changes aren't supported yet."), findsOneWidget);
+    expect(find.text('Customer'), findsOneWidget);
+    expect(find.text('customer'), findsNothing);
+    expect(find.text("Email changes aren't supported yet."), findsNothing);
 
     result.container.dispose();
   });
@@ -95,8 +110,8 @@ void main() {
 
     expect(find.text('No email on file'), findsNothing);
     final emailField = tester.widget<TextFormField>(find.byKey(const Key('profileEmailReadOnly')));
-    expect(emailField.initialValue, '');
-    expect(find.text("Email changes aren't supported yet."), findsOneWidget);
+    expect(emailField.controller?.text, '');
+    expect(find.text("Email changes aren't supported yet."), findsNothing);
 
     result.container.dispose();
   });
@@ -105,7 +120,8 @@ void main() {
     for (final role in [UserRole.merchant, UserRole.admin]) {
       final result = await _pumpProfile(tester, user: _user(role: role, name: 'Pat', email: 'pat@example.com'));
       expect(find.byKey(const Key('saveProfileButton')), findsOneWidget);
-      expect(find.text(role.name), findsOneWidget);
+      expect(find.text(role == UserRole.merchant ? 'Merchant' : 'Admin'), findsOneWidget);
+      expect(find.text(role.name), findsNothing);
       result.container.dispose();
       await tester.pumpWidget(const SizedBox.shrink());
     }
@@ -216,6 +232,39 @@ void main() {
     final result = await _pumpProfile(tester, user: _user());
     expect(find.byKey(const Key('avatarUrlField')), findsNothing);
     expect(find.byKey(const Key('changeAvatarButton')), findsOneWidget);
+    result.container.dispose();
+  });
+
+  testWidgets('S-107: role chip uses a friendly label and scare copy is gone', (tester) async {
+    final result = await _pumpProfile(tester, user: _user());
+
+    expect(find.byKey(const Key('profileRoleReadOnly')), findsOneWidget);
+    expect(find.text('Customer'), findsOneWidget);
+    expect(find.text('customer'), findsNothing);
+    expect(find.textContaining('Authenticator setup is required the next time you sign in'), findsNothing);
+    expect(find.text('You can sign in with password, phone, or an authenticator app.'), findsOneWidget);
+
+    result.container.dispose();
+  });
+
+  testWidgets('S-107: save without reauth confirm does not call update', (tester) async {
+    final result = await _pumpProfile(tester, user: _user());
+
+    await tester.ensureVisible(find.byKey(const Key('profileEmailReadOnly')));
+    await tester.enterText(find.byKey(const Key('profileEmailReadOnly')), 'new-casey@example.com');
+    await tester.ensureVisible(find.byKey(const Key('saveProfileButton')));
+    await tester.tap(find.byKey(const Key('saveProfileButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('reauthPassword')), findsOneWidget);
+    expect(find.byKey(const Key('reauthPhone')), findsOneWidget);
+    expect(find.byKey(const Key('reauthAuthenticator')), findsOneWidget);
+    expect(result.auth.lastPayload, isNull);
+
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    expect(result.auth.lastPayload, isNull);
+
     result.container.dispose();
   });
 }

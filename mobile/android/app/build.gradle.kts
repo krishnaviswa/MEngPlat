@@ -9,13 +9,15 @@ plugins {
 
 // Release signing: reads android/key.properties if present (gitignored; created
 // locally per ANDROID_APP_STRATEGY.md, or written from CI secrets in
-// .github/workflows/mobile-release-aab.yml). Falls back to debug signing when
-// absent so `flutter run --release` keeps working without a keystore.
+// .github/workflows/mobile-release-aab.yml). When absent, uses the committed
+// sideload.keystore so GitHub Actions APK SHA-1 stays stable for the Android
+// OAuth client. Last resort is the ephemeral debug key.
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
+val sideloadKeystoreFile = rootProject.file("sideload.keystore")
 
 android {
     namespace = "com.merchanthub.merchanthub_mobile"
@@ -47,6 +49,13 @@ android {
                 storeFile = file(keystoreProperties["storeFile"] as String)
                 storePassword = keystoreProperties["storePassword"] as String
             }
+        } else if (sideloadKeystoreFile.exists()) {
+            create("sideload") {
+                keyAlias = "sideload"
+                keyPassword = "merchanthub"
+                storeFile = sideloadKeystoreFile
+                storePassword = "merchanthub"
+            }
         }
     }
 
@@ -54,9 +63,9 @@ android {
         release {
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
+            } else if (sideloadKeystoreFile.exists()) {
+                signingConfigs.getByName("sideload")
             } else {
-                // No key.properties yet -- sign with the debug key so
-                // `flutter run --release` still works before step 1 below is done.
                 signingConfigs.getByName("debug")
             }
         }

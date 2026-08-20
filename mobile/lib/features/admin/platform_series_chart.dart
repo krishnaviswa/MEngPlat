@@ -52,17 +52,14 @@ class PlatformSeriesChart extends StatelessWidget {
 
     return Column(
       key: const Key('platformSeriesChart'),
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('Platform trends', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            for (final entry in _labels.entries) _SingleSeriesChart(seriesKey: entry.key, label: entry.value, series: series),
-          ],
-        ),
+        for (final entry in _labels.entries) ...[
+          _SingleSeriesChart(seriesKey: entry.key, label: entry.value, series: series),
+          const SizedBox(height: 10),
+        ],
       ],
     );
   }
@@ -80,27 +77,34 @@ class _SingleSeriesChart extends StatelessWidget {
     final raw = series.series[seriesKey];
     final points = (raw?.toList() ?? const <JsonObject>[]).map(_SeriesPoint.fromJsonObject).toList();
 
+    final theme = Theme.of(context);
     return SizedBox(
-      width: 160,
-      height: 120,
+      width: double.infinity,
+      height: 92,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 4),
+          Text(label, style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
           Expanded(
             child: LineChart(
               LineChartData(
+                minY: 0,
                 titlesData: const FlTitlesData(show: false),
                 gridData: const FlGridData(show: false),
                 borderData: FlBorderData(show: false),
                 lineTouchData: const LineTouchData(enabled: false),
                 lineBarsData: [
                   LineChartBarData(
-                    spots: [for (var i = 0; i < points.length; i++) FlSpot(i.toDouble(), points[i].count.toDouble())],
+                    spots: [
+                      if (points.isEmpty)
+                        const FlSpot(0, 0)
+                      else
+                        for (var i = 0; i < points.length; i++) FlSpot(i.toDouble(), points[i].count.toDouble()),
+                    ],
                     isCurved: true,
-                    barWidth: 2,
-                    color: Theme.of(context).colorScheme.primary,
+                    barWidth: 2.5,
+                    color: theme.colorScheme.primary,
                     dotData: const FlDotData(show: false),
                   ),
                 ],

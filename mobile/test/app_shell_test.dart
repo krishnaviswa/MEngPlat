@@ -173,41 +173,43 @@ Future<ProviderContainer> _pumpApp(
 }
 
 void main() {
-  testWidgets('AC1: customer shell tabs are Explore, Favorites, Notifications, Account', (tester) async {
+  testWidgets('AC1: customer shell tabs are Home, Explore, Favorites, Notifications, Account', (tester) async {
     final container = await _pumpApp(tester, user: _user(UserRole.customer));
 
+    expect(find.byKey(const Key('homeTab')), findsOneWidget);
     expect(find.byKey(const Key('exploreTab')), findsOneWidget);
     expect(find.byKey(const Key('favoritesTab')), findsOneWidget);
     expect(find.byKey(const Key('notificationsTab')), findsOneWidget);
     expect(find.byKey(const Key('accountTab')), findsOneWidget);
-    expect(find.byKey(const Key('homeTab')), findsNothing);
     expect(find.byKey(const Key('merchantHomeTab')), findsNothing);
     expect(find.byKey(const Key('adminHomeTab')), findsNothing);
-    expect(find.text('Businesses'), findsOneWidget);
+    expect(find.byKey(const Key('homeScreen')), findsOneWidget);
 
     container.dispose();
   });
 
-  testWidgets('AC2/AC6: merchant tabs omit Favorites and land on Merchant home', (tester) async {
+  testWidgets('AC2/AC6: merchant tabs include Shop hub and land on marketing Home', (tester) async {
     final container = await _pumpApp(tester, user: _user(UserRole.merchant, name: 'Mina Merchant'));
 
+    expect(find.byKey(const Key('homeTab')), findsOneWidget);
     expect(find.byKey(const Key('merchantHomeTab')), findsOneWidget);
     expect(find.byKey(const Key('exploreTab')), findsOneWidget);
     expect(find.byKey(const Key('notificationsTab')), findsOneWidget);
     expect(find.byKey(const Key('accountTab')), findsOneWidget);
     expect(find.byKey(const Key('favoritesTab')), findsNothing);
-    expect(find.byKey(const Key('merchantHomeScreen')), findsOneWidget);
-    expect(find.text('Businesses'), findsNothing);
+    expect(find.byKey(const Key('homeScreen')), findsOneWidget);
+    expect(find.byKey(const Key('signedInBanner')), findsOneWidget);
 
     container.dispose();
   });
 
-  testWidgets('AC3/AC7: admin tabs omit Favorites and land on Admin home', (tester) async {
+  testWidgets('AC3/AC7: admin tabs include Hub and land on marketing Home', (tester) async {
     final container = await _pumpApp(tester, user: _user(UserRole.admin));
 
+    expect(find.byKey(const Key('homeTab')), findsOneWidget);
     expect(find.byKey(const Key('adminHomeTab')), findsOneWidget);
     expect(find.byKey(const Key('favoritesTab')), findsNothing);
-    expect(find.byKey(const Key('adminHomeScreen')), findsOneWidget);
+    expect(find.byKey(const Key('homeScreen')), findsOneWidget);
 
     container.dispose();
   });
@@ -236,9 +238,9 @@ void main() {
     container.dispose();
   });
 
-  testWidgets('AC5: customer session on login redirects to Explore', (tester) async {
+  testWidgets('AC5: customer session on login redirects to Home', (tester) async {
     final container = await _pumpApp(tester, user: _user(UserRole.customer));
-    expect(find.text('Businesses'), findsOneWidget);
+    expect(find.byKey(const Key('homeScreen')), findsOneWidget);
     container.dispose();
   });
 
@@ -257,7 +259,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('brandHomeLink')));
     await _pumpFrames(tester);
-    expect(find.text('Businesses'), findsAtLeastNWidgets(1));
+    expect(find.byKey(const Key('homeScreen')), findsAtLeastNWidgets(1));
 
     await tester.tap(find.byKey(const Key('accountTab')));
     await _pumpFrames(tester);

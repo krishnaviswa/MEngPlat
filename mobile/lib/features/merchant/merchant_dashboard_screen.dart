@@ -60,8 +60,11 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
   String _range = 'all';
   bool _exportingCsv = false;
   int _loadGen = 0;
+  String? _reviewsRefetchedFor;
   final _reviewsKey = GlobalKey();
   final _sentimentKey = GlobalKey();
+
+  static ButtonStyle get _filled48 => FilledButton.styleFrom(minimumSize: const Size.fromHeight(48));
 
   bool get _showHub => widget.section == MerchantSection.hub || widget.section == MerchantSection.all;
   bool get _showInsights => widget.section == MerchantSection.insights || widget.section == MerchantSection.all;
@@ -136,6 +139,7 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
               if (mounted) _loadDashboard(business.id);
             });
           }
+          if (_showReviews) _refetchReviews(business.id);
 
           return RefreshIndicator(
             onRefresh: () async {
@@ -175,6 +179,7 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                         _benchmark = null;
                         _topics = null;
                         _error = null;
+                        _reviewsRefetchedFor = null;
                       });
                     },
                   ),
@@ -196,7 +201,12 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                     ),
                   ),
                 if (_error != null) MhError(error: _error!, onRetry: () => _loadDashboard(business.id)),
-                if (_showHub) ...[
+                if (_showHub)
+                KeyedSubtree(
+                  key: const Key('dashboardHubScaffold'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                 Row(
                   children: [
                     Expanded(
@@ -264,7 +274,9 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                   onTap: () => _openSection(MerchantSection.grow, _reviewsKey),
                 ),
                 const SizedBox(height: 16),
-                ],
+                    ],
+                  ),
+                ),
                 if (_showInsights) ...[
                 SegmentedButton<String>(
                   key: const Key('dashboardRangeSelector'),
@@ -362,25 +374,27 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                   BenchmarkCard(benchmark: _benchmark!),
                 ],
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Expanded(child: Text('Refresh AI summary when you want an updated suggestion.')),
-                    OutlinedButton(
-                      key: const Key('refreshAiButton'),
-                      onPressed: _refreshingAi ? null : () => _refreshAi(business.id),
-                      child: Text(_refreshingAi ? 'Refreshing...' : 'Refresh AI insights'),
-                    ),
-                  ],
+                const Text('Refresh AI summary when you want an updated suggestion.'),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    key: const Key('refreshAiButton'),
+                    style: _filled48,
+                    onPressed: _refreshingAi ? null : () => _refreshAi(business.id),
+                    child: Text(_refreshingAi ? 'Refreshing...' : 'Refresh AI insights'),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 if (_insights != null) AiInsightsPanel(insights: _insights!, topics: _topics),
                 ],
                 if (_showReviews) ...[
                 const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton(
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
                     key: const Key('exportCsvButton'),
+                    style: _filled48,
                     onPressed: _exportingCsv ? null : () => _exportCsv(business.id),
                     child: Text(_exportingCsv ? 'Exporting...' : 'Export CSV'),
                   ),
@@ -388,22 +402,10 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                 const SizedBox(height: 16),
                 KeyedSubtree(
                   key: _reviewsKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Recent reviews', style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 8),
-                      if ((_stats?.recentReviews.isEmpty ?? true))
-                        const Text('No reviews yet.')
-                      else
-                        for (final review in _stats!.recentReviews)
-                          ReviewCard(
-                            review: review,
-                            showActions: false,
-                            canReply: true,
-                            onReply: (body) => _postReply(review.id, body),
-                          ),
-                    ],
+                  child: _MerchantReviewsList(
+                    business: business,
+                    reviewCount: _stats?.totalReviews ?? business.reviewCount,
+                    onReply: _postReply,
                   ),
                 ),
                 ],
@@ -505,9 +507,22 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
     }
   }
 
+  void _refetchReviews(String businessId) {
+    if (_reviewsRefetchedFor == businessId) return;
+    _reviewsRefetchedFor = businessId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.invalidate(reviewsControllerProvider(businessId));
+    });
+  }
+
   Future<void> _postReply(String reviewId, String body) async {
     final reply = await ref.read(reviewRepositoryProvider).replyToReview(reviewId: reviewId, body: body);
     if (!mounted) return;
+    final businessId = _selectedId;
+    if (businessId != null) {
+      ref.read(reviewsControllerProvider(businessId).notifier).applyReply(reviewId, reply);
+    }
     final stats = _stats;
     if (stats == null) return;
     setState(() {
@@ -546,6 +561,56 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
     final target = key.currentContext;
     if (target == null) return;
     Scrollable.ensureVisible(target, duration: const Duration(milliseconds: 250), alignment: 0.1);
+  }
+}
+
+class _MerchantReviewsList extends ConsumerWidget {
+  const _MerchantReviewsList({
+    required this.business,
+    required this.reviewCount,
+    required this.onReply,
+  });
+
+  final BusinessResponse business;
+  final int reviewCount;
+  final Future<void> Function(String reviewId, String body) onReply;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reviewsAsync = ref.watch(reviewsControllerProvider(business.id));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Recent reviews', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        reviewsAsync.when(
+          skipLoadingOnReload: true,
+          skipLoadingOnRefresh: true,
+          loading: () => const MhSkeleton(),
+          error: (error, _) => MhError(
+            error: error,
+            onRetry: () => ref.invalidate(reviewsControllerProvider(business.id)),
+          ),
+          data: (reviews) {
+            if (reviews.isEmpty) {
+              return Text(reviewCount > 0 ? 'Held for review' : 'No reviews yet.');
+            }
+            return Column(
+              children: [
+                for (final review in reviews)
+                  ReviewCard(
+                    review: review,
+                    showActions: false,
+                    canReply: true,
+                    onReply: (body) => onReply(review.id, body),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
   }
 }
 

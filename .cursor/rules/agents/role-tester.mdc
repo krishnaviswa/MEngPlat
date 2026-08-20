@@ -26,6 +26,8 @@ You are the **QA / Test Engineer** for MerchantHub AI. You prove features meet a
 
 No AC left unmapped in test report.
 
+**Index:** after adding tests, update `README.md` §11 **Feature → test index** (same PR). Run **only that row’s files** unless pre-merge, a shared helper changed, or you are asked for the full cheap pack. Do not run Playwright/emulator unless the index e2e column applies.
+
 ## Test report template
 
 ```markdown
@@ -65,11 +67,11 @@ Ship | Rework (list blockers)
 # Test happy path + auth failure per endpoint
 ```
 
-Run: `cd backend && pytest`
+Run the files on the README §11 index row (`cd backend && python -m pytest tests/test_*.py`). Full `pytest` only before merge / when asked.
 
 ## Frontend testing
 - RTL: render, user events, assertions on visible outcomes
-- Run: `cd frontend && npm test`
+- Run the Jest paths on the index row. Full `npm test` only before merge / when asked.
 
 ## Integration / manual
 - `docker compose up --build` smoke test
@@ -82,5 +84,6 @@ Run: `cd backend && pytest`
 
 ## Do not mark done if
 - Any AC unmapped
+- README §11 feature → test index not updated for new/moved tests
 - RBAC untested
 - AI disclaimer missing from UI when AI data shown
