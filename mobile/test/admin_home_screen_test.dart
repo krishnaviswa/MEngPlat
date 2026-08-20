@@ -321,6 +321,7 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('adminOpsNav')), findsOneWidget);
+    expect(find.byKey(const Key('dashboardHubScaffold')), findsOneWidget);
     expect(find.byKey(const Key('openSupportTicketsTile')), findsOneWidget);
     expect(find.byKey(const Key('repeatShopReportsTile')), findsOneWidget);
     expect(find.byKey(const Key('processingBusinessesTile')), findsOneWidget);

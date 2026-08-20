@@ -44,7 +44,7 @@ class _CollectReviewScreenState extends ConsumerState<CollectReviewScreen> {
     super.dispose();
   }
 
-  bool get _isValid => _rating >= 1 && _bodyController.text.trim().length >= 10;
+  bool get _isValid => _rating >= 1 && _bodyController.text.trim().isNotEmpty;
 
   Future<void> _submit(BusinessResponse business) async {
     final isLoggedIn = ref.read(authControllerProvider).valueOrNull != null;
@@ -125,7 +125,7 @@ class _CollectReviewScreenState extends ConsumerState<CollectReviewScreen> {
                   controller: _bodyController,
                   minLines: 4,
                   maxLines: 8,
-                  decoration: const InputDecoration(labelText: 'Share details of your experience (min 10 characters)'),
+                  decoration: const InputDecoration(labelText: 'Share details of your experience (a smiley is enough)'),
                   onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 20),

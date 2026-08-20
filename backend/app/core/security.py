@@ -46,6 +46,13 @@ def create_mfa_token(subject: str, purpose: str) -> str:
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
+def create_reauth_token(subject: str) -> str:
+    """Short-lived JWT proving a fresh password / TOTP / phone-OTP check (email change)."""
+    expire = datetime.now(UTC) + timedelta(minutes=5)
+    payload = {"sub": subject, "exp": expire, "type": "reauth", "jti": uuid4().hex}
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+
 def decode_token(token: str) -> dict[str, Any]:
     try:
         return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])

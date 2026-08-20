@@ -12,7 +12,7 @@ import 'rating_stars.dart';
 const _maxPhotos = 5;
 
 /// Bottom sheet for submitting a review: rating (required), title
-/// (optional), body (required, min 10 chars), optional photo attach.
+/// (optional), body (required, min 1 char), optional photo attach.
 /// Mirrors `frontend/src/components/ReviewForm.tsx`. Not a route -- transient
 /// UI with no back-stack entry, per the Architect spec.
 class ReviewFormSheet extends ConsumerStatefulWidget {
@@ -50,7 +50,7 @@ class _ReviewFormSheetState extends ConsumerState<ReviewFormSheet> {
     super.dispose();
   }
 
-  bool get _isValid => _rating >= 1 && _bodyController.text.trim().length >= 10;
+  bool get _isValid => _rating >= 1 && _bodyController.text.trim().isNotEmpty;
 
   Future<void> _pickFromGallery() async {
     final remaining = _maxPhotos - _photos.length;
@@ -151,7 +151,7 @@ class _ReviewFormSheetState extends ConsumerState<ReviewFormSheet> {
               controller: _bodyController,
               minLines: 4,
               maxLines: 8,
-              decoration: const InputDecoration(labelText: 'Share details of your experience (min 10 characters)'),
+              decoration: const InputDecoration(labelText: 'Share details of your experience (a smiley is enough)'),
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 16),

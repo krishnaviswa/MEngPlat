@@ -14,6 +14,8 @@ import 'package:merchanthub_mobile/features/merchant/dashboard_repository.dart';
 import 'package:merchanthub_mobile/features/merchant/merchant_dashboard_screen.dart';
 import 'package:merchanthub_mobile/features/merchant/merchant_providers.dart';
 import 'package:merchanthub_mobile/features/merchant/payments_repository.dart';
+import 'package:merchanthub_mobile/features/reviews/review_providers.dart';
+import 'package:merchanthub_mobile/features/reviews/review_repository.dart';
 import 'package:merchanthub_mobile/ui/widgets.dart';
 import 'package:share_plus_platform_interface/share_plus_platform_interface.dart';
 
@@ -117,6 +119,29 @@ mixin _ParityDashboardStubs on DashboardRepository {
 
   @override
   Future<List<WhatsAppDraftResponse>> whatsappDrafts(String businessId) async => [];
+}
+
+ReviewResponse _review({
+  String id = 'rev-live-1',
+  String body = 'The espresso was outstanding and the patio is lovely.',
+}) =>
+    ReviewResponse((b) => b
+      ..id = id
+      ..businessId = 'biz-1'
+      ..authorId = 'customer-1'
+      ..rating = 5
+      ..body = body
+      ..status = ReviewStatus.active
+      ..likeCount = 0
+      ..createdAt = DateTime.utc(2026, 1, 1));
+
+class _FakeReviewRepository extends ReviewRepository {
+  _FakeReviewRepository({this.reviews = const []}) : super(ApiClient());
+
+  final List<ReviewResponse> reviews;
+
+  @override
+  Future<List<ReviewResponse>> listForBusiness(String businessId) async => reviews;
 }
 
 class _FakeAuthController extends AuthController {
@@ -352,6 +377,7 @@ Future<void> _pumpDashboard(
   List<BusinessResponse> mine = const [],
   DashboardRepository? dashboardRepository,
   PaymentsRepository? paymentsRepository,
+  ReviewRepository? reviewRepository,
   MerchantSection section = MerchantSection.all,
 }) async {
   // S-060 added a range selector + two fl_chart sections + a reply-rate/CSV
@@ -368,6 +394,7 @@ Future<void> _pumpDashboard(
       businessRepositoryProvider.overrideWithValue(_FakeBusinessRepository(mine)),
       dashboardRepositoryProvider.overrideWithValue(dashboardRepository ?? _FakeDashboardRepository()),
       paymentsRepositoryProvider.overrideWithValue(paymentsRepository ?? _FakePaymentsRepository()),
+      reviewRepositoryProvider.overrideWithValue(reviewRepository ?? _FakeReviewRepository()),
     ],
   );
   addTearDown(container.dispose);
@@ -984,6 +1011,54 @@ void main() {
     expect(find.byKey(const Key('whatsAppSuggestionDisclaimer')), findsOneWidget);
     expect(find.textContaining('not configured'), findsOneWidget);
   });
+
+  testWidgets(
+    'S-111: reviews section renders provider reviews when stats.recentReviews is empty',
+    (tester) async {
+      const body = 'The espresso was outstanding and the patio is lovely.';
+      final stats = DashboardStats((b) => b
+        ..totalReviews = 2
+        ..averageRating = 4.5
+        ..sentimentBreakdown.addAll({'positive': 2, 'neutral': 0, 'negative': 0}));
+
+      await _pumpDashboard(
+        tester,
+        mine: [_owned()],
+        dashboardRepository: _RecordingDashboardRepository(stats: stats),
+        reviewRepository: _FakeReviewRepository(reviews: [_review(body: body)]),
+        section: MerchantSection.reviews,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.text(body), findsOneWidget);
+      expect(find.text('No reviews yet.'), findsNothing);
+      expect(find.text('Held for review'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'S-111: empty live list with a non-zero review count shows Held for review',
+    (tester) async {
+      final stats = DashboardStats((b) => b
+        ..totalReviews = 2
+        ..averageRating = 4.5
+        ..sentimentBreakdown.addAll({'positive': 2, 'neutral': 0, 'negative': 0}));
+
+      await _pumpDashboard(
+        tester,
+        mine: [_owned()],
+        dashboardRepository: _RecordingDashboardRepository(stats: stats),
+        reviewRepository: _FakeReviewRepository(),
+        section: MerchantSection.reviews,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.text('Held for review'), findsOneWidget);
+      expect(find.text('No reviews yet.'), findsNothing);
+    },
+  );
 
   testWidgets('S-093: processing listing shows under-review banner', (tester) async {
     await _pumpDashboard(tester, mine: [_owned(status: BusinessStatus.processing)]);

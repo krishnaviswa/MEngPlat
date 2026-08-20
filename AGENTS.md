@@ -7,14 +7,15 @@ This repo is **MerchantHub AI** (MEngPlat): a full-stack merchant engagement pla
 `[README.md](README.md)` **is the single source of truth** — architecture, API reference, domain model, security, deployment, and the multi-agent workflow all live there.
 
 
-| You need                                    | Read                                    |
+| You need | Read |
 | ------------------------------------------- | --------------------------------------- |
-| Product context and design rationale        | README §2–§4                            |
-| API contracts                               | README §7, plus live Swagger at `/docs` |
-| Data model                                  | README §5                               |
-| Security model and known weaknesses         | README §9                               |
-| The PM → Architect → Builder → Tester cycle | README §13                              |
-| What is *not* built yet                     | README §14                              |
+| Product context and design rationale | README §2–§4 |
+| API contracts | README §7, plus live Swagger at `/docs` |
+| Data model | README §5 |
+| Security model and known weaknesses | README §9 |
+| Which tests to run for a feature | README §11 [feature → test index](README.md#feature--test-index) |
+| The PM → Architect → Builder → Tester cycle | README §13 |
+| What is *not* built yet | README §14 |
 
 
 

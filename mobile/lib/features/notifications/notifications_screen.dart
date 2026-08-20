@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../../ui/widgets.dart';
+import '../auth/auth_provider.dart';
 import 'notifications_providers.dart';
 import 'relative_time.dart';
 
@@ -84,7 +86,7 @@ class _NotificationTile extends ConsumerWidget {
 
     return ListTile(
       key: Key('notification-${notification.id}'),
-      onTap: unread ? () => _markRead(context, ref) : null,
+      onTap: () => _onTap(context, ref),
       leading: Padding(
         padding: const EdgeInsets.only(top: 4),
         child: unread
@@ -109,14 +111,50 @@ class _NotificationTile extends ConsumerWidget {
     );
   }
 
-  Future<void> _markRead(BuildContext context, WidgetRef ref) async {
+  Future<void> _onTap(BuildContext context, WidgetRef ref) async {
     try {
       await ref.read(notificationsListProvider.notifier).markRead(notification.id);
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     }
+    if (!context.mounted) return;
+    _openReviewDestination(context, ref);
   }
+
+  void _openReviewDestination(BuildContext context, WidgetRef ref) {
+    if (!_looksLikeReview(notification)) return;
+    if (GoRouter.maybeOf(context) == null) return;
+
+    final role = ref.read(authControllerProvider).valueOrNull?.role;
+    if (role == UserRole.merchant) {
+      context.go('/merchant/reviews');
+      return;
+    }
+
+    final slug = _stringFromExtra(notification, const ['slug', 'business_slug', 'businessSlug']);
+    if (slug != null && slug.isNotEmpty) {
+      context.go('/businesses/$slug');
+      return;
+    }
+    context.go('/businesses');
+  }
+}
+
+bool _looksLikeReview(NotificationResponse notification) {
+  final haystack = '${notification.type} ${notification.title} ${notification.message} ${notification.scenario ?? ''}'
+      .toLowerCase();
+  return haystack.contains('review');
+}
+
+String? _stringFromExtra(NotificationResponse notification, List<String> keys) {
+  final extra = notification.extraData?.value;
+  if (extra is! Map) return null;
+  for (final key in keys) {
+    final value = extra[key];
+    if (value != null && '$value'.isNotEmpty) return '$value';
+  }
+  return null;
 }
 
 class _CenteredScroll extends StatelessWidget {

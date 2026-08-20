@@ -16,6 +16,7 @@ Monorepo: local-business review platform with AI insights.
 ## Source of truth
 `README.md` is the single project document. Sections: §2 logical design, §3 architecture,
 §4 stack rationale, §5 domain model, §6 flows, §7 API, §8 frontend, §9 security,
+§11 testing (incl. feature → test index),
 §12 repo layout (incl. Web ↔ mobile feature parity tracker), §13 multi-agent workflow,
 §14 known gaps.
 
@@ -28,12 +29,14 @@ Monorepo: local-business review platform with AI insights.
 6. Never commit secrets (`.env`, API keys).
 7. Local dev: `docker compose up --build`.
 8. Testing is tiered, never skipped for speed — cheap checks (lint/unit) run on every push;
-   expensive checks (mobile emulator integration) only ever cancel *stale, superseded* runs,
-   never the check itself. Local `.githooks/pre-commit` refuses commits on `main` and runs
-   `flutter analyze && flutter test` when `mobile/` is staged (enable with
-   `git config core.hooksPath .githooks`). See `.cursor/rules/testing.mdc` and, for mobile CI
-   specifics, `ANDROID_APP_STRATEGY.md` § "Testing & CI flow" (includes a known gap: `main`
-   isn't yet branch-protection-gated on CI passing, so Railway can still deploy a failing build).
+ expensive checks (mobile emulator integration) only ever cancel *stale, superseded* runs,
+ never the check itself. Day-to-day: run the files on the `README.md` §11 **feature → test
+ index** row for the feature you changed, not the whole suite. Full cheap pack is for
+ pre-merge / shared helpers / when asked. Local `.githooks/pre-commit` refuses commits on
+ `main` and runs `flutter analyze && flutter test` when `mobile/` is staged (enable with
+ `git config core.hooksPath .githooks`). See `.cursor/rules/testing.mdc` and, for mobile CI
+ specifics, `ANDROID_APP_STRATEGY.md` § "Testing & CI flow" (includes a known gap: `main`
+ isn't yet branch-protection-gated on CI passing, so Railway can still deploy a failing build).
 
 ## RBAC
 Use `require_roles()` from `app/dependencies.py`.

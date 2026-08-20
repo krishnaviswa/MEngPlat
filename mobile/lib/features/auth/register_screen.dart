@@ -9,6 +9,7 @@ import 'google_sign_in_client.dart';
 import 'phone_otp_panel.dart';
 import '../../ui/friendly_error.dart';
 import '../../ui/widgets.dart';
+import '../theme/theme_toggle_button.dart';
 
 /// Customer / merchant sign-up. Password accounts must still enroll TOTP on
 /// first login (web `RegisterForm`). Google skips MFA and always creates a
@@ -85,8 +86,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create account')),
-      body: Center(
+      appBar: AppBar(title: const Text('Create account'), actions: const [ThemeToggleButton()]),
+      body: MhCanvas(
+        child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 400),
           child: SingleChildScrollView(
@@ -154,6 +156,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   const SizedBox(height: 12),
                   FilledButton(
                     key: const Key('registerSubmitButton'),
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                     onPressed: _loading ? null : _submit,
                     child: _loading
                         ? const SizedBox(
@@ -177,7 +180,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  GoogleSignInButton(onCredential: _onGoogleCredential, enabled: !_loading),
+                  GoogleSignInButton(
+                    onCredential: _onGoogleCredential,
+                    onError: (message) => setState(() => _error = message),
+                    enabled: !_loading,
+                  ),
                   const SizedBox(height: 8),
                   PhoneOtpPanel(
                     fullName: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(),
@@ -187,6 +194,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
             ),
           ),
+        ),
         ),
       ),
     );

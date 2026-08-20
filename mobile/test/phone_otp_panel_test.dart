@@ -99,6 +99,11 @@ Future<void> _sendCode(WidgetTester tester, {String number = '9876543210'}) asyn
   await tester.pumpAndSettle();
 }
 
+Future<void> _selectLoginPhone(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('loginMethodPhone')));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   group('PhoneOtpPanel standalone (default fullName/role null, as on login)', () {
     testWidgets('AC1: shows country code selector (+91 default), number field, and Send SMS code button',
@@ -120,12 +125,12 @@ void main() {
     testWidgets('Send SMS code is disabled until a number is entered', (tester) async {
       final result = await _pumpWidget(tester, const Scaffold(body: PhoneOtpPanel()));
 
-      final buttonBefore = tester.widget<OutlinedButton>(find.byKey(const Key('sendPhoneCodeButton')));
+      final buttonBefore = tester.widget<FilledButton>(find.byKey(const Key('sendPhoneCodeButton')));
       expect(buttonBefore.onPressed, isNull);
 
       await tester.enterText(find.byKey(const Key('phoneNumberField')), '9876543210');
       await tester.pump();
-      final buttonAfter = tester.widget<OutlinedButton>(find.byKey(const Key('sendPhoneCodeButton')));
+      final buttonAfter = tester.widget<FilledButton>(find.byKey(const Key('sendPhoneCodeButton')));
       expect(buttonAfter.onPressed, isNotNull);
 
       result.container.dispose();
@@ -165,16 +170,16 @@ void main() {
       final result = await _pumpWidget(tester, const Scaffold(body: PhoneOtpPanel()));
       await _sendCode(tester);
 
-      final buttonBefore = tester.widget<OutlinedButton>(find.byKey(const Key('verifyPhoneCodeButton')));
+      final buttonBefore = tester.widget<FilledButton>(find.byKey(const Key('verifyPhoneCodeButton')));
       expect(buttonBefore.onPressed, isNull);
 
       await tester.enterText(find.byKey(const Key('phoneCodeField')), '123');
       await tester.pump();
-      expect(tester.widget<OutlinedButton>(find.byKey(const Key('verifyPhoneCodeButton'))).onPressed, isNull);
+      expect(tester.widget<FilledButton>(find.byKey(const Key('verifyPhoneCodeButton'))).onPressed, isNull);
 
       await tester.enterText(find.byKey(const Key('phoneCodeField')), '1234');
       await tester.pump();
-      expect(tester.widget<OutlinedButton>(find.byKey(const Key('verifyPhoneCodeButton'))).onPressed, isNotNull);
+      expect(tester.widget<FilledButton>(find.byKey(const Key('verifyPhoneCodeButton'))).onPressed, isNotNull);
 
       result.container.dispose();
     });
@@ -200,7 +205,7 @@ void main() {
       // Retry with the field still editable.
       await tester.enterText(find.byKey(const Key('phoneCodeField')), '111111');
       await tester.pump();
-      expect(tester.widget<OutlinedButton>(find.byKey(const Key('verifyPhoneCodeButton'))).onPressed, isNotNull);
+      expect(tester.widget<FilledButton>(find.byKey(const Key('verifyPhoneCodeButton'))).onPressed, isNotNull);
 
       result.container.dispose();
     });
@@ -209,19 +214,18 @@ void main() {
   group('PhoneOtpPanel embedded in LoginScreen (no fullName/role passed)', () {
     testWidgets('AC1: panel is present below the credentials fields', (tester) async {
       final result = await _pumpWidget(tester, const LoginScreen());
+      await _selectLoginPhone(tester);
       expect(find.byKey(const Key('phoneNumberField')), findsOneWidget);
       expect(find.byKey(const Key('sendPhoneCodeButton')), findsOneWidget);
       result.container.dispose();
     });
 
-    testWidgets('AC5: verifying a brand-new number from login omits full_name and surfaces the backend 400 as-is',
+    testWidgets('AC5: verifying a brand-new number from login omits full_name unless the optional name is filled',
         (tester) async {
-      final result = await _pumpWidget(
-        tester,
-        const LoginScreen(),
-        verifyError: ApiException('Full name is required for a new account', statusCode: 400),
-      );
+      final result = await _pumpWidget(tester, const LoginScreen());
+      await _selectLoginPhone(tester);
       await _sendCode(tester);
+      expect(find.byKey(const Key('phoneOptionalNameField')), findsOneWidget);
       await tester.enterText(find.byKey(const Key('phoneCodeField')), '123456');
       await tester.pump();
       await tester.tap(find.byKey(const Key('verifyPhoneCodeButton')));
@@ -229,9 +233,6 @@ void main() {
 
       expect(result.auth.lastVerifyFullName, isNull);
       expect(result.auth.lastVerifyRole, isNull);
-      expect(find.byKey(const Key('phoneOtpError')), findsOneWidget);
-      expect(find.textContaining('Full name is required'), findsOneWidget);
-      // No client-invented name-entry fallback anywhere on the login screen.
       expect(find.byKey(const Key('registerFullNameField')), findsNothing);
 
       result.container.dispose();
@@ -239,6 +240,7 @@ void main() {
 
     testWidgets('successful verify from login flips authControllerProvider to a signed-in user', (tester) async {
       final result = await _pumpWidget(tester, const LoginScreen());
+      await _selectLoginPhone(tester);
       await _sendCode(tester);
       await tester.enterText(find.byKey(const Key('phoneCodeField')), '123456');
       await tester.pump();

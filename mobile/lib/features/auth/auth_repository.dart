@@ -1,3 +1,4 @@
+import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
@@ -170,8 +171,60 @@ class AuthRepository {
     }
   }
 
-  Future<UserResponse> updateMe(UserProfileUpdate payload) async {
+  Future<String> reauth({
+    String? password,
+    String? totpCode,
+    String? phone,
+    String? otpCode,
+  }) async {
     try {
+      final response = await _client.api.dio.post<Map<String, dynamic>>(
+        '/api/v1/auth/reauth',
+        data: <String, dynamic>{
+          'password': ?password,
+          'totp_code': ?totpCode,
+          'phone': ?phone,
+          'otp_code': ?otpCode,
+        },
+      );
+      final token = response.data?['reauth_token'];
+      if (token is! String || token.isEmpty) {
+        throw ApiException('Re-authentication failed');
+      }
+      return token;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  Future<UserResponse> updateMe(
+    UserProfileUpdate payload, {
+    String? reauthToken,
+    String? email,
+    bool includeEmail = false,
+  }) async {
+    try {
+      if (includeEmail || reauthToken != null) {
+        final serialized = standardSerializers.serialize(
+          payload,
+          specifiedType: const FullType(UserProfileUpdate),
+        );
+        final body = Map<String, dynamic>.from(serialized as Map);
+        if (includeEmail) {
+          body['email'] = email;
+        }
+        final response = await _client.api.dio.patch<Object>(
+          '/api/v1/auth/me',
+          data: body,
+          queryParameters: {
+            'reauth_token': ?reauthToken,
+          },
+        );
+        return standardSerializers.deserialize(
+          response.data,
+          specifiedType: const FullType(UserResponse),
+        ) as UserResponse;
+      }
       final response = await _client.api.getAuthenticationApi().updateMeApiV1AuthMePatch(
             userProfileUpdate: payload,
           );

@@ -79,7 +79,7 @@ Future<void> _openSheet(WidgetTester tester, ProviderContainer container) async 
 }
 
 void main() {
-  testWidgets('submit stays disabled until a rating and a 10+ char comment are provided', (tester) async {
+  testWidgets('submit stays disabled until a rating and a non-empty comment are provided', (tester) async {
     final container = await _settledContainer(_FakeReviewRepository());
     addTearDown(container.dispose);
     await _openSheet(tester, container);
@@ -87,17 +87,13 @@ void main() {
     FilledButton submitButton() => tester.widget<FilledButton>(find.byKey(const Key('submitReviewButton')));
     expect(submitButton().onPressed, isNull, reason: 'no rating, no comment yet');
 
-    await tester.enterText(find.byKey(const Key('reviewBodyField')), 'Too short');
+    await tester.enterText(find.byKey(const Key('reviewBodyField')), '🙂');
     await tester.pump();
-    expect(submitButton().onPressed, isNull, reason: 'comment under 10 chars and still no rating');
+    expect(submitButton().onPressed, isNull, reason: 'comment without a rating is not enough');
 
     await tester.tap(find.byKey(const Key('ratingStar4')));
     await tester.pump();
-    expect(submitButton().onPressed, isNull, reason: 'rating alone is not enough -- comment still under 10 chars');
-
-    await tester.enterText(find.byKey(const Key('reviewBodyField')), 'This comment is long enough now.');
-    await tester.pump();
-    expect(submitButton().onPressed, isNotNull, reason: 'rating + 10+ char comment satisfies both requirements');
+    expect(submitButton().onPressed, isNotNull, reason: 'rating + 1+ char body (smiley OK)');
   });
 
   testWidgets('a successful submit closes the sheet and shows a success confirmation (AC8)', (tester) async {

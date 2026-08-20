@@ -56,6 +56,10 @@ class AppShell extends ConsumerWidget {
             context.go(dest.location);
             return;
           }
+          if (dest.location == '/home') {
+            context.go('/home');
+            return;
+          }
           navigationShell.goBranch(
             branch,
             initialLocation: branch == navigationShell.currentIndex,
@@ -113,7 +117,7 @@ class AppShell extends ConsumerWidget {
     );
     final notifications = _Dest(
       location: '/notifications',
-      branchIndex: 2,
+      branchIndex: 3,
       destination: NavigationDestination(
         icon: notificationsIcon,
         selectedIcon: notificationsSelected,
@@ -122,7 +126,7 @@ class AppShell extends ConsumerWidget {
     );
     final explore = _Dest(
       location: '/businesses',
-      branchIndex: user.role == UserRole.customer ? 0 : 1,
+      branchIndex: 1,
       destination: NavigationDestination(
         icon: _tabIcon(Icons.storefront_outlined, const Key('exploreTab')),
         selectedIcon: _tabIcon(Icons.storefront, const Key('exploreTab')),
@@ -131,7 +135,7 @@ class AppShell extends ConsumerWidget {
     );
     final account = _Dest(
       location: '/account',
-      branchIndex: 3,
+      branchIndex: 4,
       destination: NavigationDestination(
         icon: _tabIcon(Icons.person_outline, const Key('accountTab')),
         selectedIcon: _tabIcon(Icons.person, const Key('accountTab')),
@@ -142,15 +146,32 @@ class AppShell extends ConsumerWidget {
     if (user.role == UserRole.merchant) {
       return [
         _Dest(
-          location: '/merchant',
+          location: '/home',
           branchIndex: 0,
           destination: NavigationDestination(
-            icon: _tabIcon(Icons.dashboard_outlined, const Key('merchantHomeTab')),
-            selectedIcon: _tabIcon(Icons.dashboard, const Key('merchantHomeTab')),
+            icon: _tabIcon(Icons.home_outlined, const Key('homeTab')),
+            selectedIcon: _tabIcon(Icons.home, const Key('homeTab')),
             label: 'Home',
           ),
         ),
-        explore,
+        _Dest(
+          location: '/merchant',
+          branchIndex: 1,
+          destination: NavigationDestination(
+            icon: _tabIcon(Icons.storefront_outlined, const Key('merchantHomeTab')),
+            selectedIcon: _tabIcon(Icons.store, const Key('merchantHomeTab')),
+            label: 'Shop',
+          ),
+        ),
+        _Dest(
+          location: '/businesses',
+          branchIndex: 2,
+          destination: NavigationDestination(
+            icon: _tabIcon(Icons.explore_outlined, const Key('exploreTab')),
+            selectedIcon: _tabIcon(Icons.explore, const Key('exploreTab')),
+            label: 'Explore',
+          ),
+        ),
         notifications,
         account,
       ];
@@ -159,25 +180,51 @@ class AppShell extends ConsumerWidget {
     if (user.role == UserRole.admin) {
       return [
         _Dest(
-          location: '/admin',
+          location: '/home',
           branchIndex: 0,
           destination: NavigationDestination(
-            icon: _tabIcon(Icons.admin_panel_settings_outlined, const Key('adminHomeTab')),
-            selectedIcon: _tabIcon(Icons.admin_panel_settings, const Key('adminHomeTab')),
+            icon: _tabIcon(Icons.home_outlined, const Key('homeTab')),
+            selectedIcon: _tabIcon(Icons.home, const Key('homeTab')),
             label: 'Home',
           ),
         ),
-        explore,
+        _Dest(
+          location: '/admin',
+          branchIndex: 1,
+          destination: NavigationDestination(
+            icon: _tabIcon(Icons.admin_panel_settings_outlined, const Key('adminHomeTab')),
+            selectedIcon: _tabIcon(Icons.admin_panel_settings, const Key('adminHomeTab')),
+            label: 'Hub',
+          ),
+        ),
+        _Dest(
+          location: '/businesses',
+          branchIndex: 2,
+          destination: NavigationDestination(
+            icon: _tabIcon(Icons.storefront_outlined, const Key('exploreTab')),
+            selectedIcon: _tabIcon(Icons.storefront, const Key('exploreTab')),
+            label: 'Explore',
+          ),
+        ),
         notifications,
         account,
       ];
     }
 
     return [
+      _Dest(
+        location: '/home',
+        branchIndex: 0,
+        destination: NavigationDestination(
+          icon: _tabIcon(Icons.home_outlined, const Key('homeTab')),
+          selectedIcon: _tabIcon(Icons.home, const Key('homeTab')),
+          label: 'Home',
+        ),
+      ),
       explore,
       _Dest(
         location: '/favorites',
-        branchIndex: 1,
+        branchIndex: 2,
         destination: NavigationDestination(
           icon: _tabIcon(Icons.favorite_border, const Key('favoritesTab')),
           selectedIcon: _tabIcon(Icons.favorite, const Key('favoritesTab')),

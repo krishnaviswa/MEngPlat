@@ -64,6 +64,18 @@ class _FakeBusinessRepository extends BusinessRepository {
 
   @override
   Future<MapsConfig> mapsConfig() async => MapsConfig.fallback;
+
+  @override
+  Future<List<BusinessResponse>> listPublic({String? city, String? slugs}) async => [];
+
+  @override
+  Future<List<String>> listCities() async => [];
+
+  @override
+  Future<List<CategoryResponse>> listCategories({String? q}) async => [];
+
+  @override
+  Future<PublicPlatformStats?> publicStats() async => null;
 }
 
 class _FakeDashboardRepository extends DashboardRepository {

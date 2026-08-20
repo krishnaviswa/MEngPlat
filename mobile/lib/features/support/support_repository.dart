@@ -1,3 +1,4 @@
+import 'package:built_value/serializer.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
@@ -44,6 +45,19 @@ class SupportRepository {
     try {
       final response = await _client.api.getSupportApi().listMySupportTicketsApiV1SupportTicketsMineGet();
       return response.data!.toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// `GET /support-tickets/{id}` is not on the generated client yet.
+  Future<SupportTicketResponse> getTicket(String ticketId) async {
+    try {
+      final response = await _client.api.dio.get<Object>('/api/v1/support-tickets/$ticketId');
+      return standardSerializers.deserialize(
+        response.data,
+        specifiedType: const FullType(SupportTicketResponse),
+      ) as SupportTicketResponse;
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
     }

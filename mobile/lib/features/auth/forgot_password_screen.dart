@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'auth_provider.dart';
 import '../../ui/friendly_error.dart';
 import '../../ui/widgets.dart';
+import '../theme/theme_toggle_button.dart';
 
 /// Request half of forgot/reset password (S-054 / M-65). Mirrors
 /// frontend/src/components/ForgotPasswordForm.tsx. No in-app reset screen:
@@ -50,8 +51,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Forgot password')),
-      body: Center(
+      appBar: AppBar(title: const Text('Forgot password'), actions: const [ThemeToggleButton()]),
+      body: MhCanvas(
+        child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 400),
           child: SingleChildScrollView(
@@ -69,6 +71,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               ],
             ),
           ),
+        ),
         ),
       ),
     );

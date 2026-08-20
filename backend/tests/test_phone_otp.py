@@ -36,8 +36,15 @@ async def test_request_always_generic_and_sends():
     assert "sent a sign-in code" in result.message.lower() or "sms" in result.message.lower()
 
 
-async def test_verify_new_user_requires_name():
+async def test_verify_new_user_without_name_gets_generated_name():
+    import uuid
+
+    from app.core.security import decode_token
+
     class FakeDB:
+        def __init__(self):
+            self.added = []
+
         async def execute(self, stmt):
             class R:
                 def scalar_one_or_none(self_inner):
@@ -45,14 +52,25 @@ async def test_verify_new_user_requires_name():
 
             return R()
 
+        def add(self, obj):
+            if getattr(obj, "id", None) is None:
+                obj.id = uuid.uuid4()
+            self.added.append(obj)
+
+        async def flush(self):
+            return None
+
+    db = FakeDB()
     with patch("app.routers.auth.consume_otp", new_callable=AsyncMock, return_value=True):
-        with pytest.raises(HTTPException) as exc:
-            await phone_otp_verify(
-                fake_request(),
-                PhoneOtpVerifyRequest(phone="9876543210", code="123456"),
-                db=FakeDB(),
-            )
-    assert exc.value.status_code == 400
+        result = await phone_otp_verify(
+            fake_request(),
+            PhoneOtpVerifyRequest(phone="9876543210", code="123456"),
+            db=db,
+        )
+    user = db.added[0]
+    assert user.full_name == "User 3210"
+    payload = decode_token(result.access_token)
+    assert payload.get("sub") == str(user.id)
 
 
 async def test_verify_bad_code_is_401():

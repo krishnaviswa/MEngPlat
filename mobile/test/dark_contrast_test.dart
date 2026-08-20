@@ -96,6 +96,55 @@ void main() {
     expect(Theme.of(loginContext).textTheme.bodyMedium?.color, MhTokens.inkDark);
   });
 
+  testWidgets('Login has theme toggle and no hardcoded light sky wash', (tester) async {
+    tester.view.physicalSize = const Size(400, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith(() => _FakeAuthController(_user())),
+        googleSignInClientProvider.overrideWith((ref) async => const UnconfiguredGoogleSignInClient()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: MhTheme.dark(),
+          home: const LoginScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('themeToggle')), findsOneWidget);
+    expect(find.byType(MhCanvas), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('continueAsGuestButton'))), isA<FilledButton>());
+  });
+
+  testWidgets('Admin Total users tile uses wash+ink pair in dark mode', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: MhTheme.dark(),
+        home: const Scaffold(
+          body: MhStatTile(label: 'Total users', value: '10'),
+        ),
+      ),
+    );
+    final label = tester.widget<Text>(find.text('Total users'));
+    expect(label.style?.color, MhAccent.sky.inkFor(Brightness.dark));
+    final material = tester.widget<Material>(find.descendant(
+      of: find.byType(MhStatTile),
+      matching: find.byType(Material),
+    ).first);
+    expect(material.color, MhAccent.sky.washFor(Brightness.dark));
+    expect(material.color, isNot(const Color(0xFFE0F2FE)));
+  });
+
   testWidgets('Dark filled buttons use white onPrimary, not light ink', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

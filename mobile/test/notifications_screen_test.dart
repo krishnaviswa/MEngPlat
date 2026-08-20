@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:merchanthub_mobile/core/network/api_client.dart';
 import 'package:merchanthub_mobile/core/network/api_exception.dart';
@@ -13,27 +14,37 @@ import 'package:merchanthub_mobile/features/notifications/notifications_screen.d
 /// (unread vs. read styling), tap-to-mark-read, "Mark all as read", the
 /// empty state, and error+Retry.
 
-UserResponse _user() => UserResponse((b) => b
+UserResponse _user({UserRole role = UserRole.customer}) => UserResponse((b) => b
   ..id = 'user-1'
   ..email = 'user@example.com'
   ..fullName = 'Test User'
-  ..role = UserRole.customer
+  ..role = role
   ..isActive = true
   ..createdAt = DateTime.utc(2026, 1, 1));
 
-NotificationResponse _notification({required String id, required String title, bool isRead = false}) {
+NotificationResponse _notification({
+  required String id,
+  required String title,
+  bool isRead = false,
+  String type = 'REVIEW',
+  String message = 'Someone left a new review.',
+}) {
   return NotificationResponse((b) => b
     ..id = id
-    ..type = 'REVIEW'
+    ..type = type
     ..title = title
-    ..message = 'Someone left a new review.'
+    ..message = message
     ..isRead = isRead
     ..createdAt = DateTime.utc(2026, 1, 1));
 }
 
 class _FakeAuthController extends AuthController {
+  _FakeAuthController({this.role = UserRole.customer});
+
+  final UserRole role;
+
   @override
-  Future<UserResponse?> build() async => _user();
+  Future<UserResponse?> build() async => _user(role: role);
 }
 
 class _FakeNotificationsRepository extends NotificationsRepository {
@@ -45,6 +56,7 @@ class _FakeNotificationsRepository extends NotificationsRepository {
   final Object? listError;
   int markAllReadCalls = 0;
   int listCalls = 0;
+  final List<String> markReadIds = [];
 
   @override
   Future<List<NotificationResponse>> list({bool unreadOnly = false}) async {
@@ -57,6 +69,7 @@ class _FakeNotificationsRepository extends NotificationsRepository {
 
   @override
   Future<void> markRead(String notificationId) async {
+    markReadIds.add(notificationId);
     final index = _notifications.indexWhere((n) => n.id == notificationId);
     if (index != -1) _notifications[index] = _notifications[index].rebuild((b) => b..isRead = true);
   }
@@ -82,20 +95,38 @@ Future<(ProviderContainer, _FakeNotificationsRepository)> _pumpNotificationsScre
   WidgetTester tester, {
   List<NotificationResponse> notifications = const [],
   Object? listError,
+  UserRole role = UserRole.customer,
+  GoRouter? router,
 }) async {
   final repository = _FakeNotificationsRepository(notifications: notifications, listError: listError);
   final container = ProviderContainer(
     overrides: [
-      authControllerProvider.overrideWith(_FakeAuthController.new),
+      authControllerProvider.overrideWith(() => _FakeAuthController(role: role)),
       notificationsRepositoryProvider.overrideWithValue(repository),
     ],
   );
 
   await tester.pumpWidget(
-    UncontrolledProviderScope(container: container, child: const MaterialApp(home: NotificationsScreen())),
+    UncontrolledProviderScope(
+      container: container,
+      child: router == null
+          ? const MaterialApp(home: NotificationsScreen())
+          : MaterialApp.router(routerConfig: router),
+    ),
   );
   await tester.pumpAndSettle();
   return (container, repository);
+}
+
+GoRouter _notificationsRouter() {
+  return GoRouter(
+    initialLocation: '/notifications',
+    routes: [
+      GoRoute(path: '/notifications', builder: (context, state) => const NotificationsScreen()),
+      GoRoute(path: '/merchant/reviews', builder: (context, state) => const Scaffold(body: Text('SHOP REVIEWS'))),
+      GoRoute(path: '/businesses', builder: (context, state) => const Scaffold(body: Text('LISTINGS'))),
+    ],
+  );
 }
 
 void main() {
@@ -217,6 +248,42 @@ void main() {
 
     expect(find.text('Network error'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'Retry'), findsOneWidget);
+
+    container.dispose();
+  });
+
+  testWidgets('S-111: merchant review tap marks read and goes to shop reviews', (tester) async {
+    final router = _notificationsRouter();
+    final (container, repository) = await _pumpNotificationsScreen(
+      tester,
+      notifications: [_notification(id: 'n1', title: 'New review received')],
+      role: UserRole.merchant,
+      router: router,
+    );
+
+    await tester.tap(find.byKey(const Key('notification-n1')));
+    await tester.pumpAndSettle();
+
+    expect(repository.markReadIds, ['n1']);
+    expect(find.text('SHOP REVIEWS'), findsOneWidget);
+
+    container.dispose();
+  });
+
+  testWidgets('S-111: customer review tap marks read and goes to listings', (tester) async {
+    final router = _notificationsRouter();
+    final (container, repository) = await _pumpNotificationsScreen(
+      tester,
+      notifications: [_notification(id: 'n1', title: 'New review posted')],
+      role: UserRole.customer,
+      router: router,
+    );
+
+    await tester.tap(find.byKey(const Key('notification-n1')));
+    await tester.pumpAndSettle();
+
+    expect(repository.markReadIds, ['n1']);
+    expect(find.text('LISTINGS'), findsOneWidget);
 
     container.dispose();
   });

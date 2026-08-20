@@ -1,10 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide SearchController;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:merchanthub_mobile/core/network/api_client.dart';
 import 'package:merchanthub_mobile/features/auth/auth_provider.dart';
+import 'package:merchanthub_mobile/features/businesses/search_controller.dart';
+import 'package:merchanthub_mobile/features/businesses/search_query.dart';
 import 'package:merchanthub_mobile/features/favorites/favorites_providers.dart';
 import 'package:merchanthub_mobile/features/favorites/favorites_repository.dart';
 import 'package:merchanthub_mobile/features/home/home_providers.dart';
@@ -90,9 +92,39 @@ PublicPlatformStats _stats() => PublicPlatformStats((b) => b
   ..totalCategories = 5
   ..totalCities = 3);
 
+class _FakeSearchController extends SearchController {
+  _FakeSearchController([this.catalog = const []]);
+
+  final List<BusinessResponse> catalog;
+
+  @override
+  Future<SearchResults> build() async {
+    return const SearchResults(query: SearchQuery(), items: [], page: 1, hasMore: false);
+  }
+
+  @override
+  void setQueryText(String raw) {
+    final q = raw.trim().toLowerCase();
+    final items = q.length < 2
+        ? const <BusinessResponse>[]
+        : catalog.where((b) {
+            final hay = '${b.name} ${b.city} ${b.categories?.map((c) => c.name).join(' ') ?? ''}'.toLowerCase();
+            return hay.contains(q);
+          }).toList();
+    state = AsyncValue.data(SearchResults(query: SearchQuery(q: raw.trim()), items: items, page: 1, hasMore: false));
+  }
+}
+
 class _FakeAuthController extends AuthController {
   @override
   Future<UserResponse?> build() async => null;
+}
+
+class _SignedInAuthController extends AuthController {
+  _SignedInAuthController(this._user);
+  final UserResponse _user;
+  @override
+  Future<UserResponse?> build() async => _user;
 }
 
 class _FakeFavoritesRepository extends FavoritesRepository {
@@ -105,6 +137,8 @@ class _FakeFavoritesRepository extends FavoritesRepository {
 Future<GoRouter> _pumpHome(
   WidgetTester tester, {
   required HomePayload payload,
+  UserResponse? user,
+  List<BusinessResponse> searchCatalog = const [],
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view.physicalSize = const Size(400, 2000);
@@ -117,8 +151,10 @@ Future<GoRouter> _pumpHome(
     routes: [
       GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
       GoRoute(path: '/businesses', builder: (context, state) => Scaffold(body: Text('EXPLORE ${state.uri}'))),
+      GoRoute(path: '/businesses/:slug', builder: (context, state) => Scaffold(body: Text('DETAIL ${state.pathParameters['slug']}'))),
       GoRoute(path: '/register', builder: (context, state) => const Scaffold(body: Text('REGISTER'))),
       GoRoute(path: '/login', builder: (context, state) => const Scaffold(body: Text('LOGIN'))),
+      GoRoute(path: '/merchant', builder: (context, state) => const Scaffold(body: Text('MERCHANT HUB'))),
     ],
   );
 
@@ -126,8 +162,11 @@ Future<GoRouter> _pumpHome(
     ProviderScope(
       overrides: [
         homePayloadProvider.overrideWith((ref) async => payload),
-        authControllerProvider.overrideWith(_FakeAuthController.new),
+        authControllerProvider.overrideWith(
+          user == null ? _FakeAuthController.new : () => _SignedInAuthController(user),
+        ),
         favoritesRepositoryProvider.overrideWithValue(_FakeFavoritesRepository()),
+        searchControllerProvider.overrideWith(() => _FakeSearchController(searchCatalog)),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
@@ -358,6 +397,7 @@ void main() {
           homePayloadProvider.overrideWith((ref) async => _payload(stats: _stats())),
           authControllerProvider.overrideWith(_FakeAuthController.new),
           favoritesRepositoryProvider.overrideWithValue(_FakeFavoritesRepository()),
+          searchControllerProvider.overrideWith(_FakeSearchController.new),
         ],
         child: MaterialApp(
           theme: ThemeData.dark(),
@@ -368,5 +408,38 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('homeScreen')), findsOneWidget);
     expect(find.byKey(const Key('homeHero')), findsOneWidget);
+  });
+
+  testWidgets('signed-in merchant sees banner and Open my hub', (tester) async {
+    final merchant = UserResponse((b) => b
+      ..id = 'm-1'
+      ..email = 'mina@example.com'
+      ..fullName = 'Mina Merchant'
+      ..role = UserRole.merchant
+      ..isActive = true
+      ..createdAt = DateTime.utc(2026, 1, 1));
+    await _pumpHome(tester, payload: _payload(), user: merchant);
+    expect(find.byKey(const Key('signedInBanner')), findsOneWidget);
+    expect(find.textContaining('Mina Merchant'), findsOneWidget);
+    expect(find.textContaining('Merchant'), findsWidgets);
+    await tester.tap(find.byKey(const Key('openHubButton')));
+    await tester.pumpAndSettle();
+    expect(find.text('MERCHANT HUB'), findsOneWidget);
+  });
+
+  testWidgets('typing caf shows cafe suggestion overlay', (tester) async {
+    await _pumpHome(
+      tester,
+      payload: _payload(),
+      searchCatalog: [_business(name: 'Cafe Demo', slug: 'cafe-demo')],
+    );
+    expect(find.byKey(const Key('homeSearchSuggestions')), findsNothing);
+    await tester.enterText(find.byKey(const Key('homeSearchField')), 'caf');
+    await tester.pump();
+    expect(find.byKey(const Key('homeSearchSuggestions')), findsOneWidget);
+    expect(find.byKey(const Key('homeSearchSuggestion-cafe-demo')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('homeSearchSuggestion-cafe-demo')));
+    await tester.pumpAndSettle();
+    expect(find.text('DETAIL cafe-demo'), findsOneWidget);
   });
 }

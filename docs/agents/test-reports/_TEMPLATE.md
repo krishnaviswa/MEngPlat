@@ -73,6 +73,7 @@ cd frontend && npm test — [pass/fail summary]
 ## Sign-off
 
 - [ ] All AC mapped to tests
+- [ ] README §11 feature → test index updated if tests were added or moved
 - [ ] RBAC tested
 - [ ] AI disclaimer verified (if applicable)
 - [ ] Ready for PM acceptance

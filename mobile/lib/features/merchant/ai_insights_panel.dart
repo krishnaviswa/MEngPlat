@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
-/// Merchant AI insights with a required suggestion-only disclaimer (M-52).
+const _maxBullets = 3;
+const _bulletMaxChars = 72;
+
+/// Compact merchant AI insights: disclaimer plus a few truncated bullets.
+/// Suggested owner replies belong on Reply / Draft with AI, not here.
 class AiInsightsPanel extends StatelessWidget {
   const AiInsightsPanel({required this.insights, this.topics, super.key});
 
@@ -10,6 +14,9 @@ class AiInsightsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bullets = _compactBullets(insights);
+    final summary = insights.merchantSummary?.trim();
+
     return Container(
       key: const Key('aiInsightsPanel'),
       padding: const EdgeInsets.all(16),
@@ -27,26 +34,13 @@ class AiInsightsPanel extends StatelessWidget {
             key: const Key('aiInsightsDisclaimer'),
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          if (insights.merchantSummary != null && insights.merchantSummary!.trim().isNotEmpty) ...[
+          if (summary != null && summary.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Text('Overall Summary', style: Theme.of(context).textTheme.titleSmall),
-            Text(insights.merchantSummary!),
+            Text(_truncate(summary), style: Theme.of(context).textTheme.bodyMedium),
           ],
-          const SizedBox(height: 12),
-          Text('Frequently Mentioned Positives', style: Theme.of(context).textTheme.titleSmall),
-          ...insights.frequentlyMentionedPositives.map((item) => Text('• $item')),
-          const SizedBox(height: 8),
-          Text('Frequently Mentioned Complaints', style: Theme.of(context).textTheme.titleSmall),
-          ...insights.frequentlyMentionedComplaints.map((item) => Text('• $item')),
-          if (insights.suggestedResponses.isNotEmpty) ...[
+          if (bullets.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text('Suggested Owner Responses', style: Theme.of(context).textTheme.titleSmall),
-            ...insights.suggestedResponses.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text('“$item”', style: const TextStyle(fontStyle: FontStyle.italic)),
-              ),
-            ),
+            for (final item in bullets) Text('• $item'),
           ],
           if (topics != null &&
               (topics!.insufficientData == true ||
@@ -59,7 +53,7 @@ class AiInsightsPanel extends StatelessWidget {
             else if (topics!.unavailable == true)
               const Text('Common themes are temporarily unavailable.')
             else
-              for (final topic in topics!.topics ?? const <TopicItem>[])
+              for (final topic in (topics!.topics ?? const <TopicItem>[]).take(_maxBullets))
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
@@ -71,4 +65,25 @@ class AiInsightsPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+List<String> _compactBullets(MerchantInsightsResponse insights) {
+  final out = <String>[];
+  for (final item in insights.frequentlyMentionedPositives) {
+    if (out.length >= _maxBullets) break;
+    final truncated = _truncate(item);
+    if (truncated.isNotEmpty) out.add(truncated);
+  }
+  for (final item in insights.frequentlyMentionedComplaints) {
+    if (out.length >= _maxBullets) break;
+    final truncated = _truncate(item);
+    if (truncated.isNotEmpty) out.add(truncated);
+  }
+  return out;
+}
+
+String _truncate(String value) {
+  final trimmed = value.trim();
+  if (trimmed.length <= _bulletMaxChars) return trimmed;
+  return '${trimmed.substring(0, _bulletMaxChars - 1).trimRight()}…';
 }

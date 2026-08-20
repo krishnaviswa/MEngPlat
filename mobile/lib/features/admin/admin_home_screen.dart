@@ -36,7 +36,9 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return KeyedSubtree(
+      key: const Key('dashboardHubScaffold'),
+      child: Scaffold(
       key: const Key('adminHomeScreen'),
       appBar: AppBar(title: const Text('Admin')),
       body: MhCanvas(
@@ -84,53 +86,77 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            _AdminStat(
+                            SizedBox(
                               width: tileWidth,
-                              label: 'Total users',
-                              value: '${_stats!.totalUsers}',
-                              onTap: () => context.push('/admin/users'),
+                              child: MhStatTile(
+                                label: 'Total users',
+                                value: '${_stats!.totalUsers}',
+                                accent: _accentForAdminStat('Total users'),
+                                onTap: () => context.push('/admin/users'),
+                              ),
                             ),
-                            _AdminStat(
+                            SizedBox(
                               width: tileWidth,
-                              label: 'Total businesses',
-                              value: '${_stats!.totalBusinesses}',
-                              onTap: () => context.push('/admin/businesses'),
+                              child: MhStatTile(
+                                label: 'Total businesses',
+                                value: '${_stats!.totalBusinesses}',
+                                accent: _accentForAdminStat('Total businesses'),
+                                onTap: () => context.push('/admin/businesses'),
+                              ),
                             ),
-                            _AdminStat(
+                            SizedBox(
                               width: tileWidth,
-                              label: 'Pending businesses',
-                              value: '${_stats!.pendingBusinesses}',
+                              child: MhStatTile(
+                                label: 'Pending businesses',
+                                value: '${_stats!.pendingBusinesses}',
+                                accent: _accentForAdminStat('Pending businesses'),
+                              ),
                             ),
-                            _AdminStat(
+                            SizedBox(
                               width: tileWidth,
-                              label: 'Total reviews',
-                              value: '${_stats!.totalReviews}',
-                              onTap: () => context.push('/admin/reviews'),
+                              child: MhStatTile(
+                                label: 'Total reviews',
+                                value: '${_stats!.totalReviews}',
+                                accent: _accentForAdminStat('Total reviews'),
+                                onTap: () => context.push('/admin/reviews'),
+                              ),
                             ),
-                            _AdminStat(
+                            SizedBox(
                               width: tileWidth,
-                              label: 'Reported reviews',
-                              value: '${_stats!.reportedReviews}',
+                              child: MhStatTile(
+                                label: 'Reported reviews',
+                                value: '${_stats!.reportedReviews}',
+                                accent: _accentForAdminStat('Reported reviews'),
+                              ),
                             ),
-                            _AdminStat(
-                              key: const Key('openSupportTicketsTile'),
+                            SizedBox(
                               width: tileWidth,
-                              label: 'Open support tickets',
-                              value: '${_stats!.openSupportTickets ?? 0}',
-                              onTap: () => context.push('/admin/support'),
+                              child: MhStatTile(
+                                key: const Key('openSupportTicketsTile'),
+                                label: 'Open support tickets',
+                                value: '${_stats!.openSupportTickets ?? 0}',
+                                accent: _accentForAdminStat('Open support tickets'),
+                                onTap: () => context.push('/admin/support'),
+                              ),
                             ),
-                            _AdminStat(
-                              key: const Key('repeatShopReportsTile'),
+                            SizedBox(
                               width: tileWidth,
-                              label: 'Repeat shop reports',
-                              value: '${_stats!.repeatShopReports ?? 0}',
-                              onTap: () => context.push('/admin/business-reports'),
+                              child: MhStatTile(
+                                key: const Key('repeatShopReportsTile'),
+                                label: 'Repeat shop reports',
+                                value: '${_stats!.repeatShopReports ?? 0}',
+                                accent: _accentForAdminStat('Repeat shop reports'),
+                                onTap: () => context.push('/admin/business-reports'),
+                              ),
                             ),
-                            _AdminStat(
-                              key: const Key('processingBusinessesTile'),
+                            SizedBox(
                               width: tileWidth,
-                              label: 'Processing businesses',
-                              value: '${_stats!.processingBusinesses ?? 0}',
+                              child: MhStatTile(
+                                key: const Key('processingBusinessesTile'),
+                                label: 'Processing businesses',
+                                value: '${_stats!.processingBusinesses ?? 0}',
+                                accent: _accentForAdminStat('Processing businesses'),
+                              ),
                             ),
                           ],
                         );
@@ -227,6 +253,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
               ),
             ),
       ),
+    ),
     );
   }
 
@@ -452,43 +479,12 @@ class _PendingQueueCard extends StatelessWidget {
   }
 }
 
-class _AdminStat extends StatelessWidget {
-  const _AdminStat({required this.label, required this.value, required this.width, this.onTap, super.key});
-
-  final String label;
-  final String value;
-  final double width;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final child = SizedBox(
-      width: width,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: Theme.of(context).textTheme.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
-            Text(value, style: Theme.of(context).textTheme.headlineSmall),
-          ],
-        ),
-      ),
-    );
-    return Material(
-      color: _washFor(label),
-      borderRadius: BorderRadius.circular(16),
-      child: onTap == null ? child : InkWell(onTap: onTap, borderRadius: BorderRadius.circular(16), child: child),
-    );
-  }
-
-  static Color _washFor(String label) {
-    final lower = label.toLowerCase();
-    if (lower.contains('ticket') || lower.contains('report')) return const Color(0xFFFFE4E6);
-    if (lower.contains('pending') || lower.contains('processing')) return const Color(0xFFFEF3C7);
-    if (lower.contains('review')) return const Color(0xFFEDE9FE);
-    if (lower.contains('user')) return const Color(0xFFE0F2FE);
-    if (lower.contains('business')) return const Color(0xFFD1FAE5);
-    return const Color(0xFFF0F9FF);
-  }
+MhAccent _accentForAdminStat(String label) {
+  final lower = label.toLowerCase();
+  if (lower.contains('ticket') || lower.contains('report')) return MhAccent.coral;
+  if (lower.contains('pending') || lower.contains('processing')) return MhAccent.amber;
+  if (lower.contains('review')) return MhAccent.violet;
+  if (lower.contains('user')) return MhAccent.sky;
+  if (lower.contains('business')) return MhAccent.mint;
+  return MhAccent.sky;
 }

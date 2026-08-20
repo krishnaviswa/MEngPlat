@@ -3,9 +3,10 @@ name: Mobile build APK
 # Builds a sideloadable APK on GitHub's runners (Flutter + Android SDK) so you
 # do not need the Android SDK installed locally. Runs on every push to main
 # (QA artifact after merge) and on demand from Actions → "Mobile build APK" →
-# Run workflow. Download the artifact and install on your phone. Uses the
-# debug signing key (fine for personal QA; not for Play). Play/store uploads
-# still use mobile-release-aab.yml + a real keystore.
+# Run workflow. Download the artifact and install on your phone. Signs with
+# the committed mobile/android/sideload.keystore (stable SHA-1 for Android
+# OAuth; not for Play). Play/store uploads still use mobile-release-aab.yml
+# + a real keystore.
 
 on:
   push:
@@ -42,12 +43,13 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
-      - name: Build release APK (debug-signed for sideload)
+      - name: Build release APK (sideload-signed)
         working-directory: mobile
         run: |
           flutter build apk --release \
             --dart-define=API_BASE_URL=${{ env.API_BASE_URL }} \
-            --dart-define=GOOGLE_CLIENT_ID=${{ vars.MOBILE_GOOGLE_CLIENT_ID }}
+            --dart-define=GOOGLE_CLIENT_ID=${{ vars.MOBILE_GOOGLE_CLIENT_ID }} \
+            --dart-define=WEB_BASE_URL=${{ vars.MOBILE_WEB_BASE_URL || 'https://frontend-production-ed77.up.railway.app' }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

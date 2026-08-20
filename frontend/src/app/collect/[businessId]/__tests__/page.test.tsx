@@ -8,12 +8,34 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
 
+class MockApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 jest.mock("../../../../lib/api", () => ({
   API_URL: "http://localhost:8000",
   auth: { me: jest.fn() },
-  businesses: { getById: jest.fn() },
+  businesses: { get: jest.fn(), getById: jest.fn() },
   reviews: { create: jest.fn(), list: jest.fn() },
 }));
+
+const cafe = {
+  id: "b1",
+  name: "Cafe",
+  city: "Chennai",
+  slug: "cafe",
+  address: "12 MG Road",
+  logo_url: "/uploads/cafe-logo.png",
+  average_rating: 4,
+  review_count: 1,
+};
+
+const uuid = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 
 function resolvedParams(value: { businessId: string }): Promise<{ businessId: string }> {
   return { status: "fulfilled", value, then() {} } as unknown as Promise<{ businessId: string }>;
@@ -26,42 +48,55 @@ function clickStar(count: number) {
   fireEvent.click(interactive!);
 }
 
-describe("Collect review wizard (S-040)", () => {
+describe("Collect review wizard (S-040 / S-106)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (businesses.getById as jest.Mock).mockResolvedValue({
-        id: "b1",
-        name: "Cafe",
-        city: "Chennai",
-        slug: "cafe",
-        address: "12 MG Road",
-        logo_url: "/uploads/cafe-logo.png",
-        average_rating: 4,
-        review_count: 1,
-      },
-    );
+    (businesses.get as jest.Mock).mockResolvedValue(cafe);
+    (businesses.getById as jest.Mock).mockResolvedValue(cafe);
     (reviews.list as jest.Mock).mockResolvedValue([]);
   });
 
   it("does not intercept low star ratings", async () => {
-    render(<CollectReviewPage params={resolvedParams({ businessId: "b1" })} />);
+    render(<CollectReviewPage params={resolvedParams({ businessId: "cafe" })} />);
     expect(await screen.findByText(/Your review takes/i)).toBeInTheDocument();
     expect(await screen.findByText("Cafe")).toBeInTheDocument();
     expect(screen.getByText("12 MG Road, Chennai")).toBeInTheDocument();
     expect(screen.getByText("Cafe").closest("div")).toHaveStyle(
       "background-image: linear-gradient(to top, rgba(15,23,42,0.75), rgba(15,23,42,0.15)), url(http://localhost:8000/uploads/cafe-logo.png)",
     );
+    expect(businesses.get).toHaveBeenCalledWith("cafe");
+    expect(businesses.getById).not.toHaveBeenCalled();
     clickStar(1);
     fireEvent.click(screen.getByRole("button", { name: /continue/i }));
     expect(screen.getByPlaceholderText(/share what made your visit memorable/i)).toBeInTheDocument();
     expect(screen.queryByText(/google/i)).not.toBeInTheDocument();
   });
 
+  it("loads an approved shop by UUID via getById", async () => {
+    render(<CollectReviewPage params={resolvedParams({ businessId: uuid })} />);
+    expect(await screen.findByText("Cafe")).toBeInTheDocument();
+    expect(businesses.getById).toHaveBeenCalledWith(uuid);
+    expect(businesses.get).not.toHaveBeenCalled();
+  });
+
+  it("falls back to getById when slug lookup returns 404", async () => {
+    (businesses.get as jest.Mock).mockRejectedValue(new MockApiError("Not found", 404));
+    render(<CollectReviewPage params={resolvedParams({ businessId: "cafe" })} />);
+    expect(await screen.findByText("Cafe")).toBeInTheDocument();
+    expect(businesses.get).toHaveBeenCalledWith("cafe");
+    expect(businesses.getById).toHaveBeenCalledWith("cafe");
+  });
+
   it("creates the review through the existing API when signed in", async () => {
     (auth.me as jest.Mock).mockResolvedValue({ id: "c1", role: "customer" });
-    (reviews.create as jest.Mock).mockResolvedValue({ id: "r1", status: "active" });
+    (reviews.create as jest.Mock).mockResolvedValue({
+      id: "r1",
+      status: "active",
+      rating: 5,
+      body: "Really enjoyed the coffee here.",
+    });
 
-    render(<CollectReviewPage params={resolvedParams({ businessId: "b1" })} />);
+    render(<CollectReviewPage params={resolvedParams({ businessId: "cafe" })} />);
     await screen.findByText("Cafe");
     clickStar(5);
     fireEvent.click(screen.getByRole("button", { name: /continue/i }));
@@ -78,14 +113,32 @@ describe("Collect review wizard (S-040)", () => {
       }),
     );
     expect(await screen.findByText(/Your review is live/i)).toBeInTheDocument();
+    expect(screen.getByText("Really enjoyed the coffee here.")).toBeInTheDocument();
     const maps = screen.getByRole("link", { name: /share on google maps too/i });
     expect(maps).toHaveAttribute("href", expect.stringContaining("google.com/maps"));
+  });
+
+  it("shows submitted rating and body on the thanks step when comments are missing", async () => {
+    (auth.me as jest.Mock).mockResolvedValue({ id: "c1", role: "customer" });
+    (reviews.create as jest.Mock).mockResolvedValue({ id: "r1", status: "active", rating: 4, body: "🙂" });
+
+    render(<CollectReviewPage params={resolvedParams({ businessId: "cafe" })} />);
+    await screen.findByText("Cafe");
+    clickStar(4);
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+    fireEvent.change(screen.getByPlaceholderText(/share what made your visit memorable/i), {
+      target: { value: "🙂" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /submit review/i }));
+
+    expect(await screen.findByText(/Your review is live/i)).toBeInTheDocument();
+    expect(screen.getByText("🙂")).toBeInTheDocument();
   });
 
   it("redirects to login with next= when the visitor is not signed in", async () => {
     (auth.me as jest.Mock).mockRejectedValue(new Error("unauthorized"));
 
-    render(<CollectReviewPage params={resolvedParams({ businessId: "b1" })} />);
+    render(<CollectReviewPage params={resolvedParams({ businessId: "cafe" })} />);
     await screen.findByText("Cafe");
     clickStar(1);
     fireEvent.click(screen.getByRole("button", { name: /continue/i }));
@@ -94,7 +147,7 @@ describe("Collect review wizard (S-040)", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /submit review/i }));
 
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/login?next=/collect/b1"));
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/login?next=/collect/cafe"));
     expect(reviews.create).not.toHaveBeenCalled();
   });
 });

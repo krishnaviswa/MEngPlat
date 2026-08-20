@@ -5,7 +5,10 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../../core/media_url.dart';
 import '../../ui/widgets.dart';
+import '../auth/auth_provider.dart';
+import '../auth/post_login_path.dart';
 import '../businesses/business_card.dart';
+import '../businesses/search_controller.dart';
 import '../reviews/rating_stars.dart';
 import '../theme/theme_toggle_button.dart';
 import 'home_providers.dart';
@@ -41,6 +44,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final payload = ref.watch(homePayloadProvider);
+    final user = ref.watch(authControllerProvider).valueOrNull;
+    final typed = _searchController.text.trim();
+    final search = ref.watch(searchControllerProvider);
+    final suggestions = typed.length >= 2 ? (search.valueOrNull?.items ?? const <BusinessResponse>[]) : const <BusinessResponse>[];
 
     return Scaffold(
       key: const Key('homeScreen'),
@@ -55,10 +62,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+            if (user != null)
+              _SignedInBanner(
+                user: user,
+                onOpenHub: () => context.go(hubPathFor(user.role)),
+              ),
             _HeroSection(
               searchController: _searchController,
               onExplore: () => _explore(q: _searchController.text.trim()),
               onRegister: () => context.go('/register'),
+              onQueryChanged: (value) {
+                if (value.trim().length >= 2) {
+                  ref.read(searchControllerProvider.notifier).setQueryText(value);
+                }
+                setState(() {});
+              },
+              suggestions: suggestions,
+              onSuggestionTap: (business) => context.push('/businesses/${business.slug}'),
             ),
             _SocialProofRail(entries: home.socialProof),
             const _ProblemSection(),
@@ -92,16 +112,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
+class _SignedInBanner extends StatelessWidget {
+  const _SignedInBanner({required this.user, required this.onOpenHub});
+
+  final UserResponse user;
+  final VoidCallback onOpenHub;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      key: const Key('signedInBanner'),
+      color: scheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Signed in as ${user.fullName} · ${roleLabel(user.role)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onPrimaryContainer),
+              ),
+            ),
+            TextButton(
+              key: const Key('openHubButton'),
+              onPressed: onOpenHub,
+              child: Text(user.role == UserRole.customer ? 'Explore' : 'Open my hub'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _HeroSection extends StatelessWidget {
   const _HeroSection({
     required this.searchController,
     required this.onExplore,
     required this.onRegister,
+    required this.onQueryChanged,
+    required this.suggestions,
+    required this.onSuggestionTap,
   });
 
   final TextEditingController searchController;
   final VoidCallback onExplore;
   final VoidCallback onRegister;
+  final ValueChanged<String> onQueryChanged;
+  final List<BusinessResponse> suggestions;
+  final ValueChanged<BusinessResponse> onSuggestionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +183,7 @@ class _HeroSection extends StatelessWidget {
             'MERCHANTHUB',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   letterSpacing: 2,
-                  color: Colors.white70,
+                  color: Colors.white,
                   fontWeight: FontWeight.w600,
                 ),
           ),
@@ -145,6 +205,7 @@ class _HeroSection extends StatelessWidget {
             key: const Key('homeSearchField'),
             controller: searchController,
             textInputAction: TextInputAction.search,
+            onChanged: onQueryChanged,
             onSubmitted: (_) => onExplore(),
             style: const TextStyle(color: MhTokens.ink),
             decoration: InputDecoration(
@@ -158,6 +219,29 @@ class _HeroSection extends StatelessWidget {
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
             ),
           ),
+          if (suggestions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Material(
+              key: const Key('homeSearchSuggestions'),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              child: Column(
+                children: [
+                  for (final business in suggestions.take(6))
+                    ListTile(
+                      key: Key('homeSearchSuggestion-${business.slug}'),
+                      dense: true,
+                      title: Text(business.name, style: const TextStyle(color: MhTokens.ink)),
+                      subtitle: Text(
+                        '${business.city}${business.categories?.isNotEmpty == true ? ' · ${business.categories!.first.name}' : ''}',
+                        style: TextStyle(color: MhTokens.ink.withValues(alpha: 0.65)),
+                      ),
+                      onTap: () => onSuggestionTap(business),
+                    ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Wrap(
             spacing: 8,

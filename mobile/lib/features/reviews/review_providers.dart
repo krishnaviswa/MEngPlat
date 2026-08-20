@@ -12,7 +12,8 @@ final reviewRepositoryProvider = Provider<ReviewRepository>(
 
 /// One instance per `businessId` -- the single in-memory source of truth for
 /// that business's reviews (Architect spec, S-023 "Cache / side effects").
-class ReviewsController extends AutoDisposeFamilyAsyncNotifier<List<ReviewResponse>, String> {
+/// Keep-alive (not autoDispose) so the list survives tab/stack navigation.
+class ReviewsController extends FamilyAsyncNotifier<List<ReviewResponse>, String> {
   final Set<String> _likedThisSession = {};
   final Set<String> reportedIds = {};
 
@@ -49,6 +50,10 @@ class ReviewsController extends AutoDisposeFamilyAsyncNotifier<List<ReviewRespon
   /// Creates the review and prepends it to the list on success so it appears
   /// at the top without a refetch (AC8). Rethrows on failure so the form
   /// sheet can show an inline error and keep the entered fields (AC11).
+  ///
+  /// Sibling screens that must drop a stale snapshot can still
+  /// `ref.invalidate(reviewsControllerProvider(businessId))`; this family
+  /// keeps the prepended list across navigation unless invalidated.
   Future<ReviewResponse> createReview({
     required int rating,
     String? title,
@@ -85,10 +90,20 @@ class ReviewsController extends AutoDisposeFamilyAsyncNotifier<List<ReviewRespon
           review,
     ]);
   }
+
+  /// Merges a posted owner reply into the matching review in place.
+  void applyReply(String reviewId, ReplyResponse reply) {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    state = AsyncValue.data([
+      for (final review in current)
+        if (review.id == reviewId) review.rebuild((r) => r.reply.replace(reply)) else review,
+    ]);
+  }
 }
 
 final reviewsControllerProvider =
-    AsyncNotifierProvider.autoDispose.family<ReviewsController, List<ReviewResponse>, String>(
+    AsyncNotifierProvider.family<ReviewsController, List<ReviewResponse>, String>(
   ReviewsController.new,
 );
 
