@@ -98,12 +98,14 @@ class AuthController extends AsyncNotifier<UserResponse?> {
     String? totpCode,
     String? phone,
     String? otpCode,
+    String? credential,
   }) {
     return ref.read(authRepositoryProvider).reauth(
           password: password,
           totpCode: totpCode,
           phone: phone,
           otpCode: otpCode,
+          credential: credential,
         );
   }
 

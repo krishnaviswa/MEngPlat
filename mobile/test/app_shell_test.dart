@@ -173,7 +173,7 @@ Future<ProviderContainer> _pumpApp(
 }
 
 void main() {
-  testWidgets('AC1: customer shell tabs are Home, Explore, Favorites, Notifications, Account', (tester) async {
+  testWidgets('AC1: customer shell tabs are Home, Explore, Favorites, Alerts, Account', (tester) async {
     final container = await _pumpApp(tester, user: _user(UserRole.customer));
 
     expect(find.byKey(const Key('homeTab')), findsOneWidget);
@@ -181,6 +181,7 @@ void main() {
     expect(find.byKey(const Key('favoritesTab')), findsOneWidget);
     expect(find.byKey(const Key('notificationsTab')), findsOneWidget);
     expect(find.byKey(const Key('accountTab')), findsOneWidget);
+    expect(find.text('Alerts'), findsOneWidget);
     expect(find.byKey(const Key('merchantHomeTab')), findsNothing);
     expect(find.byKey(const Key('adminHomeTab')), findsNothing);
     expect(find.byKey(const Key('homeScreen')), findsOneWidget);
@@ -274,6 +275,20 @@ void main() {
     await _pumpFrames(tester);
     expect(find.byKey(const Key('emailField')), findsOneWidget);
     expect(find.byKey(const Key('accountIdentity')), findsNothing);
+
+    container.dispose();
+  });
+
+  testWidgets('S-114: merchant Account shows shop, list, QR, and Grow', (tester) async {
+    final container = await _pumpApp(tester, user: _user(UserRole.merchant, name: 'Mina Merchant'), businesses: [_business()]);
+
+    await tester.tap(find.byKey(const Key('accountTab')));
+    await _pumpFrames(tester);
+
+    expect(find.byKey(const Key('myShopLink')), findsOneWidget);
+    expect(find.byKey(const Key('listBusinessLink')), findsOneWidget);
+    expect(find.byKey(const Key('shareQrLink')), findsOneWidget);
+    expect(find.byKey(const Key('growLink')), findsOneWidget);
 
     container.dispose();
   });

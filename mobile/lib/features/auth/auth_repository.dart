@@ -176,6 +176,7 @@ class AuthRepository {
     String? totpCode,
     String? phone,
     String? otpCode,
+    String? credential,
   }) async {
     try {
       final response = await _client.api.dio.post<Map<String, dynamic>>(
@@ -185,6 +186,7 @@ class AuthRepository {
           'totp_code': ?totpCode,
           'phone': ?phone,
           'otp_code': ?otpCode,
+          'credential': ?credential,
         },
       );
       final token = response.data?['reauth_token'];

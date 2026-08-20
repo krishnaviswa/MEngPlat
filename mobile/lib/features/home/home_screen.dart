@@ -14,7 +14,9 @@ import '../theme/theme_toggle_button.dart';
 import 'home_providers.dart';
 import 'social_proof_data.dart';
 
-/// Public marketing home (S-064 / Tier 5). Section order matches web `/`.
+enum _BrowseMode { category, neighborhood }
+
+/// Compact mobile home (S-114). Web `/` keeps the long marketing page.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -24,6 +26,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchController = TextEditingController();
+  _BrowseMode _browseMode = _BrowseMode.category;
 
   @override
   void dispose() {
@@ -39,6 +42,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     };
     final uri = Uri(path: '/businesses', queryParameters: params.isEmpty ? null : params);
     context.go(uri.toString());
+  }
+
+  void _listBusiness() {
+    final user = ref.read(authControllerProvider).valueOrNull;
+    if (user == null) {
+      context.go('/register');
+      return;
+    }
+    if (user.role == UserRole.merchant) {
+      context.go('/merchant/businesses/new');
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('listBusinessCustomerDialog'),
+        title: const Text('List a business'),
+        content: const Text(
+          'This login is a customer account. Shop tools, QR, and payments are on a merchant login. Sign out and register as a merchant, or use the demo merchant account.',
+        ),
+        actions: [
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+        ],
+      ),
+    );
   }
 
   @override
@@ -70,7 +98,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _HeroSection(
               searchController: _searchController,
               onExplore: () => _explore(q: _searchController.text.trim()),
-              onRegister: () => context.go('/register'),
+              onListBusiness: _listBusiness,
               onQueryChanged: (value) {
                 if (value.trim().length >= 2) {
                   ref.read(searchControllerProvider.notifier).setQueryText(value);
@@ -81,14 +109,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onSuggestionTap: (business) => context.push('/businesses/${business.slug}'),
             ),
             _SocialProofRail(entries: home.socialProof),
-            const _ProblemSection(),
-            if (home.stats != null) _TrustMetrics(stats: home.stats!),
-            if (home.cities.isNotEmpty)
-              _CityIndex(cities: home.cities, onTap: (city) => _explore(city: city)),
-            if (home.categories.isNotEmpty)
-              _CategoryIndex(
+            if (home.cities.isNotEmpty || home.categories.isNotEmpty)
+              _BrowseIndex(
+                mode: _browseMode,
+                cities: home.cities,
                 categories: home.categories,
-                onTap: (slug) => _explore(category: slug),
+                onMode: (mode) => setState(() => _browseMode = mode),
+                onCity: (city) => _explore(city: city),
+                onCategory: (slug) => _explore(category: slug),
               ),
             _FeaturedGrid(
               businesses: home.featured,
@@ -98,11 +126,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onBusinessTap: (slug) => context.push('/businesses/$slug'),
             ),
             if (home.voices.isNotEmpty) _ReviewVoices(items: home.voices),
-            const _HowItWorks(),
-            _MerchantCta(
-              onRegister: () => context.go('/register'),
-              onSignIn: () => context.go('/login'),
-            ),
+            if (home.stats != null) _TrustMetrics(stats: home.stats!),
             ],
           ),
         ),
@@ -137,7 +161,7 @@ class _SignedInBanner extends StatelessWidget {
             TextButton(
               key: const Key('openHubButton'),
               onPressed: onOpenHub,
-              child: Text(user.role == UserRole.customer ? 'Explore' : 'Open my hub'),
+              child: Text(user.role == UserRole.merchant ? 'Open Shop' : user.role == UserRole.customer ? 'Explore' : 'Open my hub'),
             ),
           ],
         ),
@@ -150,7 +174,7 @@ class _HeroSection extends StatelessWidget {
   const _HeroSection({
     required this.searchController,
     required this.onExplore,
-    required this.onRegister,
+    required this.onListBusiness,
     required this.onQueryChanged,
     required this.suggestions,
     required this.onSuggestionTap,
@@ -158,7 +182,7 @@ class _HeroSection extends StatelessWidget {
 
   final TextEditingController searchController;
   final VoidCallback onExplore;
-  final VoidCallback onRegister;
+  final VoidCallback onListBusiness;
   final ValueChanged<String> onQueryChanged;
   final List<BusinessResponse> suggestions;
   final ValueChanged<BusinessResponse> onSuggestionTap;
@@ -197,7 +221,7 @@ class _HeroSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Find neighborhood shops with photos, ratings, and AI-suggested insights — never presented as definitive judgments.',
+            'Find neighborhood shops with photos and ratings. AI notes are suggestions, not verdicts.',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white.withValues(alpha: 0.92)),
           ),
           const SizedBox(height: 20),
@@ -255,7 +279,7 @@ class _HeroSection extends StatelessWidget {
               ),
               OutlinedButton(
                 key: const Key('homeRegisterButton'),
-                onPressed: onRegister,
+                onPressed: onListBusiness,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
                   side: const BorderSide(color: Colors.white),
@@ -339,81 +363,6 @@ class _SocialProofRail extends StatelessWidget {
   }
 }
 
-class _ProblemSection extends StatelessWidget {
-  const _ProblemSection();
-
-  static const _points = [
-    (
-      n: '01',
-      title: 'Your reviews are scattered',
-      body:
-          "Google reviews, word of mouth, in-person feedback — there's no single place to see it all.",
-    ),
-    (
-      n: '02',
-      title: "You don't know what's actually working",
-      body: "A star average alone doesn't say which service, staff member, or product is driving satisfaction.",
-    ),
-    (
-      n: '03',
-      title: "Vague reviews don't help anyone",
-      body:
-          '"Good place" tells future customers and the owner nothing actionable — MerchantHub\'s guided review flow fixes that at the source.',
-    ),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      key: const Key('problemSection'),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      child: Column(
-        children: [
-          Text(
-            'The problem with local reviews today',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'MerchantHub is built around three specific gaps we kept seeing',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: 16),
-          for (var i = 0; i < _points.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: MhCard(
-                accent: const [MhAccent.coral, MhAccent.amber, MhAccent.violet][i],
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _points[i].n,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            letterSpacing: 1.4,
-                            color: const [MhAccent.coral, MhAccent.amber, MhAccent.violet][i]
-                                .inkFor(Theme.of(context).brightness),
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(_points[i].title, style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 4),
-                    Text(_points[i].body, style: Theme.of(context).textTheme.bodyMedium),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 class _TrustMetrics extends StatelessWidget {
   const _TrustMetrics({required this.stats});
 
@@ -457,6 +406,59 @@ class _TrustMetrics extends StatelessWidget {
   }
 }
 
+class _BrowseIndex extends StatelessWidget {
+  const _BrowseIndex({
+    required this.mode,
+    required this.cities,
+    required this.categories,
+    required this.onMode,
+    required this.onCity,
+    required this.onCategory,
+  });
+
+  final _BrowseMode mode;
+  final List<CityIndexItem> cities;
+  final List<CategoryIndexItem> categories;
+  final ValueChanged<_BrowseMode> onMode;
+  final ValueChanged<String> onCity;
+  final ValueChanged<String> onCategory;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasCities = cities.isNotEmpty;
+    final hasCategories = categories.isNotEmpty;
+    final effective = !hasCategories
+        ? _BrowseMode.neighborhood
+        : !hasCities
+            ? _BrowseMode.category
+            : mode;
+
+    return Column(
+      key: const Key('browseIndex'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (hasCities && hasCategories)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: SegmentedButton<_BrowseMode>(
+              key: const Key('browseModeToggle'),
+              segments: const [
+                ButtonSegment(value: _BrowseMode.category, label: Text('Category')),
+                ButtonSegment(value: _BrowseMode.neighborhood, label: Text('Neighborhood')),
+              ],
+              selected: {effective},
+              onSelectionChanged: (selected) => onMode(selected.first),
+            ),
+          ),
+        if (effective == _BrowseMode.neighborhood)
+          _CityIndex(cities: cities, onTap: onCity)
+        else
+          _CategoryIndex(categories: categories, onTap: onCategory),
+      ],
+    );
+  }
+}
+
 class _CityIndex extends StatelessWidget {
   const _CityIndex({required this.cities, required this.onTap});
 
@@ -471,14 +473,7 @@ class _CityIndex extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Neighborhoods on the map', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 4),
-          Text(
-            'Jump into a city with approved listings — counts update from the live catalog.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-          ),
+          Text('Neighborhoods on the map', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           for (final city in cities)
             ListTile(
@@ -513,12 +508,7 @@ class _CategoryIndex extends StatelessWidget {
         children: [
           Text(
             'Browse by category',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: scheme.onInverseSurface),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Filter search by what you need — cafés, clinics, salons, repair shops, and more.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onInverseSurface),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: scheme.onInverseSurface),
           ),
           const SizedBox(height: 8),
           for (final item in categories)
@@ -576,7 +566,7 @@ class _FeaturedGrid extends StatelessWidget {
                       Text(title, style: Theme.of(context).textTheme.headlineSmall),
                       const SizedBox(height: 4),
                       Text(
-                        'Photos, ratings, and optional AI suggestions drawn from live reviews',
+                        'Photos, ratings, AI suggestions',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
@@ -602,6 +592,8 @@ class _FeaturedGrid extends StatelessWidget {
                         TextSpan(text: business.aiMerchantSummary),
                       ],
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
             ]
@@ -634,7 +626,7 @@ class _ReviewVoices extends StatelessWidget {
           Text('Voices from the neighborhood', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 4),
           Text(
-            'Recent reviews from real listings — AI notes are suggestions, not definitive judgments.',
+            'Recent reviews. AI notes on listing pages are suggestions.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 12),
@@ -656,11 +648,7 @@ class _ReviewVoices extends StatelessWidget {
                     Text(item.review.title!, style: Theme.of(context).textTheme.titleMedium),
                   ],
                   const SizedBox(height: 4),
-                  Text(item.review.body, maxLines: 4, overflow: TextOverflow.ellipsis),
-                  if (item.review.aiAnalysis?.summary != null) ...[
-                    const SizedBox(height: 8),
-                    Text('In a nutshell (suggestion): ${item.review.aiAnalysis!.summary}'),
-                  ],
+                  Text(item.review.body, maxLines: 2, overflow: TextOverflow.ellipsis),
                   TextButton(
                     onPressed: () => GoRouter.of(context).push('/businesses/${item.business.slug}'),
                     child: Text(
@@ -672,116 +660,6 @@ class _ReviewVoices extends StatelessWidget {
                 ],
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HowItWorks extends StatelessWidget {
-  const _HowItWorks();
-
-  static const _steps = [
-    ('01', 'Search', 'Find shops by name, city, or category — with maps and hours when available.'),
-    ('02', 'Compare', 'Read ratings and reviews. AI summaries are suggestions to help you scan faster.'),
-    ('03', 'Support local', 'Visit, leave feedback, and help independent businesses grow with clearer signal.'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      key: const Key('howItWorks'),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Column(
-        children: [
-          Text('How it works', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 4),
-          Text(
-            'Three steps from discovery to supporting the shops around you',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
-          for (final step in _steps)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    step.$1,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          letterSpacing: 1.4,
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  Text(step.$2, style: Theme.of(context).textTheme.titleLarge),
-                  Text(step.$3),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MerchantCta extends StatelessWidget {
-  const _MerchantCta({required this.onRegister, required this.onSignIn});
-
-  final VoidCallback onRegister;
-  final VoidCallback onSignIn;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      key: const Key('merchantCta'),
-      width: double.infinity,
-      color: scheme.primary,
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 36),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'FOR BUSINESS OWNERS',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  letterSpacing: 1.6,
-                  color: scheme.onPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Turn reviews into AI-suggested next steps',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: scheme.onPrimary),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Claim your listing, reply to customers, and read sentiment suggestions on your dashboard — always framed as guidance, not a final verdict.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onPrimary),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: scheme.onPrimary,
-                  foregroundColor: scheme.primary,
-                ),
-                onPressed: onRegister,
-                child: const Text('Create a merchant account'),
-              ),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(foregroundColor: scheme.onPrimary),
-                onPressed: onSignIn,
-                child: const Text('Sign in to dashboard'),
-              ),
-            ],
-          ),
         ],
       ),
     );

@@ -380,11 +380,33 @@ async def get_me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+def _looks_masked_national_id(value: str | None) -> bool:
+    if not value:
+        return False
+    return "*" in value or "•" in value
+
+
+def _merchant_sensitive_profile_change(current_user: User, updates: dict) -> bool:
+    if current_user.role != UserRole.MERCHANT:
+        return False
+    if "phone" in updates and (updates["phone"] or None) != (current_user.phone or None):
+        return True
+    if "national_id_type" in updates and updates["national_id_type"] != current_user.national_id_type:
+        return True
+    if "national_id_number" in updates:
+        new = updates["national_id_number"]
+        if _looks_masked_national_id(new):
+            return False
+        if (new or None) != (current_user.national_id_number or None):
+            return True
+    return False
+
+
 def _assert_reauth_token(token: str | None, current_user: User) -> None:
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Re-authentication required to change email",
+            detail="Re-authentication required to change email, phone, or national ID",
         )
     try:
         claims = decode_token(token)
@@ -403,15 +425,16 @@ async def reauth(
 ) -> ReauthResponse:
     """
     Prove current credentials and receive a ~5 minute `reauth_token` (JWT type=reauth).
-    Body: exactly one of `password`, `totp_code`, or `phone`+`otp_code`.
+    Body: exactly one of `password`, `totp_code`, `phone`+`otp_code`, or Google `credential`.
     """
     has_password = bool(payload.password)
     has_totp = bool(payload.totp_code)
     has_phone = bool(payload.phone or payload.otp_code)
-    if sum((has_password, has_totp, has_phone)) != 1:
+    has_google = bool(payload.credential)
+    if sum((has_password, has_totp, has_phone, has_google)) != 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Provide exactly one of password, totp_code, or phone+otp_code",
+            detail="Provide exactly one of password, totp_code, phone+otp_code, or credential",
         )
 
     if has_password:
@@ -426,6 +449,22 @@ async def reauth(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid TOTP secret") from exc
         if not verify_totp_code(secret, payload.totp_code or ""):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authenticator code")
+    elif has_google:
+        settings = get_settings()
+        try:
+            identity = await verify_google_id_token(payload.credential or "", settings.google_client_id)
+        except InvalidGoogleTokenError as exc:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google token") from exc
+        sub_ok = bool(current_user.google_sub) and current_user.google_sub == identity.sub
+        email_ok = (
+            identity.email_verified
+            and current_user.email
+            and identity.email.lower() == current_user.email.lower()
+        )
+        if current_user.google_sub and not sub_ok:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google account does not match")
+        if not sub_ok and not email_ok:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Google account does not match")
     else:
         if not payload.phone or not payload.otp_code:
             raise HTTPException(
@@ -468,15 +507,26 @@ async def update_me(
     """
     Update the caller's own profile (name, avatar, phone, address, national ID).
     Optional `email` is applied only with a valid `reauth_token` query param or `X-Reauth-Token` header.
+    Merchant phone and national ID changes require the same token (S-114).
     role, is_active, and TOTP fields are not on the schema and are silently ignored if sent.
     """
     updates = payload.model_dump(exclude_unset=True)
     new_email = updates.pop("email", None)
+    if _looks_masked_national_id(updates.get("national_id_number")):
+        updates.pop("national_id_number", None)
+
+    needs_reauth = False
+    if "email" in payload.model_fields_set and new_email != current_user.email:
+        needs_reauth = True
+    if _merchant_sensitive_profile_change(current_user, updates):
+        needs_reauth = True
+    if needs_reauth:
+        _assert_reauth_token(reauth_token or x_reauth_token, current_user)
+
     for field, value in updates.items():
         setattr(current_user, field, value)
 
     if "email" in payload.model_fields_set and new_email != current_user.email:
-        _assert_reauth_token(reauth_token or x_reauth_token, current_user)
         if new_email:
             existing = await db.execute(select(User).where(User.email == new_email, User.id != current_user.id))
             if existing.scalar_one_or_none():

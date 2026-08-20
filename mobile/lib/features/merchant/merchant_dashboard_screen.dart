@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../ui/friendly_error.dart';
 import '../../ui/nav.dart';
 import '../../ui/widgets.dart';
+import '../auth/auth_provider.dart';
 import '../reviews/review_card.dart';
 import '../reviews/review_providers.dart';
 import 'ai_insights_panel.dart';
@@ -75,6 +76,7 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
   @override
   Widget build(BuildContext context) {
     final ownedAsync = ref.watch(ownedBusinessesProvider);
+    final user = ref.watch(authControllerProvider).valueOrNull;
 
     return Scaffold(
       key: const Key('merchantHomeScreen'),
@@ -104,6 +106,9 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
         error: (error, _) => Center(child: MhError(error: error, onRetry: () => ref.invalidate(ownedBusinessesProvider))),
         data: (owned) {
           if (owned.isEmpty) {
+            final needsId = user == null ||
+                user.nationalIdType == null ||
+                (user.nationalIdNumber == null || user.nationalIdNumber!.trim().isEmpty);
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -113,11 +118,13 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                     MhEmpty(
                       key: const Key('merchantEmptyState'),
                       title: 'No business yet',
-                      body: 'Register your shop or service to see reviews, stats, and AI insights here.',
+                      body: needsId
+                          ? 'Save a national ID on Profile, then list your shop. Admin approval comes next.'
+                          : 'Register your shop or service to see reviews, stats, and AI insights here.',
                       action: FilledButton(
                         key: const Key('createBusinessCta'),
-                        onPressed: () => context.push('/merchant/businesses/new'),
-                        child: const Text('Create your business'),
+                        onPressed: () => context.push(needsId ? '/account/profile' : '/merchant/businesses/new'),
+                        child: Text(needsId ? 'Add national ID' : 'Create your business'),
                       ),
                     ),
                   ],

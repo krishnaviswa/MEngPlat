@@ -244,6 +244,7 @@ const NO_REFRESH_RETRY_PREFIXES = [
   "/api/v1/auth/register",
   "/api/v1/auth/refresh",
   "/api/v1/auth/google",
+  "/api/v1/auth/reauth",
   "/api/v1/auth/mfa/",
 ];
 
@@ -339,8 +340,18 @@ export const auth = {
       body: JSON.stringify(data),
     }),
   me: () => apiFetch<User>("/api/v1/auth/me"),
-  updateMe: (data: UserProfileUpdateInput) =>
-    apiFetch<User>("/api/v1/auth/me", { method: "PATCH", body: JSON.stringify(data) }),
+  reauth: (data: {
+    password?: string;
+    totp_code?: string;
+    phone?: string;
+    otp_code?: string;
+    credential?: string;
+  }) => apiFetch<{ reauth_token: string }>("/api/v1/auth/reauth", { method: "POST", body: JSON.stringify(data) }),
+  updateMe: (data: UserProfileUpdateInput, reauthToken?: string) =>
+    apiFetch<User>(
+      `/api/v1/auth/me${reauthToken ? `?reauth_token=${encodeURIComponent(reauthToken)}` : ""}`,
+      { method: "PATCH", body: JSON.stringify(data) },
+    ),
   /** S-085: click-to-upload profile avatar, applied immediately -- independent of updateMe(). */
   uploadAvatar: (file: File) => {
     const form = new FormData();
