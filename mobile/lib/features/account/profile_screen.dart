@@ -6,6 +6,7 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 
 import '../../ui/widgets.dart';
 import '../auth/auth_provider.dart';
+import '../auth/google_sign_in_client.dart';
 
 typedef ProfileAvatarPicker = Future<({List<int> bytes, String filename})?> Function();
 
@@ -25,7 +26,7 @@ String _roleLabel(UserRole role) {
   return 'Customer';
 }
 
-enum _ReauthMethod { password, phone, authenticator }
+enum _ReauthMethod { password, phone, authenticator, google }
 
 /// Editable profile (S-029 / M-48 / S-107). Role is a read-only chip.
 /// Email edits require step-up reauth before PATCH. Favorites stay on `/favorites`.
@@ -120,8 +121,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final oldEmail = (user.email ?? '').trim();
     final emailChanged = newEmail != oldEmail;
 
+    final newPhone = _blankToNull(_phoneController.text);
+    final oldPhone = _blankToNull(user.phone ?? '');
+    final phoneChanged = newPhone != oldPhone;
+    final typeChanged = _nationalIdType != user.nationalIdType;
+    final idNumber = _blankToNull(_nationalIdController.text);
+    final nidChanged = typeChanged ||
+        (idNumber != null && !_looksMaskedNationalId(idNumber) && idNumber != (user.nationalIdNumber ?? '').trim());
+    final merchantSensitive = user.role == UserRole.merchant && (phoneChanged || nidChanged);
+
     String? reauthToken;
-    if (emailChanged) {
+    if (emailChanged || merchantSensitive) {
       final method = await _pickReauthMethod();
       if (method == null || !mounted) return;
       reauthToken = await _completeReauth(method, user);
@@ -167,27 +177,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return showModalBottomSheet<_ReauthMethod>(
       context: context,
       showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              key: const Key('reauthPassword'),
-              title: const Text('Password'),
-              onTap: () => Navigator.pop(ctx, _ReauthMethod.password),
+      builder: (ctx) => Consumer(
+        builder: (context, ref, _) {
+          final googleReady = ref.watch(googleSignInClientProvider).valueOrNull?.isConfigured == true;
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  key: const Key('reauthPassword'),
+                  title: const Text('Password'),
+                  onTap: () => Navigator.pop(ctx, _ReauthMethod.password),
+                ),
+                ListTile(
+                  key: const Key('reauthPhone'),
+                  title: const Text('Phone OTP'),
+                  onTap: () => Navigator.pop(ctx, _ReauthMethod.phone),
+                ),
+                ListTile(
+                  key: const Key('reauthAuthenticator'),
+                  title: const Text('Authenticator'),
+                  onTap: () => Navigator.pop(ctx, _ReauthMethod.authenticator),
+                ),
+                if (googleReady)
+                  ListTile(
+                    key: const Key('reauthGoogle'),
+                    title: const Text('Continue with Google'),
+                    onTap: () => Navigator.pop(ctx, _ReauthMethod.google),
+                  ),
+              ],
             ),
-            ListTile(
-              key: const Key('reauthPhone'),
-              title: const Text('Phone OTP'),
-              onTap: () => Navigator.pop(ctx, _ReauthMethod.phone),
-            ),
-            ListTile(
-              key: const Key('reauthAuthenticator'),
-              title: const Text('Authenticator'),
-              onTap: () => Navigator.pop(ctx, _ReauthMethod.authenticator),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -224,6 +245,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           );
           if (code == null || code.isEmpty) return null;
           return notifier.reauth(totpCode: code);
+        case _ReauthMethod.google:
+          final client = await ref.read(googleSignInClientProvider.future);
+          if (!client.isConfigured) {
+            setState(() => _error = 'Google Sign-In is not configured.');
+            return null;
+          }
+          try {
+            final credential = await client.requestIdToken();
+            if (credential == null) return null;
+            return notifier.reauth(credential: credential);
+          } on GoogleSignInCancelled {
+            return null;
+          } on GoogleSignInException catch (e) {
+            setState(() => _error = e.message);
+            return null;
+          }
       }
     } catch (e) {
       if (mounted) setState(() => _error = friendlyMessage(e));
@@ -271,7 +308,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   String _nationalIdHelperText(UserResponse user) {
     if (user.role == UserRole.merchant) {
-      return 'Required for merchants before you can submit a listing. Stored for your account — not verified as government KYC.';
+      return 'Required before listing. Changing phone or ID asks you to confirm with password, SMS, authenticator, or Google.';
     }
     return 'Optional. Stored for your account only — not verified as KYC in this version.';
   }

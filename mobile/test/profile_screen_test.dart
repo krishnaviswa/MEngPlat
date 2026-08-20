@@ -5,6 +5,7 @@ import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:merchanthub_mobile/core/network/api_exception.dart';
 import 'package:merchanthub_mobile/features/account/profile_screen.dart';
 import 'package:merchanthub_mobile/features/auth/auth_provider.dart';
+import 'package:merchanthub_mobile/features/auth/google_sign_in_client.dart';
 
 UserResponse _user({
   UserRole role = UserRole.customer,
@@ -67,7 +68,10 @@ Future<({ProviderContainer container, _FakeAuthController auth})> _pumpProfile(
 
   final auth = _FakeAuthController(user, failSave: failSave);
   final container = ProviderContainer(
-    overrides: [authControllerProvider.overrideWith(() => auth)],
+    overrides: [
+      authControllerProvider.overrideWith(() => auth),
+      googleSignInClientProvider.overrideWith((ref) async => const UnconfiguredGoogleSignInClient()),
+    ],
   );
   await tester.pumpWidget(
     UncontrolledProviderScope(
@@ -206,7 +210,7 @@ void main() {
 
     expect(
       find.text(
-        'Required for merchants before you can submit a listing. Stored for your account — not verified as government KYC.',
+        'Required before listing. Changing phone or ID asks you to confirm with password, SMS, authenticator, or Google.',
       ),
       findsOneWidget,
     );
@@ -263,6 +267,25 @@ void main() {
 
     await tester.tapAt(const Offset(5, 5));
     await tester.pumpAndSettle();
+    expect(result.auth.lastPayload, isNull);
+
+    result.container.dispose();
+  });
+
+  testWidgets('S-114: merchant national ID save asks for reauth', (tester) async {
+    final result = await _pumpProfile(tester, user: _user(role: UserRole.merchant, name: 'Mina Merchant'));
+
+    await tester.ensureVisible(find.byKey(const Key('nationalIdTypeDropdown')));
+    await tester.tap(find.byKey(const Key('nationalIdTypeDropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('PAN (India)').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('nationalIdNumberField')), 'ABCDE1234F');
+    await tester.ensureVisible(find.byKey(const Key('saveProfileButton')));
+    await tester.tap(find.byKey(const Key('saveProfileButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('reauthPassword')), findsOneWidget);
     expect(result.auth.lastPayload, isNull);
 
     result.container.dispose();

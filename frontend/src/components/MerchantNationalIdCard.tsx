@@ -44,6 +44,7 @@ export function MerchantNationalIdCard({
   const [otpPending, setOtpPending] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
   const complete = hasId(user);
 
   const applyUser = useCallback((u: User) => {
@@ -88,10 +89,19 @@ export function MerchantNationalIdCard({
 
     setSaving(true);
     try {
-      const updated = await auth.updateMe({
-        national_id_type: nationalIdType || null,
-        national_id_number: nationalIdNumber.trim() || null,
-      });
+      if (!confirmPassword.trim()) {
+        setError("Confirm with your password so we know this change is yours.");
+        setSaving(false);
+        return;
+      }
+      const stepped = await auth.reauth({ password: confirmPassword.trim() });
+      const updated = await auth.updateMe(
+        {
+          national_id_type: nationalIdType || null,
+          national_id_number: nationalIdNumber.trim() || null,
+        },
+        stepped.reauth_token,
+      );
       onSaved(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -204,6 +214,18 @@ export function MerchantNationalIdCard({
             )}
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
+          {nationalIdType !== "aadhaar" && (
+            <label className="block">
+              <span className="text-sm text-muted">Confirm with password</span>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                aria-label="Confirm with password"
+                className="mt-1"
+              />
+            </label>
+          )}
           <button
             type="submit"
             disabled={saving}

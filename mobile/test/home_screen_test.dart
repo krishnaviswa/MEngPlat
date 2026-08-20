@@ -155,6 +155,7 @@ Future<GoRouter> _pumpHome(
       GoRoute(path: '/register', builder: (context, state) => const Scaffold(body: Text('REGISTER'))),
       GoRoute(path: '/login', builder: (context, state) => const Scaffold(body: Text('LOGIN'))),
       GoRoute(path: '/merchant', builder: (context, state) => const Scaffold(body: Text('MERCHANT HUB'))),
+      GoRoute(path: '/merchant/businesses/new', builder: (context, state) => const Scaffold(body: Text('NEW BUSINESS'))),
     ],
   );
 
@@ -176,7 +177,7 @@ Future<GoRouter> _pumpHome(
 }
 
 void main() {
-  testWidgets('AC1/AC2: /home is a marketing screen with web section order', (tester) async {
+  testWidgets('AC1/AC2: /home is a compact discovery screen', (tester) async {
     await _pumpHome(
       tester,
       payload: _payload(
@@ -203,14 +204,10 @@ void main() {
     final keys = [
       'homeHero',
       'socialProofRail',
-      'problemSection',
-      'trustMetrics',
-      'cityIndex',
-      'categoryIndex',
+      'browseIndex',
       'featuredGrid',
       'reviewVoices',
-      'howItWorks',
-      'merchantCta',
+      'trustMetrics',
     ];
     final ys = <double>[];
     for (final key in keys) {
@@ -226,7 +223,7 @@ void main() {
     final router = await _pumpHome(tester, payload: _payload());
 
     expect(find.text('Local businesses, reviewed with clarity'), findsOneWidget);
-    expect(find.textContaining('never presented as definitive judgments'), findsOneWidget);
+    expect(find.textContaining('AI notes are suggestions'), findsOneWidget);
     expect(find.byKey(const Key('homeSearchField')), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('homeSearchField')), 'salon');
@@ -257,17 +254,13 @@ void main() {
     );
   });
 
-  testWidgets('AC6/AC15: problem section copy always renders without AI chrome', (tester) async {
+  testWidgets('AC6: long problem / how-it-works copy is omitted on mobile', (tester) async {
     await _pumpHome(tester, payload: _payload());
 
-    expect(find.text('Your reviews are scattered'), findsOneWidget);
-    expect(find.text("You don't know what's actually working"), findsOneWidget);
-    expect(find.text("Vague reviews don't help anyone"), findsOneWidget);
-    expect(find.text('01'), findsWidgets);
-    expect(find.text('02'), findsWidgets);
-    expect(find.text('03'), findsWidgets);
-    final problem = find.byKey(const Key('problemSection'));
-    expect(find.descendant(of: problem, matching: find.textContaining('suggestion')), findsNothing);
+    expect(find.byKey(const Key('problemSection')), findsNothing);
+    expect(find.byKey(const Key('howItWorks')), findsNothing);
+    expect(find.byKey(const Key('merchantCta')), findsNothing);
+    expect(find.text('Your reviews are scattered'), findsNothing);
   });
 
   testWidgets('AC7: trust metrics show live counts and hide when stats are null', (tester) async {
@@ -354,28 +347,39 @@ void main() {
     );
     await tester.ensureVisible(find.byKey(const Key('reviewVoices')));
     expect(find.text('Voices from the neighborhood'), findsOneWidget);
-    expect(find.textContaining('In a nutshell (suggestion):'), findsOneWidget);
-    expect(find.textContaining('not definitive judgments'), findsOneWidget);
+    expect(find.textContaining('In a nutshell (suggestion):'), findsNothing);
+    expect(find.textContaining('AI notes on listing pages are suggestions'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await _pumpHome(tester, payload: _payload());
     expect(find.byKey(const Key('reviewVoices')), findsNothing);
   });
 
-  testWidgets('AC12: how it works and merchant CTA routes', (tester) async {
-    await _pumpHome(tester, payload: _payload());
+  testWidgets('AC12: category/neighborhood toggle hides the other index', (tester) async {
+    await _pumpHome(
+      tester,
+      payload: _payload(
+        cities: const [CityIndexItem(name: 'Springfield', count: 2)],
+        categories: [
+          CategoryIndexItem(
+            category: CategoryResponse((c) => c
+              ..id = 'cat-1'
+              ..name = 'Cafe'
+              ..slug = 'cafe'),
+            count: 2,
+          ),
+        ],
+      ),
+    );
 
-    await tester.ensureVisible(find.byKey(const Key('howItWorks')));
-    expect(find.text('How it works'), findsOneWidget);
-    expect(find.text('Search'), findsOneWidget);
-    expect(find.text('Compare'), findsOneWidget);
-    expect(find.textContaining('AI summaries are suggestions'), findsOneWidget);
-    expect(find.text('FOR BUSINESS OWNERS'), findsOneWidget);
+    expect(find.byKey(const Key('browseModeToggle')), findsOneWidget);
+    expect(find.byKey(const Key('categoryIndex')), findsOneWidget);
+    expect(find.byKey(const Key('cityIndex')), findsNothing);
 
-    await tester.ensureVisible(find.text('Create a merchant account'));
-    await tester.tap(find.text('Create a merchant account'));
+    await tester.tap(find.text('Neighborhood'));
     await tester.pumpAndSettle();
-    expect(find.text('REGISTER'), findsOneWidget);
+    expect(find.byKey(const Key('cityIndex')), findsOneWidget);
+    expect(find.byKey(const Key('categoryIndex')), findsNothing);
   });
 
   testWidgets('AC14: /home is reachable without a session (no login bounce in this tree)', (tester) async {
@@ -410,7 +414,7 @@ void main() {
     expect(find.byKey(const Key('homeHero')), findsOneWidget);
   });
 
-  testWidgets('signed-in merchant sees banner and Open my hub', (tester) async {
+  testWidgets('signed-in merchant sees banner and Open Shop', (tester) async {
     final merchant = UserResponse((b) => b
       ..id = 'm-1'
       ..email = 'mina@example.com'
@@ -422,9 +426,39 @@ void main() {
     expect(find.byKey(const Key('signedInBanner')), findsOneWidget);
     expect(find.textContaining('Mina Merchant'), findsOneWidget);
     expect(find.textContaining('Merchant'), findsWidgets);
+    expect(find.text('Open Shop'), findsOneWidget);
     await tester.tap(find.byKey(const Key('openHubButton')));
     await tester.pumpAndSettle();
     expect(find.text('MERCHANT HUB'), findsOneWidget);
+  });
+
+  testWidgets('List your business goes to create listing for merchants', (tester) async {
+    final merchant = UserResponse((b) => b
+      ..id = 'm-1'
+      ..email = 'mina@example.com'
+      ..fullName = 'Mina Merchant'
+      ..role = UserRole.merchant
+      ..isActive = true
+      ..createdAt = DateTime.utc(2026, 1, 1));
+    await _pumpHome(tester, payload: _payload(), user: merchant);
+    await tester.tap(find.byKey(const Key('homeRegisterButton')));
+    await tester.pumpAndSettle();
+    expect(find.text('NEW BUSINESS'), findsOneWidget);
+  });
+
+  testWidgets('List your business explains customer accounts cannot list', (tester) async {
+    final customer = UserResponse((b) => b
+      ..id = 'c-1'
+      ..email = 'casey@example.com'
+      ..fullName = 'Casey Customer'
+      ..role = UserRole.customer
+      ..isActive = true
+      ..createdAt = DateTime.utc(2026, 1, 1));
+    await _pumpHome(tester, payload: _payload(), user: customer);
+    await tester.tap(find.byKey(const Key('homeRegisterButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('listBusinessCustomerDialog')), findsOneWidget);
+    expect(find.text('REGISTER'), findsNothing);
   });
 
   testWidgets('typing caf shows cafe suggestion overlay', (tester) async {

@@ -102,17 +102,19 @@ class AppShell extends ConsumerWidget {
     }
 
     final notificationsIcon = Stack(
-      clipBehavior: Clip.none,
+      clipBehavior: Clip.hardEdge,
+      alignment: Alignment.center,
       children: [
         const Icon(Icons.notifications_outlined, key: Key('notificationsTab')),
-        Positioned(right: -6, top: -4, child: NotificationBadge(count: unreadCount)),
+        Positioned(right: 0, top: 2, child: NotificationBadge(count: unreadCount)),
       ],
     );
     final notificationsSelected = Stack(
-      clipBehavior: Clip.none,
+      clipBehavior: Clip.hardEdge,
+      alignment: Alignment.center,
       children: [
         const Icon(Icons.notifications, key: Key('notificationsTab')),
-        Positioned(right: -6, top: -4, child: NotificationBadge(count: unreadCount)),
+        Positioned(right: 0, top: 2, child: NotificationBadge(count: unreadCount)),
       ],
     );
     final notifications = _Dest(
@@ -121,7 +123,7 @@ class AppShell extends ConsumerWidget {
       destination: NavigationDestination(
         icon: notificationsIcon,
         selectedIcon: notificationsSelected,
-        label: 'Notifications',
+        label: 'Alerts',
       ),
     );
     final explore = _Dest(

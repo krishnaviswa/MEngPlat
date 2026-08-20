@@ -90,6 +90,7 @@ describe("ProfilePage", () => {
     await waitFor(() =>
       expect(updateMeMock).toHaveBeenCalledWith(
         expect.objectContaining({ phone: "+1 999 0000", address_line1: "42 New St" }),
+        undefined,
       ),
     );
     expect(await screen.findByText("Profile updated.")).toBeInTheDocument();

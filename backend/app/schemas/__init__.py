@@ -112,7 +112,8 @@ class UserResponse(BaseModel):
 
 class UserProfileUpdate(BaseModel):
     """Self-service PATCH /auth/me. role, is_active, and TOTP secrets are omitted.
-    `email` is applied only when a valid `reauth_token` is supplied."""
+    `email` is applied only when a valid `reauth_token` is supplied. Merchant
+    phone and national ID changes also require that token (S-114)."""
 
     full_name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = None
@@ -441,12 +442,13 @@ class MessageResponse(BaseModel):
 
 
 class ReauthRequest(BaseModel):
-    """Exactly one of: password, totp_code, or phone+otp_code."""
+    """Exactly one of: password, totp_code, phone+otp_code, or Google credential."""
 
     password: str | None = None
     totp_code: str | None = Field(default=None, max_length=16)
     phone: str | None = Field(default=None, max_length=20)
     otp_code: str | None = Field(default=None, max_length=16)
+    credential: str | None = None
 
 
 class ReauthResponse(BaseModel):

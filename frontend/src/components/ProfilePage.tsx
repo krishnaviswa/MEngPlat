@@ -2,7 +2,7 @@
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Business, NationalIdType, User } from "@/lib/api";
+import type { Business, NationalIdType, User, UserProfileUpdateInput } from "@/lib/api";
 import { auth, clearTokens, favorites } from "@/lib/api";
 import { BusinessCard } from "@/components/BusinessCard";
 import { Avatar } from "@/components/ui/Avatar";
@@ -32,6 +32,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [favoriteBusinesses, setFavoriteBusinesses] = useState<Business[]>([]);
   const [favoritesLoading, setFavoritesLoading] = useState(true);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -120,18 +121,35 @@ export default function ProfilePage() {
     setSuccess(null);
     setError(null);
     try {
-      const updated = await auth.updateMe({
-        full_name: fullName.trim(),
-        phone: phone.trim() || null,
-        address_line1: addressLine1.trim() || null,
-        address_line2: addressLine2.trim() || null,
-        city: city.trim() || null,
-        state: stateField.trim() || null,
-        postal_code: postalCode.trim() || null,
-        country: country.trim() || null,
-        national_id_type: nationalIdType || null,
-        national_id_number: nationalIdNumber.trim() || null,
-      });
+      const nextPhone = phone.trim() || null;
+      const nextNid = nationalIdNumber.trim() || null;
+      const phoneChanged = nextPhone !== (user.phone || null);
+      const typeChanged = (nationalIdType || null) !== (user.national_id_type || null);
+      const masked = Boolean(nextNid && (nextNid.includes("*") || nextNid.includes("•")));
+      const nidChanged = typeChanged || (!masked && nextNid !== (user.national_id_number || null));
+      let reauthToken: string | undefined;
+      if (user.role === "merchant" && (phoneChanged || nidChanged)) {
+        if (!confirmPassword.trim()) {
+          setError("Confirm with your password so we know this change is yours.");
+          setSaving(false);
+          return;
+        }
+        const stepped = await auth.reauth({ password: confirmPassword.trim() });
+        reauthToken = stepped.reauth_token;
+      }
+      const payload: UserProfileUpdateInput = {
+          full_name: fullName.trim(),
+          phone: nextPhone,
+          address_line1: addressLine1.trim() || null,
+          address_line2: addressLine2.trim() || null,
+          city: city.trim() || null,
+          state: stateField.trim() || null,
+          postal_code: postalCode.trim() || null,
+          country: country.trim() || null,
+          national_id_type: nationalIdType || null,
+      };
+      if (!masked) payload.national_id_number = nextNid;
+      const updated = await auth.updateMe(payload, reauthToken);
       applyUser(updated);
       setSuccess("Profile updated.");
     } catch (err) {
@@ -249,10 +267,23 @@ export default function ProfilePage() {
             />
             <p className="text-xs text-muted">
               {user.role === "merchant"
-                ? "Required for merchants before you can submit a listing. Stored for your account — not verified as government KYC."
+                ? "Required before listing. Changing phone or ID asks you to confirm with your password."
                 : "Optional. Stored for your account only — not verified as KYC in this version."}
             </p>
           </fieldset>
+
+          {user.role === "merchant" && (
+            <label className="block border-t pt-4">
+              <span className="text-sm text-muted">Confirm with password (phone or national ID changes)</span>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                aria-label="Confirm with password"
+                className="mt-1"
+              />
+            </label>
+          )}
 
           <div className="border-t pt-4">
             <p className="text-sm text-muted">Email</p>

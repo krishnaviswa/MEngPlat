@@ -3,11 +3,12 @@ import { MerchantNationalIdCard } from "@/components/MerchantNationalIdCard";
 import { auth, nationalId } from "@/lib/api";
 
 jest.mock("../../lib/api", () => ({
-  auth: { updateMe: jest.fn(), me: jest.fn() },
+  auth: { updateMe: jest.fn(), me: jest.fn(), reauth: jest.fn() },
   nationalId: { requestAadhaarMockOtp: jest.fn(), verifyAadhaarMockOtp: jest.fn() },
 }));
 
 const updateMock = auth.updateMe as jest.Mock;
+const reauthMock = auth.reauth as jest.Mock;
 
 describe("MerchantNationalIdCard", () => {
   it("prompts merchants who have no ID and saves PAN directly (non-Aadhaar path)", async () => {
@@ -19,6 +20,7 @@ describe("MerchantNationalIdCard", () => {
       national_id_type: "pan",
       national_id_number: "ABCDE1234F",
     });
+    reauthMock.mockResolvedValue({ reauth_token: "reauth-1" });
     const onSaved = jest.fn();
     render(
       <MerchantNationalIdCard
@@ -29,8 +31,13 @@ describe("MerchantNationalIdCard", () => {
     expect(screen.getByText(/Add PAN, Aadhaar/i)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/national id type/i), { target: { value: "pan" } });
     fireEvent.change(screen.getByLabelText("National ID number"), { target: { value: "ABCDE1234F" } });
+    fireEvent.change(screen.getByLabelText("Confirm with password"), { target: { value: "testpass1234" } });
     fireEvent.click(screen.getByRole("button", { name: /save national id/i }));
-    await waitFor(() => expect(updateMock).toHaveBeenCalled());
+    await waitFor(() => expect(reauthMock).toHaveBeenCalledWith({ password: "testpass1234" }));
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ national_id_type: "pan", national_id_number: "ABCDE1234F" }),
+      "reauth-1",
+    );
     expect(onSaved).toHaveBeenCalled();
   });
 
