@@ -63,6 +63,23 @@ class ReviewVolumeChart extends StatelessWidget {
                   ),
                 ),
                 borderData: FlBorderData(show: false),
+                lineTouchData: LineTouchData(
+                  enabled: true,
+                  handleBuiltInTouches: true,
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipItems: (touched) {
+                      return [
+                        for (final spot in touched)
+                          LineTooltipItem(
+                            _volumeTooltip(points, spot.x),
+                            Theme.of(context).textTheme.bodySmall!.copyWith(
+                                  color: Theme.of(context).colorScheme.onInverseSurface,
+                                ),
+                          ),
+                      ];
+                    },
+                  ),
+                ),
                 lineBarsData: [
                   LineChartBarData(
                     spots: [
@@ -84,4 +101,11 @@ class ReviewVolumeChart extends StatelessWidget {
       ],
     );
   }
+}
+
+String _volumeTooltip(List<_VolumePoint> points, double x) {
+  if (points.isEmpty) return '0';
+  final index = x.round().clamp(0, points.length - 1);
+  final point = points[index];
+  return '${point.month} · ${point.count}';
 }

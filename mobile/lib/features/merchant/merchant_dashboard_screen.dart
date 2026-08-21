@@ -30,7 +30,7 @@ enum MerchantSection { hub, insights, reviews, grow, all }
 
 /// S-060/M-61: `range` values the dashboard's date filter accepts, matching
 /// the backend's `range=30|90|all` query param exactly (S-033).
-const _rangeOptions = {'30': 'Last 30 days', '90': 'Last 90 days', 'all': 'All time'};
+const _rangeOptions = {'30': '30d', '90': '90d', 'all': 'All'};
 
 const _statusLabel = {
   BusinessStatus.pending: 'Awaiting approval',
@@ -287,6 +287,7 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                 if (_showInsights) ...[
                 SegmentedButton<String>(
                   key: const Key('dashboardRangeSelector'),
+                  showSelectedIcon: false,
                   segments: [
                     for (final entry in _rangeOptions.entries) ButtonSegment(value: entry.key, label: Text(entry.value)),
                   ],
@@ -298,48 +299,19 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                   },
                 ),
                 const SizedBox(height: 16),
+                _InsightsHero(
+                  rating: (_stats?.averageRating ?? business.averageRating).toDouble().toStringAsFixed(1),
+                  replyRate: _stats?.replyRate,
+                  replyRatePrevious: _stats?.replyRatePrevious,
+                  reviewCountInRange: _stats?.reviewCountInRange ?? 0,
+                  reviewCountPrevious: _stats?.reviewCountPrevious,
+                  range: _range,
+                  onOpenReviews: () => _scrollTo(_reviewsKey),
+                ),
+                const SizedBox(height: 16),
                 ReviewVolumeChart(volumeByMonth: _stats?.reviewVolumeByMonth ?? BuiltList<JsonObject>()),
                 const SizedBox(height: 16),
                 RatingDistributionChart(counts: Map<String, int>.from(_stats?.ratingDistribution.toMap() ?? {})),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: MhStatTile(
-                        key: const Key('replyRateTile'),
-                        label: 'Reply rate',
-                        value: _stats?.replyRate == null
-                            ? 'No reviews in this range'
-                            : '${(_stats!.replyRate! * 100).round()}%',
-                        onTap: () => _scrollTo(_reviewsKey),
-                        extra: _stats?.replyRate == null
-                            ? null
-                            : _TrendDelta(current: _stats?.replyRate, previous: _stats?.replyRatePrevious, range: _range),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // S-063/M-68 AC 2: a second row, not a third item crammed
-                // into the row above -- avoids repeating the narrow-width
-                // overflow class of bug S-060's Tester found elsewhere.
-                Row(
-                  children: [
-                    Expanded(
-                      child: MhStatTile(
-                        key: const Key('reviewCountInRangeTile'),
-                        label: 'Reviews in this range',
-                        value: '${_stats?.reviewCountInRange ?? 0}',
-                        onTap: () => _scrollTo(_reviewsKey),
-                        extra: _TrendDelta(
-                          current: _stats?.reviewCountInRange,
-                          previous: _stats?.reviewCountPrevious,
-                          range: _range,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
                 ],
                 if (_showGrow) ...[
                 Wrap(
@@ -381,7 +353,10 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
                   BenchmarkCard(benchmark: _benchmark!),
                 ],
                 const SizedBox(height: 16),
-                const Text('Refresh AI summary when you want an updated suggestion.'),
+                Text(
+                  'Refresh AI summary when you want an updated suggestion.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
@@ -568,6 +543,77 @@ class _MerchantDashboardScreenState extends ConsumerState<MerchantDashboardScree
     final target = key.currentContext;
     if (target == null) return;
     Scrollable.ensureVisible(target, duration: const Duration(milliseconds: 250), alignment: 0.1);
+  }
+}
+
+class _InsightsHero extends StatelessWidget {
+  const _InsightsHero({
+    required this.rating,
+    required this.replyRate,
+    required this.replyRatePrevious,
+    required this.reviewCountInRange,
+    required this.reviewCountPrevious,
+    required this.range,
+    required this.onOpenReviews,
+  });
+
+  final String rating;
+  final num? replyRate;
+  final num? replyRatePrevious;
+  final int reviewCountInRange;
+  final num? reviewCountPrevious;
+  final String range;
+  final VoidCallback onOpenReviews;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final replyEmpty = replyRate == null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(rating, style: theme.textTheme.headlineMedium),
+        Text('Average rating', style: theme.textTheme.bodySmall),
+        const SizedBox(height: 12),
+        InkWell(
+          key: const Key('replyRateTile'),
+          onTap: onOpenReviews,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: Text('Reply rate', style: theme.textTheme.bodySmall)),
+                  Text(
+                    replyEmpty ? '—' : '${(replyRate! * 100).round()}%',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  if (!replyEmpty) ...[
+                    const SizedBox(width: 6),
+                    _TrendDelta(current: replyRate, previous: replyRatePrevious, range: range),
+                  ],
+                ],
+              ),
+              if (replyEmpty)
+                Text('No reviews in this range', style: theme.textTheme.bodySmall),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          key: const Key('reviewCountInRangeTile'),
+          onTap: onOpenReviews,
+          child: Row(
+            children: [
+              Expanded(child: Text('Reviews in this range', style: theme.textTheme.bodySmall)),
+              Text('$reviewCountInRange', style: theme.textTheme.titleMedium),
+              const SizedBox(width: 6),
+              _TrendDelta(current: reviewCountInRange, previous: reviewCountPrevious, range: range),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

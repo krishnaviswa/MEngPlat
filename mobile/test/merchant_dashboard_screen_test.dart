@@ -463,7 +463,7 @@ void main() {
     );
     await _pumpDashboard(tester, mine: [_owned()], dashboardRepository: repo);
 
-    await tester.tap(find.text('Last 30 days'));
+    await tester.tap(find.text('30d'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
@@ -540,7 +540,7 @@ void main() {
       expect(repo.statsRangesRequested, ['all']);
       expect(find.textContaining('50%'), findsOneWidget);
 
-      await tester.tap(find.text('Last 30 days'));
+      await tester.tap(find.text('30d'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
@@ -876,7 +876,7 @@ void main() {
 
       await _pumpDashboard(tester, mine: [_owned()], dashboardRepository: repo);
 
-      await tester.tap(find.text('Last 30 days'));
+      await tester.tap(find.text('30d'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
@@ -910,7 +910,7 @@ void main() {
 
       await _pumpDashboard(tester, mine: [_owned()], dashboardRepository: repo);
 
-      await tester.tap(find.text('Last 30 days'));
+      await tester.tap(find.text('30d'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
@@ -948,7 +948,7 @@ void main() {
 
       await _pumpDashboard(tester, mine: [_owned()], dashboardRepository: repo);
 
-      await tester.tap(find.text('Last 30 days'));
+      await tester.tap(find.text('30d'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 

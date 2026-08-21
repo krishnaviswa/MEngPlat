@@ -12,6 +12,7 @@ import 'package:merchanthub_mobile/features/merchant/dashboard_repository.dart';
 import 'package:merchanthub_mobile/features/merchant/merchant_providers.dart';
 import 'package:merchanthub_mobile/features/reviews/review_providers.dart';
 import 'package:merchanthub_mobile/features/reviews/review_repository.dart';
+import 'package:merchanthub_mobile/ui/widgets.dart';
 
 UserResponse _admin() => UserResponse((b) => b
   ..id = 'a-1'
@@ -95,7 +96,7 @@ void main() {
 
     // Empty series -> the empty-chart treatment (AC3), but it must still sit
     // between the stat tiles and "Pending businesses" per AC2.
-    final statsY = tester.getBottomLeft(find.text('Total users')).dy;
+    final statsY = tester.getBottomLeft(find.byKey(const Key('adminMetricsSection'))).dy;
     final chartY = tester.getTopLeft(find.byKey(const Key('platformSeriesEmpty'))).dy;
     final pendingY = tester.getTopLeft(find.byKey(const Key('pendingQueueHeading'))).dy;
     expect(statsY, lessThan(chartY));
@@ -127,7 +128,7 @@ void main() {
     expect(find.textContaining('AI:'), findsNothing);
   });
 
-  testWidgets('S-061: "Manage categories" and "Total users" tile navigate to the two new admin sub-routes',
+  testWidgets('S-061: Categories chip and Users metric navigate to the two admin sub-routes',
       (tester) async {
     await _tallSurface(tester);
     final container = ProviderContainer(
@@ -165,8 +166,8 @@ void main() {
 
     router.pop();
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Total users'));
-    await tester.tap(find.text('Total users'));
+    await tester.ensureVisible(find.byKey(const Key('adminMetricUsers')));
+    await tester.tap(find.byKey(const Key('adminMetricUsers')));
     await tester.pumpAndSettle();
     expect(find.text('USERS_SCREEN'), findsOneWidget);
 
@@ -229,7 +230,7 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('adminHomeScreen')), findsOneWidget);
-    expect(find.text('Total users'), findsOneWidget);
+    expect(find.text('Users'), findsWidgets);
     expect(find.text('10'), findsOneWidget);
     expect(find.text('No businesses awaiting review'), findsOneWidget);
     expect(find.textContaining('on the web for now'), findsNothing);
@@ -357,6 +358,36 @@ void main() {
     expect(find.byKey(const Key('openSupportTicketsTile')), findsOneWidget);
     expect(find.byKey(const Key('repeatShopReportsTile')), findsOneWidget);
     expect(find.byKey(const Key('processingBusinessesTile')), findsOneWidget);
+    expect(find.byKey(const Key('adminJumpChips')), findsOneWidget);
+    expect(find.byType(MhStatTile), findsNothing);
+    expect(find.byKey(const Key('manageCategoriesButton')), findsOneWidget);
+  });
+
+  testWidgets('jump chips scroll Queue and Reported into view', (tester) async {
+    await _tallSurface(tester);
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith(_FakeAuthController.new),
+        dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepository()),
+        businessRepositoryProvider.overrideWithValue(_FakeBusinessRepository()),
+        reviewRepositoryProvider.overrideWithValue(_FakeReviewRepository()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: const MaterialApp(home: AdminHomeScreen())),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('adminJumpQueue')));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(find.byKey(const Key('pendingQueueHeading'))).top, lessThan(800));
+
+    await tester.tap(find.byKey(const Key('adminJumpReported')));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(find.byKey(const Key('adminReportedSection'))).top, lessThan(800));
   });
 }
 

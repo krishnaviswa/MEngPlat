@@ -131,6 +131,17 @@ class BusinessRepository {
     }
   }
 
+  /// S-073: SMS OTP for a 2nd+ address-field edit (`POST .../address-verify/request`).
+  Future<void> requestAddressOtp(String businessId) async {
+    try {
+      await _client.api.getBusinessesApi().requestAddressVerifyApiV1BusinessesBusinessIdAddressVerifyRequestPost(
+            businessId: businessId,
+          );
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
   /// Public approved catalog (S-064 home). Optional [city] / [slugs] match
   /// web `businesses.list()`.
   Future<List<BusinessResponse>> listPublic({String? city, String? slugs}) async {
