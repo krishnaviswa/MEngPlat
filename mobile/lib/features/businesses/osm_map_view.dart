@@ -80,18 +80,20 @@ class OsmMapView extends StatelessWidget {
       ],
     );
 
-    final attributed = Stack(
-      children: [
-        map,
-        const Positioned(
-          right: 8,
-          bottom: 4,
-          child: Text(
-            '© OpenStreetMap',
-            style: TextStyle(fontSize: 10, color: Colors.black87),
+    final attributed = RepaintBoundary(
+      child: Stack(
+        children: [
+          map,
+          const Positioned(
+            right: 8,
+            bottom: 4,
+            child: Text(
+              '© OpenStreetMap',
+              style: TextStyle(fontSize: 10, color: Colors.black87),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
     if (height.isFinite) {
       return SizedBox(key: mapKey, height: height, child: attributed);

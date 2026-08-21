@@ -42,7 +42,8 @@ class ReviewVolumeChart extends StatelessWidget {
         else
           SizedBox(
             height: 160,
-            child: LineChart(
+            child: RepaintBoundary(
+              child: LineChart(
               LineChartData(
                 titlesData: FlTitlesData(
                   topTitles: const AxisTitles(),
@@ -96,6 +97,7 @@ class ReviewVolumeChart extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
             ),
           ),
       ],

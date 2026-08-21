@@ -47,6 +47,8 @@ class PhotoGallery extends StatelessWidget {
                     width: 96,
                     height: 96,
                     fit: BoxFit.cover,
+                    cacheWidth: (96 * MediaQuery.devicePixelRatioOf(context)).round().clamp(1, 4096),
+                    cacheHeight: (96 * MediaQuery.devicePixelRatioOf(context)).round().clamp(1, 4096),
                     errorBuilder: (context, _, _) => SizedBox(
                       width: 96,
                       height: 96,
@@ -109,6 +111,8 @@ class FallbackPhotoStrip extends StatelessWidget {
                   width: 96,
                   height: 96,
                   fit: BoxFit.cover,
+                  cacheWidth: (96 * MediaQuery.devicePixelRatioOf(context)).round().clamp(1, 4096),
+                  cacheHeight: (96 * MediaQuery.devicePixelRatioOf(context)).round().clamp(1, 4096),
                   errorBuilder: (context, _, _) => SizedBox(
                     width: 96,
                     height: 96,

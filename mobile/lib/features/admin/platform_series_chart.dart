@@ -119,7 +119,8 @@ class _SingleSeriesChart extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       height: 200,
-      child: LineChart(
+      child: RepaintBoundary(
+        child: LineChart(
         LineChartData(
           minY: 0,
           maxY: maxY,
@@ -209,6 +210,7 @@ class _SingleSeriesChart extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

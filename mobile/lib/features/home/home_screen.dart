@@ -16,7 +16,7 @@ import 'social_proof_data.dart';
 
 enum _BrowseMode { category, neighborhood }
 
-/// Compact mobile home (S-114). Web `/` keeps the long marketing page.
+/// Compact mobile home (S-114, S-116). Web `/` keeps the long marketing page.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -25,14 +25,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  final _searchController = TextEditingController();
-  _BrowseMode _browseMode = _BrowseMode.category;
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  _BrowseMode? _browseExpanded;
 
   void _explore({String? q, String? city, String? category}) {
     final params = <String, String>{
@@ -73,9 +66,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final payload = ref.watch(homePayloadProvider);
     final user = ref.watch(authControllerProvider).valueOrNull;
-    final typed = _searchController.text.trim();
-    final search = ref.watch(searchControllerProvider);
-    final suggestions = typed.length >= 2 ? (search.valueOrNull?.items ?? const <BusinessResponse>[]) : const <BusinessResponse>[];
 
     return Scaffold(
       key: const Key('homeScreen'),
@@ -96,25 +86,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onOpenHub: () => context.go(hubPathFor(user.role)),
               ),
             _HeroSection(
-              searchController: _searchController,
-              onExplore: () => _explore(q: _searchController.text.trim()),
+              onExplore: (q) => _explore(q: q),
               onListBusiness: _listBusiness,
-              onQueryChanged: (value) {
-                if (value.trim().length >= 2) {
-                  ref.read(searchControllerProvider.notifier).setQueryText(value);
-                }
-                setState(() {});
-              },
-              suggestions: suggestions,
               onSuggestionTap: (business) => context.push('/businesses/${business.slug}'),
             ),
             _SocialProofRail(entries: home.socialProof),
             if (home.cities.isNotEmpty || home.categories.isNotEmpty)
               _BrowseIndex(
-                mode: _browseMode,
+                expanded: _browseExpanded,
                 cities: home.cities,
                 categories: home.categories,
-                onMode: (mode) => setState(() => _browseMode = mode),
+                onExpand: (mode) => setState(() => _browseExpanded = mode),
                 onCity: (city) => _explore(city: city),
                 onCategory: (slug) => _explore(category: slug),
               ),
@@ -170,25 +152,38 @@ class _SignedInBanner extends StatelessWidget {
   }
 }
 
-class _HeroSection extends StatelessWidget {
+class _HeroSection extends ConsumerStatefulWidget {
   const _HeroSection({
-    required this.searchController,
     required this.onExplore,
     required this.onListBusiness,
-    required this.onQueryChanged,
-    required this.suggestions,
     required this.onSuggestionTap,
   });
 
-  final TextEditingController searchController;
-  final VoidCallback onExplore;
+  final ValueChanged<String> onExplore;
   final VoidCallback onListBusiness;
-  final ValueChanged<String> onQueryChanged;
-  final List<BusinessResponse> suggestions;
   final ValueChanged<BusinessResponse> onSuggestionTap;
 
   @override
+  ConsumerState<_HeroSection> createState() => _HeroSectionState();
+}
+
+class _HeroSectionState extends ConsumerState<_HeroSection> {
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final typed = _searchController.text.trim();
+    final search = ref.watch(searchControllerProvider);
+    final suggestions = typed.length >= 2
+        ? (search.valueOrNull?.items ?? const <BusinessResponse>[])
+        : const <BusinessResponse>[];
+
     return Container(
       key: const Key('homeHero'),
       width: double.infinity,
@@ -231,10 +226,15 @@ class _HeroSection extends StatelessWidget {
           const SizedBox(height: 20),
           TextField(
             key: const Key('homeSearchField'),
-            controller: searchController,
+            controller: _searchController,
             textInputAction: TextInputAction.search,
-            onChanged: onQueryChanged,
-            onSubmitted: (_) => onExplore(),
+            onChanged: (value) {
+              if (value.trim().length >= 2) {
+                ref.read(searchControllerProvider.notifier).setQueryText(value);
+              }
+              setState(() {});
+            },
+            onSubmitted: (_) => widget.onExplore(_searchController.text.trim()),
             style: const TextStyle(color: MhTokens.ink),
             decoration: InputDecoration(
               hintText: 'Try café, salon, pharmacy, Chrompet…',
@@ -264,7 +264,7 @@ class _HeroSection extends StatelessWidget {
                         '${business.city}${business.categories?.isNotEmpty == true ? ' · ${business.categories!.first.name}' : ''}',
                         style: TextStyle(color: MhTokens.ink.withValues(alpha: 0.65)),
                       ),
-                      onTap: () => onSuggestionTap(business),
+                      onTap: () => widget.onSuggestionTap(business),
                     ),
                 ],
               ),
@@ -278,12 +278,12 @@ class _HeroSection extends StatelessWidget {
               FilledButton(
                 key: const Key('homeExploreButton'),
                 style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF0369A1)),
-                onPressed: onExplore,
+                onPressed: () => widget.onExplore(_searchController.text.trim()),
                 child: const Text('Explore'),
               ),
               OutlinedButton(
                 key: const Key('homeRegisterButton'),
-                onPressed: onListBusiness,
+                onPressed: widget.onListBusiness,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
                   side: const BorderSide(color: Colors.white),
@@ -298,13 +298,33 @@ class _HeroSection extends StatelessWidget {
   }
 }
 
-class _SocialProofRail extends StatelessWidget {
+class _SocialProofRail extends StatefulWidget {
   const _SocialProofRail({required this.entries});
 
   final List<SocialProofEntry> entries;
 
   @override
+  State<_SocialProofRail> createState() => _SocialProofRailState();
+}
+
+class _SocialProofRailState extends State<_SocialProofRail> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _nudge(double delta) {
+    if (!_scroll.hasClients) return;
+    final next = (_scroll.offset + delta).clamp(0.0, _scroll.position.maxScrollExtent);
+    _scroll.animateTo(next, duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       key: const Key('socialProofRail'),
       padding: const EdgeInsets.symmetric(vertical: 24),
@@ -315,50 +335,87 @@ class _SocialProofRail extends StatelessWidget {
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   letterSpacing: 1.6,
                   fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: scheme.onSurfaceVariant,
                 ),
           ),
           const SizedBox(height: 16),
           SizedBox(
             height: 168,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              itemCount: entries.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, i) {
-                final entry = entries[i];
-                final image = entry.imageUrl;
-                return SizedBox(
-                  width: 160,
-                  child: Card(
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: image == null
-                              ? Center(
-                                  child: Text(
-                                    entry.initial,
-                                    style: Theme.of(context).textTheme.headlineSmall,
-                                  ),
-                                )
-                              : Image.network(
-                                  resolveMediaUrl(image),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => Center(child: Text(entry.initial)),
-                                ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                ListView.separated(
+                  controller: _scroll,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 48, 0),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: widget.entries.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 12),
+                  itemBuilder: (context, i) {
+                    final entry = widget.entries[i];
+                    final image = entry.imageUrl;
+                    return SizedBox(
+                      width: 148,
+                      child: Card(
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: image == null
+                                  ? Center(
+                                      child: Text(
+                                        entry.initial,
+                                        style: Theme.of(context).textTheme.headlineSmall,
+                                      ),
+                                    )
+                                  : Image.network(
+                                      resolveMediaUrl(image),
+                                      fit: BoxFit.cover,
+                                      cacheWidth: (148 * MediaQuery.devicePixelRatioOf(context)).round().clamp(1, 4096),
+                                      cacheHeight: (110 * MediaQuery.devicePixelRatioOf(context)).round().clamp(1, 4096),
+                                      gaplessPlayback: true,
+                                      errorBuilder: (_, _, _) => Center(child: Text(entry.initial)),
+                                    ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
+                          ],
                         ),
-                        Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        ),
-                      ],
+                      ),
+                    );
+                  },
+                ),
+                Positioned(
+                  left: 4,
+                  child: Material(
+                    color: scheme.surfaceContainerLowest,
+                    shape: const CircleBorder(),
+                    elevation: 1,
+                    child: IconButton(
+                      key: const Key('socialProofPrev'),
+                      tooltip: 'Previous shops',
+                      icon: const Icon(Icons.chevron_left),
+                      onPressed: () => _nudge(-160),
                     ),
                   ),
-                );
-              },
+                ),
+                Positioned(
+                  right: 4,
+                  child: Material(
+                    color: scheme.surfaceContainerLowest,
+                    shape: const CircleBorder(),
+                    elevation: 1,
+                    child: IconButton(
+                      key: const Key('socialProofNext'),
+                      tooltip: 'Next shops',
+                      icon: const Icon(Icons.chevron_right),
+                      onPressed: () => _nudge(160),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -412,18 +469,18 @@ class _TrustMetrics extends StatelessWidget {
 
 class _BrowseIndex extends StatelessWidget {
   const _BrowseIndex({
-    required this.mode,
+    required this.expanded,
     required this.cities,
     required this.categories,
-    required this.onMode,
+    required this.onExpand,
     required this.onCity,
     required this.onCategory,
   });
 
-  final _BrowseMode mode;
+  final _BrowseMode? expanded;
   final List<CityIndexItem> cities;
   final List<CategoryIndexItem> categories;
-  final ValueChanged<_BrowseMode> onMode;
+  final ValueChanged<_BrowseMode> onExpand;
   final ValueChanged<String> onCity;
   final ValueChanged<String> onCategory;
 
@@ -431,32 +488,43 @@ class _BrowseIndex extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasCities = cities.isNotEmpty;
     final hasCategories = categories.isNotEmpty;
-    final effective = !hasCategories
-        ? _BrowseMode.neighborhood
-        : !hasCities
-            ? _BrowseMode.category
-            : mode;
+    String listingWord(int n) => n == 1 ? 'listing' : 'listings';
+    final categoryCount = categories.fold<int>(0, (sum, item) => sum + item.count);
+    final cityCount = cities.fold<int>(0, (sum, item) => sum + item.count);
 
     return Column(
       key: const Key('browseIndex'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (hasCities && hasCategories)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: SegmentedButton<_BrowseMode>(
-              key: const Key('browseModeToggle'),
-              segments: const [
-                ButtonSegment(value: _BrowseMode.category, label: Text('Category')),
-                ButtonSegment(value: _BrowseMode.neighborhood, label: Text('Neighborhood')),
-              ],
-              selected: {effective},
-              onSelectionChanged: (selected) => onMode(selected.first),
-            ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Column(
+            children: [
+              if (hasCategories)
+                MhJobTile(
+                  key: const Key('browseCategoryInvite'),
+                  icon: Icons.category_outlined,
+                  title: 'Browse by category',
+                  subtitle: 'Cafés, clinics, salons — $categoryCount ${listingWord(categoryCount)}',
+                  accent: MhAccent.violet,
+                  onTap: () => onExpand(_BrowseMode.category),
+                ),
+              if (hasCategories && hasCities) const SizedBox(height: 8),
+              if (hasCities)
+                MhJobTile(
+                  key: const Key('browseNeighborhoodInvite'),
+                  icon: Icons.location_city_outlined,
+                  title: 'Explore neighborhoods',
+                  subtitle: 'Jump into a city — $cityCount ${listingWord(cityCount)}',
+                  accent: MhAccent.mint,
+                  onTap: () => onExpand(_BrowseMode.neighborhood),
+                ),
+            ],
           ),
-        if (effective == _BrowseMode.neighborhood)
+        ),
+        if (expanded == _BrowseMode.neighborhood && hasCities)
           _CityIndex(cities: cities, onTap: onCity)
-        else
+        else if (expanded == _BrowseMode.category && hasCategories)
           _CategoryIndex(categories: categories, onTap: onCategory),
       ],
     );

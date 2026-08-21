@@ -26,7 +26,8 @@ class RatingDistributionChart extends StatelessWidget {
         else
           SizedBox(
             height: 160,
-            child: BarChart(
+            child: RepaintBoundary(
+              child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
                 titlesData: FlTitlesData(
@@ -60,6 +61,7 @@ class RatingDistributionChart extends StatelessWidget {
                     ),
                 ],
               ),
+            ),
             ),
           ),
       ],

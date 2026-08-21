@@ -23,7 +23,6 @@ class BusinessListScreen extends ConsumerStatefulWidget {
 }
 
 class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
-  final _searchController = TextEditingController();
   var _showMap = false;
 
   @override
@@ -61,12 +60,6 @@ class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
   Future<void> _openFilters(SearchQuery query) async {
     final facets = await ref.read(searchFacetsProvider.future);
     if (!mounted) return;
@@ -98,59 +91,12 @@ class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
   Widget build(BuildContext context) {
     final search = ref.watch(searchControllerProvider);
     final query = search.valueOrNull?.query ?? const SearchQuery();
-    final typed = _searchController.text.trim();
-    final catalog = search.valueOrNull?.items ?? const <BusinessResponse>[];
-    final suggestions = typed.length >= 2
-        ? catalog.where((b) => b.name.toLowerCase().contains(typed.toLowerCase())).take(6).toList()
-        : const <BusinessResponse>[];
 
     return Scaffold(
       appBar: AppBar(title: const Text('Businesses'), actions: const [ThemeToggleButton()]),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: TextField(
-              key: const Key('searchField'),
-              controller: _searchController,
-              textInputAction: TextInputAction.search,
-              decoration: const InputDecoration(
-                hintText: 'Search businesses',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              onChanged: (value) {
-                setState(() {});
-                ref.read(searchControllerProvider.notifier).setQueryText(value);
-              },
-            ),
-          ),
-          if (suggestions.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-              child: Material(
-                key: const Key('searchSuggestions'),
-                elevation: 2,
-                borderRadius: BorderRadius.circular(12),
-                child: Column(
-                  children: [
-                    for (final business in suggestions)
-                      ListTile(
-                        key: Key('searchSuggestion-${business.slug}'),
-                        dense: true,
-                        title: Text(business.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(
-                          business.city,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        onTap: () => context.push('/businesses/${business.slug}'),
-                      ),
-                  ],
-                ),
-              ),
-            ),
+          const _ExploreSearchHeader(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Wrap(
@@ -231,6 +177,82 @@ class _BusinessListScreenState extends ConsumerState<BusinessListScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Same two paddings as before (S-117): typing rebuilds only this subtree.
+class _ExploreSearchHeader extends ConsumerStatefulWidget {
+  const _ExploreSearchHeader();
+
+  @override
+  ConsumerState<_ExploreSearchHeader> createState() => _ExploreSearchHeaderState();
+}
+
+class _ExploreSearchHeaderState extends ConsumerState<_ExploreSearchHeader> {
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final typed = _searchController.text.trim();
+    final catalog = ref.watch(searchControllerProvider).valueOrNull?.items ?? const <BusinessResponse>[];
+    final suggestions = typed.length >= 2
+        ? catalog.where((b) => b.name.toLowerCase().contains(typed.toLowerCase())).take(6).toList()
+        : const <BusinessResponse>[];
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: TextField(
+            key: const Key('searchField'),
+            controller: _searchController,
+            textInputAction: TextInputAction.search,
+            decoration: const InputDecoration(
+              hintText: 'Search businesses',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            onChanged: (value) {
+              setState(() {});
+              ref.read(searchControllerProvider.notifier).setQueryText(value);
+            },
+          ),
+        ),
+        if (suggestions.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Material(
+              key: const Key('searchSuggestions'),
+              elevation: 2,
+              borderRadius: BorderRadius.circular(12),
+              child: Column(
+                children: [
+                  for (final business in suggestions)
+                    ListTile(
+                      key: Key('searchSuggestion-${business.slug}'),
+                      dense: true,
+                      title: Text(business.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(
+                        business.city,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () => context.push('/businesses/${business.slug}'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

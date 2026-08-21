@@ -203,6 +203,8 @@ class _ReviewCardState extends State<ReviewCard> {
                         width: 64,
                         height: 64,
                         fit: BoxFit.cover,
+                        cacheWidth: (64 * MediaQuery.devicePixelRatioOf(context)).round().clamp(1, 4096),
+                        cacheHeight: (64 * MediaQuery.devicePixelRatioOf(context)).round().clamp(1, 4096),
                       ),
                     ),
                   );

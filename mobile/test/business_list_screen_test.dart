@@ -273,6 +273,19 @@ void main() {
     expect(repo.lastQuery?.lat, before?.lat);
   });
 
+  testWidgets('S-117: resultsMap is absent until Map is selected', (tester) async {
+    await _pumpExplore(
+      tester,
+      user: _user(),
+      businesses: [_business(lat: 13.08, lng: 80.27)],
+      withRouter: true,
+    );
+    expect(find.byKey(const Key('resultsMap')), findsNothing);
+    await tester.tap(find.byKey(const Key('mapToggle')));
+    await tester.pump();
+    expect(find.byKey(const Key('resultsMap')), findsOneWidget);
+  });
+
   testWidgets('AC8/AC9: map toggle shows OSM pins and pin opens detail', (tester) async {
     await _pumpExplore(
       tester,

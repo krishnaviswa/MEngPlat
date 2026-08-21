@@ -243,6 +243,8 @@ void main() {
 
     expect(find.text('SHOPS ON MERCHANTHUB'), findsOneWidget);
     expect(find.text('Copper Kettle Cafe'), findsOneWidget);
+    expect(find.byKey(const Key('socialProofPrev')), findsOneWidget);
+    expect(find.byKey(const Key('socialProofNext')), findsOneWidget);
     final rail = find.byKey(const Key('socialProofRail'));
     expect(
       find.descendant(of: rail, matching: find.text('12')),
@@ -276,11 +278,16 @@ void main() {
     expect(find.byKey(const Key('trustMetrics')), findsNothing);
   });
 
-  testWidgets('AC8: city index tap opens Explore with city filter; omitted when empty', (tester) async {
+  testWidgets('AC8: city invite then tap opens Explore with city filter; omitted when empty', (tester) async {
     await _pumpHome(
       tester,
       payload: _payload(cities: const [CityIndexItem(name: 'Springfield', count: 2)]),
     );
+    expect(find.byKey(const Key('browseNeighborhoodInvite')), findsOneWidget);
+    expect(find.byKey(const Key('cityIndex')), findsNothing);
+    await tester.ensureVisible(find.byKey(const Key('browseNeighborhoodInvite')));
+    await tester.tap(find.byKey(const Key('browseNeighborhoodInvite')));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('cityIndex-Springfield')));
     await tester.tap(find.byKey(const Key('cityIndex-Springfield')));
     await tester.pumpAndSettle();
@@ -289,9 +296,10 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await _pumpHome(tester, payload: _payload());
     expect(find.byKey(const Key('cityIndex')), findsNothing);
+    expect(find.byKey(const Key('browseNeighborhoodInvite')), findsNothing);
   });
 
-  testWidgets('AC9: category index tap opens Explore with category filter; omitted when empty', (tester) async {
+  testWidgets('AC9: category invite then tap opens Explore with category filter; omitted when empty', (tester) async {
     await _pumpHome(
       tester,
       payload: _payload(
@@ -306,6 +314,11 @@ void main() {
         ],
       ),
     );
+    expect(find.byKey(const Key('browseCategoryInvite')), findsOneWidget);
+    expect(find.byKey(const Key('categoryIndex')), findsNothing);
+    await tester.ensureVisible(find.byKey(const Key('browseCategoryInvite')));
+    await tester.tap(find.byKey(const Key('browseCategoryInvite')));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('categoryIndex-cafe')));
     await tester.tap(find.byKey(const Key('categoryIndex-cafe')));
     await tester.pumpAndSettle();
@@ -314,6 +327,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await _pumpHome(tester, payload: _payload());
     expect(find.byKey(const Key('categoryIndex')), findsNothing);
+    expect(find.byKey(const Key('browseCategoryInvite')), findsNothing);
   });
 
   testWidgets('AC10: featured cards, suggestion blurb, empty state', (tester) async {
@@ -354,7 +368,7 @@ void main() {
     expect(find.byKey(const Key('reviewVoices')), findsNothing);
   });
 
-  testWidgets('AC12: category/neighborhood toggle hides the other index', (tester) async {
+  testWidgets('S-116: category/neighborhood invites hide lists until tapped', (tester) async {
     await _pumpHome(
       tester,
       payload: _payload(
@@ -371,11 +385,20 @@ void main() {
       ),
     );
 
-    expect(find.byKey(const Key('browseModeToggle')), findsOneWidget);
+    expect(find.byKey(const Key('browseModeToggle')), findsNothing);
+    expect(find.byKey(const Key('browseCategoryInvite')), findsOneWidget);
+    expect(find.byKey(const Key('browseNeighborhoodInvite')), findsOneWidget);
+    expect(find.byKey(const Key('categoryIndex')), findsNothing);
+    expect(find.byKey(const Key('cityIndex')), findsNothing);
+
+    await tester.ensureVisible(find.byKey(const Key('browseCategoryInvite')));
+    await tester.tap(find.byKey(const Key('browseCategoryInvite')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('categoryIndex')), findsOneWidget);
     expect(find.byKey(const Key('cityIndex')), findsNothing);
 
-    await tester.tap(find.text('Neighborhood'));
+    await tester.ensureVisible(find.byKey(const Key('browseNeighborhoodInvite')));
+    await tester.tap(find.byKey(const Key('browseNeighborhoodInvite')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('cityIndex')), findsOneWidget);
     expect(find.byKey(const Key('categoryIndex')), findsNothing);
