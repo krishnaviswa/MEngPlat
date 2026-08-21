@@ -58,7 +58,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="frontend-production-ed77.up.railway.app"
+                    android:host="${collectWebHost}"
                     android:pathPrefix="/collect" />
             </intent-filter>
         </activity>

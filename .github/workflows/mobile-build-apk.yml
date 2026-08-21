@@ -17,6 +17,9 @@ on:
         description: "Prod HTTPS API base URL (no trailing slash)"
         required: true
         default: "https://backend-production-2783.up.railway.app"
+      web_base_url:
+        description: "Public website origin for collect QR (no trailing slash). Same URL you open in the browser."
+        required: false
 
 concurrency:
   group: mobile-build-apk-${{ github.ref }}
@@ -29,11 +32,18 @@ jobs:
   build-apk:
     runs-on: ubuntu-latest
     env:
-      # Dispatch can override the API URL. Push to main uses the repo variable
-      # when set, otherwise the Railway production default.
       API_BASE_URL: ${{ github.event.inputs.api_base_url || vars.MOBILE_PROD_API_BASE_URL || 'https://backend-production-2783.up.railway.app' }}
+      WEB_BASE_URL: ${{ github.event.inputs.web_base_url || vars.MOBILE_WEB_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Require MOBILE_WEB_BASE_URL
+        run: |
+          if [ -z "$WEB_BASE_URL" ]; then
+            echo "Set GitHub variable MOBILE_WEB_BASE_URL (or the web_base_url workflow input) to the public site origin, with no trailing slash."
+            echo "Use the same origin you open in a browser for the collect page — not the Railway frontend-production hostname and not the API host."
+            exit 1
+          fi
 
       - uses: subosito/flutter-action@v2
         with:
@@ -49,7 +59,7 @@ jobs:
           flutter build apk --release \
             --dart-define=API_BASE_URL=${{ env.API_BASE_URL }} \
             --dart-define=GOOGLE_CLIENT_ID=${{ vars.MOBILE_GOOGLE_CLIENT_ID }} \
-            --dart-define=WEB_BASE_URL=${{ vars.MOBILE_WEB_BASE_URL || 'https://frontend-production-ed77.up.railway.app' }}
+            --dart-define=WEB_BASE_URL=${{ env.WEB_BASE_URL }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
