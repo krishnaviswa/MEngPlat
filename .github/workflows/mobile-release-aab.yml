@@ -50,6 +50,8 @@ jobs:
             echo "Set GitHub variable MOBILE_WEB_BASE_URL to the public site origin."
             exit 1
           fi
+          HOST=$(python3 -c "import os; from urllib.parse import urlparse; r=os.environ['WEB_BASE_URL'].strip(); r=r if '://' in r else 'https://'+r; print(urlparse(r).hostname or 'localhost')")
+          export ORG_GRADLE_PROJECT_collectWebHost="$HOST"
           flutter build appbundle --release \
             --dart-define=API_BASE_URL=${{ vars.MOBILE_PROD_API_BASE_URL }} \
             --dart-define=GOOGLE_CLIENT_ID=${{ vars.MOBILE_GOOGLE_CLIENT_ID }} \

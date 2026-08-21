@@ -19,18 +19,6 @@ if (keystorePropertiesFile.exists()) {
 }
 val sideloadKeystoreFile = rootProject.file("sideload.keystore")
 
-/** Host for HTTPS /collect App Links. Same origin as Dart WEB_BASE_URL (env or -PWEB_BASE_URL). */
-fun collectWebHost(): String {
-    val raw = (project.findProperty("WEB_BASE_URL") as String?)?.trim().orEmpty()
-        .ifEmpty { System.getenv("WEB_BASE_URL")?.trim().orEmpty() }
-    if (raw.isEmpty()) return "localhost"
-    var rest = if (raw.contains("://")) raw.substringAfter("://") else raw
-    rest = rest.substringBefore('/').substringBefore('?')
-    if ('@' in rest) rest = rest.substringAfter('@')
-    rest = rest.substringBefore(':')
-    return rest.ifEmpty { "localhost" }
-}
-
 android {
     namespace = "com.merchanthub.merchanthub_mobile"
     // flutter_secure_storage requires compileSdk 37; flutter.compileSdkVersion (36) is too low.
@@ -51,7 +39,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["collectWebHost"] = collectWebHost()
+        // App Links host for /collect. Set ORG_GRADLE_PROJECT_collectWebHost in CI
+        // from WEB_BASE_URL (do not parse URLs in this script: `java.net` is not
+        // java.net — it hits the Java plugin extension and breaks AGP 9).
+        manifestPlaceholders["collectWebHost"] =
+            (findProperty("collectWebHost") as String?)?.trim()?.takeIf { it.isNotEmpty() } ?: "localhost"
     }
 
     signingConfigs {
