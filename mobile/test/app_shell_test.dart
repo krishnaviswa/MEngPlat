@@ -357,4 +357,35 @@ void main() {
 
     container.dispose();
   });
+
+  testWidgets('S-116: system back on Shop hub goes Home instead of leaving', (tester) async {
+    final container = await _pumpApp(tester, user: _user(UserRole.merchant, name: 'Mina Merchant'));
+
+    container.read(routerProvider).go('/merchant');
+    await _pumpFrames(tester);
+    expect(find.byKey(const Key('merchantHomeScreen')).hitTestable(), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await _pumpFrames(tester);
+    expect(find.byKey(const Key('homeScreen')).hitTestable(), findsAtLeastNWidgets(1));
+
+    container.dispose();
+  });
+
+  testWidgets('S-116: system back on Shop nested route pops to hub first', (tester) async {
+    final container = await _pumpApp(tester, user: _user(UserRole.merchant, name: 'Mina Merchant'));
+
+    container.read(routerProvider).go('/merchant');
+    await _pumpFrames(tester);
+    container.read(routerProvider).push('/merchant/insights');
+    await _pumpFrames(tester);
+    expect(find.text('Insights'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await _pumpFrames(tester);
+    expect(find.text('Merchant'), findsOneWidget);
+    expect(find.byKey(const Key('homeScreen')).hitTestable(), findsNothing);
+
+    container.dispose();
+  });
 }

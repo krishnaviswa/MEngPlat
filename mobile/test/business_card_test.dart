@@ -47,6 +47,8 @@ void main() {
       ),
     );
     expect(find.byKey(const Key('businessPhoto')), findsOneWidget);
+    final image = tester.widget<Image>(find.byKey(const Key('businessPhoto')));
+    expect(image.image, isA<ResizeImage>());
     expect(find.text('Cafe Demo'), findsOneWidget);
   });
 

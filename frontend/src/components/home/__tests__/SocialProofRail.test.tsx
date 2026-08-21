@@ -119,6 +119,17 @@ describe("SocialProofRail", () => {
     expect(scrollArea?.querySelector(".flex-wrap")).toBeNull();
   });
 
+  it("shows previous and next controls and does not hide the scrollbar (S-116)", async () => {
+    listMock.mockResolvedValue([seededBusiness()]);
+    const { container } = render(await SocialProofRail());
+
+    expect(screen.getByRole("button", { name: "Previous shops" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next shops" })).toBeInTheDocument();
+    const scrollArea = container.querySelector(".overflow-x-auto");
+    expect(scrollArea?.className).not.toMatch(/scrollbar-width:none/);
+    expect(scrollArea?.className).not.toMatch(/webkit-scrollbar\]:hidden/);
+  });
+
   it("does not display any numeric stat, count, or percentage", async () => {
     listMock.mockResolvedValue([]);
     const { container } = render(await SocialProofRail());

@@ -1,4 +1,5 @@
 import { businesses, type Business } from "@/lib/api";
+import { SocialProofCarousel } from "@/components/home/SocialProofCarousel";
 
 export interface SocialProofEntry {
   name: string;
@@ -125,30 +126,28 @@ export async function SocialProofRail() {
         <p className="text-center font-display text-xs font-semibold uppercase tracking-[0.2em] text-muted">
           Businesses using MerchantHub
         </p>
-        <div className="mt-6 -mx-4 overflow-x-auto px-4 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex w-max snap-x snap-mandatory gap-6">
-            {entries.map((entry) => {
-              const image = entry.storefrontUrl || entry.logoUrl;
-              return (
-                <div
-                  key={entry.name}
-                  className="w-64 shrink-0 snap-start overflow-hidden rounded-xl border border-border/80 bg-surface-raised shadow-sm"
-                >
-                  <div className="relative aspect-[4/3] bg-brand-50">
-                    {image ? (
-                      <img src={image} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-brand-700">
-                        {entry.initial}
-                      </div>
-                    )}
-                  </div>
-                  <p className="truncate p-3 font-display text-sm font-medium text-ink">{entry.name}</p>
+        <SocialProofCarousel>
+          {entries.map((entry) => {
+            const image = entry.storefrontUrl || entry.logoUrl;
+            return (
+              <div
+                key={entry.name}
+                className="w-52 shrink-0 snap-start overflow-hidden rounded-xl border border-border/80 bg-surface-raised shadow-sm"
+              >
+                <div className="relative aspect-[4/3] bg-brand-50">
+                  {image ? (
+                    <img src={image} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-brand-700">
+                      {entry.initial}
+                    </div>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        </div>
+                <p className="truncate p-3 font-display text-sm font-medium text-ink">{entry.name}</p>
+              </div>
+            );
+          })}
+        </SocialProofCarousel>
       </div>
     </section>
   );

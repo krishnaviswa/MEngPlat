@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
@@ -44,9 +45,15 @@ class AppShell extends ConsumerWidget {
     }
     if (selectedIndex < 0) selectedIndex = 0;
 
-    return Scaffold(
-      body: navigationShell,
-      bottomNavigationBar: NavigationBar(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _onSystemBack(context);
+      },
+      child: Scaffold(
+        body: navigationShell,
+        bottomNavigationBar: NavigationBar(
         key: const Key('primaryNav'),
         selectedIndex: selectedIndex.clamp(0, destinations.length - 1),
         onDestinationSelected: (index) {
@@ -67,7 +74,22 @@ class AppShell extends ConsumerWidget {
         },
         destinations: [for (final dest in destinations) dest.destination],
       ),
+    ),
     );
+  }
+
+  /// Tab-root back goes Home instead of leaving the app (S-116). Nested routes pop first.
+  void _onSystemBack(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+      return;
+    }
+    final path = GoRouterState.of(context).uri.path;
+    if (path != '/home') {
+      context.go('/home');
+      return;
+    }
+    SystemNavigator.pop();
   }
 
   List<_Dest> _destinationsFor(UserResponse? user, int unreadCount) {
