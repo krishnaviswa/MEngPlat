@@ -9,8 +9,8 @@ import '../../core/config/app_config.dart';
 /// share link -- mobile parity for S-040's web dashboard QR card (M-71, AC
 /// 1). The QR/link always encodes the existing, Accepted **web**
 /// `/collect/{slug}` page, not a mobile-only URL -- see S-059's
-/// Deep-link/QR scope decision. "Preview in app" is the only in-app-reachable
-/// entry point to [CollectReviewScreen].
+/// Deep-link/QR scope decision. S-118 may open the same HTTPS URL in-app via
+/// Android App Links. "Preview in app" still pushes [CollectReviewScreen].
 class ShareReviewLinkSheet extends StatelessWidget {
   const ShareReviewLinkSheet({required this.businessName, required this.slug, super.key});
 

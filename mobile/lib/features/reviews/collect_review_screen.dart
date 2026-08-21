@@ -11,11 +11,10 @@ import 'rating_stars.dart';
 import 'review_providers.dart';
 
 /// Public, ungated review-collection landing screen for a QR/link scan --
-/// mobile parity for M-71 (S-059), a route-shaped sibling of web's
+/// mobile parity for M-71 (S-059 / S-118), a route-shaped sibling of web's
 /// `/collect/[businessId]` (S-040). Reachable via `context.push` from the
-/// merchant's own "Preview in app" affordance (see [ShareReviewLinkSheet]);
-/// a cold QR scan resolves to the web page instead (see the slice's
-/// Deep-link/QR scope decision) -- this screen exists for the in-app case.
+/// merchant's "Preview in app" sheet, or a cold HTTPS `/collect/` App Link
+/// (S-118). Path param may be a listing slug or UUID.
 ///
 /// Not a reuse of [ReviewFormSheet], which is a bottom sheet opened from an
 /// already-authenticated, already-loaded business detail screen -- the wrong
@@ -87,7 +86,7 @@ class _CollectReviewScreenState extends ConsumerState<CollectReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final businessAsync = ref.watch(businessDetailProvider(widget.slug));
+    final businessAsync = ref.watch(collectBusinessProvider(widget.slug));
 
     return Scaffold(
       key: const Key('collectReviewScreen'),
