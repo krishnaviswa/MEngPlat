@@ -5,8 +5,7 @@ import 'package:merchanthub_mobile/core/config/app_config.dart';
 import 'package:merchanthub_mobile/features/merchant/share_review_link_sheet.dart';
 
 /// S-059 (M-71 parity) AC1: the merchant "Share review link" QR/share sheet.
-/// Renders a QR encoding merchanthub://app/collect/{slug} (opens this app),
-/// a website link for Share, and a button to open collect in-app.
+/// One https collect URL (same as web). In-app collect is the Open button.
 
 Future<void> _pumpSheet(WidgetTester tester, {required String slug}) async {
   final router = GoRouter(
@@ -44,13 +43,12 @@ Future<void> _pumpSheet(WidgetTester tester, {required String slug}) async {
 }
 
 void main() {
-  testWidgets('AC1: QR uses the in-app collect URI; share text is the website collect URL', (tester) async {
+  testWidgets('AC1: shows a QR encoding the website collect URL', (tester) async {
     await _pumpSheet(tester, slug: 'joes-diner');
 
     expect(find.byKey(const Key('shareReviewLinkQr')), findsOneWidget);
-    expect(find.byKey(const Key('shareReviewAppLinkText')), findsOneWidget);
-    expect(find.text('merchanthub://app/collect/joes-diner'), findsOneWidget);
     expect(find.text('${AppConfig.webBaseUrl}/collect/joes-diner'), findsOneWidget);
+    expect(find.textContaining('merchanthub://'), findsNothing);
     expect(find.text("Joe's Diner"), findsOneWidget);
   });
 

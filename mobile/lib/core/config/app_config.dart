@@ -14,9 +14,8 @@ class AppConfig {
   );
 
   /// Origin of the Next.js web app -- a different deploy from [apiBaseUrl].
-  /// Share/copy uses this host's `/collect/{slug}`. The on-screen QR uses
-  /// `merchanthub://app/collect/{slug}` so a camera opens Flutter without
-  /// App Link verification.
+  /// Merchant share QR/link encodes this host's `/collect/{slug}` (https only;
+  /// phone cameras do not open custom schemes).
   static const webBaseUrl = String.fromEnvironment(
     'WEB_BASE_URL',
     defaultValue: 'http://localhost:3000',
