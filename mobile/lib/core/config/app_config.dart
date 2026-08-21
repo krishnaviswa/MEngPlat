@@ -14,9 +14,9 @@ class AppConfig {
   );
 
   /// Origin of the Next.js web app -- a different deploy from [apiBaseUrl].
-  /// S-059: the merchant "Share review link" QR/link always encodes this
-  /// web app's `/collect/{slug}` page, never a mobile-only URL (see the
-  /// slice's Deep-link/QR scope decision).
+  /// Share/copy uses this host's `/collect/{slug}`. The on-screen QR uses
+  /// `merchanthub://app/collect/{slug}` so a camera opens Flutter without
+  /// App Link verification.
   static const webBaseUrl = String.fromEnvironment(
     'WEB_BASE_URL',
     defaultValue: 'http://localhost:3000',

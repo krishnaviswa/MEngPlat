@@ -3,14 +3,15 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/collect_deep_link.dart';
 import '../../core/config/app_config.dart';
 
-/// Bottom sheet showing a merchant's public review-collection QR code and
-/// share link -- mobile parity for S-040's web dashboard QR card (M-71, AC
-/// 1). The QR/link always encodes the existing, Accepted **web**
-/// `/collect/{slug}` page, not a mobile-only URL -- see S-059's
-/// Deep-link/QR scope decision. S-118 may open the same HTTPS URL in-app via
-/// Android App Links. "Preview in app" still pushes [CollectReviewScreen].
+/// Merchant review-collection QR + share sheet.
+///
+/// The **QR** encodes [collectAppLink] so a camera opens this app's collect
+/// screen (HTTPS App Links are not verified until `assetlinks.json` has a real
+/// SHA-256). **Share** still sends the website `/collect/{slug}` URL for
+/// customers who do not have the app. WhatsApp shop-update is a separate QR.
 class ShareReviewLinkSheet extends StatelessWidget {
   const ShareReviewLinkSheet({required this.businessName, required this.slug, super.key});
 
@@ -25,7 +26,8 @@ class ShareReviewLinkSheet extends StatelessWidget {
     );
   }
 
-  String get _link => '${AppConfig.webBaseUrl}/collect/$slug';
+  String get _webLink => collectWebLink(AppConfig.webBaseUrl, slug);
+  String get _appLink => collectAppLink(slug);
 
   @override
   Widget build(BuildContext context) {
@@ -46,22 +48,30 @@ class ShareReviewLinkSheet extends StatelessWidget {
                 children: [
                   QrImageView(
                     key: const Key('shareReviewLinkQr'),
-                    data: _link,
+                    data: _appLink,
                     size: 200,
                     backgroundColor: Colors.white,
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Scan to open the review form in MerchantHub',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(_appLink, key: const Key('shareReviewAppLinkText'), textAlign: TextAlign.center),
                   const SizedBox(height: 16),
-                  SelectableText(_link, textAlign: TextAlign.center),
+                  SelectableText(_webLink, key: const Key('shareReviewWebLinkText'), textAlign: TextAlign.center),
                   const SizedBox(height: 16),
                   FilledButton.icon(
                     key: const Key('shareReviewLinkSheetShareButton'),
-                    onPressed: () => SharePlus.instance.share(ShareParams(text: _link)),
+                    onPressed: () => SharePlus.instance.share(ShareParams(text: _webLink)),
                     icon: const Icon(Icons.ios_share),
-                    label: const Text('Share link'),
+                    label: const Text('Share website link'),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'WhatsApp shop updates use a separate QR on your dashboard. This card is the customer review link.',
+                    'WhatsApp shop updates use a separate QR. That one opens WhatsApp, not this review form.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
@@ -70,13 +80,13 @@ class ShareReviewLinkSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          TextButton(
+          FilledButton(
             key: const Key('previewReviewLinkInAppButton'),
             onPressed: () {
               Navigator.of(context).pop();
               context.push('/collect/$slug');
             },
-            child: const Text('Preview in app'),
+            child: const Text('Open review form in this app'),
           ),
         ],
         ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 
+import 'core/collect_deep_link.dart';
 import 'features/account/account_screen.dart';
 import 'features/account/profile_screen.dart';
 import 'features/admin/admin_business_reports_screen.dart';
@@ -86,6 +87,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
+      final collectLoc = collectLocationFromUri(state.uri);
+      if (collectLoc != null && state.matchedLocation != collectLoc) {
+        return collectLoc;
+      }
+
       final authState = ref.read(authControllerProvider);
       if (authState.isLoading) return null;
 

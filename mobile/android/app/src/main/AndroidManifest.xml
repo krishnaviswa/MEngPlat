@@ -40,10 +40,18 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- S-118: HTTPS /collect/* App Links (same URL as web CollectQrCard).
-                 Host matches sideload WEB_BASE_URL default. Verification needs
-                 frontend/public/.well-known/assetlinks.json SHA-256. -->
             <meta-data android:name="flutter_deeplinking_enabled" android:value="true" />
+            <!-- Custom scheme: camera can open the app without Digital Asset Links. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="merchanthub"
+                    android:host="app"
+                    android:pathPrefix="/collect" />
+            </intent-filter>
+            <!-- HTTPS /collect (production web QR). Needs assetlinks.json SHA-256. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
