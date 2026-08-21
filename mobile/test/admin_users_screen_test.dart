@@ -145,6 +145,22 @@ void main() {
     expect(find.byKey(const Key('suspendUser-cust-1')), findsOneWidget);
   });
 
+  testWidgets('S-115: retain-records copy is visible and there is no delete control', (tester) async {
+    await _pumpScreen(
+      tester,
+      admin: admin,
+      users: [_user(id: 'cust-1', role: UserRole.customer, isActive: true)],
+    );
+
+    expect(find.byKey(const Key('adminUsersRetainCopy')), findsOneWidget);
+    expect(
+      find.text('Suspend blocks sign-in; reviews and account records are kept. There is no delete.'),
+      findsOneWidget,
+    );
+    expect(find.text('Delete'), findsNothing);
+    expect(find.text('Remove'), findsNothing);
+  });
+
   testWidgets('empty list shows a plain empty state, not an error', (tester) async {
     await _pumpScreen(tester, admin: admin, users: const []);
     expect(find.text('No users'), findsOneWidget);

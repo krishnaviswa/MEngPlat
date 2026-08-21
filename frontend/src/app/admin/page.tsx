@@ -72,9 +72,12 @@ function SeriesChart({ title, subtitle, data }: { title: string; subtitle?: stri
   return (
     <div>
       <h4 className="mb-1 text-sm font-medium text-muted">{title}</h4>
-      {subtitle && <p className="mb-2 text-xs text-muted">{subtitle}</p>}
+      {/* S-115: always reserve subtitle height so 2×2 chart tops align when only one series has copy. */}
+      <div className="mb-2 min-h-[2.5rem]">
+        {subtitle ? <p className="text-xs text-muted">{subtitle}</p> : null}
+      </div>
       {allZero ? (
-        <p className="rounded-lg border border-dashed border-border bg-surface p-6 text-center text-sm text-muted">
+        <p className="flex min-h-64 items-center justify-center rounded-lg border border-dashed border-border bg-surface p-6 text-center text-sm text-muted">
           No data yet for this window
         </p>
       ) : (
@@ -250,7 +253,10 @@ export default function AdminPage() {
 
         <section id="admin-users" className="mt-10 scroll-mt-20">
           <h2 className="text-lg font-semibold">Users</h2>
-          <p className="text-sm text-muted">Suspend or reactivate customer and merchant accounts.</p>
+          <p className="text-sm text-muted">
+            Suspend or reactivate customer and merchant accounts. Suspend blocks sign-in; reviews and account
+            records are kept. There is no delete.
+          </p>
           <div className="mt-4">
             <AdminUserPanel />
           </div>
