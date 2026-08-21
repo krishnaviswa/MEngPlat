@@ -19,17 +19,16 @@ if (keystorePropertiesFile.exists()) {
 }
 val sideloadKeystoreFile = rootProject.file("sideload.keystore")
 
-/** Host for HTTPS /collect App Links. Same origin as Dart [WEB_BASE_URL], from env (CI) or -PWEB_BASE_URL. Not a brand domain in source. */
+/** Host for HTTPS /collect App Links. Same origin as Dart WEB_BASE_URL (env or -PWEB_BASE_URL). */
 fun collectWebHost(): String {
     val raw = (project.findProperty("WEB_BASE_URL") as String?)?.trim().orEmpty()
         .ifEmpty { System.getenv("WEB_BASE_URL")?.trim().orEmpty() }
     if (raw.isEmpty()) return "localhost"
-    val withScheme = if (raw.contains("://")) raw else "https://$raw"
-    return try {
-        java.net.URI(withScheme).host ?: "localhost"
-    } catch (_: Exception) {
-        "localhost"
-    }
+    var rest = if (raw.contains("://")) raw.substringAfter("://") else raw
+    rest = rest.substringBefore('/').substringBefore('?')
+    if ('@' in rest) rest = rest.substringAfter('@')
+    rest = rest.substringBefore(':')
+    return rest.ifEmpty { "localhost" }
 }
 
 android {
