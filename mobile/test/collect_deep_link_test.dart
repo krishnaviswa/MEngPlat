@@ -16,7 +16,7 @@ void main() {
       '/collect/joes-diner',
     );
     expect(
-      collectLocationFromUri(Uri.parse('https://frontend-production-ed77.up.railway.app/collect/abc-uuid')),
+      collectLocationFromUri(Uri.parse('https://example.com/collect/abc-uuid')),
       '/collect/abc-uuid',
     );
     expect(collectLocationFromUri(Uri.parse('https://example.com/home')), isNull);

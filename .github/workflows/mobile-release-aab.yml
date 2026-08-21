@@ -43,10 +43,17 @@ jobs:
 
       - name: Build release AAB
         working-directory: mobile
+        env:
+          WEB_BASE_URL: ${{ vars.MOBILE_WEB_BASE_URL }}
         run: |
+          if [ -z "$WEB_BASE_URL" ]; then
+            echo "Set GitHub variable MOBILE_WEB_BASE_URL to the public site origin."
+            exit 1
+          fi
           flutter build appbundle --release \
             --dart-define=API_BASE_URL=${{ vars.MOBILE_PROD_API_BASE_URL }} \
-            --dart-define=GOOGLE_CLIENT_ID=${{ vars.MOBILE_GOOGLE_CLIENT_ID }}
+            --dart-define=GOOGLE_CLIENT_ID=${{ vars.MOBILE_GOOGLE_CLIENT_ID }} \
+            --dart-define=WEB_BASE_URL=$WEB_BASE_URL
 
       - name: Clean up signing material
         if: always()
