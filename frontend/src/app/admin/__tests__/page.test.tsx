@@ -33,6 +33,9 @@ jest.mock("../../../components/admin/ReportedReviewsQueue", () => ({
 jest.mock("../../../components/admin/AdminPaymentPanel", () => ({
   AdminPaymentPanel: () => <div>payments-stub</div>,
 }));
+jest.mock("../../../components/admin/AdminUserPanel", () => ({
+  AdminUserPanel: () => <div>users-stub</div>,
+}));
 
 const meMock = auth.me as jest.Mock;
 const apiFetchMock = apiFetch as jest.Mock;
@@ -178,6 +181,73 @@ describe("Platform trends chart row (S-034 AC 1 / AC 8)", () => {
     // Only the 3 all-zero series fall back to the dashed empty box.
     const emptyBoxes = await screen.findAllByText("No data yet for this window");
     expect(emptyBoxes).toHaveLength(3);
+  });
+
+  // S-115 AC1: all four titles plus the approved-series audit subtitle stay visible
+  // (subtitle slot is reserved on neighbors so the 2×2 plots line up).
+  it("renders all four trend titles and the businesses-approved subtitle", async () => {
+    adminSeriesMock.mockResolvedValue({
+      granularity: "day",
+      days: 90,
+      series: {
+        new_users: [{ bucket: "2026-08-14", count: 3 }],
+        businesses_approved: [{ bucket: "2026-08-14", count: 1 }],
+        new_reviews: [{ bucket: "2026-08-14", count: 2 }],
+        new_reports: [{ bucket: "2026-08-14", count: 0 }],
+      },
+    });
+
+    render(<AdminPage />);
+
+    expect(await screen.findByText("New users")).toBeInTheDocument();
+    expect(screen.getByText("Businesses approved")).toBeInTheDocument();
+    expect(screen.getByText("New reviews")).toBeInTheDocument();
+    expect(screen.getByText("New reports")).toBeInTheDocument();
+    expect(
+      screen.getByText("Approvals logged (audit events, not current pending count)"),
+    ).toBeInTheDocument();
+  });
+
+  // S-115 AC2: empty dashed box matches filled chart height (min-h-64).
+  it("gives the empty-chart state the same min height as a filled chart", async () => {
+    adminSeriesMock.mockResolvedValue({
+      granularity: "day",
+      days: 90,
+      series: {
+        new_users: [{ bucket: "2026-08-14", count: 3 }],
+        businesses_approved: [{ bucket: "2026-08-14", count: 0 }],
+        new_reviews: [{ bucket: "2026-08-14", count: 0 }],
+        new_reports: [{ bucket: "2026-08-14", count: 0 }],
+      },
+    });
+
+    render(<AdminPage />);
+
+    const emptyBoxes = await screen.findAllByText("No data yet for this window");
+    expect(emptyBoxes).toHaveLength(3);
+    for (const box of emptyBoxes) {
+      expect(box.className).toMatch(/min-h-64/);
+    }
+  });
+});
+
+describe("Users section policy copy (S-115 AC3 / AC5)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.setItem("access_token", "tok-1");
+    meMock.mockResolvedValue({ id: "admin-1", role: "admin", full_name: "Admin" });
+    apiFetchMock.mockResolvedValue(STATS);
+    adminSeriesMock.mockResolvedValue({ granularity: "day", days: 90, series: {} });
+  });
+
+  it("states suspend keeps records and there is no delete", async () => {
+    render(<AdminPage />);
+
+    expect(await screen.findByRole("heading", { name: "Users" })).toBeInTheDocument();
+    expect(
+      screen.getByText(/suspend blocks sign-in; reviews and account records are kept\. there is no delete/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
   });
 });
 

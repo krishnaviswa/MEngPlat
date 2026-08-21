@@ -101,11 +101,22 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
-              key: const Key('adminUsersSearchField'),
-              controller: _search,
-              decoration: const InputDecoration(labelText: 'Search name or email', isDense: true),
-              onChanged: _onSearchChanged,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Suspend blocks sign-in; reviews and account records are kept. There is no delete.',
+                  key: const Key('adminUsersRetainCopy'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('adminUsersSearchField'),
+                  controller: _search,
+                  decoration: const InputDecoration(labelText: 'Search name or email', isDense: true),
+                  onChanged: _onSearchChanged,
+                ),
+              ],
             ),
           ),
           Expanded(
