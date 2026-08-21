@@ -5,11 +5,8 @@ import 'package:merchanthub_mobile/core/config/app_config.dart';
 import 'package:merchanthub_mobile/features/merchant/share_review_link_sheet.dart';
 
 /// S-059 (M-71 parity) AC1: the merchant "Share review link" QR/share sheet.
-/// Renders a QR code encoding the business's public web collection URL,
-/// offers a native-share action, and an in-app-only "Preview in app" link
-/// to the new `/collect/:slug` route (per the Architect's deep-link scope
-/// decision -- the QR/link itself always encodes the web URL, never a
-/// mobile-only scheme).
+/// Renders a QR encoding merchanthub://app/collect/{slug} (opens this app),
+/// a website link for Share, and a button to open collect in-app.
 
 Future<void> _pumpSheet(WidgetTester tester, {required String slug}) async {
   final router = GoRouter(
@@ -47,16 +44,13 @@ Future<void> _pumpSheet(WidgetTester tester, {required String slug}) async {
 }
 
 void main() {
-  testWidgets('AC1: shows a QR code encoding the business public web collection URL', (tester) async {
+  testWidgets('AC1: QR uses the in-app collect URI; share text is the website collect URL', (tester) async {
     await _pumpSheet(tester, slug: 'joes-diner');
 
     expect(find.byKey(const Key('shareReviewLinkQr')), findsOneWidget);
-    // qr_flutter's QR payload (`_data`) isn't publicly readable off the
-    // widget instance -- assert the same URL is independently rendered as
-    // selectable text next to the code, which is the observable proof both
-    // encode the same link.
+    expect(find.byKey(const Key('shareReviewAppLinkText')), findsOneWidget);
+    expect(find.text('merchanthub://app/collect/joes-diner'), findsOneWidget);
     expect(find.text('${AppConfig.webBaseUrl}/collect/joes-diner'), findsOneWidget);
-    expect(find.textContaining('/collect/'), findsWidgets);
     expect(find.text("Joe's Diner"), findsOneWidget);
   });
 
@@ -66,7 +60,7 @@ void main() {
     expect(find.byKey(const Key('shareReviewLinkSheetShareButton')), findsOneWidget);
   });
 
-  testWidgets('"Preview in app" opens the new in-app /collect/:slug route (deep-link scope decision)', (
+  testWidgets('"Open review form in this app" opens /collect/:slug', (
     tester,
   ) async {
     await _pumpSheet(tester, slug: 'joes-diner');
