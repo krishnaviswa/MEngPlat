@@ -45,6 +45,12 @@ jobs:
             exit 1
           fi
 
+      - name: Collect App Links host from WEB_BASE_URL
+        id: collect_host
+        run: |
+          python3 -c "import os; from urllib.parse import urlparse; r=os.environ['WEB_BASE_URL'].strip(); r=r if '://' in r else 'https://'+r; print(urlparse(r).hostname or 'localhost')" > /tmp/collect_web_host.txt
+          echo "host=$(cat /tmp/collect_web_host.txt)" >> "$GITHUB_OUTPUT"
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -55,6 +61,8 @@ jobs:
 
       - name: Build release APK (sideload-signed)
         working-directory: mobile
+        env:
+          ORG_GRADLE_PROJECT_collectWebHost: ${{ steps.collect_host.outputs.host }}
         run: |
           flutter build apk --release \
             --dart-define=API_BASE_URL=${{ env.API_BASE_URL }} \
