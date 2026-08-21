@@ -8,6 +8,14 @@ import '../../core/network/api_exception.dart';
 import 'maps_config.dart';
 import 'search_query.dart';
 
+/// Same UUID shape as web `frontend/src/app/collect/[businessId]/page.tsx`.
+final collectUuidPattern = RegExp(
+  r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+  caseSensitive: false,
+);
+
+bool isCollectUuid(String param) => collectUuidPattern.hasMatch(param);
+
 class BusinessRepository {
   BusinessRepository(this._client);
 
@@ -45,6 +53,35 @@ class BusinessRepository {
       return response.data!;
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Public collect/QR lookup by listing UUID. Approved listings only
+  /// (`GET /api/v1/businesses/id/{id}`). Not on the generated OpenAPI client.
+  Future<BusinessResponse> getById(String businessId) async {
+    try {
+      final response = await _client.api.dio.get<Object>('/api/v1/businesses/id/$businessId');
+      return standardSerializers.deserialize(
+        response.data,
+        specifiedType: const FullType(BusinessResponse),
+      ) as BusinessResponse;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
+  }
+
+  /// Same resolution as web `resolveBusiness` on `/collect/[businessId]`.
+  Future<BusinessResponse> resolveCollectTarget(String param) async {
+    if (isCollectUuid(param)) {
+      return getById(param);
+    }
+    try {
+      return await getBySlug(param);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) {
+        return getById(param);
+      }
+      rethrow;
     }
   }
 

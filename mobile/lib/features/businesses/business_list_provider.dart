@@ -34,6 +34,11 @@ final businessDetailProvider = FutureProvider.autoDispose.family<BusinessRespons
   return ref.watch(businessRepositoryProvider).getBySlug(slug);
 });
 
+/// Collect/QR landing (`/collect/:slug`) — UUID or slug, matching web.
+final collectBusinessProvider = FutureProvider.autoDispose.family<BusinessResponse, String>((ref, param) {
+  return ref.watch(businessRepositoryProvider).resolveCollectTarget(param);
+});
+
 final externalReviewsProvider = FutureProvider.autoDispose.family<List<ExternalReviewResponse>, String>((ref, businessId) {
   return ref.watch(businessRepositoryProvider).listExternalReviews(businessId);
 });

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:merchanthub_mobile/core/network/api_client.dart';
+import 'package:merchanthub_mobile/core/network/api_exception.dart';
 import 'package:merchanthub_mobile/features/auth/auth_provider.dart';
 import 'package:merchanthub_mobile/features/businesses/business_list_provider.dart';
 import 'package:merchanthub_mobile/features/businesses/business_repository.dart';
@@ -59,9 +60,20 @@ class _FakeBusinessRepository extends BusinessRepository {
 
   final BusinessResponse? business;
   final Object? error;
+  final List<String> slugLookups = [];
+  final List<String> idLookups = [];
 
   @override
   Future<BusinessResponse> getBySlug(String slug) async {
+    slugLookups.add(slug);
+    final err = error;
+    if (err != null) throw err;
+    return business ?? _business();
+  }
+
+  @override
+  Future<BusinessResponse> getById(String businessId) async {
+    idLookups.add(businessId);
     final err = error;
     if (err != null) throw err;
     return business ?? _business();
@@ -103,27 +115,34 @@ class _FakeReviewRepository extends ReviewRepository {
   }
 }
 
-Future<_FakeReviewRepository> _pumpCollectScreen(
+class _PumpResult {
+  _PumpResult(this.reviews, this.businesses);
+
+  final _FakeReviewRepository reviews;
+  final _FakeBusinessRepository businesses;
+}
+
+Future<_PumpResult> _pumpCollectScreen(
   WidgetTester tester, {
   required UserResponse? user,
   BusinessResponse? business,
   Object? businessError,
   Object? createError,
+  String location = '/collect/joes-diner',
 }) async {
   final reviewRepository = _FakeReviewRepository(createError: createError);
+  final businessRepository = _FakeBusinessRepository(business: business, error: businessError);
   final container = ProviderContainer(
     overrides: [
       authControllerProvider.overrideWith(() => _FakeAuthController(user)),
-      businessRepositoryProvider.overrideWithValue(
-        _FakeBusinessRepository(business: business, error: businessError),
-      ),
+      businessRepositoryProvider.overrideWithValue(businessRepository),
       reviewRepositoryProvider.overrideWithValue(reviewRepository),
     ],
   );
   addTearDown(container.dispose);
 
   final router = GoRouter(
-    initialLocation: '/collect/joes-diner',
+    initialLocation: location,
     routes: [
       GoRoute(
         path: '/collect/:slug',
@@ -159,7 +178,7 @@ Future<_FakeReviewRepository> _pumpCollectScreen(
     ),
   );
   await tester.pumpAndSettle();
-  return reviewRepository;
+  return _PumpResult(reviewRepository, businessRepository);
 }
 
 void main() {
@@ -211,9 +230,9 @@ void main() {
     await tester.tap(find.byKey(const Key('collectReviewSubmitButton')));
     await tester.pumpAndSettle();
 
-    expect(repository.createCalls, 1);
-    expect(repository.lastRating, 4);
-    expect(repository.lastBody, 'Great walk-in service today.');
+    expect(repository.reviews.createCalls, 1);
+    expect(repository.reviews.lastRating, 4);
+    expect(repository.reviews.lastBody, 'Great walk-in service today.');
     expect(find.byKey(const Key('collectReviewSuccess')), findsOneWidget);
   });
 
@@ -233,7 +252,7 @@ void main() {
     await tester.tap(find.byKey(const Key('collectReviewSubmitButton')));
     await tester.pumpAndSettle();
 
-    expect(repository.createCalls, 0, reason: 'no review should be created for an unauthenticated attempt');
+    expect(repository.reviews.createCalls, 0, reason: 'no review should be created for an unauthenticated attempt');
     expect(find.text('LOGIN next=/collect/joes-diner'), findsOneWidget);
   });
 
@@ -253,5 +272,30 @@ void main() {
     // Optional, not required to complete the flow -- the flow has already
     // completed (success state shown above) whether or not this is tapped.
     expect(suggestButton.onPressed, isNotNull);
+  });
+
+  testWidgets('S-118 AC3: a UUID collect path loads the shop via getById, not slug', (tester) async {
+    const uuid = '550e8400-e29b-41d4-a716-446655440000';
+    final pumped = await _pumpCollectScreen(
+      tester,
+      user: null,
+      business: _business(id: uuid, name: "Joe's Diner"),
+      location: '/collect/$uuid',
+    );
+
+    expect(find.text("Joe's Diner"), findsOneWidget);
+    expect(pumped.businesses.idLookups, [uuid]);
+    expect(pumped.businesses.slugLookups, isEmpty);
+  });
+
+  testWidgets('S-118 AC5: unknown collect target shows the empty/error state', (tester) async {
+    await _pumpCollectScreen(
+      tester,
+      user: null,
+      businessError: ApiException('Business not found', statusCode: 404),
+    );
+
+    expect(find.byKey(const Key('collectReviewBodyField')), findsNothing);
+    expect(find.textContaining('Business not found'), findsOneWidget);
   });
 }
