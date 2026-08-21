@@ -8,10 +8,9 @@ import '../../core/config/app_config.dart';
 
 /// Merchant review-collection QR + share sheet.
 ///
-/// The **QR** encodes [collectAppLink] so a camera opens this app's collect
-/// screen (HTTPS App Links are not verified until `assetlinks.json` has a real
-/// SHA-256). **Share** still sends the website `/collect/{slug}` URL for
-/// customers who do not have the app. WhatsApp shop-update is a separate QR.
+/// One URL: the same website `/collect/{slug}` as the web dashboard QR.
+/// Phone cameras only open https. A custom `merchanthub://` QR does not scan.
+/// Use [Open review form] to preview collect inside this app.
 class ShareReviewLinkSheet extends StatelessWidget {
   const ShareReviewLinkSheet({required this.businessName, required this.slug, super.key});
 
@@ -26,8 +25,7 @@ class ShareReviewLinkSheet extends StatelessWidget {
     );
   }
 
-  String get _webLink => collectWebLink(AppConfig.webBaseUrl, slug);
-  String get _appLink => collectAppLink(slug);
+  String get _link => collectWebLink(AppConfig.webBaseUrl, slug);
 
   @override
   Widget build(BuildContext context) {
@@ -40,46 +38,7 @@ class ShareReviewLinkSheet extends StatelessWidget {
           Text('Share review link', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 4),
           Text(businessName, style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 20),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  QrImageView(
-                    key: const Key('shareReviewLinkQr'),
-                    data: _appLink,
-                    size: 200,
-                    backgroundColor: Colors.white,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Scan to open the review form in MerchantHub',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 8),
-                  SelectableText(_appLink, key: const Key('shareReviewAppLinkText'), textAlign: TextAlign.center),
-                  const SizedBox(height: 16),
-                  SelectableText(_webLink, key: const Key('shareReviewWebLinkText'), textAlign: TextAlign.center),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    key: const Key('shareReviewLinkSheetShareButton'),
-                    onPressed: () => SharePlus.instance.share(ShareParams(text: _webLink)),
-                    icon: const Icon(Icons.ios_share),
-                    label: const Text('Share website link'),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'WhatsApp shop updates use a separate QR. That one opens WhatsApp, not this review form.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           FilledButton(
             key: const Key('previewReviewLinkInAppButton'),
             onPressed: () {
@@ -87,6 +46,37 @@ class ShareReviewLinkSheet extends StatelessWidget {
               context.push('/collect/$slug');
             },
             child: const Text('Open review form in this app'),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  QrImageView(
+                    key: const Key('shareReviewLinkQr'),
+                    data: _link,
+                    size: 200,
+                    backgroundColor: Colors.white,
+                  ),
+                  const SizedBox(height: 12),
+                  SelectableText(_link, key: const Key('shareReviewWebLinkText'), textAlign: TextAlign.center),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Customers scan this to open the website review page. WhatsApp shop updates use a different QR.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    key: const Key('shareReviewLinkSheetShareButton'),
+                    onPressed: () => SharePlus.instance.share(ShareParams(text: _link)),
+                    icon: const Icon(Icons.ios_share),
+                    label: const Text('Share link'),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
         ),
