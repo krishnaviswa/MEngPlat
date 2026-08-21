@@ -1,5 +1,6 @@
 import 'package:built_collection/built_collection.dart';
 import 'package:built_value/json_object.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
@@ -39,6 +40,7 @@ void main() {
     expect(find.text('New reports'), findsOneWidget);
 
     expect(tester.getSize(find.byKey(const Key('platformSeriesChart'))).width, greaterThan(300));
+    expect(find.byType(LineChart), findsOneWidget);
   });
 
   testWidgets('AC4: chart labels never present the data as AI output', (tester) async {

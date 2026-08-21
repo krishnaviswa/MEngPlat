@@ -45,11 +45,12 @@ class _FeaturedBoostPanelState extends ConsumerState<FeaturedBoostPanel> {
     });
     try {
       final repo = ref.read(paymentsRepositoryProvider);
-      final results = await Future.wait([repo.featuredSkus(), repo.placement(widget.business.id)]);
+      final skus = await repo.featuredSkus();
+      final placement = await repo.placement(widget.business.id);
       if (!mounted) return;
       setState(() {
-        _skus = results[0] as List<FeaturedSku>;
-        _placement = results[1] as PlacementResponse;
+        _skus = skus;
+        _placement = placement;
         _loading = false;
       });
     } catch (error) {

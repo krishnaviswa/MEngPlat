@@ -16,11 +16,11 @@ class ApiClient {
   factory ApiClient({TokenStorage? tokenStorage}) {
     final baseOptions = BaseOptions(
       baseUrl: AppConfig.apiBaseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      // Generous receive timeout: a local backend talking to remote Postgres
-      // (or a slow network path) pays several round trips per request, unlike
-      // co-located Compose or Railway private networking.
-      receiveTimeout: const Duration(seconds: 30),
+      connectTimeout: const Duration(seconds: 20),
+      sendTimeout: const Duration(seconds: 30),
+      // Shop/Grow fires several Railway round-trips at once; 30s still
+      // surfaced as "That took too long" on merchant phones.
+      receiveTimeout: const Duration(seconds: 60),
     );
 
     final authFreeDio = Dio(baseOptions);

@@ -16,51 +16,60 @@ class AiInsightsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final bullets = _compactBullets(insights);
     final summary = insights.merchantSummary?.trim();
+    final theme = Theme.of(context);
 
-    return Container(
-      key: const Key('aiInsightsPanel'),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return IntrinsicHeight(
+      child: Row(
+        key: const Key('aiInsightsPanel'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('AI Insights', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 4),
-          Text(
-            'Suggestions only — not definitive judgments. Verify in person before acting.',
-            key: const Key('aiInsightsDisclaimer'),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          if (summary != null && summary.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(_truncate(summary), style: Theme.of(context).textTheme.bodyMedium),
-          ],
-          if (bullets.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            for (final item in bullets) Text('• $item'),
-          ],
-          if (topics != null &&
-              (topics!.insufficientData == true ||
-                  topics!.unavailable == true ||
-                  (topics!.topics?.isNotEmpty ?? false))) ...[
-            const SizedBox(height: 12),
-            Text('Common Themes', key: const Key('commonThemesHeading'), style: Theme.of(context).textTheme.titleSmall),
-            if (topics!.insufficientData == true)
-              const Text('Not enough reviews yet to identify common themes.')
-            else if (topics!.unavailable == true)
-              const Text('Common themes are temporarily unavailable.')
-            else
-              for (final topic in (topics!.topics ?? const <TopicItem>[]).take(_maxBullets))
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    '${topics!.degraded == true ? 'Mock/degraded data. ' : ''}${topic.label} — ${topic.count} mentions · ${topic.sentiment.name} (suggestion)',
-                  ),
+          Container(width: 3, color: theme.colorScheme.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('AI Insights', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(
+                  'Suggestions only — not definitive judgments. Verify in person before acting.',
+                  key: const Key('aiInsightsDisclaimer'),
+                  style: theme.textTheme.bodySmall,
                 ),
-          ],
+                if (summary != null && summary.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(_truncate(summary), style: theme.textTheme.bodyMedium),
+                ],
+                if (bullets.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  for (final item in bullets) Text('• $item', style: theme.textTheme.bodyMedium),
+                ],
+                if (topics != null &&
+                    (topics!.insufficientData == true ||
+                        topics!.unavailable == true ||
+                        (topics!.topics?.isNotEmpty ?? false))) ...[
+                  const SizedBox(height: 12),
+                  Text('Common Themes', key: const Key('commonThemesHeading'), style: theme.textTheme.titleMedium),
+                  if (topics!.insufficientData == true)
+                    Text(
+                      'Not enough reviews yet to identify common themes.',
+                      style: theme.textTheme.bodyMedium,
+                    )
+                  else if (topics!.unavailable == true)
+                    Text('Common themes are temporarily unavailable.', style: theme.textTheme.bodyMedium)
+                  else
+                    for (final topic in (topics!.topics ?? const <TopicItem>[]).take(_maxBullets))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '${topics!.degraded == true ? 'Mock/degraded data. ' : ''}${topic.label} — ${topic.count} mentions · ${topic.sentiment.name} (suggestion)',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
