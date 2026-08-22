@@ -4,10 +4,13 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RatingWidget } from "@/components/ui/RatingWidget";
 import { generateDraft } from "@/components/collect/DraftEngine";
+import { CHIPS } from "@/components/collect/constants";
+import { GamifiedCollectFlow } from "@/components/collect/gamified/GamifiedCollectFlow";
+import { CelebrationStep } from "@/components/collect/gamified/CelebrationStep";
+import { isGamifiedReviewEnabled } from "@/lib/featureFlags";
 import { API_URL, auth, businesses, reviews } from "@/lib/api";
 import type { Business, Review } from "@/lib/api";
 
-const CHIPS = ["Service", "Quality", "Value", "Atmosphere", "Cleanliness", "Speed"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function resolveUrl(url: string): string {
@@ -46,6 +49,8 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
   const [recentReviews, setRecentReviews] = useState<Review[]>([]);
   const [loadFailed, setLoadFailed] = useState(false);
   const [submitted, setSubmitted] = useState<Review | null>(null);
+  const [celebrated, setCelebrated] = useState(false);
+  const gamified = isGamifiedReviewEnabled();
 
   useEffect(() => {
     resolveBusiness(businessId)
@@ -77,8 +82,7 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
     );
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit() {
     setError("");
     try {
       await auth.me();
@@ -133,7 +137,21 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
         Your review takes &lt; 30 seconds · Helps locals discover this place
       </p>
 
-      {step === "stars" && (
+      {gamified && step === "stars" && (
+        <GamifiedCollectFlow
+          rating={rating}
+          setRating={setRating}
+          selectedChips={selectedChips}
+          toggleChip={toggleChip}
+          body={body}
+          setBody={setBody}
+          fillDraft={fillDraft}
+          error={error}
+          onSubmit={submit}
+        />
+      )}
+
+      {!gamified && step === "stars" && (
         <div className="mt-6 space-y-6">
           <div className="rounded-xl border border-border bg-surface-raised p-5 text-center shadow-sm">
             <p className="text-sm font-medium text-muted">How was your experience?</p>
@@ -173,8 +191,14 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
         </div>
       )}
 
-      {step === "text" && (
-        <form onSubmit={submit} className="mt-6 space-y-3 rounded-xl border border-border bg-surface-raised p-5 shadow-sm">
+      {!gamified && step === "text" && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+          className="mt-6 space-y-3 rounded-xl border border-border bg-surface-raised p-5 shadow-sm"
+        >
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-muted">Write your review</p>
             <button
@@ -207,7 +231,11 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
         </form>
       )}
 
-      {step === "done" && (
+      {step === "done" && gamified && !celebrated && (
+        <CelebrationStep onContinue={() => setCelebrated(true)} />
+      )}
+
+      {step === "done" && (!gamified || celebrated) && (
         <div className="mt-6 space-y-4 text-center">
           <div className="rounded-xl border border-border bg-surface-raised p-6 shadow-sm">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-600">
@@ -264,7 +292,7 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
         </div>
       )}
 
-      {step !== "text" && (
+      {step !== "text" && !(gamified && step === "done" && !celebrated) && (
         <div className="mt-6">
           <SocialProof reviews={recentReviews} />
         </div>

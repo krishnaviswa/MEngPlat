@@ -5,8 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/config/app_config.dart';
 import '../auth/auth_provider.dart';
 import '../businesses/business_list_provider.dart';
+import 'gamified/celebration_step.dart';
+import 'gamified/gamified_collect_flow.dart';
 import 'rating_stars.dart';
 import 'review_providers.dart';
 
@@ -35,6 +38,7 @@ class _CollectReviewScreenState extends ConsumerState<CollectReviewScreen> {
   int _rating = 0;
   bool _submitting = false;
   bool _submitted = false;
+  bool _celebrated = false;
   String? _error;
 
   @override
@@ -101,7 +105,31 @@ class _CollectReviewScreenState extends ConsumerState<CollectReviewScreen> {
               message: 'This review link is no longer available.',
             );
           }
+          if (_submitted && AppConfig.gamifiedReview && !_celebrated) {
+            return GamifiedCelebrationStep(onContinue: () => setState(() => _celebrated = true));
+          }
           if (_submitted) return _SuccessState(onSuggestGoogleReview: () => _suggestGoogleReview(business));
+
+          if (AppConfig.gamifiedReview) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(business.name, style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(height: 16),
+                  GamifiedCollectFlow(
+                    rating: _rating,
+                    onRatingSelected: (value) => setState(() => _rating = value),
+                    bodyController: _bodyController,
+                    error: _error,
+                    submitting: _submitting,
+                    onSubmit: () => _submit(business),
+                  ),
+                ],
+              ),
+            );
+          }
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),

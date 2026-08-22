@@ -105,11 +105,18 @@ class AccountScreen extends ConsumerWidget {
                     accent: MhAccent.amber,
                     onTap: () {
                       final shops = owned ?? const <BusinessResponse>[];
-                      if (shops.isEmpty) {
+                      // More than one shop -- `.first` would silently guess the wrong
+                      // one, so send the merchant to the dashboard's correctly-scoped
+                      // per-business entry point instead (S-120).
+                      if (shops.isEmpty || shops.length > 1) {
                         context.go('/merchant');
                         return;
                       }
                       final shop = shops.first;
+                      if (shop.status != BusinessStatus.approved) {
+                        context.go('/merchant');
+                        return;
+                      }
                       ShareReviewLinkSheet.show(context, businessName: shop.name, slug: shop.slug);
                     },
                   ),

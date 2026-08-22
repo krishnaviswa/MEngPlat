@@ -20,4 +20,13 @@ class AppConfig {
     'WEB_BASE_URL',
     defaultValue: 'http://localhost:3000',
   );
+
+  /// S-119: tap-through gamified review-collection flow, gated off by default.
+  /// Independent of web's `NEXT_PUBLIC_GAMIFIED_REVIEW` (Railway) -- no shared
+  /// variable store between the two deploy systems, so flip both to change
+  /// behavior everywhere.
+  static const gamifiedReview = bool.fromEnvironment(
+    'GAMIFIED_REVIEW',
+    defaultValue: false,
+  );
 }

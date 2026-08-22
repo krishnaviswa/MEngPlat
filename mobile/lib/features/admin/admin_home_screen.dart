@@ -76,45 +76,75 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
                                 MhError(error: _error!, onRetry: _load),
                               ],
                               const SizedBox(height: 12),
-                              Wrap(
+                              Column(
                                 key: const Key('adminOpsNav'),
-                                spacing: 8,
-                                runSpacing: 8,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  ActionChip(
-                                    label: const Text('Users'),
-                                    onPressed: () => context.push('/admin/users'),
+                                  _OpsNavGroup(
+                                    title: 'People',
+                                    items: [
+                                      _OpsNavItem(
+                                        label: 'Users',
+                                        caption: _stats == null ? null : '${_stats!.totalUsers} total users',
+                                        onPressed: () => context.push('/admin/users'),
+                                      ),
+                                      _OpsNavItem(
+                                        label: 'Merchants',
+                                        caption: _stats == null
+                                            ? null
+                                            : '${_stats!.pendingBusinesses} pending approval',
+                                        onPressed: () => context.push('/admin/businesses'),
+                                      ),
+                                    ],
                                   ),
-                                  ActionChip(
-                                    label: const Text('Merchants'),
-                                    onPressed: () => context.push('/admin/businesses'),
+                                  _OpsNavGroup(
+                                    title: 'Moderation',
+                                    items: [
+                                      _OpsNavItem(
+                                        key: const Key('opsNavReviews'),
+                                        label: 'Reviews',
+                                        caption: _stats == null ? null : '${_stats!.totalReviews} total reviews',
+                                        onPressed: () => context.push('/admin/reviews'),
+                                      ),
+                                      _OpsNavItem(
+                                        key: const Key('opsNavShopReports'),
+                                        label: 'Shop reports',
+                                        caption: _stats == null
+                                            ? null
+                                            : '${_stats!.repeatShopReports ?? 0} pending review',
+                                        onPressed: () => context.push('/admin/business-reports'),
+                                      ),
+                                    ],
                                   ),
-                                  ActionChip(
-                                    key: const Key('manageCategoriesButton'),
-                                    label: const Text('Categories'),
-                                    onPressed: () => context.push('/admin/categories'),
+                                  _OpsNavGroup(
+                                    title: 'Support',
+                                    items: [
+                                      _OpsNavItem(
+                                        wrapperKey: const Key('manageSupportTicketsButton'),
+                                        key: const Key('opsNavSupport'),
+                                        label: 'Support',
+                                        caption: _stats == null
+                                            ? null
+                                            : '${_stats!.openSupportTickets ?? 0} open tickets',
+                                        onPressed: () => context.push('/admin/support'),
+                                      ),
+                                      _OpsNavItem(
+                                        key: const Key('manageWhatsAppDraftsButton'),
+                                        label: 'WhatsApp',
+                                        onPressed: () => context.push('/admin/whatsapp'),
+                                      ),
+                                    ],
                                   ),
-                                  ActionChip(
-                                    label: const Text('Reviews'),
-                                    onPressed: () => context.push('/admin/reviews'),
-                                  ),
-                                  KeyedSubtree(
-                                    key: const Key('manageSupportTicketsButton'),
-                                    child: ActionChip(
-                                      key: const Key('opsNavSupport'),
-                                      label: const Text('Support'),
-                                      onPressed: () => context.push('/admin/support'),
-                                    ),
-                                  ),
-                                  ActionChip(
-                                    key: const Key('opsNavShopReports'),
-                                    label: const Text('Shop reports'),
-                                    onPressed: () => context.push('/admin/business-reports'),
-                                  ),
-                                  ActionChip(
-                                    key: const Key('manageWhatsAppDraftsButton'),
-                                    label: const Text('WhatsApp'),
-                                    onPressed: () => context.push('/admin/whatsapp'),
+                                  _OpsNavGroup(
+                                    title: 'Catalog',
+                                    isLast: true,
+                                    items: [
+                                      _OpsNavItem(
+                                        key: const Key('manageCategoriesButton'),
+                                        label: 'Categories',
+                                        onPressed: () => context.push('/admin/categories'),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -374,6 +404,85 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen> {
   }
 }
 
+class _OpsNavItem {
+  const _OpsNavItem({
+    required this.label,
+    required this.onPressed,
+    this.caption,
+    this.key,
+    this.wrapperKey,
+  });
+
+  final String label;
+  final String? caption;
+  final VoidCallback onPressed;
+  final Key? key;
+  final Key? wrapperKey;
+}
+
+class _OpsNavGroup extends StatelessWidget {
+  const _OpsNavGroup({required this.title, required this.items, this.isLast = false});
+
+  final String title;
+  final List<_OpsNavItem> items;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [for (final item in items) _CaptionedChip(item: item)],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CaptionedChip extends StatelessWidget {
+  const _CaptionedChip({required this.item});
+
+  final _OpsNavItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final chip = ActionChip(key: item.key, label: Text(item.label), onPressed: item.onPressed);
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        chip,
+        if (item.caption != null) ...[
+          const SizedBox(height: 2),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Text(
+              item.caption!,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
+        ],
+      ],
+    );
+    return item.wrapperKey == null ? content : KeyedSubtree(key: item.wrapperKey, child: content);
+  }
+}
+
 class _JumpChipsDelegate extends SliverPersistentHeaderDelegate {
   _JumpChipsDelegate({
     required this.onMetrics,
@@ -444,62 +553,105 @@ class _AdminMetricList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rows = <List<_MetricSpec>>[
-      [
-        _MetricSpec(
-          key: const Key('adminMetricUsers'),
-          label: 'Users',
-          value: '${stats.totalUsers}',
-          accent: MhAccent.sky,
-          onTap: onUsers,
-        ),
-        _MetricSpec(label: 'Shops', value: '${stats.totalBusinesses}', accent: MhAccent.mint, onTap: onShops),
-      ],
-      [
-        _MetricSpec(label: 'Pending', value: '${stats.pendingBusinesses}', accent: MhAccent.amber, onTap: onPending),
-        _MetricSpec(label: 'Reviews', value: '${stats.totalReviews}', accent: MhAccent.violet, onTap: onReviews),
-      ],
-      [
-        _MetricSpec(label: 'Reported', value: '${stats.reportedReviews}', accent: MhAccent.coral, onTap: onReported),
-        _MetricSpec(
-          key: const Key('openSupportTicketsTile'),
-          label: 'Tickets',
-          value: '${stats.openSupportTickets ?? 0}',
-          accent: MhAccent.coral,
-          onTap: onTickets,
-        ),
-      ],
-      [
-        _MetricSpec(
-          key: const Key('repeatShopReportsTile'),
-          label: 'Shop reports',
-          value: '${stats.repeatShopReports ?? 0}',
-          accent: MhAccent.coral,
-          onTap: onShopReports,
-        ),
-        _MetricSpec(
-          key: const Key('processingBusinessesTile'),
-          label: 'Processing',
-          value: '${stats.processingBusinesses ?? 0}',
-          accent: MhAccent.amber,
-          onTap: onProcessing,
-        ),
-      ],
+    final sections = <(String, List<_MetricSpec>)>[
+      (
+        'People & shops',
+        [
+          _MetricSpec(
+            key: const Key('adminMetricUsers'),
+            label: 'Users',
+            value: '${stats.totalUsers}',
+            accent: MhAccent.sky,
+            onTap: onUsers,
+          ),
+          _MetricSpec(label: 'Shops', value: '${stats.totalBusinesses}', accent: MhAccent.mint, onTap: onShops),
+        ],
+      ),
+      (
+        'Approvals queue',
+        [
+          _MetricSpec(
+            label: 'Pending merchants',
+            value: '${stats.pendingBusinesses}',
+            accent: MhAccent.amber,
+            onTap: onPending,
+          ),
+          _MetricSpec(
+            key: const Key('processingBusinessesTile'),
+            label: 'Processing',
+            value: '${stats.processingBusinesses ?? 0}',
+            accent: MhAccent.amber,
+            onTap: onProcessing,
+          ),
+        ],
+      ),
+      (
+        'Moderation',
+        [
+          _MetricSpec(
+            key: const Key('adminMetricReviews'),
+            label: 'Reviews',
+            value: '${stats.totalReviews}',
+            accent: MhAccent.violet,
+            onTap: onReviews,
+          ),
+          _MetricSpec(
+            label: 'Reported reviews',
+            value: '${stats.reportedReviews}',
+            accent: MhAccent.coral,
+            onTap: onReported,
+          ),
+          _MetricSpec(
+            key: const Key('repeatShopReportsTile'),
+            label: 'Shop reports',
+            value: '${stats.repeatShopReports ?? 0}',
+            accent: MhAccent.coral,
+            onTap: onShopReports,
+          ),
+        ],
+      ),
+      (
+        'Support',
+        [
+          _MetricSpec(
+            key: const Key('openSupportTicketsTile'),
+            label: 'Tickets',
+            value: '${stats.openSupportTickets ?? 0}',
+            accent: MhAccent.coral,
+            onTap: onTickets,
+          ),
+        ],
+      ),
     ];
 
     return KeyedSubtree(
       key: const Key('adminMetricsSection'),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (var i = 0; i < rows.length; i++) ...[
-            Row(
-              children: [
-                Expanded(child: _MetricRow(spec: rows[i][0])),
-                const SizedBox(width: 16),
-                Expanded(child: _MetricRow(spec: rows[i][1])),
-              ],
+          for (var s = 0; s < sections.length; s++) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                sections[s].$1,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
             ),
-            if (i < rows.length - 1) const Divider(height: 1),
+            for (var i = 0; i < sections[s].$2.length; i += 2)
+              Row(
+                children: [
+                  Expanded(child: _MetricRow(spec: sections[s].$2[i])),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: i + 1 < sections[s].$2.length
+                        ? _MetricRow(spec: sections[s].$2[i + 1])
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            if (s < sections.length - 1) const Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Divider(height: 1)),
           ],
         ],
       ),

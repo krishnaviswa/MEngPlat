@@ -37,8 +37,6 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
   final _phone = TextEditingController();
   final _email = TextEditingController();
   final _website = TextEditingController();
-  final _lat = TextEditingController();
-  final _lng = TextEditingController();
   final _addressOtp = TextEditingController();
   final Set<String> _categoryIds = {};
   String _country = 'IN';
@@ -58,8 +56,6 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
     _phone.dispose();
     _email.dispose();
     _website.dispose();
-    _lat.dispose();
-    _lng.dispose();
     _addressOtp.dispose();
     super.dispose();
   }
@@ -226,20 +222,6 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
                 decoration: const InputDecoration(labelText: 'Website'),
               ),
               _fieldGap,
-              TextFormField(
-                controller: _lat,
-                style: theme.textTheme.bodyLarge,
-                decoration: const InputDecoration(labelText: 'Latitude'),
-                keyboardType: TextInputType.number,
-              ),
-              _fieldGap,
-              TextFormField(
-                controller: _lng,
-                style: theme.textTheme.bodyLarge,
-                decoration: const InputDecoration(labelText: 'Longitude'),
-                keyboardType: TextInputType.number,
-              ),
-              _fieldGap,
               categoriesAsync.when(
                 loading: () => const LinearProgressIndicator(),
                 error: (_, _) => const SizedBox.shrink(),
@@ -321,8 +303,6 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
     _phone.text = business.phone ?? '';
     _email.text = business.email ?? '';
     _website.text = business.website ?? '';
-    _lat.text = business.latitude?.toString() ?? '';
-    _lng.text = business.longitude?.toString() ?? '';
     _categoryIds
       ..clear()
       ..addAll(business.categories?.map((c) => c.id) ?? const <String>[]);
@@ -334,8 +314,6 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
       _saving = true;
       _error = null;
     });
-    final lat = double.tryParse(_lat.text.trim());
-    final lng = double.tryParse(_lng.text.trim());
     try {
       final repo = ref.read(businessRepositoryProvider);
       if (widget.isEditing) {
@@ -353,8 +331,6 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
               ..phone = _optional(_phone.text)
               ..email = _optional(_email.text)
               ..website = _optional(_website.text)
-              ..latitude = lat
-              ..longitude = lng
               ..addressOtpCode = _optional(_addressOtp.text);
             b.categoryIds = ListBuilder(_categoryIds);
           }),
@@ -372,9 +348,7 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
               ..country = _country
               ..phone = _optional(_phone.text)
               ..email = _optional(_email.text)
-              ..website = _optional(_website.text)
-              ..latitude = lat
-              ..longitude = lng;
+              ..website = _optional(_website.text);
             b.categoryIds = ListBuilder(_categoryIds);
           }),
         );

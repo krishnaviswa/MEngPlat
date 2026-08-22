@@ -179,6 +179,45 @@ void main() {
     expect(find.text('WHATSAPP_SCREEN'), findsOneWidget);
   });
 
+  testWidgets('Reviews chip and Reviews metric tile navigate to /admin/reviews', (tester) async {
+    await _tallSurface(tester);
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith(_FakeAuthController.new),
+        dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepository()),
+        businessRepositoryProvider.overrideWithValue(_FakeBusinessRepository()),
+        reviewRepositoryProvider.overrideWithValue(_FakeReviewRepository()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final router = GoRouter(
+      initialLocation: '/admin',
+      routes: [
+        GoRoute(path: '/admin', builder: (context, state) => const AdminHomeScreen()),
+        GoRoute(path: '/admin/reviews', builder: (context, state) => const Scaffold(body: Text('REVIEWS_SCREEN'))),
+      ],
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.ensureVisible(find.byKey(const Key('opsNavReviews')));
+    await tester.tap(find.byKey(const Key('opsNavReviews')));
+    await tester.pumpAndSettle();
+    expect(find.text('REVIEWS_SCREEN'), findsOneWidget);
+
+    router.pop();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('adminMetricReviews')));
+    await tester.tap(find.byKey(const Key('adminMetricReviews')));
+    await tester.pumpAndSettle();
+    expect(find.text('REVIEWS_SCREEN'), findsOneWidget);
+  });
+
   testWidgets('platform trends range 7d refetches series with days=7', (tester) async {
     await _tallSurface(tester);
     final dash = _FakeDashboardRepository();
@@ -381,13 +420,15 @@ void main() {
     await tester.pump();
     await tester.pump();
 
+    final viewportHeight = tester.view.physicalSize.height / tester.view.devicePixelRatio;
+
     await tester.tap(find.byKey(const Key('adminJumpQueue')));
     await tester.pumpAndSettle();
-    expect(tester.getRect(find.byKey(const Key('pendingQueueHeading'))).top, lessThan(800));
+    expect(tester.getRect(find.byKey(const Key('pendingQueueHeading'))).top, lessThan(viewportHeight));
 
     await tester.tap(find.byKey(const Key('adminJumpReported')));
     await tester.pumpAndSettle();
-    expect(tester.getRect(find.byKey(const Key('adminReportedSection'))).top, lessThan(800));
+    expect(tester.getRect(find.byKey(const Key('adminReportedSection'))).top, lessThan(viewportHeight));
   });
 }
 

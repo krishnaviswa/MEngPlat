@@ -14,8 +14,6 @@ const emptyForm: BusinessFormValues = {
   phone: "",
   email: "",
   website: "",
-  latitude: "",
-  longitude: "",
   category_ids: [],
 };
 

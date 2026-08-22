@@ -17,8 +17,6 @@ export type BusinessFormValues = {
   phone: string;
   email: string;
   website: string;
-  latitude: string;
-  longitude: string;
   category_ids: string[];
 };
 
@@ -33,8 +31,6 @@ const emptyValues: BusinessFormValues = {
   phone: "",
   email: "",
   website: "",
-  latitude: "",
-  longitude: "",
   category_ids: [],
 };
 
@@ -55,8 +51,6 @@ function businessToFormValues(business: Business, categories: Category[]): Busin
     phone: business.phone ?? "",
     email: business.email ?? "",
     website: business.website ?? "",
-    latitude: business.latitude != null ? String(business.latitude) : "",
-    longitude: business.longitude != null ? String(business.longitude) : "",
     category_ids: categoryIds,
   };
 }
@@ -68,9 +62,6 @@ function toUpdatePayload(values: BusinessFormValues, addressOtpCode?: string): B
 }
 
 function toPayload(values: BusinessFormValues): BusinessCreateInput {
-  const latitude = values.latitude.trim() ? Number(values.latitude) : undefined;
-  const longitude = values.longitude.trim() ? Number(values.longitude) : undefined;
-
   return {
     name: values.name.trim(),
     description: values.description.trim() || undefined,
@@ -82,8 +73,6 @@ function toPayload(values: BusinessFormValues): BusinessCreateInput {
     phone: values.phone.trim() || undefined,
     email: values.email.trim() || undefined,
     website: values.website.trim() || undefined,
-    latitude: Number.isFinite(latitude) ? latitude : undefined,
-    longitude: Number.isFinite(longitude) ? longitude : undefined,
     category_ids: values.category_ids,
   };
 }
@@ -325,28 +314,6 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
             value={form.website}
             onChange={(e) => setForm({ ...form, website: e.target.value })}
             placeholder="https://"
-            className="mt-1 w-full rounded border px-3 py-2"
-          />
-        </label>
-        <label className="block">
-          <span className="text-sm font-medium text-muted">Latitude</span>
-          <input
-            type="number"
-            step="any"
-            value={form.latitude}
-            onChange={(e) => setForm({ ...form, latitude: e.target.value })}
-            placeholder="e.g. 12.95"
-            className="mt-1 w-full rounded border px-3 py-2"
-          />
-        </label>
-        <label className="block">
-          <span className="text-sm font-medium text-muted">Longitude</span>
-          <input
-            type="number"
-            step="any"
-            value={form.longitude}
-            onChange={(e) => setForm({ ...form, longitude: e.target.value })}
-            placeholder="e.g. 80.14"
             className="mt-1 w-full rounded border px-3 py-2"
           />
         </label>

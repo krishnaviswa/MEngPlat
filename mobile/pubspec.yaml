@@ -56,6 +56,9 @@ dependencies:
   qr_flutter: ^4.1.0
   # S-059: native share sheet for the review-collection link (M-71 mobile parity).
   share_plus: ^13.3.0
+  # S-120: share_plus's method channel needs a real file path (not raw bytes)
+  # to hand an image to the OS share sheet on Android/iOS.
+  path_provider: ^2.1.6
   # S-060: merchant dashboard review-volume + rating-mix charts (M-61 mobile parity).
   fl_chart: ^1.2.0
 

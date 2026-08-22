@@ -38,6 +38,28 @@ BusinessResponse _business() => BusinessResponse((b) => b
   ..averageRating = 4.5
   ..reviewCount = 1);
 
+BusinessResponse _secondBusiness() => BusinessResponse((b) => b
+  ..id = 'biz-2'
+  ..name = 'Bakery Demo'
+  ..slug = 'bakery-demo'
+  ..address = '2 Main St'
+  ..city = 'Springfield'
+  ..country = 'US'
+  ..status = BusinessStatus.approved
+  ..averageRating = 4.0
+  ..reviewCount = 0);
+
+BusinessResponse _pendingBusiness() => BusinessResponse((b) => b
+  ..id = 'biz-3'
+  ..name = 'New Shop Demo'
+  ..slug = 'new-shop-demo'
+  ..address = '3 Main St'
+  ..city = 'Springfield'
+  ..country = 'US'
+  ..status = BusinessStatus.pending
+  ..averageRating = 0
+  ..reviewCount = 0);
+
 NotificationResponse _unread() => NotificationResponse((b) => b
   ..id = 'n-1'
   ..type = 'REVIEW'
@@ -289,6 +311,42 @@ void main() {
     expect(find.byKey(const Key('listBusinessLink')), findsOneWidget);
     expect(find.byKey(const Key('shareQrLink')), findsOneWidget);
     expect(find.byKey(const Key('growLink')), findsOneWidget);
+
+    container.dispose();
+  });
+
+  testWidgets('S-120: Account "Share review QR" with >1 shop goes to the dashboard instead of guessing shops.first', (tester) async {
+    final container = await _pumpApp(
+      tester,
+      user: _user(UserRole.merchant, name: 'Mina Merchant'),
+      businesses: [_business(), _secondBusiness()],
+    );
+
+    await tester.tap(find.byKey(const Key('accountTab')));
+    await _pumpFrames(tester);
+    await tester.tap(find.byKey(const Key('shareQrLink')));
+    await _pumpFrames(tester);
+
+    expect(find.byKey(const Key('merchantHomeScreen')), findsOneWidget);
+    expect(find.byKey(const Key('shareReviewLinkQr')), findsNothing);
+
+    container.dispose();
+  });
+
+  testWidgets('S-120: Account "Share review QR" for a single not-yet-approved shop also goes to the dashboard', (tester) async {
+    final container = await _pumpApp(
+      tester,
+      user: _user(UserRole.merchant, name: 'Mina Merchant'),
+      businesses: [_pendingBusiness()],
+    );
+
+    await tester.tap(find.byKey(const Key('accountTab')));
+    await _pumpFrames(tester);
+    await tester.tap(find.byKey(const Key('shareQrLink')));
+    await _pumpFrames(tester);
+
+    expect(find.byKey(const Key('merchantHomeScreen')), findsOneWidget);
+    expect(find.byKey(const Key('shareReviewLinkQr')), findsNothing);
 
     container.dispose();
   });
