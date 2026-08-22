@@ -46,11 +46,29 @@ module.exports = {
           "0%": { opacity: "0", transform: "translateY(16px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        // S-119: gamified review-flow step transitions — tap-triggered, no drag/gesture library.
+        "pop-in": {
+          "0%": { opacity: "0", transform: "scale(0.92) translateY(8px)" },
+          "100%": { opacity: "1", transform: "scale(1) translateY(0)" },
+        },
+        "bounce-in": {
+          "0%": { opacity: "0", transform: "scale(0.7)" },
+          "60%": { opacity: "1", transform: "scale(1.08)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "celebrate-pulse": {
+          "0%": { transform: "scale(0.6)" },
+          "50%": { transform: "scale(1.15)" },
+          "100%": { transform: "scale(1)" },
+        },
       },
       animation: {
         "fade-up": "fade-up 0.7s ease-out both",
         "ken-burns": "ken-burns 18s ease-out forwards",
         "reveal-in": "reveal-in 0.6s ease-out both",
+        "pop-in": "pop-in 0.35s cubic-bezier(0.34,1.56,0.64,1) both",
+        "bounce-in": "bounce-in 0.4s cubic-bezier(0.34,1.56,0.64,1) both",
+        "celebrate-pulse": "celebrate-pulse 0.5s cubic-bezier(0.34,1.56,0.64,1) both",
       },
     },
   },

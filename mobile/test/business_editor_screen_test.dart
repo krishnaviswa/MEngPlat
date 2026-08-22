@@ -120,6 +120,27 @@ void main() {
     expect(repo.created?.name, 'New Shop');
     expect(repo.created?.phone, '+919876543210');
     expect(repo.created?.email, 'shop@example.com');
+    expect(repo.created?.latitude, isNull);
+    expect(repo.created?.longitude, isNull);
+  });
+
+  testWidgets('has no manual Latitude/Longitude inputs -- no one used them by hand', (tester) async {
+    final repo = _FakeBusinessRepository();
+    final container = ProviderContainer(
+      overrides: [businessRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: BusinessEditorScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextFormField, 'Latitude'), findsNothing);
+    expect(find.widgetWithText(TextFormField, 'Longitude'), findsNothing);
   });
 
   testWidgets('S-072: blank phone/email blocks create', (tester) async {

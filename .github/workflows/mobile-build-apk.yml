@@ -67,7 +67,8 @@ jobs:
           flutter build apk --release \
             --dart-define=API_BASE_URL=${{ env.API_BASE_URL }} \
             --dart-define=GOOGLE_CLIENT_ID=${{ vars.MOBILE_GOOGLE_CLIENT_ID }} \
-            --dart-define=WEB_BASE_URL=${{ env.WEB_BASE_URL }}
+            --dart-define=WEB_BASE_URL=${{ env.WEB_BASE_URL }} \
+            --dart-define=GAMIFIED_REVIEW=${{ vars.MOBILE_GAMIFIED_REVIEW || 'false' }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

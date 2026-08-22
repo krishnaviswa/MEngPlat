@@ -16,7 +16,11 @@ Future<void> _pumpSheet(WidgetTester tester, {required String slug}) async {
         builder: (context, state) => Scaffold(
           body: Builder(
             builder: (context) => ElevatedButton(
-              onPressed: () => ShareReviewLinkSheet.show(context, businessName: "Joe's Diner", slug: slug),
+              onPressed: () => ShareReviewLinkSheet.show(
+                context,
+                businessName: "Joe's Diner",
+                slug: slug,
+              ),
               child: const Text('Open'),
             ),
           ),
@@ -24,7 +28,9 @@ Future<void> _pumpSheet(WidgetTester tester, {required String slug}) async {
       ),
       GoRoute(
         path: '/collect/:slug',
-        builder: (context, state) => Scaffold(body: Text('COLLECT_SCREEN ${state.pathParameters['slug']}')),
+        builder: (context, state) => Scaffold(
+          body: Text('COLLECT_SCREEN ${state.pathParameters['slug']}'),
+        ),
       ),
     ],
   );
@@ -43,20 +49,58 @@ Future<void> _pumpSheet(WidgetTester tester, {required String slug}) async {
 }
 
 void main() {
-  testWidgets('AC1: shows a QR encoding the website collect URL', (tester) async {
+  testWidgets('AC1: shows a QR encoding the website collect URL', (
+    tester,
+  ) async {
     await _pumpSheet(tester, slug: 'joes-diner');
 
     expect(find.byKey(const Key('shareReviewLinkQr')), findsOneWidget);
-    expect(find.text('${AppConfig.webBaseUrl}/collect/joes-diner'), findsOneWidget);
+    expect(
+      find.text('${AppConfig.webBaseUrl}/collect/joes-diner'),
+      findsOneWidget,
+    );
     expect(find.textContaining('merchanthub://'), findsNothing);
     expect(find.text("Joe's Diner"), findsOneWidget);
   });
 
-  testWidgets('AC1: a "Share link" action is present to hand the link to the device share sheet', (tester) async {
-    await _pumpSheet(tester, slug: 'joes-diner');
+  testWidgets(
+    'AC1: a "Share link" action is present to hand the link to the device share sheet',
+    (tester) async {
+      await _pumpSheet(tester, slug: 'joes-diner');
 
-    expect(find.byKey(const Key('shareReviewLinkSheetShareButton')), findsOneWidget);
-  });
+      expect(
+        find.byKey(const Key('shareReviewLinkSheetShareButton')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'S-120: a "Share QR to print" action is present alongside the text-link share button',
+    (tester) async {
+      await _pumpSheet(tester, slug: 'joes-diner');
+
+      expect(
+        find.byKey(const Key('shareReviewLinkQrImageButton')),
+        findsOneWidget,
+      );
+      expect(find.text('Share QR to print'), findsOneWidget);
+    },
+  );
+
+  // S-120 AC5: actually tapping through to a verified `SharePlus.instance.share(...)`
+  // call is not exercised here. Unlike S-060's text-only CSV-export share
+  // (which cleanly fakes via `SharePlatform.instance`, see
+  // `merchant_dashboard_screen_test.dart`), `share_plus`'s file-sharing path
+  // calls its concrete `MethodChannelShare` directly rather than through that
+  // mockable seam, so faking `SharePlatform.instance` here does not intercept
+  // it -- the real method channel is invoked and hangs indefinitely with no
+  // native responder in a `flutter_test` widget test. Verifying the actual
+  // native share call for a file requires `integration_test` on a real
+  // device/emulator (this repo keeps emulator-level checks CI-only, per
+  // `CLAUDE.md` non-negotiable 8) -- tracked as a follow-up, not a gap in the
+  // implementation itself. This suite covers everything reachable in a
+  // widget test: the button exists, and (above) is wired to the correct key.
 
   testWidgets('"Open review form in this app" opens /collect/:slug', (
     tester,

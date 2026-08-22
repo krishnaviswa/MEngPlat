@@ -223,13 +223,20 @@ describe("BusinessForm", () => {
     expect(screen.queryByText(/nominatim/i)).not.toBeInTheDocument();
   });
 
-  // S-084 AC8/AC9: city stays a text input; lat/lng stay optional number inputs.
-  it("keeps City as free text and Latitude/Longitude as optional number inputs (S-084 AC8/AC9)", async () => {
+  // S-084 AC8: city stays a text input.
+  it("keeps City as free text (S-084 AC8)", async () => {
     render(<BusinessForm mode="create" />);
     await screen.findByLabelText(/required field legend/i);
     expect(screen.getByLabelText(/^city/i).tagName).toBe("INPUT");
-    expect(screen.getByLabelText(/^latitude$/i)).toHaveAttribute("type", "number");
-    expect(screen.getByLabelText(/^longitude$/i)).toHaveAttribute("type", "number");
+  });
+
+  // No manual Latitude/Longitude inputs -- no one used them by hand; the fields
+  // stay in the data model/API for whatever future geocode mechanism sets them.
+  it("has no manual Latitude/Longitude inputs", async () => {
+    render(<BusinessForm mode="create" />);
+    await screen.findByLabelText(/required field legend/i);
+    expect(screen.queryByLabelText(/^latitude$/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^longitude$/i)).not.toBeInTheDocument();
   });
 
   // S-084 AC10: a country-only edit is included in the PATCH payload.
