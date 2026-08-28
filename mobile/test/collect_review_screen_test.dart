@@ -236,25 +236,33 @@ void main() {
     expect(find.byKey(const Key('collectReviewSuccess')), findsOneWidget);
   });
 
-  testWidgets('AC4: submitting while signed out redirects to /login?next=/collect/{slug}, no silent failure', (
-    tester,
-  ) async {
-    final repository = await _pumpCollectScreen(
-      tester,
-      user: null,
-      business: _business(slug: 'joes-diner'),
-    );
+  testWidgets(
+    'S-121: submitting while signed out shows the inline sign-in step in place, no route push, no silent failure',
+    (tester) async {
+      final repository = await _pumpCollectScreen(
+        tester,
+        user: null,
+        business: _business(slug: 'joes-diner'),
+      );
 
-    await tester.tap(find.byKey(const Key('ratingStar5')));
-    await tester.enterText(find.byKey(const Key('collectReviewBodyField')), 'Great walk-in service today.');
-    await tester.pump();
+      await tester.tap(find.byKey(const Key('ratingStar5')));
+      await tester.enterText(find.byKey(const Key('collectReviewBodyField')), 'Great walk-in service today.');
+      await tester.pump();
 
-    await tester.tap(find.byKey(const Key('collectReviewSubmitButton')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('collectReviewSubmitButton')));
+      await tester.pumpAndSettle();
 
-    expect(repository.reviews.createCalls, 0, reason: 'no review should be created for an unauthenticated attempt');
-    expect(find.text('LOGIN next=/collect/joes-diner'), findsOneWidget);
-  });
+      expect(repository.reviews.createCalls, 0, reason: 'no review should be created for an unauthenticated attempt');
+      // No navigation to /login (ADR-018) -- the inline step renders in place.
+      expect(find.textContaining('LOGIN next='), findsNothing);
+      expect(find.text('Sign in to post your review'), findsOneWidget);
+      expect(find.byKey(const Key('inlineAuthMethodOtp')), findsOneWidget);
+      // The composed rating/body step is gone from the tree while the inline
+      // auth step is showing (no form re-shown), but nothing was discarded --
+      // it stays in the screen's own State, not lost to a route change.
+      expect(find.byKey(const Key('collectReviewBodyField')), findsNothing);
+    },
+  );
 
   testWidgets('AC5: after a successful submit, an optional "leave a Google review" affordance is offered', (
     tester,

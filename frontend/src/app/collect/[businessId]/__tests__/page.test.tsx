@@ -135,7 +135,7 @@ describe("Collect review wizard (S-040 / S-106)", () => {
     expect(screen.getByText("🙂")).toBeInTheDocument();
   });
 
-  it("redirects to login with next= when the visitor is not signed in", async () => {
+  it("shows the inline sign-in step in place, without navigating, when the visitor is not signed in (S-121)", async () => {
     (auth.me as jest.Mock).mockRejectedValue(new Error("unauthorized"));
 
     render(<CollectReviewPage params={resolvedParams({ businessId: "cafe" })} />);
@@ -147,7 +147,13 @@ describe("Collect review wizard (S-040 / S-106)", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /submit review/i }));
 
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/login?next=/collect/cafe"));
+    expect(await screen.findByText(/sign in to post your review/i)).toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
     expect(reviews.create).not.toHaveBeenCalled();
+    // Composed review stays intact behind the inline auth step (AC2/AC9) --
+    // the text step's own textarea is gone from the DOM while auth is
+    // pending, but nothing was lost: the "Continue" step (stars) is also
+    // gone, confirming step state, not just the form, is preserved in memory.
+    expect(screen.queryByPlaceholderText(/share what made your visit memorable/i)).not.toBeInTheDocument();
   });
 });

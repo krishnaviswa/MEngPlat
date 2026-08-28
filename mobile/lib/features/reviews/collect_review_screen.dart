@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:merchanthub_mobile/ui/friendly_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:merchanthub_api/merchanthub_api.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -10,6 +9,7 @@ import '../auth/auth_provider.dart';
 import '../businesses/business_list_provider.dart';
 import 'gamified/celebration_step.dart';
 import 'gamified/gamified_collect_flow.dart';
+import 'inline_auth_step.dart';
 import 'rating_stars.dart';
 import 'review_providers.dart';
 
@@ -39,6 +39,9 @@ class _CollectReviewScreenState extends ConsumerState<CollectReviewScreen> {
   bool _submitting = false;
   bool _submitted = false;
   bool _celebrated = false;
+  // S-121: "Post review" while unauthenticated swaps the current step's
+  // content for InlineAuthStep in place, instead of pushing /login.
+  bool _authPending = false;
   String? _error;
 
   @override
@@ -52,7 +55,9 @@ class _CollectReviewScreenState extends ConsumerState<CollectReviewScreen> {
   Future<void> _submit(BusinessResponse business) async {
     final isLoggedIn = ref.read(authControllerProvider).valueOrNull != null;
     if (!isLoggedIn) {
-      context.push('/login?next=${Uri.encodeComponent('/collect/${widget.slug}')}');
+      // S-121: show the inline sign-in step in place, no route push --
+      // rating/body stay exactly as composed (ADR-018).
+      setState(() => _authPending = true);
       return;
     }
     if (!_isValid || _submitting) return;
@@ -92,6 +97,18 @@ class _CollectReviewScreenState extends ConsumerState<CollectReviewScreen> {
   Widget build(BuildContext context) {
     final businessAsync = ref.watch(collectBusinessProvider(widget.slug));
 
+    // S-121: registered unconditionally (not inside businessAsync.when()'s
+    // data branch) per Riverpod's per-build ref.listen contract. Fires once
+    // sign-in succeeds while the inline auth step is showing, and re-invokes
+    // _submit() with the rating/body already held in the controllers above.
+    ref.listen(authControllerProvider, (previous, next) {
+      if (_authPending && previous?.valueOrNull == null && next.valueOrNull != null) {
+        setState(() => _authPending = false);
+        final business = ref.read(collectBusinessProvider(widget.slug)).valueOrNull;
+        if (business != null) _submit(business);
+      }
+    });
+
     return Scaffold(
       key: const Key('collectReviewScreen'),
       appBar: AppBar(title: const Text('Leave a review')),
@@ -125,7 +142,23 @@ class _CollectReviewScreenState extends ConsumerState<CollectReviewScreen> {
                     error: _error,
                     submitting: _submitting,
                     onSubmit: () => _submit(business),
+                    authPending: _authPending,
+                    authStep: const InlineAuthStep(),
                   ),
+                ],
+              ),
+            );
+          }
+
+          if (_authPending) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(business.name, style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(height: 16),
+                  const InlineAuthStep(),
                 ],
               ),
             );

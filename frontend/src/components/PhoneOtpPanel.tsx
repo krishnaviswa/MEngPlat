@@ -1,17 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { auth, redirectAfterAuth } from "@/lib/api";
+import { auth, redirectAfterAuth, type TokenResponse } from "@/lib/api";
 
-/** Phone OTP sign-in — skips TOTP, same as Google. Mock SMS logs the code. */
+/**
+ * Phone OTP sign-in — skips TOTP, same as Google. Mock SMS logs the code.
+ *
+ * `onTokens` is optional and additive (S-121): when supplied, it's called
+ * instead of `redirectAfterAuth` on success, so a caller hosting this panel
+ * inline (not on the standalone `/login` page) can keep tokens without a
+ * hard navigation. Every existing caller that omits it keeps today's
+ * `redirectAfterAuth` behavior, including the role-mismatch note, unchanged.
+ */
 export function PhoneOtpPanel({
   fullName,
   role,
   onError,
+  onTokens,
 }: {
   fullName?: string;
   role?: string;
   onError: (message: string) => void;
+  onTokens?: (tokens: TokenResponse) => void;
 }) {
   const [countryCode, setCountryCode] = useState("+91");
   const [phone, setPhone] = useState("");
@@ -44,10 +54,14 @@ export function PhoneOtpPanel({
         full_name: fullName,
         role,
       });
-      await redirectAfterAuth(tokens, {
-        expectedRole: role,
-        onRoleMismatch: (actualRole) => setRoleMismatchNote(`Signed in as ${actualRole} — this number is already registered as a ${actualRole} account.`),
-      });
+      if (onTokens) {
+        onTokens(tokens);
+      } else {
+        await redirectAfterAuth(tokens, {
+          expectedRole: role,
+          onRoleMismatch: (actualRole) => setRoleMismatchNote(`Signed in as ${actualRole} — this number is already registered as a ${actualRole} account.`),
+        });
+      }
     } catch (err) {
       onError(err instanceof Error ? err.message : "Invalid code");
     } finally {

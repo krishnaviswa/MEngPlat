@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { InlineAuthStep } from "@/components/collect/InlineAuthStep";
 import { StepCard } from "./StepCard";
 import { StarStep } from "./StarStep";
 import { ChipStep } from "./ChipStep";
@@ -18,6 +19,10 @@ export interface GamifiedCollectFlowProps {
   fillDraft: () => void;
   error: string;
   onSubmit: () => void | Promise<void>;
+  /** True when Submit was tapped while unauthenticated (S-121) — swaps the
+   * current step's content for `InlineAuthStep` without resetting `screen`. */
+  authPending: boolean;
+  onAuthenticated: () => void;
 }
 
 /**
@@ -35,38 +40,46 @@ export function GamifiedCollectFlow({
   fillDraft,
   error,
   onSubmit,
+  authPending,
+  onAuthenticated,
 }: GamifiedCollectFlowProps) {
   const [screen, setScreen] = useState<GamifiedScreen>("stars");
 
   return (
     <div className="mt-6">
-      <StepCard screenKey={screen}>
-        {screen === "stars" && (
-          <StarStep
-            rating={rating}
-            onSelect={(value) => {
-              setRating(value);
-              setScreen("chips");
-            }}
-          />
-        )}
-        {screen === "chips" && (
-          <ChipStep
-            selectedChips={selectedChips}
-            onToggle={toggleChip}
-            onContinue={() => setScreen("text")}
-            onBack={() => setScreen("stars")}
-          />
-        )}
-        {screen === "text" && (
-          <TextStep
-            body={body}
-            setBody={setBody}
-            fillDraft={fillDraft}
-            error={error}
-            onBack={() => setScreen("chips")}
-            onSubmit={onSubmit}
-          />
+      <StepCard screenKey={authPending ? "auth" : screen}>
+        {authPending ? (
+          <InlineAuthStep onAuthenticated={onAuthenticated} />
+        ) : (
+          <>
+            {screen === "stars" && (
+              <StarStep
+                rating={rating}
+                onSelect={(value) => {
+                  setRating(value);
+                  setScreen("chips");
+                }}
+              />
+            )}
+            {screen === "chips" && (
+              <ChipStep
+                selectedChips={selectedChips}
+                onToggle={toggleChip}
+                onContinue={() => setScreen("text")}
+                onBack={() => setScreen("stars")}
+              />
+            )}
+            {screen === "text" && (
+              <TextStep
+                body={body}
+                setBody={setBody}
+                fillDraft={fillDraft}
+                error={error}
+                onBack={() => setScreen("chips")}
+                onSubmit={onSubmit}
+              />
+            )}
+          </>
         )}
       </StepCard>
     </div>
