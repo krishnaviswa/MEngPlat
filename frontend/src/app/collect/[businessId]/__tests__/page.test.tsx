@@ -19,9 +19,10 @@ class MockApiError extends Error {
 
 jest.mock("../../../../lib/api", () => ({
   API_URL: "http://localhost:8000",
-  auth: { me: jest.fn() },
+  auth: { me: jest.fn(), phoneRequest: jest.fn(), phoneVerify: jest.fn() },
   businesses: { get: jest.fn(), getById: jest.fn() },
   reviews: { create: jest.fn(), list: jest.fn() },
+  storeTokens: jest.fn(),
 }));
 
 const cafe = {
@@ -155,5 +156,105 @@ describe("Collect review wizard (S-040 / S-106)", () => {
     // pending, but nothing was lost: the "Continue" step (stars) is also
     // gone, confirming step state, not just the form, is preserved in memory.
     expect(screen.queryByPlaceholderText(/share what made your visit memorable/i)).not.toBeInTheDocument();
+  });
+
+  // S-121 AC6/AC7: completing the inline step's default (phone OTP) method
+  // auto-submits the already-composed review with no re-entry, and lands on
+  // the existing "done" screen — no route change, no duplicate success UI.
+  it("auto-submits the composed review after inline phone-OTP sign-in succeeds, with no re-entry (S-121)", async () => {
+    (auth.me as jest.Mock).mockRejectedValue(new Error("unauthorized"));
+    (auth.phoneRequest as jest.Mock).mockResolvedValue({ message: "sent" });
+    (auth.phoneVerify as jest.Mock).mockResolvedValue({ access_token: "a1", refresh_token: "r1" });
+    (reviews.create as jest.Mock).mockResolvedValue({
+      id: "r2",
+      status: "active",
+      rating: 2,
+      body: "Slow service but decent food.",
+    });
+
+    render(<CollectReviewPage params={resolvedParams({ businessId: "cafe" })} />);
+    await screen.findByText("Cafe");
+    clickStar(2);
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+    fireEvent.change(screen.getByPlaceholderText(/share what made your visit memorable/i), {
+      target: { value: "Slow service but decent food." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /submit review/i }));
+
+    expect(await screen.findByText(/sign in to post your review/i)).toBeInTheDocument();
+    expect(reviews.create).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText(/mobile number/i), { target: { value: "9876543210" } });
+    fireEvent.click(screen.getByRole("button", { name: /send sms code/i }));
+    await waitFor(() => expect(auth.phoneRequest).toHaveBeenCalled());
+    fireEvent.change(screen.getByLabelText(/sms code/i), { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: /verify and sign in/i }));
+
+    await waitFor(() =>
+      expect(reviews.create).toHaveBeenCalledWith({
+        business_id: "b1",
+        rating: 2,
+        body: "Slow service but decent food.",
+      }),
+    );
+    expect(await screen.findByText(/Your review is live/i)).toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
+    // No re-entry: neither the inline auth step nor the compose form reappear.
+    expect(screen.queryByText(/sign in to post your review/i)).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/share what made your visit memorable/i)).not.toBeInTheDocument();
+  });
+
+  // S-121 AC9 (page-level): a failed inline sign-in attempt must not discard
+  // the rating/body already held in the *page's* own state (InlineAuthStep
+  // itself never sees that data) -- confirmed here by retrying after a
+  // failure and asserting the originally composed body/rating still reach
+  // POST /reviews unchanged.
+  it("keeps the composed rating/body intact in page state across a failed inline sign-in attempt, then submits it on retry (S-121 AC9)", async () => {
+    (auth.me as jest.Mock).mockRejectedValue(new Error("unauthorized"));
+    (auth.phoneRequest as jest.Mock).mockResolvedValue({ message: "sent" });
+    (auth.phoneVerify as jest.Mock)
+      .mockRejectedValueOnce(new Error("Invalid code"))
+      .mockResolvedValueOnce({ access_token: "a1", refresh_token: "r1" });
+    (reviews.create as jest.Mock).mockResolvedValue({
+      id: "r4",
+      status: "active",
+      rating: 4,
+      body: "Great coffee, will return.",
+    });
+
+    render(<CollectReviewPage params={resolvedParams({ businessId: "cafe" })} />);
+    await screen.findByText("Cafe");
+    clickStar(4);
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+    fireEvent.change(screen.getByPlaceholderText(/share what made your visit memorable/i), {
+      target: { value: "Great coffee, will return." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /submit review/i }));
+
+    await screen.findByText(/sign in to post your review/i);
+    fireEvent.change(screen.getByLabelText(/mobile number/i), { target: { value: "9876543210" } });
+    fireEvent.click(screen.getByRole("button", { name: /send sms code/i }));
+    await waitFor(() => expect(auth.phoneRequest).toHaveBeenCalled());
+    fireEvent.change(screen.getByLabelText(/sms code/i), { target: { value: "000000" } });
+    fireEvent.click(screen.getByRole("button", { name: /verify and sign in/i }));
+
+    expect(await screen.findByText("Invalid code")).toBeInTheDocument();
+    expect(reviews.create).not.toHaveBeenCalled();
+    // Still on the collect page, still in the inline step -- no navigation away.
+    expect(pushMock).not.toHaveBeenCalled();
+    expect(screen.getByText(/sign in to post your review/i)).toBeInTheDocument();
+
+    // Retry succeeds -- the originally composed rating/body survived untouched.
+    fireEvent.change(screen.getByLabelText(/sms code/i), { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: /verify and sign in/i }));
+
+    await waitFor(() =>
+      expect(reviews.create).toHaveBeenCalledWith({
+        business_id: "b1",
+        rating: 4,
+        body: "Great coffee, will return.",
+      }),
+    );
+    expect(await screen.findByText(/Your review is live/i)).toBeInTheDocument();
   });
 });
