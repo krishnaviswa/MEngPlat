@@ -16,7 +16,7 @@ export function BusinessCard({ business, href }: BusinessCardProps) {
   return (
     <a
       href={link}
-      className="group block overflow-hidden rounded-xl border bg-surface-raised shadow-sm transition hover:shadow-md"
+      className="group block overflow-hidden rounded-xl border border-border bg-surface-raised shadow-sm transition hover:shadow-md"
     >
       <div className="relative aspect-[16/10] bg-brand-50">
         {image ? (

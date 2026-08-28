@@ -103,14 +103,14 @@ export function AdminWhatsAppDraftsQueue() {
       </p>
       {error && <p className="text-sm text-red-600">{error}</p>}
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
+        <p className="rounded-lg border border-border border-dashed bg-surface p-6 text-center text-sm text-muted">
           No WhatsApp suggestions waiting for review
         </p>
       ) : (
         <>
           <div className="space-y-3">
             {items.map((draft) => (
-              <div key={draft.id} className="rounded-xl border bg-surface-raised p-4">
+              <div key={draft.id} className="rounded-xl border border-border bg-surface-raised p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="font-semibold">{draft.business_name}</p>
                   <p className="text-xs text-muted">{new Date(draft.created_at).toLocaleString()}</p>
@@ -130,7 +130,7 @@ export function AdminWhatsAppDraftsQueue() {
                             type="text"
                             defaultValue={formatValue(value)}
                             onChange={(e) => setFieldEdit(draft.id, key, e.target.value)}
-                            className="mt-1 w-full rounded-md border bg-surface px-2 py-1 text-sm"
+                            className="mt-1 w-full rounded-md border border-border bg-surface px-2 py-1 text-sm"
                           />
                         </label>
                       ) : (
@@ -169,7 +169,7 @@ export function AdminWhatsAppDraftsQueue() {
                 type="button"
                 disabled={page <= 1 || loading}
                 onClick={() => load(page - 1)}
-                className="rounded-md border px-3 py-1.5 disabled:opacity-50"
+                className="rounded-md border border-border px-3 py-1.5 disabled:opacity-50"
               >
                 Previous
               </button>
@@ -180,7 +180,7 @@ export function AdminWhatsAppDraftsQueue() {
                 type="button"
                 disabled={page >= totalPages || loading}
                 onClick={() => load(page + 1)}
-                className="rounded-md border px-3 py-1.5 disabled:opacity-50"
+                className="rounded-md border border-border px-3 py-1.5 disabled:opacity-50"
               >
                 Next
               </button>

@@ -54,7 +54,7 @@ export function BusinessPhotoManager({ businessId }: BusinessPhotoManagerProps) 
   }
 
   return (
-    <div className="space-y-3 rounded-xl border bg-surface-raised p-4">
+    <div className="space-y-3 rounded-xl border border-border bg-surface-raised p-4">
       <div>
         <h3 className="text-sm font-semibold text-ink">Public profile photos</h3>
         <p className="text-xs text-muted">Optional — shown on your business's public listing.</p>

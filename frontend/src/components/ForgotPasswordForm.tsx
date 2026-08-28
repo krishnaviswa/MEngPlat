@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Input } from "@/components/ui/Input";
+import { PageHeading } from "@/components/ui/PageHeading";
 import { auth } from "@/lib/api";
 
 /** ForgotPasswordForm — email-only request. Always shows the same generic confirmation, known or unknown address. */
@@ -26,8 +28,8 @@ export function ForgotPasswordForm() {
 
   if (submitted) {
     return (
-      <div className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
-        <h1 className="text-xl font-bold">Check your email</h1>
+      <div className="mx-auto max-w-md space-y-4 rounded-xl border border-border bg-surface-raised p-6 shadow-sm">
+        <PageHeading size="sm">Check your email</PageHeading>
         <p className="text-sm text-muted">
           If an account exists for that email, we sent password-reset instructions.
         </p>
@@ -39,17 +41,17 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
-      <h1 className="text-xl font-bold">Forgot password</h1>
+    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border border-border bg-surface-raised p-6 shadow-sm">
+      <PageHeading size="sm">Forgot password</PageHeading>
       <p className="text-sm text-muted">Enter your account email and we&apos;ll send you a reset link.</p>
       {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-300">{error}</p>}
-      <input
+      <Input
         type="email"
         required
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Email"
-        className="w-full rounded border px-3 py-2"
+        size="md"
       />
       <button
         type="submit"

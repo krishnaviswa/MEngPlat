@@ -3,6 +3,7 @@
 import { AdminBackLink } from "@/components/AdminBackLink";
 import { AdminSupportQueue } from "@/components/admin/AdminSupportQueue";
 import { RequireAuth } from "@/components/RequireAuth";
+import { PageHeading } from "@/components/ui/PageHeading";
 
 /** Admin — support tickets (S-088). */
 export default function AdminSupportPage() {
@@ -10,7 +11,7 @@ export default function AdminSupportPage() {
     <RequireAuth role="admin">
       <div className="mx-auto max-w-4xl px-4 py-8">
         <AdminBackLink />
-        <h1 className="text-2xl font-bold">Support tickets</h1>
+        <PageHeading>Support tickets</PageHeading>
         <p className="text-muted">Customer and merchant queries. Review reports stay on the reviews queue.</p>
         <div className="mt-6">
           <AdminSupportQueue />

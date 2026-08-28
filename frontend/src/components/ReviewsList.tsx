@@ -109,7 +109,7 @@ export function ReviewsList({ initialReviews }: ReviewsListProps) {
       ) : (
         visible.map((r) =>
           reportedIds.has(r.id) ? (
-            <div key={r.id} className="rounded-xl border bg-surface p-4 text-sm text-muted">
+            <div key={r.id} className="rounded-xl border border-border bg-surface p-4 text-sm text-muted">
               Reported — pending moderation.
             </div>
           ) : (

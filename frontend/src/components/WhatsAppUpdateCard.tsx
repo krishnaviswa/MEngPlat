@@ -61,7 +61,7 @@ export function WhatsAppUpdateCard({
 
   if (error) {
     return (
-      <section className="rounded-xl border bg-surface-raised p-4">
+      <section className="rounded-xl border border-border bg-surface-raised p-4">
         <h3 className="font-semibold">Update shop via WhatsApp</h3>
         <p className="mt-1 text-sm text-muted">{error}</p>
       </section>
@@ -70,7 +70,7 @@ export function WhatsAppUpdateCard({
 
   if (!link) {
     return (
-      <section className="rounded-xl border bg-surface-raised p-4">
+      <section className="rounded-xl border border-border bg-surface-raised p-4">
         <h3 className="font-semibold">Update shop via WhatsApp</h3>
         <p className="mt-1 text-sm text-muted">Preparing your WhatsApp link…</p>
       </section>
@@ -79,7 +79,7 @@ export function WhatsAppUpdateCard({
 
   if (!link.available || !link.wa_url) {
     return (
-      <section className="rounded-xl border bg-surface-raised p-4">
+      <section className="rounded-xl border border-border bg-surface-raised p-4">
         <h3 className="font-semibold">Update shop via WhatsApp</h3>
         <p className="mt-1 text-sm text-muted">
           WhatsApp updates aren&apos;t set up for this platform yet — this needs a one-time
@@ -91,7 +91,7 @@ export function WhatsAppUpdateCard({
   }
 
   return (
-    <section className="rounded-xl border bg-surface-raised p-4">
+    <section className="rounded-xl border border-border bg-surface-raised p-4">
       <h3 className="font-semibold">Update shop via WhatsApp</h3>
       <p className="mt-1 text-sm text-muted">
         Scan to send hours, address, description, or photos. Text suggestions wait for your approval before going live.
@@ -103,7 +103,7 @@ export function WhatsAppUpdateCard({
       <button
         type="button"
         onClick={handlePrint}
-        className="mt-3 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-surface"
+        className="mt-3 rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface"
       >
         Print for shop
       </button>

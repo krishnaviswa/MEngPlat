@@ -107,7 +107,7 @@ export function AdminCategoryPanel() {
       />
       {error && <p className="text-sm text-red-600">{error}</p>}
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
+        <p className="rounded-lg border border-border border-dashed bg-surface p-6 text-center text-sm text-muted">
           {debouncedQ ? "No categories match your search" : "No categories yet"}
         </p>
       ) : (

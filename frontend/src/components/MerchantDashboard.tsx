@@ -218,7 +218,7 @@ export default function MerchantDashboardPage() {
       <Dashboard title="Merchant Dashboard" description="Manage your business" navItems={navItems}>
         <div className="space-y-6">
           {user?.role === "merchant" && <MerchantNationalIdCard user={user} onSaved={setUser} />}
-          <div className="rounded-xl border bg-surface-raised p-8 text-center">
+          <div className="rounded-xl border border-border bg-surface-raised p-8 text-center">
             <h2 className="text-lg font-semibold text-ink">No business yet</h2>
             <p className="mt-2 text-sm text-muted">
               Register your shop or service to see reviews, stats, and AI insights here.
@@ -265,7 +265,7 @@ export default function MerchantDashboardPage() {
     <Dashboard title="Merchant Dashboard" description={business.name} navItems={navItems}>
       <div className="space-y-6">
         {owned.length > 1 && (
-          <label className="block rounded-xl border bg-surface-raised p-4">
+          <label className="block rounded-xl border border-border bg-surface-raised p-4">
             <span className="text-sm font-medium text-muted">Your businesses</span>
             <Select
               value={selectedId}
@@ -298,29 +298,21 @@ export default function MerchantDashboardPage() {
         )}
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <button
-            type="button"
+          <StatCard
+            label="Total reviews"
+            value={String(stats?.total_reviews ?? 0)}
             onClick={() => scrollToSection("recent-reviews")}
-            className="rounded-xl border bg-surface-raised p-4 text-left transition hover:border-brand-300 hover:shadow-sm"
-          >
-            <p className="text-sm text-muted">Total reviews</p>
-            <p className="text-2xl font-bold">{String(stats?.total_reviews ?? 0)}</p>
-          </button>
-          <button
-            type="button"
+          />
+          <StatCard
+            label="Average rating"
+            value={Number(stats?.average_rating ?? 0).toFixed(1)}
             onClick={() => scrollToSection("sentiment-breakdown")}
-            className="rounded-xl border bg-surface-raised p-4 text-left transition hover:border-brand-300 hover:shadow-sm"
-          >
-            <p className="text-sm text-muted">Average rating</p>
-            <p className="text-2xl font-bold">{Number(stats?.average_rating ?? 0).toFixed(1)}</p>
-          </button>
-          <a
+          />
+          <StatCard
+            label="Status"
+            value={<span className={STATUS_CLASS[status]}>{STATUS_LABEL[status]}</span>}
             href={status === "approved" ? `/businesses/${business.slug}` : `/merchant/businesses/${business.id}/edit`}
-            className="rounded-xl border bg-surface-raised p-4 transition hover:border-brand-300 hover:shadow-sm"
-          >
-            <p className="text-sm text-muted">Status</p>
-            <p className={`text-2xl font-bold ${STATUS_CLASS[status]}`}>{STATUS_LABEL[status]}</p>
-          </a>
+          />
         </div>
 
         {user?.role === "merchant" && (
@@ -333,14 +325,14 @@ export default function MerchantDashboardPage() {
             <WhatsAppUpdateCard businessId={business.id} businessName={business.name} />
           </div>
         ) : (
-          <div className="rounded-xl border bg-surface-raised p-4 text-sm text-muted">
+          <div className="rounded-xl border border-border bg-surface-raised p-4 text-sm text-muted">
             Your review QR code (and WhatsApp update link) will be available once your business is
             approved.
           </div>
         )}
         {status === "approved" && <WhatsAppDraftsPanel businessId={business.id} />}
 
-        <div id="review-analytics" className="scroll-mt-20 rounded-xl border bg-surface-raised p-4">
+        <div id="review-analytics" className="scroll-mt-20 rounded-xl border border-border bg-surface-raised p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="font-semibold">Review analytics</h3>
             <div className="flex items-center gap-3">
@@ -411,12 +403,12 @@ export default function MerchantDashboardPage() {
           />
         )}
 
-        <div id="sentiment-breakdown" className="scroll-mt-20 rounded-xl border bg-surface-raised p-4">
+        <div id="sentiment-breakdown" className="scroll-mt-20 rounded-xl border border-border bg-surface-raised p-4">
           <h3 className="font-semibold">Sentiment breakdown</h3>
           <Charts data={sentimentData} />
         </div>
 
-        <div className="rounded-xl border bg-surface-raised p-4">
+        <div className="rounded-xl border border-border bg-surface-raised p-4">
           <h3 className="font-semibold">Google reviews</h3>
           <p className="mt-1 text-sm text-muted">
             Showing up to 5 most-relevant Google reviews on your public profile -- not a full review history.

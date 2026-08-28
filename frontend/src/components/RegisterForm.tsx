@@ -4,6 +4,8 @@ import { useState } from "react";
 import { AuthMethodToggle, type AuthMethod } from "@/components/AuthMethodToggle";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { PhoneOtpPanel } from "@/components/PhoneOtpPanel";
+import { Input } from "@/components/ui/Input";
+import { PageHeading } from "@/components/ui/PageHeading";
 import { Select } from "@/components/ui/Select";
 import { auth, storeTokens } from "@/lib/api";
 
@@ -50,15 +52,15 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
-      <h1 className="text-xl font-bold">Create account</h1>
+    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border border-border bg-surface-raised p-6 shadow-sm">
+      <PageHeading size="sm">Create account</PageHeading>
       {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-300">{error}</p>}
-      <input
+      <Input
         required
         value={form.full_name}
         onChange={(e) => setForm({ ...form, full_name: e.target.value })}
         placeholder="Full name"
-        className="w-full rounded border px-3 py-2"
+        size="md"
       />
       <Select
         aria-label="Account type"
@@ -71,22 +73,22 @@ export function RegisterForm() {
       <AuthMethodToggle value={authMethod} onChange={setAuthMethod} legend="Create account with" />
       {authMethod === "authenticator" ? (
         <>
-          <input
+          <Input
             type="email"
             required
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             placeholder="Email"
-            className="w-full rounded border px-3 py-2"
+            size="md"
           />
-          <input
+          <Input
             type="password"
             required
             minLength={12}
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             placeholder="Password (min 12 chars, include a letter and a digit)"
-            className="w-full rounded border px-3 py-2"
+            size="md"
           />
           <p className="text-xs text-muted">
             After sign-up you will set up an authenticator app (required for email/password sign-in).

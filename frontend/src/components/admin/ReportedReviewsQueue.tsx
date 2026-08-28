@@ -50,7 +50,7 @@ export function ReportedReviewsQueue({ onChange }: { onChange?: () => void }) {
     <div className="space-y-4">
       {error && <p className="text-sm text-red-600">{error}</p>}
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
+        <p className="rounded-lg border border-border border-dashed bg-surface p-6 text-center text-sm text-muted">
           No reported reviews
         </p>
       ) : (
@@ -70,7 +70,7 @@ export function ReportedReviewsQueue({ onChange }: { onChange?: () => void }) {
                 type="button"
                 disabled={acting === r.id}
                 onClick={() => handleModerate(r.id, "restore")}
-                className="rounded-lg border px-3 py-1.5 text-sm hover:bg-surface disabled:opacity-50"
+                className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-surface disabled:opacity-50"
               >
                 Restore
               </button>

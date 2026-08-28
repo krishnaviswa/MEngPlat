@@ -34,7 +34,7 @@ export function OnboardingGuidancePanel({ formState }: { formState: BusinessForm
   const contactInfoDone = formState ? hasContactInfo(formState) : false;
 
   return (
-    <div className="space-y-4 rounded-xl border bg-surface-raised p-4 text-sm">
+    <div className="space-y-4 rounded-xl border border-border bg-surface-raised p-4 text-sm">
       <div>
         <h3 className="font-semibold text-ink">Getting started</h3>
         <ol className="mt-2 space-y-2">
