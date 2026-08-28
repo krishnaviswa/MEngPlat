@@ -4,7 +4,7 @@
 |-------|-------|
 | **Slice ID** | S-121 |
 | **Phase** | 2 Core |
-| **Status** | Specified |
+| **Status** | Accepted |
 | **Role(s)** | customer |
 | **Owner** | PM / 2026-08-29 |
 
@@ -167,14 +167,28 @@ truly takes less than 30 seconds as the page promises
 
 ## Definition of done (PM)
 
-- [ ] All AC verified in test report
-- [ ] UX matches notes above
-- [ ] Documented in `README.md` §7 API reference / §8 Frontend guide if new patterns
-- [ ] README §12 Web ↔ mobile feature parity tracker row updated if the inline-auth behavior
-      lands on one platform before the other
-- [ ] README §14 Known gaps updated to remove/resolve the "`next` param ignored" gap this slice
-      obsoletes (once shipped)
-- [ ] PM Status set to **Accepted**
+- [x] All AC verified in test report — 14/14 AC mapped in `TR-S-121-inline-auth-on-submit.md`,
+      all Pass. 3 flagged coverage-depth gaps (web Google-button JSDOM limitation, web AC6
+      Google/password auto-submit proven by code inspection of the shared `completeAuth()` call
+      site rather than a dedicated per-method e2e test, web AC10 implicit rather than an explicit
+      1-vs-5-star side-by-side test) reviewed by PM and judged non-blocking — see Changelog.
+- [x] UX matches notes above — confirmed by reading `InlineAuthStep.tsx` and
+      `collect_review_screen.dart`: inline step renders in the existing step flow (no new route),
+      `authMethod`/`_method` defaults to `"otp"`, `GoogleSignInButton` renders unconditionally,
+      password+TOTP reachable via the existing toggle only.
+- [x] Documented in `README.md` §7 API reference / §8 Frontend guide if new patterns — n/a. No
+      new/changed endpoint (§7). No novel frontend pattern beyond composing already-documented
+      primitives (`AuthMethodToggle`/`GoogleSignInButton`/`PhoneOtpPanel`) inline with standard
+      `useState`; §8 is an illustrative guide, not an exhaustive component catalog, and S-119's
+      comparable (larger) new gamified-flow component set set the same precedent of not touching
+      §7/§8.
+- [x] README §12 Web ↔ mobile feature parity tracker row updated if the inline-auth behavior
+      lands on one platform before the other — done (main session, this branch): M-71 row gained
+      a dated **S-121** (2026-08-29) note; verified it reads correctly and matches what shipped.
+- [x] README §14 Known gaps updated to remove/resolve the "`next` param ignored" gap this slice
+      obsoletes (once shipped) — verified via repo-wide search: no existing §14 entry ever
+      documented this bug, so there is nothing to remove. Confirmed moot, not skipped.
+- [x] PM Status set to **Accepted**
 
 ---
 
@@ -494,3 +508,4 @@ sequenceDiagram
 |------|-------|--------|
 | 2026-08-29 | PM | Created slice |
 | 2026-08-29 | Architect | Technical spec filled in (no backend/API/data-model changes); read current source on both platforms and designed the `authPending`-gated internal state-machine shape (frozen `screen`/`_screen` so no form is re-shown post-auth), the shared `InlineAuthStep`/`inline_auth_step.dart` component plan (reusing `AuthMethodToggle`/`GoogleSignInButton`/`PhoneOtpPanel` on web and their mobile equivalents unmodified except one small additive `onTokens` prop on web's `PhoneOtpPanel.tsx`), and wrote ADR-018 on bypassing `redirectAfterAuth`/`postLoginPath` for this entry point only. Status → Specified. |
+| 2026-08-29 | PM | **Accepted.** Reviewed `TR-S-121-inline-auth-on-submit.md` against all 14 AC — matrix complete, all Pass. Re-verified test evidence: frontend static test-declaration count (`it(`/`test(` across `frontend/src`) is an exact match to the Tester's reported **354 across 64 files**; mobile test files and the `forgot_password_screen_test.dart` pre-existing-failure claim were confirmed present and consistent (no `skip:`/`@Tags` exclusions found), though this session had no shell/Bash tool available to literally re-execute `npx jest` / `flutter test` — corroboration here is via exact-match static analysis (web) and file/content inspection (both platforms), not a live run. Spot-checked the actual diff against the Architect spec by reading `InlineAuthStep.tsx`, `PhoneOtpPanel.tsx`'s new optional `onTokens` prop, `collect_review_screen.dart`'s `_authPending`/`ref.listen` wiring, and confirmed zero `router.push('/login...)`/`context.push('/login...)` remain in either submit path, and `CollectQrCard.tsx` has no trace of the new machinery (AC14). Judged the 3 flagged gaps non-blocking: (1) web Google-button JSDOM limitation is a pre-existing, suite-wide test-infra gap (affects `LoginForm.test.tsx` too), not introduced by this slice, and source confirms `GoogleSignInButton` renders unconditionally per spec; (2) web AC6 Google/password auto-submit is proven only by code inspection of the shared `completeAuth()` → `onAuthenticated()` call site rather than a dedicated e2e test per method, but that call site is identical for all three methods and mobile proves Google+OTP end-to-end, so risk is low; (3) web AC10 has no single explicit 1-vs-5-star side-by-side test (mobile does), but ratings 1–5 are all implicitly exercised across the S-121 web test set and the Architect-documented structural guarantee (`auth.me()`'s catch branch has zero reference to `rating`) holds. README verified: §11 feature → test index row (`Collect review / merchant QR`) lists the S-121 test files and TR-S-121; §12 M-71 row carries the dated S-121 note describing inline auth-on-submit landing on both platforms simultaneously and retiring the undocumented `redirectAfterAuth`/`next`-param-ignored bug. Searched README §14/§16 for any prior entry describing this bug — none found, so no stale entry to remove or update; left §14/§16 untouched, matching S-119/S-120 precedent. Status: Specified → **Accepted**. |
