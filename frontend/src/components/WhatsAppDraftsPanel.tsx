@@ -51,7 +51,7 @@ export function WhatsAppDraftsPanel({ businessId }: { businessId: string }) {
       {drafts.map((draft) => {
         const badge = STATUS_BADGE[draft.status];
         return (
-          <article key={draft.id} className="rounded-lg border bg-surface-raised p-3">
+          <article key={draft.id} className="rounded-lg border border-border bg-surface-raised p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
               <Badge tone={badge.tone}>{badge.label}</Badge>
               {draft.degraded && <p className="text-xs text-muted">Mock/degraded data.</p>}

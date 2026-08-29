@@ -87,12 +87,12 @@ export function PendingBusinessQueue({ onChange }: { onChange?: () => void }) {
     <div className="space-y-3">
       {error && <p className="text-sm text-red-600">{error}</p>}
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
+        <p className="rounded-lg border border-border border-dashed bg-surface p-6 text-center text-sm text-muted">
           No businesses awaiting review
         </p>
       ) : (
         items.map((b) => (
-          <div key={b.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border bg-surface-raised p-4">
+          <div key={b.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border bg-surface-raised p-4">
             <div>
               <div className="flex items-center gap-2">
                 <p className="font-semibold">{b.name}</p>
@@ -113,7 +113,7 @@ export function PendingBusinessQueue({ onChange }: { onChange?: () => void }) {
                   type="button"
                   disabled={acting === b.id}
                   onClick={() => handleStartReview(b.id)}
-                  className="rounded-lg border px-3 py-1.5 text-sm hover:bg-surface disabled:opacity-50"
+                  className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-surface disabled:opacity-50"
                 >
                   Start review
                 </button>
@@ -123,7 +123,7 @@ export function PendingBusinessQueue({ onChange }: { onChange?: () => void }) {
                   type="button"
                   disabled={acting === b.id}
                   onClick={() => handleReturnToPending(b.id)}
-                  className="rounded-lg border px-3 py-1.5 text-sm hover:bg-surface disabled:opacity-50"
+                  className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-surface disabled:opacity-50"
                 >
                   Return to pending
                 </button>

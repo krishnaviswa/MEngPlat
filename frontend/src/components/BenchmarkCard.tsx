@@ -11,7 +11,7 @@ export function BenchmarkCard({
   disclaimer: string;
 }) {
   return (
-    <section className="rounded-xl border bg-surface-raised p-4">
+    <section className="rounded-xl border border-border bg-surface-raised p-4">
       <h3 className="font-semibold">Local rating snapshot</h3>
       <p className="mt-1 text-xs text-muted">{disclaimer}</p>
       <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">

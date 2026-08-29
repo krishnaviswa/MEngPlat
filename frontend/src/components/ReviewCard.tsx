@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { RatingWidget } from "./ui/RatingWidget";
+import { Textarea } from "./ui/Textarea";
 import { PhotoGallery } from "./PhotoGallery";
 import { API_URL } from "@/lib/api";
 import type { Review } from "@/lib/api";
@@ -72,7 +73,7 @@ export function ReviewCard({
   }
 
   return (
-    <article className="rounded-xl border bg-surface-raised p-4 shadow-sm">
+    <article className="rounded-xl border border-border bg-surface-raised p-4 shadow-sm">
       <div className="flex items-start justify-between">
         <div>
           {showBusinessLink && review.business && (
@@ -132,13 +133,12 @@ export function ReviewCard({
       )}
       {reporting && (
         <form onSubmit={submitReport} className="mt-3 space-y-2 rounded border border-red-100 bg-red-50 p-3 dark:border-red-900/40 dark:bg-red-900/20">
-          <textarea
+          <Textarea
             required
             minLength={10}
             value={reportReason}
             onChange={(e) => setReportReason(e.target.value)}
             placeholder="Why are you reporting this review? (min 10 characters)"
-            className="w-full rounded border px-2 py-1 text-sm"
             rows={2}
           />
           <div className="flex gap-2">
@@ -151,7 +151,7 @@ export function ReviewCard({
                 setReporting(false);
                 setReportReason("");
               }}
-              className="rounded border px-3 py-1 text-sm hover:bg-surface"
+              className="rounded border border-border px-3 py-1 text-sm hover:bg-surface"
             >
               Cancel
             </button>
@@ -173,14 +173,13 @@ export function ReviewCard({
         </button>
       )}
       {canReply && !review.reply && replying && (
-        <form onSubmit={submitReply} className="mt-3 space-y-2 rounded border p-3">
-          <textarea
+        <form onSubmit={submitReply} className="mt-3 space-y-2 rounded border border-border p-3">
+          <Textarea
             required
             minLength={5}
             value={replyBody}
             onChange={(e) => setReplyBody(e.target.value)}
             placeholder="Write a response to this review"
-            className="w-full rounded border px-2 py-1 text-sm"
             rows={2}
           />
           <p className="text-xs text-muted">AI draft is a suggestion — edit before sending. It is not posted automatically.</p>
@@ -209,7 +208,7 @@ export function ReviewCard({
                 setReplying(false);
                 setReplyBody("");
               }}
-              className="rounded border px-3 py-1 text-sm hover:bg-surface"
+              className="rounded border border-border px-3 py-1 text-sm hover:bg-surface"
             >
               Cancel
             </button>

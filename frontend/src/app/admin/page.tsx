@@ -9,6 +9,7 @@ import { ReportedReviewsQueue } from "@/components/admin/ReportedReviewsQueue";
 import { AdminOpsNav } from "@/components/admin/AdminOpsNav";
 import { Charts } from "@/components/Charts";
 import { RequireAuth } from "@/components/RequireAuth";
+import { PageHeading } from "@/components/ui/PageHeading";
 import { StatCard } from "@/components/ui/StatCard";
 import { apiFetch, dashboard, type AdminSeriesBucket, type PlatformAnalyticsSeries } from "@/lib/api";
 
@@ -107,7 +108,7 @@ export default function AdminPage() {
   return (
     <RequireAuth role="admin">
       <div className="mx-auto max-w-6xl px-4 py-8">
-        <h1 className="text-2xl font-bold">Admin Panel</h1>
+        <PageHeading>Admin Panel</PageHeading>
         <p className="text-muted">Operational console — queues, search, and platform facts</p>
         <AdminOpsNav />
 

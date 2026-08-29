@@ -2,7 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Input } from "./ui/Input";
 import { RatingWidget } from "./ui/RatingWidget";
+import { Textarea } from "./ui/Textarea";
 import { API_URL, photos, reviews } from "@/lib/api";
 import type { Business, Review } from "@/lib/api";
 
@@ -72,7 +74,7 @@ export function ReviewForm({ business }: ReviewFormProps) {
 
   if (!signedIn) {
     return (
-      <div className="rounded-xl border bg-surface-raised p-6 text-center shadow-sm">
+      <div className="rounded-xl border border-border bg-surface-raised p-6 text-center shadow-sm">
         <p className="text-muted">Sign in to write a review.</p>
         <a href="/login" className="mt-3 inline-block rounded bg-brand-600 px-4 py-2 text-white hover:bg-brand-700">
           Sign in
@@ -116,7 +118,7 @@ export function ReviewForm({ business }: ReviewFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-border bg-surface-raised p-6 shadow-sm">
       {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-300">{error}</p>}
       <div className="flex items-center gap-3">
         {(business.storefront_url || business.logo_url) && (
@@ -138,21 +140,21 @@ export function ReviewForm({ business }: ReviewFormProps) {
         <label className="mb-1 block text-sm font-medium text-muted">Rating</label>
         <RatingWidget value={rating} onChange={setRating} size="lg" />
       </div>
-      <input
+      <Input
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Title (optional)"
-        className="w-full rounded border px-3 py-2"
+        size="md"
       />
-      <textarea
+      <Textarea
         required
         minLength={10}
         value={body}
         onChange={(e) => setBody(e.target.value)}
         placeholder="Share details of your experience (min 10 characters)"
         rows={5}
-        className="w-full rounded border px-3 py-2"
+        size="md"
       />
       <div>
         <label className="mb-1 block text-sm font-medium text-muted">Photos (optional, up to {MAX_PHOTOS})</label>

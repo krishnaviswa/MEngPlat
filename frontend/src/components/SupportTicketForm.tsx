@@ -52,7 +52,7 @@ export function SupportTicketForm() {
 
   return (
     <div className="space-y-8">
-      <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border bg-surface-raised p-4">
+      <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-border bg-surface-raised p-4">
         <label className="block text-sm font-medium">
           Name
           <Input className="mt-1" required value={name} onChange={(e) => setName(e.target.value)} />
@@ -100,7 +100,7 @@ export function SupportTicketForm() {
           ) : (
             <ul className="mt-3 space-y-3">
               {reports.map((r) => (
-                <li key={r.id} className="rounded-xl border bg-surface-raised p-4 text-sm">
+                <li key={r.id} className="rounded-xl border border-border bg-surface-raised p-4 text-sm">
                   <p className="font-medium">
                     {r.business_name || r.business_id} · {r.status.replace("_", " ")}
                     {r.is_repeat ? " · repeat shop" : ""}
@@ -125,7 +125,7 @@ export function SupportTicketForm() {
           ) : (
             <ul className="mt-3 space-y-3">
               {mine.map((t) => (
-                <li key={t.id} className="rounded-xl border bg-surface-raised p-4 text-sm">
+                <li key={t.id} className="rounded-xl border border-border bg-surface-raised p-4 text-sm">
                   <p className="font-medium">{t.status.replace("_", " ")}</p>
                   <p className="mt-1 text-muted">{t.issue}</p>
                   {t.admin_response && (

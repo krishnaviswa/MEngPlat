@@ -5,6 +5,9 @@ import { businesses } from "@/lib/api";
 import type { Business, BusinessCreateInput, BusinessUpdateInput, Category } from "@/lib/api";
 import { getCountries, getStatesForCountry } from "@/lib/countryState";
 import { BusinessPhotoManager } from "@/components/BusinessPhotoManager";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { Textarea } from "@/components/ui/Textarea";
 
 export type BusinessFormValues = {
   name: string;
@@ -176,7 +179,7 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
     <form
       onSubmit={handleSubmit}
       noValidate
-      className="space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm"
+      className="space-y-4 rounded-xl border border-border bg-surface-raised p-6 shadow-sm"
     >
       <h2 className="text-lg font-semibold">{mode === "create" ? "Register your business" : "Edit business"}</h2>
       {mode === "create" && (
@@ -205,51 +208,56 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
           <span className="text-sm font-medium text-muted">
             Business name <span className="text-red-600">★</span>
           </span>
-          <input
+          <Input
             required
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1"
+            size="md"
           />
         </label>
         <label className="block sm:col-span-2">
           <span className="text-sm font-medium text-muted">Description</span>
-          <textarea
+          <Textarea
             rows={3}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1"
+            size="md"
           />
         </label>
         <label className="block sm:col-span-2">
           <span className="text-sm font-medium text-muted">
             Street address <span className="text-red-600">★</span>
           </span>
-          <input
+          <Input
             required
             value={form.address}
             onChange={(e) => setForm({ ...form, address: e.target.value })}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1"
+            size="md"
           />
         </label>
         <label className="block">
           <span className="text-sm font-medium text-muted">
             City <span className="text-red-600">★</span>
           </span>
-          <input
+          <Input
             required
             value={form.city}
             onChange={(e) => setForm({ ...form, city: e.target.value })}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1"
+            size="md"
           />
         </label>
         <label className="block">
           <span className="text-sm font-medium text-muted">State</span>
-          <select
+          <Select
             value={selectedState}
             onChange={(e) => setForm({ ...form, state: e.target.value })}
             disabled={states.length === 0}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1"
+            size="md"
           >
             <option value="">{states.length === 0 ? "Not applicable" : "Select a state…"}</option>
             {states.map((s) => (
@@ -257,40 +265,43 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
                 {s.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="block">
           <span className="text-sm font-medium text-muted">Postal code</span>
-          <input
+          <Input
             value={form.postal_code}
             onChange={(e) => setForm({ ...form, postal_code: e.target.value })}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1"
+            size="md"
           />
         </label>
         <label className="block">
           <span className="text-sm font-medium text-muted">Country</span>
-          <select
+          <Select
             value={form.country}
             onChange={(e) => setForm({ ...form, country: e.target.value, state: "" })}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1"
+            size="md"
           >
             {countries.map((c) => (
               <option key={c.code} value={c.code}>
                 {c.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="block">
           <span className="text-sm font-medium text-muted">
             Phone {mode === "create" && <span className="text-red-600">★</span>}
           </span>
-          <input
+          <Input
             type="tel"
             required={mode === "create"}
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1"
+            size="md"
           />
           {fieldErrors.phone && <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p>}
         </label>
@@ -298,23 +309,25 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
           <span className="text-sm font-medium text-muted">
             Email {mode === "create" && <span className="text-red-600">★</span>}
           </span>
-          <input
+          <Input
             type="email"
             required={mode === "create"}
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1"
+            size="md"
           />
           {fieldErrors.email && <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>}
         </label>
         <label className="block sm:col-span-2">
           <span className="text-sm font-medium text-muted">Website</span>
-          <input
+          <Input
             type="url"
             value={form.website}
             onChange={(e) => setForm({ ...form, website: e.target.value })}
             placeholder="https://"
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1"
+            size="md"
           />
         </label>
       </div>
@@ -342,12 +355,13 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
           <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
             Confirm this address change — enter the code sent to your business phone.
           </p>
-          <input
+          <Input
             value={addressOtpCode}
             onChange={(e) => setAddressOtpCode(e.target.value)}
             placeholder="123456"
             aria-label="Address verification code"
-            className="w-full max-w-xs rounded border px-3 py-2"
+            className="max-w-xs"
+            size="md"
           />
         </div>
       )}
@@ -362,7 +376,7 @@ export function BusinessForm({ mode, business, onSuccess, onFormStateChange }: B
         >
           {loading ? "Saving..." : addressOtpRequired ? "Verify & save" : mode === "create" ? "Submit for approval" : "Save changes"}
         </button>
-        <a href="/merchant/dashboard" className="rounded border px-4 py-2 text-muted hover:bg-surface">
+        <a href="/merchant/dashboard" className="rounded border border-border px-4 py-2 text-muted hover:bg-surface">
           Cancel
         </a>
       </div>

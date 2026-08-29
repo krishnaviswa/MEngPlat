@@ -49,12 +49,12 @@ export function AdminPaymentPanel() {
     <div className="space-y-3">
       {error && <p className="text-sm text-red-600">{error}</p>}
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
+        <p className="rounded-lg border border-border border-dashed bg-surface p-6 text-center text-sm text-muted">
           No featured payments yet
         </p>
       ) : (
         items.map((p) => (
-          <div key={p.id} className="rounded-xl border bg-surface-raised p-4 text-sm">
+          <div key={p.id} className="rounded-xl border border-border bg-surface-raised p-4 text-sm">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <p className="font-semibold">{p.business_name || "Listing"}</p>
@@ -84,7 +84,7 @@ export function AdminPaymentPanel() {
               {p.status === "created" && p.provider === "mock" && (
                 <button
                   type="button"
-                  className="rounded border px-3 py-1.5"
+                  className="rounded border border-border px-3 py-1.5"
                   disabled={acting === p.id}
                   onClick={() => run(p.id, () => payments.mockComplete(p.provider_order_id, "paid"))}
                 >
@@ -103,7 +103,7 @@ export function AdminPaymentPanel() {
                   </button>
                   <button
                     type="button"
-                    className="rounded border px-3 py-1.5"
+                    className="rounded border border-border px-3 py-1.5"
                     disabled={acting === p.id}
                     onClick={() => run(p.id, () => payments.rejectPayment(p.id))}
                   >
@@ -114,7 +114,7 @@ export function AdminPaymentPanel() {
               {p.status === "paid" && (
                 <button
                   type="button"
-                  className="rounded border px-3 py-1.5"
+                  className="rounded border border-border px-3 py-1.5"
                   disabled={acting === p.id}
                   onClick={() => run(p.id, () => payments.refundPayment(p.id))}
                 >

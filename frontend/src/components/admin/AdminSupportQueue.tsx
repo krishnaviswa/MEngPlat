@@ -47,12 +47,12 @@ export function AdminSupportQueue() {
     <div className="space-y-3">
       {error && <p className="text-sm text-red-600">{error}</p>}
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
+        <p className="rounded-lg border border-border border-dashed bg-surface p-6 text-center text-sm text-muted">
           No support tickets
         </p>
       ) : (
         items.map((t) => (
-          <div key={t.id} className="rounded-xl border bg-surface-raised p-4">
+          <div key={t.id} className="rounded-xl border border-border bg-surface-raised p-4">
             <p className="font-semibold">
               {t.name} · {t.phone} · {t.status}
             </p>
@@ -71,7 +71,7 @@ export function AdminSupportQueue() {
                   type="button"
                   disabled={acting === t.id}
                   onClick={() => save(t, s)}
-                  className="rounded border px-3 py-1 text-sm hover:bg-surface disabled:opacity-50"
+                  className="rounded border border-border px-3 py-1 text-sm hover:bg-surface disabled:opacity-50"
                 >
                   Mark {s.replace("_", " ")}
                 </button>

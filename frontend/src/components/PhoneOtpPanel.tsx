@@ -77,7 +77,7 @@ export function PhoneOtpPanel({
           value={countryCode}
           onChange={(e) => setCountryCode(e.target.value)}
           disabled={sent}
-          className="w-24 rounded border bg-surface-raised px-2 py-2.5 text-sm disabled:opacity-50"
+          className="w-24 rounded border border-border bg-surface-raised px-2 py-2.5 text-sm disabled:opacity-50"
           aria-label="Country code"
         >
           <option value="+91">🇮🇳 +91</option>
@@ -89,7 +89,7 @@ export function PhoneOtpPanel({
           onChange={(e) => setPhone(e.target.value)}
           placeholder="Mobile number"
           disabled={sent}
-          className="flex-1 rounded border bg-surface-raised px-3 py-2.5 disabled:opacity-50"
+          className="flex-1 rounded border border-border bg-surface-raised px-3 py-2.5 disabled:opacity-50"
           aria-label="Mobile number"
         />
       </div>
@@ -100,7 +100,7 @@ export function PhoneOtpPanel({
           value={code}
           onChange={(e) => setCode(e.target.value)}
           placeholder="6-digit SMS code"
-          className="w-full rounded border bg-surface-raised px-3 py-2.5 text-center text-lg tracking-widest"
+          className="w-full rounded border border-border bg-surface-raised px-3 py-2.5 text-center text-lg tracking-widest"
           aria-label="SMS code"
         />
       )}

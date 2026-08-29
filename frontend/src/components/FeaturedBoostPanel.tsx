@@ -69,7 +69,7 @@ export function FeaturedBoostPanel({ businessId, listingStatus }: FeaturedBoostP
   const awaiting = Boolean(placement?.awaiting_approval);
 
   return (
-    <section className="rounded-xl border bg-surface-raised p-4">
+    <section className="rounded-xl border border-border bg-surface-raised p-4">
       <h3 className="font-semibold">Featured listing boost</h3>
       <p className="mt-1 text-sm text-muted">
         Paid search placement for a fixed period. This is not an AI quality score.

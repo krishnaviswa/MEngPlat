@@ -60,12 +60,12 @@ export function AdminBusinessReportsQueue() {
     <div className="space-y-3">
       {error && <p className="text-sm text-red-600">{error}</p>}
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
+        <p className="rounded-lg border border-border border-dashed bg-surface p-6 text-center text-sm text-muted">
           No shop reports
         </p>
       ) : (
         items.map((r) => (
-          <div key={r.id} className="rounded-xl border bg-surface-raised p-4">
+          <div key={r.id} className="rounded-xl border border-border bg-surface-raised p-4">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-semibold">{r.business_name || r.business_id}</p>
               {r.is_repeat && <Badge tone="negative">Repeat ({r.report_count})</Badge>}
@@ -101,7 +101,7 @@ export function AdminBusinessReportsQueue() {
                   type="button"
                   disabled={acting === r.id}
                   onClick={() => setStatus(r.id, s)}
-                  className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+                  className="rounded border border-border px-3 py-1 text-sm disabled:opacity-50"
                 >
                   {s.replace("_", " ")}
                 </button>

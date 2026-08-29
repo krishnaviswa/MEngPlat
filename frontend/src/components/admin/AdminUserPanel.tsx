@@ -97,7 +97,7 @@ export function AdminUserPanel() {
       {loading ? (
         <p className="text-sm text-muted">Loading users…</p>
       ) : items.length === 0 ? (
-        <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
+        <p className="rounded-lg border border-border border-dashed bg-surface p-6 text-center text-sm text-muted">
           {debouncedQ ? "No users match your search" : "No users found"}
         </p>
       ) : (
@@ -107,7 +107,7 @@ export function AdminUserPanel() {
             return (
               <div
                 key={u.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-surface-raised p-4"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface-raised p-4"
               >
                 <div>
                   <div className="flex items-center gap-2">

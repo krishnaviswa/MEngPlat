@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { PageHeading } from "@/components/ui/PageHeading";
 import { Select } from "@/components/ui/Select";
 
 /**
@@ -168,7 +169,7 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <Card>
-        <h1 className="text-xl font-bold">Profile</h1>
+        <PageHeading size="sm">Profile</PageHeading>
 
         <div className="mt-4 flex flex-col items-center gap-2">
           <button

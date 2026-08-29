@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Input } from "@/components/ui/Input";
+import { PageHeading } from "@/components/ui/PageHeading";
 import { auth } from "@/lib/api";
 
 /** ResetPasswordForm — new password + confirm, using the `token` query param from the reset email. */
@@ -34,8 +36,8 @@ export function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <div className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
-        <h1 className="text-xl font-bold">Invalid reset link</h1>
+      <div className="mx-auto max-w-md space-y-4 rounded-xl border border-border bg-surface-raised p-6 shadow-sm">
+        <PageHeading size="sm">Invalid reset link</PageHeading>
         <p className="text-sm text-muted">
           This link is missing its reset token. Request a new one from the forgot-password page.
         </p>
@@ -48,8 +50,8 @@ export function ResetPasswordForm() {
 
   if (done) {
     return (
-      <div className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
-        <h1 className="text-xl font-bold">Password updated</h1>
+      <div className="mx-auto max-w-md space-y-4 rounded-xl border border-border bg-surface-raised p-6 shadow-sm">
+        <PageHeading size="sm">Password updated</PageHeading>
         <p className="text-sm text-muted">Sign in with your new password.</p>
         <a href="/login" className="block rounded bg-brand-600 py-2 text-center text-white hover:bg-brand-700">
           Go to sign in
@@ -59,26 +61,26 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
-      <h1 className="text-xl font-bold">Reset password</h1>
+    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border border-border bg-surface-raised p-6 shadow-sm">
+      <PageHeading size="sm">Reset password</PageHeading>
       {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-300">{error}</p>}
-      <input
+      <Input
         type="password"
         required
         minLength={12}
         value={newPassword}
         onChange={(e) => setNewPassword(e.target.value)}
         placeholder="New password"
-        className="w-full rounded border px-3 py-2"
+        size="md"
       />
-      <input
+      <Input
         type="password"
         required
         minLength={12}
         value={confirmPassword}
         onChange={(e) => setConfirmPassword(e.target.value)}
         placeholder="Confirm new password"
-        className="w-full rounded border px-3 py-2"
+        size="md"
       />
       <p className="text-xs text-muted">At least 12 characters, with at least one letter and one digit.</p>
       <button

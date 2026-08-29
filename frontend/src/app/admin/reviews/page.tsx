@@ -3,6 +3,7 @@
 import { AdminBackLink } from "@/components/AdminBackLink";
 import { AllReviewsQueue } from "@/components/admin/AllReviewsQueue";
 import { RequireAuth } from "@/components/RequireAuth";
+import { PageHeading } from "@/components/ui/PageHeading";
 
 /** Admin — browse reviews across every business and status. */
 export default function AdminAllReviewsPage() {
@@ -10,7 +11,7 @@ export default function AdminAllReviewsPage() {
     <RequireAuth role="admin">
       <div className="mx-auto max-w-4xl px-4 py-8">
         <AdminBackLink />
-        <h1 className="text-2xl font-bold">All reviews</h1>
+        <PageHeading>All reviews</PageHeading>
         <p className="text-muted">Every review on the platform, regardless of status.</p>
         <div className="mt-6">
           <AllReviewsQueue />

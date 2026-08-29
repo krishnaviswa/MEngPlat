@@ -39,7 +39,7 @@ export function CollectQrCard({ businessId, businessName }: { businessId: string
 
   if (!origin) return null;
   return (
-    <section className="rounded-xl border bg-surface-raised p-4">
+    <section className="rounded-xl border border-border bg-surface-raised p-4">
       <h3 className="font-semibold">Review collection QR</h3>
       <p className="mt-1 text-sm text-muted">Customers scan this to leave any star rating — no low-score intercept.</p>
       <div className="mt-3" ref={qrWrapperRef}>
@@ -49,7 +49,7 @@ export function CollectQrCard({ businessId, businessName }: { businessId: string
       <button
         type="button"
         onClick={handlePrint}
-        className="mt-3 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-surface"
+        className="mt-3 rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface"
       >
         Print for shop
       </button>

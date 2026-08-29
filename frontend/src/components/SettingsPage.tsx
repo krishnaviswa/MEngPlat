@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { auth, clearTokens, performLogout } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeading } from "@/components/ui/PageHeading";
 
 /** Settings — profile entry point and logout. */
 export default function SettingsPage() {
@@ -45,7 +46,7 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-md px-4 py-8">
       <Card>
-        <h1 className="text-xl font-bold">Settings</h1>
+        <PageHeading size="sm">Settings</PageHeading>
         <p className="mt-2 text-sm text-muted">Manage your account.</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button href="/profile" variant="secondary">
