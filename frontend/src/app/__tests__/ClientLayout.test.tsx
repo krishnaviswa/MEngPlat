@@ -6,6 +6,10 @@ jest.mock("next-themes", () => ({
   ThemeProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+jest.mock("next/navigation", () => ({
+  usePathname: jest.fn(() => "/"),
+}));
+
 jest.mock("../../components/Footer", () => ({
   Footer: () => null,
 }));

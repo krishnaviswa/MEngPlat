@@ -2,6 +2,10 @@
 export function Footer() {
   const year = new Date().getFullYear();
 
+  // Hit area only — >= 44px tall tap target via padding on the link box.
+  // Palette / typography / dark styling are unchanged from S-087.
+  const linkClass = "inline-flex min-h-[44px] items-center hover:text-brand-300";
+
   return (
     <footer className="mt-auto border-t border-slate-800 bg-slate-950 text-slate-300">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-5">
@@ -16,17 +20,17 @@ export function Footer() {
           <p className="font-display text-sm font-semibold uppercase tracking-wider text-white">Discover</p>
           <ul className="mt-4 space-y-2 text-sm">
             <li>
-              <a href="/search" className="hover:text-brand-300">
+              <a href="/search" className={linkClass}>
                 Search businesses
               </a>
             </li>
             <li>
-              <a href="/" className="hover:text-brand-300">
+              <a href="/" className={linkClass}>
                 Home
               </a>
             </li>
             <li>
-              <a href="/search" className="hover:text-brand-300">
+              <a href="/search" className={linkClass}>
                 Browse by city or category
               </a>
             </li>
@@ -39,17 +43,17 @@ export function Footer() {
           </p>
           <ul className="mt-4 space-y-2 text-sm">
             <li>
-              <a href="/register" className="hover:text-brand-300">
+              <a href="/register" className={linkClass}>
                 List your business
               </a>
             </li>
             <li>
-              <a href="/merchant/dashboard" className="hover:text-brand-300">
+              <a href="/merchant/dashboard" className={linkClass}>
                 Merchant dashboard
               </a>
             </li>
             <li>
-              <a href="/login" className="hover:text-brand-300">
+              <a href="/login" className={linkClass}>
                 Sign in
               </a>
             </li>
@@ -60,17 +64,17 @@ export function Footer() {
           <p className="font-display text-sm font-semibold uppercase tracking-wider text-white">Account</p>
           <ul className="mt-4 space-y-2 text-sm">
             <li>
-              <a href="/login" className="hover:text-brand-300">
+              <a href="/login" className={linkClass}>
                 Login
               </a>
             </li>
             <li>
-              <a href="/register" className="hover:text-brand-300">
+              <a href="/register" className={linkClass}>
                 Sign up
               </a>
             </li>
             <li>
-              <a href="/profile" className="hover:text-brand-300">
+              <a href="/profile" className={linkClass}>
                 Profile & favorites
               </a>
             </li>
@@ -81,12 +85,12 @@ export function Footer() {
           <p className="font-display text-sm font-semibold uppercase tracking-wider text-white">Support</p>
           <ul className="mt-4 space-y-2 text-sm">
             <li>
-              <a href="/support" className="hover:text-brand-300">
+              <a href="/support" className={linkClass}>
                 Contact support
               </a>
             </li>
             <li>
-              <a href="mailto:support@merchanthub.example" className="hover:text-brand-300">
+              <a href="mailto:support@merchanthub.example" className={linkClass}>
                 support@merchanthub.example
               </a>
             </li>

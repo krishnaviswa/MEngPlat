@@ -1463,6 +1463,7 @@ State is **mutable data managed inside a component**. When it changes, React re-
 | `useState`  | Local component state             | `LoginForm`, `RatingWidget`, `PhotoGallery`        |
 | `useEffect` | Side effects — API calls on mount | `ClientLayout`, `MerchantDashboard`, `ProfilePage` |
 | `useRouter` | Next.js navigation                | `LoginForm`, `RegisterForm`, `SettingsPage`        |
+| `usePathname` | Current path for active-nav state (S-122) | `ui/NavLink`                                |
 
 
 A custom `useAuth` hook could be added later to centralise token + user logic.
@@ -1530,7 +1531,9 @@ All in `frontend/src/components/`. Each file carries a JSDoc comment explaining 
 
 | Component                  | Description                                                                    |
 | -------------------------- | ------------------------------------------------------------------------------ |
-| `Navbar.tsx`               | Global nav, auth state, role-aware links; signed-in user shows `Avatar` + name linking to `/profile` (S-085) |
+| `Navbar.tsx`               | Global nav, auth state, role-aware links; signed-in user shows `Avatar` + name linking to `/profile` (S-085); current-section cue via `ui/NavLink`, sub-`md` links collapse into `NavbarMobileMenu` (S-122) |
+| `NavbarMobileMenu.tsx`     | Responsive wrapper — inline row at ≥ `md`, disclosure menu (toggle + `aria-expanded`, Escape/outside-click close) below (S-122) |
+| `ui/NavLink.tsx`           | Pathname-aware top-level nav link — `aria-current="page"` + weight + underline when active (`match` `exact`\|`prefix`) (S-122) |
 | `NotificationBell.tsx`     | Navbar notifications dropdown (S-015)                                          |
 | `Footer.tsx`               | Multi-column site map: Discover, merchants, Account, Support (S-087) |
 | `AdminBackLink.tsx`        | Shared “← Admin panel” on admin drill-downs (S-086)                    |
@@ -2123,7 +2126,7 @@ Paths below are shortened: backend `tests/` = `backend/tests/`; web files live u
 | AI suggestions / topics / providers | `test_ai_contract.py`, `test_ai_gateway.py`, `test_ai_registry.py`, `test_ai_topics.py`, `test_ai_openai_family.py`, `test_ai_anthropic.py`, `test_ai_provider_config.py`, `test_ai_startup_validation.py` | `AIInsights` | (merchant insights panel via dashboard tests) | — | TR-S-037–040, 049 |
 | Transactional email | `test_email_provider.py`, `test_email_templates.py`, `test_transactional_email_side_effects.py` | — | — | — | TR-S-035 |
 | Rate limit / seed | `test_rate_limit.py`, `test_seed_mode.py` | — | — | — | — |
-| Theme / chrome / dark contrast | — | `ThemeToggle`, `Navbar`, `Footer`, `app/ClientLayout`, `ui/Select`, `ui/Textarea`, `ui/PageHeading` | `app_shell_test.dart`, `theme_toggle_button_test.dart`, `dark_contrast_test.dart`, `widget_test.dart` | — | TR-S-027, 045, 057, 096, 103, 104, 114, **116** |
+| Theme / chrome / dark contrast | — | `ThemeToggle`, `Navbar`, `Footer`, `app/ClientLayout`, `ui/Select`, `ui/Textarea`, `ui/PageHeading`, `ui/NavLink`, `NavbarMobileMenu` | `app_shell_test.dart`, `theme_toggle_button_test.dart`, `dark_contrast_test.dart`, `widget_test.dart` | — | TR-S-027, 045, 057, 096, 103, 104, 114, **116**, **122** |
 | Mobile friendly errors / restyle | — | — | `friendly_error_test.dart`, `relative_time_test.dart`, `home_screen_test.dart`, `merchant_dashboard_screen_test.dart`, `admin_home_screen_test.dart` | — | TR-S-097, 098, 099, 100, 101 |
 | Full role journeys (opt-in) | — | — | `../integration_test/app_test.dart` (emulator, not `flutter test`) | `test_flow_*.py`, `test_rbac_matrix.py`, `test_smoke_compose.py`, `test_token_security.py` | TP-S-010, TR-S-091 |
 
@@ -2548,9 +2551,10 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-89 | Support           | Shop-level reports (not review reports) + admin queue               | public profile, `/admin/business-reports`       | Report this shop + `/admin/business-reports`                           | `implemented`   | S-089 (web); **S-094** (mobile) |
 | M-90 | Admin             | Operational `/admin` console (ops nav + queue tiles)                | `/admin`                                        | Admin Home ops chips + extra snapshot tiles                            | `implemented`   | S-090 (web); **S-095** (mobile) |
 | M-91 | Account           | Click-to-upload profile avatar (nav + `/profile`, not URL paste)    | Navbar `Avatar` + `/profile`                    | Account avatar + Profile Change photo (`POST /auth/me/avatar`)         | `implemented`   | S-085 (web); **S-095** (mobile) |
+| M-92 | Chrome            | Navbar current-page state + ≥44px touch targets + responsive collapse below `md` | Navbar `NavLink` (`aria-current` + underline/weight) · `NavbarMobileMenu` disclosure · `Footer` link hit areas | Native `NavigationBar` selected state + native touch targets (no hamburger) | `future`        | **S-122** (web). Related to M-10. Flutter's bottom `NavigationBar` already gives a selected-tab indicator and platform-minimum touch targets natively; a dedicated port of the web active-link / mobile-menu chrome is not planned. |
 
 
-**Rollup (2026-08-21):** `implemented` 79 · `partial` 4 (M-10 chrome, M-65 reset completion, M-71 cold QR, M-74 phone OTP chooser/admin OTP) · `unimplemented` 0 · `n/a` 7 · `future` 1 · **total 91**.
+**Rollup (2026-08-29):** `implemented` 79 · `partial` 4 (M-10 chrome, M-65 reset completion, M-71 cold QR, M-74 phone OTP chooser/admin OTP) · `unimplemented` 0 · `n/a` 7 · `future` 2 (FCM, M-92 navbar chrome polish) · **total 92**.
 
 #### Mobile parity roadmap
 
@@ -2778,6 +2782,7 @@ Tester AC coverage would map AC 1/2/4/5 to `backend/tests/test_favorites.py` and
 | S-115 | Admin trends chart alignment + suspend-only Users copy | 5 Polish | In Progress |
 | S-116 | Home rail slider, browse invites, Shop back, Google button | 5 Polish | In Progress |
 | S-117 | Mobile performance cheap wins (search isolate, RepaintBoundary, image decode) | 5 Polish | In Progress |
+| S-122 | Navbar shell — touch targets, current-page state, mobile menu | 5 Polish | **Accepted** |
 
 
 
@@ -2835,6 +2840,7 @@ An honest delta between the original specification and what the code actually do
 | Support & shop reports (S-086–S-089) | **Accepted.** Admin drill-downs have a shared back link (S-086). Footer + `/support` + `GET /support/contact` (S-087; Navbar unchanged). `support_tickets` + admin `/admin/support` (S-088). Shop-level `business_reports` + thread, repeat flag at 3+, `/admin/business-reports`, public “Report this shop” (S-089). Distinct from `review_reports`. Run `alembic upgrade head`. |
 | Admin operational console (S-090) | **Accepted.** `/admin` is an ops console: wider shell, jump nav to existing queues/drill-downs, extra snapshot counts (open tickets, repeat shops, processing listings) on `GET /dashboard/admin/platform`. Feedback = support tickets; Complaints = shop reports. No Inspections/FAQ product. |
 | Profile avatar (S-085) | **Accepted.** Navbar shows a circular photo or initials; `/profile` click-to-upload via `POST /auth/me/avatar` (own user only, no AI analysis). Replaces the Avatar URL text field. Flutter: S-095 Account + Profile Change photo (M-91 `implemented`). |
+| Navbar shell polish (S-122) | **Accepted.** Current-section cue (`aria-current` + underline + heavier weight) via `ui/NavLink`; ≥ 44 px touch targets on every navbar and footer link; sub-`md` secondary links collapse into a keyboard-accessible `NavbarMobileMenu` (toggle + `aria-expanded`, Escape / outside-click close). Light mode visually unchanged apart from the additive active underline + a ~1 px taller bar; `NotificationBell` sits left of `ThemeToggle` at ≥ md (approved AC12 deviation). Mobile: native `NavigationBar` already covers this job — §12 M-92 `future`. |
 | Auth method chooser (S-092) | **In Progress.** `/login` and `/register` pick Authenticator or Mobile OTP. Flutter login has Password / Phone / Authenticator. Admin OTP works for an existing `User.phone` only. Demo phones in §1. |
 
 
