@@ -236,6 +236,16 @@ class Review(Base):
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[ReviewStatus] = mapped_column(Enum(ReviewStatus), default=ReviewStatus.ACTIVE)
+    # S-123: where this review entered the platform. Plain string, not an enum,
+    # for the same reason as ExternalReview.source -- a future channel ships
+    # without a migration. "organic" = the counter QR / logged-in web flow;
+    # "partner" = pushed by a billing/POS partner against a real transaction.
+    source: Mapped[str] = mapped_column(String(20), default="organic", nullable=False, server_default="organic")
+    # S-123: true when the review is tied to a partner-verified transaction.
+    # Badged in the merchant UI; trusted more than an anonymous web review.
+    verified_purchase: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false"
+    )
     like_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -478,6 +488,87 @@ class WhatsAppSession(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     business: Mapped[Business] = relationship(back_populates="whatsapp_sessions")
+
+
+class Partner(Base):
+    """A billing / invoicing / POS platform that pushes reviews into MerchantHub (S-123).
+
+    The API key is never stored -- only ``sha256(key)`` in ``api_key_hash``.
+    ``hmac_secret`` signs request bodies and outbound callbacks (same scheme as
+    the Razorpay / WhatsApp webhooks). Mock-first: see ADR-019.
+    """
+
+    __tablename__ = "partners"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    api_key_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    hmac_secret: Mapped[str] = mapped_column(String(128), nullable=False)
+    callback_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", nullable=False, server_default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    merchant_links: Mapped[list["PartnerMerchantLink"]] = relationship(back_populates="partner")
+    review_requests: Mapped[list["PartnerReviewRequest"]] = relationship(back_populates="partner")
+
+
+class PartnerMerchantLink(Base):
+    """Maps a partner's opaque merchant id to a MerchantHub Business (S-123).
+
+    For the mock slice these are seeded. A later slice adds auto-provision for
+    an unknown ``partner_merchant_ref``.
+    """
+
+    __tablename__ = "partner_merchant_links"
+    __table_args__ = (
+        UniqueConstraint("partner_id", "partner_merchant_ref", name="uq_partner_merchant_ref"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    partner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("partners.id", ondelete="CASCADE"), index=True)
+    partner_merchant_ref: Mapped[str] = mapped_column(String(255), nullable=False)
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    partner: Mapped[Partner] = relationship(back_populates="merchant_links")
+    business: Mapped[Business] = relationship()
+
+
+class PartnerReviewRequest(Base):
+    """One "we asked for a review" record, minted by a partner per transaction (S-123).
+
+    ``token`` rides on the partner's invoice / SMS and unlocks the login-free
+    collect page at ``/c/{token}``. Single-use, short-TTL -- modelled on
+    ``WhatsAppSession``. ``UNIQUE(partner_id, partner_txn_ref)`` = one review
+    request per real transaction.
+    """
+
+    __tablename__ = "partner_review_requests"
+    __table_args__ = (
+        UniqueConstraint("partner_id", "partner_txn_ref", name="uq_partner_txn_ref"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    partner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("partners.id", ondelete="CASCADE"), index=True)
+    business_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("businesses.id", ondelete="CASCADE"), index=True)
+    partner_merchant_ref: Mapped[str] = mapped_column(String(255), nullable=False)
+    partner_txn_ref: Mapped[str] = mapped_column(String(255), nullable=False)
+    # sha256(secret_key + phone_e164) or NULL -- never the raw phone. Invoice
+    # amounts / line items / customer names are never accepted or stored.
+    partner_customer_ref: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    channel: Mapped[str] = mapped_column(String(32), default="invoice_link", nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False, server_default="pending")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    redeemed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("reviews.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    partner: Mapped[Partner] = relationship(back_populates="review_requests")
+    business: Mapped[Business] = relationship()
 
 
 class BusinessUpdateDraft(Base):

@@ -131,6 +131,10 @@ export interface Review {
   reply?: { id: string; body: string; created_at: string } | null;
   photo_urls?: string[];
   business?: { id: string; name: string; slug: string; city?: string | null; status: BusinessStatus } | null;
+  /** S-123: "organic" (counter QR / logged-in web) or "partner" (pushed by a billing/POS partner). */
+  source?: string;
+  /** S-123: tied to a partner-verified transaction — badged in the merchant UI. */
+  verified_purchase?: boolean;
 }
 
 export interface Photo {
@@ -518,6 +522,49 @@ export const reviews = {
       : "";
     return apiFetch<Review[]>(`/api/v1/reviews/admin/all${qs ? `?${qs}` : ""}`);
   },
+};
+
+/** S-123: partner review channel — login-free collect via a single-use token. */
+export interface CollectTokenContext {
+  business: { id: string; name: string; slug: string; city?: string | null; status: BusinessStatus };
+  status: "pending" | "submitted" | "expired";
+  expires_at: string;
+}
+
+export const collectToken = {
+  /** Public — no auth. The token is the capability. */
+  context: (token: string) => apiFetch<CollectTokenContext>(`/api/v1/collect/${token}`),
+  submit: (token: string, data: { rating: number; body: string; title?: string }) =>
+    apiFetch<{ review_id: string; status: string; business_slug: string; verified_purchase: boolean }>(
+      `/api/v1/collect/${token}`,
+      { method: "POST", body: JSON.stringify(data) },
+    ),
+};
+
+/** S-123: dev-only mock billing console (backend endpoints 404 unless debug + PARTNERS_PROVIDER=mock). */
+export interface PartnerMockRequestRow {
+  token: string;
+  business_slug: string;
+  partner_txn_ref: string;
+  status: string;
+  review_id: string | null;
+  created_at: string;
+}
+
+export interface PartnerMockCallback {
+  received_at: string;
+  signature: string | null;
+  event: Record<string, unknown>;
+}
+
+export const partnerMock = {
+  dispatch: (data: { business_slug: string; transaction_ref?: string; customer_phone?: string }) =>
+    apiFetch<{ collect_url: string; token: string; review_request_id: string; message: string }>(
+      "/api/v1/partner-mock/dispatch",
+      { method: "POST", body: JSON.stringify(data) },
+    ),
+  requests: () => apiFetch<PartnerMockRequestRow[]>("/api/v1/partner-mock/requests"),
+  callbacks: () => apiFetch<PartnerMockCallback[]>("/api/v1/partner-mock/callbacks"),
 };
 
 export const photos = {

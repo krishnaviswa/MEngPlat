@@ -150,6 +150,19 @@ describe("ReviewCard AI reply drafting (S-039)", () => {
   });
 });
 
+// S-123 AC 13: partner-sourced reviews carry a "Verified purchase" badge.
+describe("ReviewCard verified-purchase badge (S-123)", () => {
+  it("renders the badge when verified_purchase is true", () => {
+    render(<ReviewCard review={makeReview({ verified_purchase: true })} />);
+    expect(screen.getByText("✓ Verified purchase")).toBeInTheDocument();
+  });
+
+  it("does not render the badge for an organic review", () => {
+    render(<ReviewCard review={makeReview()} />);
+    expect(screen.queryByText("✓ Verified purchase")).not.toBeInTheDocument();
+  });
+});
+
 // S-046 AC 4: length-threshold truncation with a Read more/Read less toggle.
 describe("ReviewCard truncation (S-046 AC 4)", () => {
   it("shows no Read more toggle for a review body under the threshold", () => {

@@ -41,12 +41,13 @@ services:
       # Temporary fixed Mobile OTP — delete with docs/agents/REMOVE-ME-demo-fixed-otp.md
       DEMO_PHONE_OTP: "123456"
       WHATSAPP_PROVIDER: mock
+      PARTNERS_PROVIDER: mock
       STORAGE_PROVIDER: local
       STORAGE_LOCAL_PATH: /app/uploads
       CORS_ORIGINS: http://localhost:3000,http://localhost:5000
       # Skip full upsert when seed_runs already has SEED_VERSION (Phase 2).
       SEED_MODE: if_outdated
-      SEED_VERSION: 2026-08-19-demo-otp-phones-v1
+      SEED_VERSION: 2026-08-29-partner-review-channel-v1
     volumes:
       - ./backend:/app
       - ./data/real-businesses:/data/real-businesses:ro
@@ -67,6 +68,8 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:8000
       API_URL_INTERNAL: http://backend:8000
       NEXT_PUBLIC_GOOGLE_MAPS_KEY: placeholder
+      # S-123: dev-only mock billing console at /dev/partner-console
+      NEXT_PUBLIC_ENABLE_PARTNER_MOCK: "true"
     volumes:
       - ./frontend:/app
       - /app/node_modules
