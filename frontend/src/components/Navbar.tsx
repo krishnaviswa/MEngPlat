@@ -67,9 +67,11 @@ export function Navbar({ user, onLogout }: NavbarProps) {
                 </a>
                 <a
                   href="/register"
-                  className="inline-flex min-h-[44px] items-center rounded bg-brand-600 px-3 text-white hover:bg-brand-700"
+                  className="inline-flex min-h-[44px] items-center"
                 >
-                  Sign Up
+                  <span className="rounded bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+                    Sign Up
+                  </span>
                 </a>
               </>
             )}

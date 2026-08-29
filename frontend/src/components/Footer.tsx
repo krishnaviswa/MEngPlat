@@ -2,23 +2,24 @@
 export function Footer() {
   const year = new Date().getFullYear();
 
-  // Hit area only — >= 44px tall tap target via padding on the link box.
-  // Palette / typography / dark styling are unchanged from S-087.
-  const linkClass = "inline-flex min-h-[44px] items-center hover:text-brand-300";
+  // 44px tap target (S-122) with negative vertical margin so rows don't stack
+  // extra space-y gap on top of the hit box. Palette follows theme tokens.
+  const linkClass =
+    "inline-flex min-h-[44px] items-center -my-1.5 text-muted hover:text-brand-700 dark:hover:text-brand-300";
 
   return (
-    <footer className="mt-auto border-t border-slate-800 bg-slate-950 text-slate-300">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-5">
+    <footer className="mt-auto border-t border-border bg-surface-raised text-muted">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-5">
         <div className="sm:col-span-2 lg:col-span-1">
-          <p className="font-display text-xl font-semibold text-white">MerchantHub AI</p>
-          <p className="mt-3 max-w-xs text-sm leading-relaxed text-slate-400">
+          <p className="font-display text-xl font-semibold text-ink">MerchantHub AI</p>
+          <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted">
             Local discovery with verified reviews and AI-suggested insights for customers and merchants.
           </p>
         </div>
 
         <div>
-          <p className="font-display text-sm font-semibold uppercase tracking-wider text-white">Discover</p>
-          <ul className="mt-4 space-y-2 text-sm">
+          <p className="font-display text-sm font-semibold uppercase tracking-wider text-ink">Discover</p>
+          <ul className="mt-2 text-sm">
             <li>
               <a href="/search" className={linkClass}>
                 Search businesses
@@ -38,10 +39,10 @@ export function Footer() {
         </div>
 
         <div>
-          <p className="font-display text-sm font-semibold uppercase tracking-wider text-white">
+          <p className="font-display text-sm font-semibold uppercase tracking-wider text-ink">
             For merchants
           </p>
-          <ul className="mt-4 space-y-2 text-sm">
+          <ul className="mt-2 text-sm">
             <li>
               <a href="/register" className={linkClass}>
                 List your business
@@ -61,8 +62,8 @@ export function Footer() {
         </div>
 
         <div>
-          <p className="font-display text-sm font-semibold uppercase tracking-wider text-white">Account</p>
-          <ul className="mt-4 space-y-2 text-sm">
+          <p className="font-display text-sm font-semibold uppercase tracking-wider text-ink">Account</p>
+          <ul className="mt-2 text-sm">
             <li>
               <a href="/login" className={linkClass}>
                 Login
@@ -82,8 +83,8 @@ export function Footer() {
         </div>
 
         <div>
-          <p className="font-display text-sm font-semibold uppercase tracking-wider text-white">Support</p>
-          <ul className="mt-4 space-y-2 text-sm">
+          <p className="font-display text-sm font-semibold uppercase tracking-wider text-ink">Support</p>
+          <ul className="mt-2 text-sm">
             <li>
               <a href="/support" className={linkClass}>
                 Contact support
@@ -98,8 +99,8 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-slate-800">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-xs text-slate-500">
+      <div className="border-t border-border">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 text-xs text-muted">
           <p>© {year} MerchantHub AI. Portfolio MVP.</p>
           <p>AI output is suggestion-only — never a definitive judgment.</p>
         </div>

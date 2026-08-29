@@ -246,32 +246,32 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="mh-section-reveal relative overflow-hidden bg-brand-900 px-4 py-20 text-white">
+      <section className="mh-section-reveal relative overflow-hidden border-t border-border bg-gradient-to-br from-brand-50 via-surface to-brand-100/80 px-4 py-16 text-ink dark:from-brand-950 dark:via-surface dark:to-brand-900 dark:text-white">
         <div
-          className="pointer-events-none absolute -right-20 top-0 h-64 w-64 rounded-full bg-brand-500/20 blur-3xl"
+          className="pointer-events-none absolute -right-20 top-0 h-64 w-64 rounded-full bg-brand-400/25 blur-3xl dark:bg-brand-500/20"
           aria-hidden
         />
         <div className="relative mx-auto max-w-6xl">
-          <p className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-brand-200">
+          <p className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-brand-700 dark:text-brand-200">
             For business owners
           </p>
           <h2 className="mt-3 max-w-2xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
             Turn reviews into AI-suggested next steps
           </h2>
-          <p className="mt-4 max-w-2xl text-brand-100">
+          <p className="mt-4 max-w-2xl text-muted dark:text-brand-100">
             Claim your listing, reply to customers, and read sentiment suggestions on your dashboard —
             always framed as guidance, not a final verdict.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-8 flex flex-wrap items-center gap-3">
             <a
               href="/register"
-              className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-brand-900 transition hover:bg-brand-50"
+              className="inline-flex min-h-[44px] items-center justify-center whitespace-nowrap rounded-lg bg-brand-600 px-5 text-sm font-semibold text-white transition hover:bg-brand-700 dark:bg-white dark:text-brand-900 dark:hover:bg-brand-50"
             >
               Create a merchant account
             </a>
             <a
               href="/login"
-              className="rounded-lg border border-white/35 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+              className="inline-flex min-h-[44px] items-center justify-center whitespace-nowrap rounded-lg border border-brand-300 px-5 text-sm font-semibold text-brand-800 transition hover:bg-brand-100/70 dark:border-white/35 dark:text-white dark:hover:bg-white/10"
             >
               Sign in to dashboard
             </a>

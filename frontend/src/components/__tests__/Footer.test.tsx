@@ -36,22 +36,19 @@ describe("Footer hit areas + palette (S-122)", () => {
     );
   });
 
-  // AC2 / out-of-scope guard: palette, typography and dark styling are unchanged
-  // from S-087 — spacing / hit area only.
-  it("keeps the S-087 palette, typography and dark styling", () => {
+  it("uses semantic theme tokens instead of a permanently dark band", () => {
     const { container } = render(<Footer />);
 
     const footer = container.querySelector("footer") as HTMLElement;
-    expect(footer).toHaveClass("bg-slate-950");
-    expect(footer).toHaveClass("border-slate-800");
-    expect(footer).toHaveClass("text-slate-300");
+    expect(footer).toHaveClass("bg-surface-raised");
+    expect(footer).toHaveClass("border-border");
+    expect(footer).not.toHaveClass("bg-slate-950");
 
-    // hover colour on the link boxes is still the brand-300 token
-    expect(screen.getByRole("link", { name: "Home" })).toHaveClass("hover:text-brand-300");
+    expect(screen.getByRole("link", { name: "Home" })).toHaveClass("hover:text-brand-700");
+    expect(screen.getByRole("link", { name: "Home" })).toHaveClass("dark:hover:text-brand-300");
 
-    // the 8px inter-link gap (space-y-2) and text-sm scale are retained
     const list = container.querySelector("ul") as HTMLElement;
-    expect(list).toHaveClass("space-y-2");
     expect(list).toHaveClass("text-sm");
+    expect(list).not.toHaveClass("space-y-2");
   });
 });

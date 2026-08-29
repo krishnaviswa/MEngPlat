@@ -140,7 +140,10 @@ describe("Navbar — S-122 shell (touch targets, active state, mobile menu)", ()
     render(<Navbar user={null} />);
 
     expect(screen.getByRole("link", { name: "Login" })).toHaveClass("min-h-[44px]");
-    expect(screen.getByRole("link", { name: "Sign Up" })).toHaveClass("min-h-[44px]");
+    const signUp = screen.getByRole("link", { name: "Sign Up" });
+    expect(signUp).toHaveClass("min-h-[44px]");
+    // Fill lives on the inner label so the 44px hit box is not a tall solid pill.
+    expect(signUp).not.toHaveClass("bg-brand-600");
   });
 
   // AC6: on /search the "Search" NavLink is the active section.
