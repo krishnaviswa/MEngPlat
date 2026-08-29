@@ -19,6 +19,18 @@ const HERO_PHOTO_CAP = 6;
 const FEATURED_CAP = 6;
 const VOICE_BUSINESS_CAP = 3;
 
+/** Seed/placeholder category names like "Category 9013f519" — hide from the public index. */
+const PLACEHOLDER_CATEGORY_NAME = /^category [0-9a-f]{6,}$/i;
+
+/**
+ * A homepage "voice" quote should read as a real sentence — filters out stub reviews
+ * ("yyhh", "test", "good") that slip past the submission min-length in seed/legacy data.
+ */
+function isPresentableReview(review: { body?: string | null }): boolean {
+  const body = (review.body ?? "").trim();
+  return body.length >= 24 && body.split(/\s+/).length >= 4;
+}
+
 function settledErrorMessage(result: PromiseSettledResult<unknown>, label: string): string | null {
   if (result.status !== "rejected") return null;
   const reason = result.reason;
@@ -102,6 +114,7 @@ export default async function HomePage() {
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
   const categoryIndex = categories
+    .filter((category) => !PLACEHOLDER_CATEGORY_NAME.test(category.name.trim()))
     .map((category) => ({ category, count: categoryCounts.get(category.slug) || 0 }))
     .sort((a, b) => b.count - a.count || a.category.name.localeCompare(b.category.name));
 
@@ -115,7 +128,7 @@ export default async function HomePage() {
   const voiceItems: ReviewVoiceItem[] = [];
   voiceResults.forEach((result, i) => {
     if (result.status !== "fulfilled") return;
-    const review = result.value.find((r) => r.body?.trim()) || result.value[0];
+    const review = result.value.find(isPresentableReview);
     if (!review) return;
     voiceItems.push({ business: voiceCandidates[i], review });
   });

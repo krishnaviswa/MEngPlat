@@ -53,7 +53,7 @@ export function AllBusinessesQueue() {
 
   if (items.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
+      <p className="rounded-lg border border-border border-dashed bg-surface p-6 text-center text-sm text-muted">
         No businesses
       </p>
     );
@@ -65,7 +65,7 @@ export function AllBusinessesQueue() {
         <a
           key={b.id}
           href={`/admin/businesses/${b.id}`}
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-surface-raised p-4 transition hover:border-brand-300 hover:shadow-sm"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface-raised p-4 transition hover:border-brand-300 hover:shadow-sm"
         >
           <div>
             <p className="font-semibold">{b.name}</p>

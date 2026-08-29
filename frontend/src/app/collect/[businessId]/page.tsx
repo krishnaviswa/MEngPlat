@@ -1,12 +1,12 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { RatingWidget } from "@/components/ui/RatingWidget";
 import { generateDraft } from "@/components/collect/DraftEngine";
 import { CHIPS } from "@/components/collect/constants";
 import { GamifiedCollectFlow } from "@/components/collect/gamified/GamifiedCollectFlow";
 import { CelebrationStep } from "@/components/collect/gamified/CelebrationStep";
+import { InlineAuthStep } from "@/components/collect/InlineAuthStep";
 import { isGamifiedReviewEnabled } from "@/lib/featureFlags";
 import { API_URL, auth, businesses, reviews } from "@/lib/api";
 import type { Business, Review } from "@/lib/api";
@@ -39,7 +39,6 @@ async function resolveBusiness(param: string): Promise<Business> {
 /** Public review-collection hub. All star ratings continue equally — no low-star intercept. */
 export default function CollectReviewPage({ params }: { params: Promise<{ businessId: string }> }) {
   const { businessId } = use(params);
-  const router = useRouter();
   const [step, setStep] = useState<"stars" | "text" | "done">("stars");
   const [rating, setRating] = useState(0);
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
@@ -50,6 +49,9 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
   const [loadFailed, setLoadFailed] = useState(false);
   const [submitted, setSubmitted] = useState<Review | null>(null);
   const [celebrated, setCelebrated] = useState(false);
+  // S-121: Submit while unauthenticated swaps the current step's content for
+  // InlineAuthStep in place, instead of navigating to /login (see ADR-018).
+  const [authPending, setAuthPending] = useState(false);
   const gamified = isGamifiedReviewEnabled();
 
   useEffect(() => {
@@ -82,14 +84,10 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
     );
   }
 
-  async function submit() {
+  /** Actually posts the review — called once already authenticated, either
+   * directly from `submit()` or right after `handleAuthenticated()` fires. */
+  async function createReview() {
     setError("");
-    try {
-      await auth.me();
-    } catch {
-      router.push(`/login?next=/collect/${businessId}`);
-      return;
-    }
     try {
       const created = await reviews.create({ business_id: business!.id, rating, body });
       setSubmitted(created);
@@ -97,6 +95,26 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not submit review");
     }
+  }
+
+  async function submit() {
+    setError("");
+    try {
+      await auth.me();
+    } catch {
+      // S-121: show the inline sign-in step in place, no navigation away —
+      // rating/chips/body stay exactly as composed (ADR-018).
+      setAuthPending(true);
+      return;
+    }
+    await createReview();
+  }
+
+  /** Fired by InlineAuthStep once sign-in succeeds — auto-submits the review
+   * already held in state, no re-entry (S-121 AC6). */
+  function handleAuthenticated() {
+    setAuthPending(false);
+    void createReview();
   }
 
   const mapsHref = business
@@ -148,6 +166,8 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
           fillDraft={fillDraft}
           error={error}
           onSubmit={submit}
+          authPending={authPending}
+          onAuthenticated={handleAuthenticated}
         />
       )}
 
@@ -191,7 +211,13 @@ export default function CollectReviewPage({ params }: { params: Promise<{ busine
         </div>
       )}
 
-      {!gamified && step === "text" && (
+      {!gamified && step === "text" && authPending && (
+        <div className="mt-6 space-y-3 rounded-xl border border-border bg-surface-raised p-5 shadow-sm">
+          <InlineAuthStep onAuthenticated={handleAuthenticated} />
+        </div>
+      )}
+
+      {!gamified && step === "text" && !authPending && (
         <form
           onSubmit={(e) => {
             e.preventDefault();

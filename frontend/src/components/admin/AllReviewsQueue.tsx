@@ -36,7 +36,7 @@ export function AllReviewsQueue() {
 
   if (items.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed bg-surface p-6 text-center text-sm text-muted">
+      <p className="rounded-lg border border-border border-dashed bg-surface p-6 text-center text-sm text-muted">
         No reviews
       </p>
     );

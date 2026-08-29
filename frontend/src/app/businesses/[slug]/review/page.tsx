@@ -1,4 +1,5 @@
 import { ReviewForm } from "@/components/ReviewForm";
+import { PageHeading } from "@/components/ui/PageHeading";
 import { businesses } from "@/lib/api";
 
 interface Props {
@@ -15,7 +16,7 @@ export default async function WriteReviewPage({ params }: Props) {
   } catch {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold">Business not found</h1>
+        <PageHeading>Business not found</PageHeading>
         <a href="/search" className="mt-4 inline-block text-brand-600">Back to search</a>
       </div>
     );
@@ -23,7 +24,7 @@ export default async function WriteReviewPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-2xl font-bold">Write a review</h1>
+      <PageHeading>Write a review</PageHeading>
       <p className="mt-1 text-muted">for {business.name}</p>
       <div className="mt-6">
         <ReviewForm business={business} />

@@ -50,7 +50,7 @@ export function ReportShopButton({ businessId }: { businessId: string }) {
   }
 
   return (
-    <form onSubmit={submit} className="mt-2 space-y-2 rounded-lg border bg-surface-raised p-3">
+    <form onSubmit={submit} className="mt-2 space-y-2 rounded-lg border border-border bg-surface-raised p-3">
       <textarea
         required
         minLength={10}

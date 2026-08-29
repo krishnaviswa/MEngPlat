@@ -1,3 +1,5 @@
+import { PageHeading } from "@/components/ui/PageHeading";
+
 interface DashboardProps {
   title: string;
   description?: string;
@@ -12,11 +14,11 @@ export function Dashboard({ title, description, navItems, sidePanel, children }:
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-ink">{title}</h1>
+        <PageHeading>{title}</PageHeading>
         {description && <p className="text-muted">{description}</p>}
       </div>
       <div className="grid gap-6 lg:grid-cols-4">
-        <nav className="space-y-1 rounded-xl border bg-surface-raised p-4 lg:col-span-1">
+        <nav className="space-y-1 rounded-xl border border-border bg-surface-raised p-4 lg:col-span-1">
           {navItems.map((item) => (
             <a
               key={item.href}

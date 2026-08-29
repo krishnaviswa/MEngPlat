@@ -9,6 +9,7 @@ import { RatingWidget } from "@/components/ui/RatingWidget";
 import { ReviewHighlights } from "@/components/ReviewHighlights";
 import { ReviewsList } from "@/components/ReviewsList";
 import { Card } from "@/components/ui/Card";
+import { PageHeading } from "@/components/ui/PageHeading";
 import { API_URL, businesses, externalReviews, photos as photosApi, reviews } from "@/lib/api";
 
 interface Props {
@@ -27,7 +28,7 @@ export default async function BusinessPage({ params }: Props) {
   } catch {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold">Business not found</h1>
+        <PageHeading>Business not found</PageHeading>
         <a href="/search" className="mt-4 inline-block text-brand-600">
           Back to search
         </a>
@@ -69,7 +70,7 @@ export default async function BusinessPage({ params }: Props) {
             <p className="text-sm font-medium text-brand-700">
               {business.categories?.[0]?.name || "Local business"}
             </p>
-            <h1 className="mt-1 text-3xl font-bold">{business.name}</h1>
+            <PageHeading size="lg" className="mt-1">{business.name}</PageHeading>
             <p className="mt-2 text-muted">{placeLine}</p>
             {business.phone && <p className="mt-1 text-sm text-muted">{business.phone}</p>}
             <div className="mt-3 flex items-center gap-2">

@@ -40,11 +40,29 @@ Future<void> _pumpFrames(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// The login screen defaults to the OTP method (S-092): the email/password
+/// credentials fields and the "Forgot password?" link below them only render
+/// once the Password method is selected, which is the path a password user
+/// takes to reach the reset flow.
+Future<void> _selectPasswordMethod(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('loginMethodPassword')));
+  await _pumpFrames(tester);
+}
+
+/// From a freshly pumped app: switch to Password login, then open the
+/// forgot-password screen via its link.
+Future<void> _openForgotPassword(WidgetTester tester) async {
+  await _selectPasswordMethod(tester);
+  await tester.ensureVisible(find.byKey(const Key('forgotPasswordLink')));
+  await tester.tap(find.byKey(const Key('forgotPasswordLink')));
+  await _pumpFrames(tester);
+}
+
 Future<({ProviderContainer container, _FakeAuthController auth})> _pumpApp(
   WidgetTester tester, {
   Object? forgotPasswordError,
 }) async {
-  tester.view.physicalSize = const Size(400, 900);
+  tester.view.physicalSize = const Size(400, 1400);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -68,8 +86,9 @@ Future<({ProviderContainer container, _FakeAuthController auth})> _pumpApp(
 }
 
 void main() {
-  testWidgets('AC1: forgotPasswordLink is visible on the login screen', (tester) async {
+  testWidgets('AC1: forgotPasswordLink is visible below the Password credentials fields', (tester) async {
     final result = await _pumpApp(tester);
+    await _selectPasswordMethod(tester);
     expect(find.byKey(const Key('forgotPasswordLink')), findsOneWidget);
     expect(find.text('Forgot password?'), findsOneWidget);
     result.container.dispose();
@@ -77,8 +96,7 @@ void main() {
 
   testWidgets('AC2: tapping the link opens a screen with only an email field and submit button', (tester) async {
     final result = await _pumpApp(tester);
-    await tester.tap(find.byKey(const Key('forgotPasswordLink')));
-    await _pumpFrames(tester);
+    await _openForgotPassword(tester);
 
     expect(find.text('Forgot password'), findsWidgets);
     expect(find.byKey(const Key('emailField')), findsOneWidget);
@@ -106,8 +124,7 @@ void main() {
   testWidgets('AC3/AC5: submitting a well-formed email shows the generic confirmation and browser instruction',
       (tester) async {
     final result = await _pumpApp(tester);
-    await tester.tap(find.byKey(const Key('forgotPasswordLink')));
-    await _pumpFrames(tester);
+    await _openForgotPassword(tester);
 
     await tester.enterText(find.byKey(const Key('emailField')), 'user@example.com');
     await tester.tap(find.byKey(const Key('submitButton')));
@@ -132,8 +149,7 @@ void main() {
   testWidgets('AC3: confirmation copy is identical for an unknown/unregistered-looking email (no enumeration)',
       (tester) async {
     final result = await _pumpApp(tester);
-    await tester.tap(find.byKey(const Key('forgotPasswordLink')));
-    await _pumpFrames(tester);
+    await _openForgotPassword(tester);
 
     await tester.enterText(find.byKey(const Key('emailField')), 'never-registered@example.com');
     await tester.tap(find.byKey(const Key('submitButton')));
@@ -150,8 +166,7 @@ void main() {
   testWidgets('AC4: network/5xx failure shows a generic error and allows retry; never silently succeeds',
       (tester) async {
     final result = await _pumpApp(tester, forgotPasswordError: ApiException('Service unavailable', statusCode: 503));
-    await tester.tap(find.byKey(const Key('forgotPasswordLink')));
-    await _pumpFrames(tester);
+    await _openForgotPassword(tester);
 
     await tester.enterText(find.byKey(const Key('emailField')), 'user@example.com');
     await tester.tap(find.byKey(const Key('submitButton')));
@@ -175,23 +190,23 @@ void main() {
 
   testWidgets('AC6: Back to sign in from the form state returns to /login without submitting', (tester) async {
     final result = await _pumpApp(tester);
-    await tester.tap(find.byKey(const Key('forgotPasswordLink')));
-    await _pumpFrames(tester);
+    await _openForgotPassword(tester);
 
     await tester.tap(find.byKey(const Key('backToSignInLink')));
     await _pumpFrames(tester);
 
     expect(result.auth.lastForgotPasswordEmail, isNull);
-    expect(find.byKey(const Key('passwordField')), findsOneWidget);
-    expect(find.byKey(const Key('forgotPasswordLink')), findsOneWidget);
+    // Back on a fresh login screen (its method selector is present); the
+    // forgot-password screen is gone.
+    expect(find.byKey(const Key('loginMethodPassword')), findsOneWidget);
+    expect(find.byKey(const Key('emailField')), findsNothing);
 
     result.container.dispose();
   });
 
   testWidgets('AC6: Back to sign in from the confirmation state also returns to /login', (tester) async {
     final result = await _pumpApp(tester);
-    await tester.tap(find.byKey(const Key('forgotPasswordLink')));
-    await _pumpFrames(tester);
+    await _openForgotPassword(tester);
     await tester.enterText(find.byKey(const Key('emailField')), 'user@example.com');
     await tester.tap(find.byKey(const Key('submitButton')));
     await _pumpFrames(tester);
@@ -200,7 +215,8 @@ void main() {
     await tester.tap(find.byKey(const Key('backToSignInLink')));
     await _pumpFrames(tester);
 
-    expect(find.byKey(const Key('passwordField')), findsOneWidget);
+    expect(find.byKey(const Key('loginMethodPassword')), findsOneWidget);
+    expect(find.byKey(const Key('forgotPasswordConfirmation')), findsNothing);
 
     result.container.dispose();
   });

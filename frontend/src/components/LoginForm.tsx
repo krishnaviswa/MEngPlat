@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { AuthMethodToggle, type AuthMethod } from "@/components/AuthMethodToggle";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { PhoneOtpPanel } from "@/components/PhoneOtpPanel";
+import { Input } from "@/components/ui/Input";
+import { PageHeading } from "@/components/ui/PageHeading";
 import { Select } from "@/components/ui/Select";
 import { auth, redirectAfterAuth, type TotpSetupResponse } from "@/lib/api";
 
@@ -129,12 +131,12 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border bg-surface-raised p-6 shadow-sm">
-      <h1 className="text-xl font-bold">
+    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-4 rounded-xl border border-border bg-surface-raised p-6 shadow-sm">
+      <PageHeading size="sm">
         {step === "credentials" && "Login"}
         {step === "enroll" && "Set up authenticator"}
         {step === "verify" && "Authenticator code"}
-      </h1>
+      </PageHeading>
 
       {registeredNote && step === "credentials" && (
         <p className="rounded bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/40 dark:text-green-300">
@@ -164,21 +166,21 @@ export function LoginForm() {
           <AuthMethodToggle value={authMethod} onChange={setAuthMethod} />
           {authMethod === "authenticator" ? (
             <>
-              <input
+              <Input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email"
-                className="w-full rounded border px-3 py-2"
+                size="md"
               />
-              <input
+              <Input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
-                className="w-full rounded border px-3 py-2"
+                size="md"
               />
               <a href="/forgot-password" className="block text-right text-xs text-brand-600 underline">
                 Forgot password?
@@ -237,7 +239,7 @@ export function LoginForm() {
           ) : (
             <p className="text-sm text-muted">Preparing authenticator…</p>
           )}
-          <input
+          <Input
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"
@@ -247,7 +249,7 @@ export function LoginForm() {
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="6-digit code"
-            className="w-full rounded border px-3 py-2"
+            size="md"
           />
           <button
             type="submit"
@@ -265,7 +267,7 @@ export function LoginForm() {
       {step === "verify" && (
         <>
           <p className="text-sm text-muted">Enter the 6-digit code from your authenticator app.</p>
-          <input
+          <Input
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"
@@ -275,7 +277,7 @@ export function LoginForm() {
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="6-digit code"
-            className="w-full rounded border px-3 py-2"
+            size="md"
           />
           <button
             type="submit"

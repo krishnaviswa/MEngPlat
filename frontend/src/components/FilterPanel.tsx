@@ -1,4 +1,5 @@
 import type { Category } from "@/lib/api";
+import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 
 export type SearchFilterParams = {
@@ -36,7 +37,7 @@ export function FilterPanel({ params, categories = [], cities = [] }: FilterPane
   const activeCity = params?.city?.trim().toLowerCase() ?? "";
 
   return (
-    <aside className="rounded-xl border bg-surface-raised p-4">
+    <aside className="rounded-xl border border-border bg-surface-raised p-4">
       <h3 className="font-semibold text-ink">Filters</h3>
       {cities.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -66,10 +67,10 @@ export function FilterPanel({ params, categories = [], cities = [] }: FilterPane
         <input type="hidden" name="page" value="1" />
         <div>
           <label className="text-sm text-muted">City</label>
-          <input
+          <Input
             name="city"
             defaultValue={params?.city}
-            className="mt-1 w-full rounded border px-3 py-2 text-sm"
+            className="mt-1"
             placeholder="Any city"
           />
         </div>

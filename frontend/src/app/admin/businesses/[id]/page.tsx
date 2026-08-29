@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { AdminBackLink } from "@/components/AdminBackLink";
 import { ReviewCard } from "@/components/ReviewCard";
 import { RequireAuth } from "@/components/RequireAuth";
+import { PageHeading } from "@/components/ui/PageHeading";
 import { businesses, payments, reviews, type Business, type PlacementResponse, type Review } from "@/lib/api";
 
 /** Admin — a single business's shop name plus its full review history (every status). */
@@ -47,7 +48,7 @@ export default function AdminBusinessDrilldownPage({ params }: { params: Promise
         {!loading && !error && !business && <p className="text-sm text-muted">Business not found.</p>}
         {business && (
           <>
-            <h1 className="text-2xl font-bold">{business.name}</h1>
+            <PageHeading>{business.name}</PageHeading>
             <p className="text-muted">{business.city}</p>
 
             {placement && (
