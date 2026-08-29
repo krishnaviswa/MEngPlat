@@ -85,7 +85,14 @@ export function ReviewCard({
             </a>
           )}
           <p className="font-medium">{review.author?.full_name || "Customer"}</p>
-          <RatingWidget value={review.rating} readonly size="sm" />
+          <div className="flex items-center gap-2">
+            <RatingWidget value={review.rating} readonly size="sm" />
+            {review.verified_purchase && (
+              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-300">
+                ✓ Verified purchase
+              </span>
+            )}
+          </div>
         </div>
         {showSentimentBadge && sentiment && (
           <span className={`rounded-full px-2 py-0.5 text-xs capitalize ${sentimentColor}`}>

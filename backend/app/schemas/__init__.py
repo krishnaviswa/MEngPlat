@@ -784,3 +784,67 @@ class BusinessReportResponse(BaseModel):
 
 class BusinessReportAdminUpdate(BaseModel):
     status: str
+
+
+# --- Partner review channel (S-123) -------------------------------------------
+
+
+class PartnerReviewRequestCreate(BaseModel):
+    """Body a partner POSTs to /api/v1/partner/review-requests.
+
+    Deliberately opaque: no invoice amount, line items, or customer name. An
+    optional phone is hashed at rest, never stored raw.
+    """
+
+    merchant_ref: str = Field(min_length=1, max_length=255)
+    transaction_ref: str = Field(min_length=1, max_length=255)
+    channel: Literal["invoice_link", "sms", "whatsapp", "receipt_qr"] = "invoice_link"
+    customer_phone: str | None = Field(default=None, max_length=32)
+    occurred_at: datetime | None = None
+
+
+class PartnerReviewRequestResponse(BaseModel):
+    review_request_id: UUID
+    collect_url: str
+    expires_at: datetime
+    merchant_status: Literal["matched"] = "matched"
+
+
+class CollectTokenContext(BaseModel):
+    """What the login-free /c/{token} page needs to render the wizard."""
+
+    business: BusinessSummary
+    status: Literal["pending", "submitted", "expired"]
+    expires_at: datetime
+
+
+class CollectTokenReviewCreate(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    title: str | None = Field(default=None, max_length=255)
+    body: str = Field(min_length=1)
+
+
+class CollectTokenReviewResponse(BaseModel):
+    review_id: UUID
+    status: ReviewStatus
+    business_slug: str
+    verified_purchase: bool = True
+
+
+class PartnerMockDispatchRequest(BaseModel):
+    """Dev-only: the mock billing console asks the server to sign + send as the demo partner."""
+
+    business_slug: str = Field(min_length=1)
+    transaction_ref: str | None = Field(default=None, max_length=255)
+    customer_phone: str | None = Field(default=None, max_length=32)
+
+
+class PartnerMockRequestRow(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    token: str
+    business_slug: str
+    partner_txn_ref: str
+    status: str
+    review_id: UUID | None = None
+    created_at: datetime

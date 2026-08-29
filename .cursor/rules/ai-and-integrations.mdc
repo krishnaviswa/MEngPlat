@@ -38,5 +38,14 @@ Defaults for Compose, pytest, and staging are mock/local — see `README.md` §3
 - `get_sms_provider()` — `SMS_PROVIDER=mock|msg91` (ADR-011)
 - Mock logs the OTP; Msg91 for live India SMS. Phone OTP login skips TOTP (same as Google).
 
+## Partners (review channel)
+- `get_partner_provider()` — `PARTNERS_PROVIDER=mock` only for now (ADR-019, S-123)
+- Mock verifies the `X-MH-Signature` HMAC **for real** (per-partner secret) and **logs**
+  outbound `review.captured` callbacks instead of POSTing. An `http` adapter is a later slice.
+- Partner reviews are native `reviews` rows (`source='partner'`, `verified_purchase=true`),
+  never `external_reviews`. Login-free submit is unlocked only by a single-use token
+  (`/api/v1/collect/{token}`); organic `/collect/{businessId}` keeps its login gate.
+- `/api/v1/partner-mock/*` is double-gated on `debug` **and** `PARTNERS_PROVIDER=mock`.
+
 ## Maps
 - OpenStreetMap tiles + nearby Haversine (`app/routers/maps.py` + Leaflet). Address geocoding via Nominatim was removed in S-084. Google Maps env vars are unused leftovers.

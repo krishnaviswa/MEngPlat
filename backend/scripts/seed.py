@@ -10,6 +10,7 @@ Gated by SEED_MODE / SEED_VERSION (see app.config.Settings):
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -24,6 +25,8 @@ from app.models import (
     BusinessStatus,
     Category,
     Merchant,
+    Partner,
+    PartnerMerchantLink,
     SeedRun,
     User,
     UserRole,
@@ -75,6 +78,10 @@ def should_run_seed(
         if has_current_version:
             return False, "SEED_MODE=if_outdated — current SEED_VERSION already applied"
         return True, "SEED_MODE=if_outdated — marker missing or outdated, running seed"
+    # Incidental S-123 fix: this fallback return was misplaced into
+    # _ensure_demo_login_phones by an earlier merge, leaving should_run_seed()
+    # returning None for an unrecognised mode (test_seed_mode failed on main).
+    return False, f"Unknown SEED_MODE={mode!r} — treating as off"
 
 
 async def _ensure_demo_login_phones(db) -> None:
@@ -83,7 +90,6 @@ async def _ensure_demo_login_phones(db) -> None:
         existing = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
         if existing:
             existing.phone = phone
-    return False, f"Unknown SEED_MODE={mode!r} — treating as off"
 
 
 async def _ensure_categories(db, categories: list[Category]) -> list[Category]:
@@ -195,7 +201,56 @@ async def _seed_base(db) -> tuple[Merchant, list[Category]]:
     auto_repair = next(c for c in categories if c.slug == "auto_repair")
     db.add(BusinessCategory(business_id=pending_business.id, category_id=auto_repair.id))
 
+    await _ensure_demo_partner(db, business)
+
     return merchant, list(categories)
+
+
+async def _ensure_demo_partner(db, linked_business: Business | None = None) -> None:
+    """S-123: idempotently upsert one demo partner + merchant link so the mock
+    billing console (/dev/partner-console) and the login-free /c/{token} flow
+    work out of the box. Credentials come from config defaults (mock only -- see
+    ADR-019). Runs on both the fresh-seed and re-seed paths."""
+    settings = get_settings()
+    key_hash = hashlib.sha256(settings.partner_demo_api_key.encode("utf-8")).hexdigest()
+
+    partner = (
+        await db.execute(select(Partner).where(Partner.slug == "demo-billing"))
+    ).scalar_one_or_none()
+    if partner is None:
+        partner = Partner(slug="demo-billing", name="Demo Billing App", api_key_hash=key_hash,
+                          hmac_secret=settings.partner_demo_hmac_secret, status="active")
+        db.add(partner)
+    partner.api_key_hash = key_hash
+    partner.hmac_secret = settings.partner_demo_hmac_secret
+    partner.callback_url = "http://localhost:8000/api/v1/partner-mock/callback-sink"
+    partner.status = "active"
+    await db.flush()
+
+    business = linked_business
+    if business is None:
+        business = (
+            await db.execute(
+                select(Business).where(Business.status == BusinessStatus.APPROVED).limit(1)
+            )
+        ).scalar_one_or_none()
+    if business is None:
+        return
+    link = (
+        await db.execute(
+            select(PartnerMerchantLink).where(
+                PartnerMerchantLink.partner_id == partner.id,
+                PartnerMerchantLink.partner_merchant_ref == "demo-merchant-001",
+            )
+        )
+    ).scalar_one_or_none()
+    if link is None:
+        db.add(
+            PartnerMerchantLink(
+                partner_id=partner.id, partner_merchant_ref="demo-merchant-001", business_id=business.id
+            )
+        )
+        await db.flush()
 
 
 async def _record_seed_run(db, version: str, notes: str | None = None) -> None:
@@ -262,6 +317,7 @@ async def seed() -> None:
                     if not existing.totp_enabled:
                         enable_demo_totp(existing)
             await _ensure_demo_login_phones(db)
+            await _ensure_demo_partner(db)
             merchant_result = await db.execute(
                 select(Merchant).join(User, Merchant.user_id == User.id).where(User.email == "merchant@example.com")
             )

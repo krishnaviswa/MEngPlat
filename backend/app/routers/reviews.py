@@ -9,7 +9,6 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.dependencies import get_current_user, require_roles
 from app.models import (
-    AIAnalysis,
     Business,
     BusinessStatus,
     Merchant,
@@ -44,6 +43,7 @@ from app.services.content_moderation import contains_disallowed_language
 from app.services.cache import cache_delete_pattern
 from app.services.email import try_send_new_review
 from app.services.notifications import SCENARIO_NEW_REVIEW, upsert_notice
+from app.services.review_pipeline import build_review_ai_analysis
 
 router = APIRouter(prefix="/reviews", tags=["Reviews"])
 
@@ -191,27 +191,11 @@ async def create_review(
             status_code=status.HTTP_409_CONFLICT, detail="You have already reviewed this business"
         ) from None
 
-    provider = get_ai_provider()
-    analysis_result = await provider.analyze_review_text(payload.body, {"business_id": str(payload.business_id)})
-
-    ai = AIAnalysis(
-        review_id=review.id,
-        analysis_type="text",
-        # coerce_sentiment runs a second time here even though every provider
-        # already applies it -- a provider bug that skips it would otherwise
-        # raise ValueError on Sentiment(...) and roll back this review via
-        # get_db's except-block, which is the exact failure this whole
-        # gateway/coercion chain exists to prevent.
-        sentiment=Sentiment(coerce_sentiment(analysis_result.sentiment)),
-        summary=analysis_result.summary,
-        positives=analysis_result.positives,
-        complaints=analysis_result.complaints,
-        suggested_response=analysis_result.suggested_response,
-        # meta.provider is who actually answered this call -- the configured
-        # provider after a gateway fallback, not necessarily who was asked.
-        provider=analysis_result.meta.provider,
-        raw_response=analysis_result.raw_response,
-        degraded=analysis_result.meta.degraded,
+    # Shared with the partner login-free path so the two cannot drift -- see
+    # app/services/review_pipeline.py. get_ai_provider() is resolved here (this
+    # module's name) so existing tests that monkeypatch it keep working.
+    ai = await build_review_ai_analysis(
+        review.id, payload.body, business_id=payload.business_id, provider=get_ai_provider()
     )
     db.add(ai)
 

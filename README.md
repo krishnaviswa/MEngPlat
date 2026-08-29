@@ -211,9 +211,9 @@ flowchart LR
 **A layered monolith with ports & adapters at the volatile edges.**
 
 - **Layered** for everything stable: HTTP router → service → ORM model → PostgreSQL. Straightforward, easy to trace, no ceremony.
-- **Ports & adapters (hexagonal)** only where vendors would otherwise weld the product: **AI**, **file storage**, **transactional email**, and **payments**. Each is a `Protocol` (or ABC for AI) plus a factory selected by one environment variable. Local/CI defaults are always the **mock** (or `local` disk) implementation.
+- **Ports & adapters (hexagonal)** only where vendors would otherwise weld the product: **AI**, **file storage**, **transactional email**, **payments**, **SMS**, **WhatsApp**, and the **partner review channel**. Each is a `Protocol` (or ABC) plus a factory selected by one environment variable. Local/CI defaults are always the **mock** (or `local` disk) implementation.
 
-The original write-up named two seams (AI + storage). Email (S-035 / ADR-007) and payments (S-036 / ADR-008) were added **using the same pattern**, not a new architecture. That is the intended drift: more adapters, same rule. Applying hexagonal architecture to the whole app would bury an MVP in indirection; applying none of it would weld the app to OpenAI, Resend, Razorpay, and a single cloud disk.
+The original write-up named two seams (AI + storage). Email (S-035 / ADR-007), payments (S-036 / ADR-008), SMS (ADR-011), WhatsApp (ADR-012), and the partner review channel (S-123 / ADR-019) were added **using the same pattern**, not a new architecture. That is the intended drift: more adapters, same rule. Applying hexagonal architecture to the whole app would bury an MVP in indirection; applying none of it would weld the app to OpenAI, Resend, Razorpay, and a single cloud disk.
 
 ### System overview
 
@@ -237,6 +237,7 @@ flowchart TB
         STORAGE[Storage port]
         MAIL[Email provider port]
         PAY[Payment provider port]
+        PARTNER[Partner review channel port]
     end
 
     subgraph Data
@@ -256,10 +257,12 @@ flowchart TB
     API --> STORAGE
     API --> MAIL
     API --> PAY
+    API --> PARTNER
     STORAGE --> FS
     AI --> LLM[OpenAI-compatible / Mock]
     MAIL --> MailVend[Mock log / Resend]
     PAY --> PayVend[Mock / Razorpay]
+    PARTNER --> PartnerVend[Mock log / partner callback URL]
     API --> Maps[OpenStreetMap tiles + Leaflet]
 ```
 
@@ -360,10 +363,11 @@ These four are **functionally in the product**. Tests and Compose must stay vend
 | SMS | `SMS_PROVIDER` | `mock` (logs OTP) | `msg91` | Yes — Phone OTP login |
 | Review sources | `GOOGLE_PLACES_API_KEY` | unset → `mock` (deterministic fixtures, no network) | Google Places Text Search + Place Details | Yes — merchant link/sync + public sample (**S-048**). Empty key must stay `""`, not `"placeholder"` |
 | WhatsApp | `WHATSAPP_PROVIDER` | `mock` (HMAC + fixture media; no Meta calls) | `meta_cloud` (`app/services/whatsapp/providers/meta_cloud.py`) | **Not Accepted** (S-050..053 Testing). Mock + Jest/pytest passing locally; formal Tester report + PM Accept still required — [§14 cutover](#going-live-with-meta-whatsapp-cloud-api) |
+| Partner review channel | `PARTNERS_PROVIDER` | `mock` (verifies `X-MH-Signature` HMAC for real; logs callbacks) | `http` adapter — **not built** (later slice, ADR-019) | **Mock loop only** (S-123). End-to-end clickable: dev billing console → push API → login-free `/c/{token}` → verified review → logged callback. Real partner integration gated on a written pilot |
 
 **Staging policy:** spin the same Compose stack (or a Railway “staging” project) with those four defaults. Do not buy Resend/Razorpay/S3 to prove the web loop. Prove the loop against mocks; prove adapters with contract tests (`backend/tests/test_email_provider.py`, `test_payments.py`, `test_storage.py`, `test_ai_*`).
 
-Architecture files for this layer: [ADR-007](docs/agents/adrs/ADR-007-transactional-email-port.md), [ADR-008](docs/agents/adrs/ADR-008-razorpay-featured-fee.md), [ADR-010](docs/agents/adrs/ADR-010-featured-sku-admin-approve.md), [ADR-011](docs/agents/adrs/ADR-011-phone-otp-sms.md), [ADR-012](docs/agents/adrs/ADR-012-whatsapp-cloud-api-port.md), [ADR-009](docs/agents/adrs/ADR-009-web-functional-e2e.md) (how we *prove* the loop), plus `.cursor/rules/ai-and-integrations.mdc` / `backend/app/services/CLAUDE.md`.
+Architecture files for this layer: [ADR-007](docs/agents/adrs/ADR-007-transactional-email-port.md), [ADR-008](docs/agents/adrs/ADR-008-razorpay-featured-fee.md), [ADR-010](docs/agents/adrs/ADR-010-featured-sku-admin-approve.md), [ADR-011](docs/agents/adrs/ADR-011-phone-otp-sms.md), [ADR-012](docs/agents/adrs/ADR-012-whatsapp-cloud-api-port.md), [ADR-019](docs/agents/adrs/ADR-019-partner-review-channel-mock.md) (partner review channel), [ADR-009](docs/agents/adrs/ADR-009-web-functional-e2e.md) (how we *prove* the loop), plus `.cursor/rules/ai-and-integrations.mdc` / `backend/app/services/CLAUDE.md`. Partner channel strategy: [`PARTNER_REVIEW_CHANNEL_STRATEGY.md`](PARTNER_REVIEW_CHANNEL_STRATEGY.md).
 
 ### Architecture vs original product design (drift)
 
@@ -453,6 +457,10 @@ erDiagram
     payments ||--o| featured_placements : "activates"
     users ||--o{ payments : "merchant buyer"
     businesses ||--o{ external_reviews : "google sample"
+    partners ||--o{ partner_merchant_links : "maps merchants"
+    partners ||--o{ partner_review_requests : mints
+    businesses ||--o{ partner_review_requests : "receives verified reviews"
+    partner_review_requests ||--o| reviews : "produces (native, source=partner)"
 
     users {
         uuid id PK
@@ -501,7 +509,20 @@ erDiagram
         int rating
         text body
         enum status
+        string source
+        bool verified_purchase
         int like_count
+    }
+    partner_review_requests {
+        uuid id PK
+        uuid partner_id FK
+        uuid business_id FK
+        string partner_txn_ref
+        string partner_customer_ref
+        string token UK
+        string status
+        timestamptz expires_at
+        uuid review_id FK
     }
     ai_analyses {
         uuid id PK
@@ -543,7 +564,7 @@ erDiagram
 | `businesses`          | Business listings owned by a merchant                               |
 | `categories`          | Business taxonomy                                                   |
 | `business_categories` | M:N business ↔ category junction                                    |
-| `reviews`             | Customer reviews on businesses (rating 1–5 embedded)                |
+| `reviews`             | Customer reviews on businesses (rating 1–5 embedded). `source` (`organic`\|`partner`) + `verified_purchase` added S-123 |
 | `photos`              | Business gallery + review attachments                               |
 | `ai_analyses`         | Text and image AI results                                           |
 | `replies`             | Merchant responses to reviews                                       |
@@ -561,6 +582,9 @@ erDiagram
 | `external_reviews`    | Third-party review sample (Google Places). **Never** blended into `average_rating` / `review_count` (**S-048**) |
 | `whatsapp_sessions`   | Short-lived `MH-XXXXXXXX` token binding a WhatsApp phone to a business (**S-050**, mock default) |
 | `business_update_drafts` | AI-extracted profile fields (`pending`/`applied`/`discarded`) — never auto-live (**S-052**) |
+| `partners`            | Billing/POS partner: API-key **hash**, HMAC secret, callback URL, status (**S-123**, mock loop) |
+| `partner_merchant_links` | Maps a partner's opaque `merchant_ref` → a MerchantHub `Business`. `UNIQUE(partner_id, merchant_ref)` |
+| `partner_review_requests` | "We asked for a review" per transaction: single-use `token`, `expires_at`, `redeemed_at`. `UNIQUE(partner_id, txn_ref)` = one per real txn (**S-123**) |
 
 
 SQLAlchemy models live in a single file: `[backend/app/models/__init__.py](backend/app/models/__init__.py)`. `Business.external_platform_refs` is nullable JSONB (`{"google": "<place_id>"}` once linked; `NULL` when not). `Business.address_edit_count` (S-073) counts address-field edits since creation; `0` means the next address change needs no OTP, `>=1` means it does (see §7 `PATCH /businesses/{id}`). `BusinessUpdate.country` is included on PATCH (S-084); the `Business.country` column itself already existed.
@@ -786,6 +810,41 @@ sequenceDiagram
 
 
 
+
+### Partner review channel — mock loop (S-123)
+
+A billing / invoicing / POS partner pushes a closed transaction; the customer
+reviews with **no MerchantHub account**. The single-use token minted for that one
+transaction is the only thing that unlocks the login-free page — the organic
+`/collect/{businessId}` flow keeps its login gate untouched. Partner reviews are
+**native `reviews` rows** (`source='partner'`, `verified_purchase=true`) and run
+the same AI + keyword-moderation pipeline. See [ADR-019](docs/agents/adrs/ADR-019-partner-review-channel-mock.md).
+
+```mermaid
+sequenceDiagram
+    participant P as Billing app (dev console)
+    participant API as FastAPI /partner/review-requests
+    participant C as Customer
+    participant AI as AI + moderation
+    participant CB as partner callback_url
+
+    P->>API: POST review-request (Bearer key + X-MH-Signature HMAC)
+    Note over API: UNIQUE(partner_id, txn_ref) — one review per real txn
+    API-->>P: collect_url = /c/{single-use token} + expires_at
+    P->>C: link on the invoice / receipt SMS
+    C->>API: GET /collect/{token} — no auth, token is the capability
+    API-->>C: business summary + status
+    C->>API: POST /collect/{token} {rating, body}
+    API->>AI: analyze + keyword check (unchanged pipeline)
+    AI-->>API: sentiment/themes/draft (suggestion) + status
+    API->>API: native review (source=partner, verified_purchase), burn token
+    API-->>C: "your verified review is live" (or held for moderation)
+    API->>CB: review.captured (signed) — mock provider logs it
+```
+
+Dev-only mock billing console: `/dev/partner-console` (gated by
+`NEXT_PUBLIC_ENABLE_PARTNER_MOCK`; backend `/api/v1/partner-mock/*` double-gated
+on `debug` + `PARTNERS_PROVIDER=mock`).
 
 ### AI analysis branching
 
@@ -1232,6 +1291,29 @@ Query on `GET /businesses`: `city`, `slugs` (comma-separated exact-slug filter, 
 ```jsonc
 // POST /reviews  →  Review with ai_analysis { sentiment, summary, suggested_response }
 { "business_id": "uuid", "rating": 5, "title": "Great coffee!", "body": "Friendly staff and excellent pastries. Will return!" }
+```
+
+
+
+### Partner review channel — `/partner`, `/collect` (S-123, mock loop)
+
+
+| Method | Path | Auth | Description |
+| ------ | ---- | ---- | ----------- |
+| POST | `/partner/review-requests` | Partner key + `X-MH-Signature` HMAC | Push a closed transaction → `{ review_request_id, collect_url, expires_at }`. `201` new / `200` idempotent on `(partner_id, transaction_ref)`. `401` bad key/signature, `404` `merchant_not_onboarded` |
+| GET | `/collect/{token}` | None (token is the capability) | `{ business, status: pending\|submitted\|expired, expires_at }` |
+| POST | `/collect/{token}` | None (token) | `{ rating, body, title? }` → native review `source='partner'`, `verified_purchase=true`; token burned; AI + moderation run. `409` redeemed, `410` expired |
+
+Auth header pair: `Authorization: Bearer <partner_api_key>` + `X-MH-Signature: sha256=<hmac-sha256(raw_body, partner_hmac_secret)>` — same scheme as the Razorpay / WhatsApp webhooks. Invoice amounts / line items / customer names are never accepted; an optional `customer_phone` is stored only as a salted hash. After moderation clears, MerchantHub POSTs a signed `review.captured` event to the partner's `callback_url`.
+
+**Dev-only** (`debug` + `PARTNERS_PROVIDER=mock`): `POST /partner-mock/dispatch`, `GET /partner-mock/requests`, `POST /partner-mock/callback-sink`, `GET /partner-mock/callbacks` — back the `/dev/partner-console` mock billing app.
+
+```jsonc
+// POST /partner/review-requests
+{ "merchant_ref": "demo-merchant-001", "transaction_ref": "INV-2026-00841", "channel": "invoice_link",
+  "customer_phone": "+9198XXXXXX02" }
+// → 201 { "review_request_id": "uuid", "collect_url": "http://localhost:3000/c/<token>",
+//         "expires_at": "2026-09-12T…Z", "merchant_status": "matched" }
 ```
 
 
@@ -1819,6 +1901,7 @@ Author-scoped actions (edit/delete review) follow the same principle at the rout
 | Password reset      | `/auth/forgot-password` + `/auth/reset-password` 5/minute per IP each; hashed single-use Redis token, 1-hour TTL, fail-closed 503 on Redis outage — see below                                                                                                                              |
 | Transactional email | `EmailProvider` port (`mock`/`resend`) — best-effort, never blocks review create or business approve on a send failure; v1 templates carry no AI-generated text (S-035)                                                                                                                    |
 | Featured payments   | `PaymentProvider` port (`mock`/`razorpay`); hosted Checkout so PAN never hits our API; webhook HMAC; mock-complete DEBUG-only (S-036)                                                                                                                                                      |
+| Partner review channel | **Two-path auth (S-123).** Organic `/collect/{businessId}` keeps `require_roles` + `/login?next=…` — unchanged. The login-free `/c/{token}` path is unlocked *only* by a valid, unused, short-TTL token the partner minted for one transaction; the end user cannot forge, pick a business for, or replay it. `POST /partner/review-requests` needs a partner API key (stored only as `sha256`) **and** an `X-MH-Signature` HMAC over the raw body; `UNIQUE(partner_id, transaction_ref)` caps it at one review per real transaction. Partner reviews still run keyword moderation + can be batch-quarantined. Contact phones stored only as salted hashes; invoice contents never ingested. `/partner-mock/*` double-gated on `debug` + `PARTNERS_PROVIDER=mock`. Per-partner rate limiting is a known gap (§14). |
 
 
 
@@ -1838,6 +1921,7 @@ These are real and currently unmitigated. They are acceptable for a local demo, 
 | 6   | `/uploads` served as unauthenticated static files                                            | Any uploaded photo is world-readable to anyone with the URL | Acceptable for public gallery photos; use signed URLs if private media is ever added                                                                                                                           |
 | 7   | ✅ Fixed — `POST /photos/upload` had no ownership check on the `business_id` path             | Any authenticated customer could upload/overwrite gallery, logo, or storefront photos on a business they don't own (IDOR) | Now requires `MERCHANT` (owning that business) or `ADMIN`, matching the check `DELETE /photos/{photo_id}` already had ([photos.py](backend/app/routers/photos.py)); regression tests in `backend/tests/test_photos.py` |
 | 8   | ✅ Fixed — no rate limit on `/auth/mfa/totp/verify`, `/auth/mfa/totp/confirm`, `/auth/refresh` | A held `mfa_token` let an attacker brute-force the 6-digit TOTP code unthrottled          | Same `slowapi` limiter as login/register now applied to all three ([auth.py](backend/app/routers/auth.py))                                                                                                     |
+| 9   | No per-partner rate limit / spike alarm on `/partner/review-requests` (S-123 mock loop)       | A compromised partner key could mint tokens in bulk (still one review per unique `transaction_ref`, still moderated) | Add per-key throttling + anomaly alerting in the first real-partner slice; `partners.hmac_secret` also moves off plaintext then. Not needed for the mock loop |
 
 
 
@@ -2122,6 +2206,7 @@ Paths below are shortened: backend `tests/` = `backend/tests/`; web files live u
 | Support contact / tickets | `test_support_tickets_and_reports.py` | `SupportTicketForm`, `app/support/page`, `admin/AdminSupportQueue`, `Footer` | `support_screen_test.dart`, `admin_support_queue_screen_test.dart` | — | TR-S-087, 088, 094 |
 | Shop / business reports | `test_support_tickets_and_reports.py` | `ReportShopButton`, `admin/AdminBusinessReportsQueue` | `admin_business_reports_screen_test.dart`, `business_detail_screen_test.dart` | — | TR-S-089, 094 |
 | WhatsApp link / drafts / admin | `test_whatsapp.py`, `test_whatsapp_admin_asgi.py` | `WhatsAppDraftsPanel`, `WhatsAppUpdateCard`, `AdminWhatsAppDraftsQueue`, `CollectQrCard` | `admin_whatsapp_queue_screen_test.dart` | — | TR-S-050, 051, 052, 053, 078 |
+| Partner review channel (mock loop) | `test_partner_review_channel.py` (+ `test_reviews.py` for the shared AI pipeline) | `app/c/[token]/page`, `app/dev/partner-console/page`, `ReviewCard` (verified badge), `lib/__tests__/api.test.ts` | — | — | **TR-S-123** |
 | Google review aggregator | `test_google_reviews.py`, `test_google_config.py` | `ExternalReviews`, `GooglePlacePicker` | — | — | TR-S-048, 076 |
 | AI suggestions / topics / providers | `test_ai_contract.py`, `test_ai_gateway.py`, `test_ai_registry.py`, `test_ai_topics.py`, `test_ai_openai_family.py`, `test_ai_anthropic.py`, `test_ai_provider_config.py`, `test_ai_startup_validation.py` | `AIInsights` | (merchant insights panel via dashboard tests) | — | TR-S-037–040, 049 |
 | Transactional email | `test_email_provider.py`, `test_email_templates.py`, `test_transactional_email_side_effects.py` | — | — | — | TR-S-035 |
@@ -2552,9 +2637,12 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-90 | Admin             | Operational `/admin` console (ops nav + queue tiles)                | `/admin`                                        | Admin Home ops chips + extra snapshot tiles                            | `implemented`   | S-090 (web); **S-095** (mobile) |
 | M-91 | Account           | Click-to-upload profile avatar (nav + `/profile`, not URL paste)    | Navbar `Avatar` + `/profile`                    | Account avatar + Profile Change photo (`POST /auth/me/avatar`)         | `implemented`   | S-085 (web); **S-095** (mobile) |
 | M-92 | Chrome            | Navbar current-page state + ≥44px touch targets + responsive collapse below `md` | Navbar `NavLink` (`aria-current` + underline/weight) · `NavbarMobileMenu` disclosure · `Footer` link hit areas | Native `NavigationBar` selected state + native touch targets (no hamburger) | `future`        | **S-122** (web). Related to M-10. Flutter's bottom `NavigationBar` already gives a selected-tab indicator and platform-minimum touch targets natively; a dedicated port of the web active-link / mobile-menu chrome is not planned. |
+| M-93 | Reviews           | Login-free partner review page (`/c/{token}`)                       | `/c/[token]` gamified wizard, no auth (S-123)   | —                                                                     | `future`        | S-123 mock loop. Mobile follows only if a real partner pilot commits — a plain `https://` review link opens the web page for any device meanwhile |
+| M-94 | Reviews           | "Verified purchase" badge on partner-sourced reviews               | `ReviewCard` chip (`verified_purchase`)         | —                                                                     | `unimplemented` | S-123. Small `ReviewCard` add on mobile once the field is surfaced by the review list |
+| M-95 | Merchant          | Partner review channel / mock billing console                      | `/dev/partner-console` (dev-only) + `/api/v1/partner/*` | —                                                             | `future`        | S-123. Dev/demo surface — no mobile equivalent planned for the mock loop |
 
 
-**Rollup (2026-08-29):** `implemented` 79 · `partial` 4 (M-10 chrome, M-65 reset completion, M-71 cold QR, M-74 phone OTP chooser/admin OTP) · `unimplemented` 0 · `n/a` 7 · `future` 2 (FCM, M-92 navbar chrome polish) · **total 92**.
+**Rollup (2026-08-29):** `implemented` 79 · `partial` 4 (M-10 chrome, M-65 reset completion, M-71 cold QR, M-74 phone OTP chooser/admin OTP) · `unimplemented` 1 (M-94 verified-purchase badge) · `n/a` 7 · `future` 4 (FCM, M-92 navbar chrome polish, M-93 login-free partner page, M-95 partner console) · **total 95**.
 
 #### Mobile parity roadmap
 
@@ -2832,6 +2920,7 @@ An honest delta between the original specification and what the code actually do
 | Email           | `mock` (logs only) and `resend` providers implemented via `EmailProvider` port. Three transactional sends: password reset, listing approved, new review — best-effort, never blocks the triggering request (S-035, Accepted). In-app bell is one notice per scenario (**S-065**). |
 | Payments        | `mock` and `razorpay` via `PaymentProvider` port. Three SKUs (₹299/7d, ₹499/15d, ₹899/30d); capture then admin-approve; PAN never stored (S-042)                                                                                                                                                                        |
 | SMS             | `mock` and `msg91` via `SmsProvider` port. Phone OTP login (S-044)                                                                                                                                                                                                                                                       |
+| Partner review channel | **Mock loop only** (`PARTNERS_PROVIDER=mock`, S-123 / ADR-019). End-to-end and clickable: dev billing console (`/dev/partner-console`) → signed push API → single-use token → login-free `/c/{token}` gamified wizard → native `source='partner'` / `verified_purchase` review through the unchanged AI + moderation pipeline → signed `review.captured` callback (logged + best-effort POST) → "Verified purchase" badge on the merchant's review. `partners` / `partner_merchant_links` / `partner_review_requests` tables. Organic login-gated collect is untouched. Real partner integration, read API, embed widget, per-partner rate limiting, and merchant auto-provision are **gated on a written partner pilot** — see [`PARTNER_REVIEW_CHANNEL_STRATEGY.md`](PARTNER_REVIEW_CHANNEL_STRATEGY.md). |
 | Frontend        | Home (+ social proof rail, problem section, S-047), search (map + location, paid **Featured** badge), business detail (+ "Also reviewed on Google", S-048), login (**S-092** Authenticator vs Mobile OTP for customer/merchant/admin) + forgot/reset password (S-035, Accepted), register (same chooser), enriched profile + click-to-upload avatar (S-085), settings, merchant dashboard (+ time-series volume/rating-mix/reply-rate/CSV export, S-033; featured boost CTA, S-036; AI topic clustering "Common Themes" panel, S-049; Google reviews link/sync card, S-048) + business create/edit, admin moderation queues (+ platform trend charts, category admin, user suspend/reactivate, S-034; placement disable/refund) |
 | Maps            | Leaflet + OpenStreetMap tiles; nearby search via Haversine. Nominatim address geocode/autocomplete removed (S-084).                                                                                                                                                                                                      |
 | Seeding         | `scripts/seed.py` — Portland + Chennai + US; gated by `SEED_MODE` / `seed_runs` (Railway: not on boot)                                                                                                                                                                                                                                                                                   |
@@ -2970,12 +3059,16 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `META_WHATSAPP_PHONE_NUMBER_ID` | *(empty)*                                                              | Meta phone-number ID for send/ack when using the live provider                                |
 | `META_WHATSAPP_VERIFY_TOKEN`  | *(empty)*                                                                | Shared secret for the webhook GET handshake (`hub.verify_token`)                              |
 | `META_WHATSAPP_APP_SECRET`    | *(empty)*                                                                | HMAC for `X-Hub-Signature-256` (app secret, not the access token). Mock uses `mock-webhook-secret` if empty |
+| `PARTNERS_PROVIDER`           | `mock`                                                                   | Partner review channel (S-123). Only `mock` registered — verifies `X-MH-Signature` HMAC for real, logs + best-effort POSTs callbacks |
+| `PARTNER_DEMO_API_KEY`        | `mhk_demo_partner`                                                       | Seeded demo partner's bearer key (mock only). The dev billing console signs as this partner server-side |
+| `PARTNER_DEMO_HMAC_SECRET`    | `mhs_demo_partner_secret`                                                | Seeded demo partner's body-signing secret (mock only)                                         |
+| `PARTNER_REVIEW_TOKEN_TTL_HOURS` | `336`                                                                 | Lifetime of a single-use `/c/{token}` collect link (14 days)                                  |
 | `CORS_ORIGINS`                | `http://localhost:3000`                                                  | Comma-separated allowlist                                                                     |
 | `GOOGLE_MAPS_API_KEY`         | `placeholder`                                                            | Unused — maps use OpenStreetMap tiles                                                         |
 | `GOOGLE_CLIENT_ID`            | *(empty)*                                                                | OAuth client ID for Google sign-in — must match the frontend's `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
 | `GOOGLE_PLACES_API_KEY`       | *(empty)*                                                                | Places Text Search + Place Details. Empty → mock review-source provider (**S-048**). Must stay `""`, not `"placeholder"` |
 | `SEED_MODE`                   | `off`                                                                    | `off`                                                                                         |
-| `SEED_VERSION`                | `2026-08-19-demo-otp-phones-v1`                                          | Marker written to `seed_runs`; bump when demo seed content changes                            |
+| `SEED_VERSION`                | `2026-08-29-partner-review-channel-v1`                                   | Marker written to `seed_runs`; bump when demo seed content changes (S-123: seeds the demo partner + merchant link) |
 | `SUPPORT_EMAIL`               | `support@merchanthub.example`                                            | Public support inbox shown via `GET /support/contact` and the footer (S-087)                  |
 
 
@@ -2990,6 +3083,8 @@ Complete list, verified against `[backend/app/config.py](backend/app/config.py)`
 | `API_URL_INTERNAL`             | same as above locally   | Backend URL for Server Components inside Docker/Railway — **required** on Railway or home SSR falls back to `localhost:8000` and Featured stays empty |
 | `NEXT_PUBLIC_GOOGLE_MAPS_KEY`  | `placeholder`           | Unused — Leaflet uses OSM tiles directly                                                                                                              |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | *(empty)*               | OAuth client ID for Google sign-in                                                                                                                    |
+| `NEXT_PUBLIC_GAMIFIED_REVIEW`  | *(empty)*               | `true` → tap-through one-question collect wizard on `/collect/[businessId]` (S-119). The partner `/c/{token}` page always uses it                     |
+| `NEXT_PUBLIC_ENABLE_PARTNER_MOCK` | *(empty)*            | `true` → renders the dev-only mock billing console at `/dev/partner-console` (S-123). Local dev only                                                  |
 
 
 ---
@@ -3089,7 +3184,7 @@ Demo / seeded listings only. A fundraise ask should be **pre-seed for one neighb
 
 | Built                                                                                                                                                                                                                                                                                                                       | Next (not yet Accepted)                                                                                                                                                                                                                                                                                                                                                                                                               |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth (password + TOTP **or** Mobile OTP chooser **S-092**, Google) + forgot/reset + email, search + OSM + paid Featured, reviews, favorites, merchant dashboard (S-033 charts, S-037 area/deltas, S-038 benchmark, S-039 AI draft, S-040 QR collect), admin queues (S-034) + placement refund, **S-036** featured SKU (mock/Razorpay port), **S-045** dark mode (system default + toggle, ~65-file sweep), **S-046** review-list sort/filter/truncate/lightbox + half-star ratings, **S-047** home social proof rail + problem section, **S-048** Google review sample (link + Sync now, native ratings unchanged), **S-049** AI topic clustering ("Common Themes" panel), **S-053** WhatsApp admin approval gate (global review queue at `/admin/whatsapp`, editable AI suggestions, merchant self-apply removed), **S-065** one in-app notice per workflow scenario (listing / review / WhatsApp / featured payment; duplicate notice rows pruned, seed shops untouched), **S-010** Playwright journeys + manual `web-e2e.yml`, **S-057** mobile dark mode (system default + explicit toggle + persistence, parity for M-75), **S-058** mobile review-list interactivity (sort/filter bottom sheet, truncate + "Read more", photo lightbox, half-star ratings, parity for M-72), **S-059** / **S-118** mobile review-collection (merchant QR/share sheet + `/collect/:slug` UUID-or-slug + Android App Links; `partial` M-71 until `assetlinks.json` SHA-256 matches the installed APK), **S-060** mobile merchant dashboard analytics (`fl_chart` volume + rating-mix charts, date-range filter, reply-rate, CSV export via `share_plus`, parity for M-61), **S-061** mobile admin ops parity (`fl_chart` platform time-series chart row, `/admin/categories` create/list with tap-to-search chips, `/admin/users` suspend/reactivate with self/admin controls hidden, parity for M-62/M-63/M-64 — Tier 4 fully closed), **S-062** mobile featured listing boost, browse-only (SKU catalog + placement status panel, `Featured` badge + disclaimer on `BusinessCard`/search, `partial` parity for M-66 — checkout stays web-only by design, no Razorpay mobile SDK added), **S-063** mobile dashboard trend chart + period-over-period deltas (`LineChart` area fill on the existing volume series, reply-rate / reviews-in-range delta badges, parity for M-68), **S-064** mobile home marketing (public `/home`, guest Home tab, web section order, parity for M-13–M-18 / M-76 / M-77 — Tier 5 fully closed), **S-085** click-to-upload profile avatar (Navbar + `/profile`, `POST /auth/me/avatar`; not AI-analyzed), **S-093–S-095** Flutter M-81–M-91 (admin queue polish, support/shop reports, ops console + avatar) | Leftovers: structured logs, isolated test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, remaining mobile `partial` rows (M-10, M-54, M-65, M-71, M-74) and FCM (`future`), optional re-enable pytest/Jest on PR; **S-050..052** WhatsApp foundation (Testing, **not Accepted** — pending a real Tester re-run now that S-053 fixed the shared `draftstatus` enum bug blocking real-DB draft writes; Meta cutover in §14) |
+| Auth (password + TOTP **or** Mobile OTP chooser **S-092**, Google) + forgot/reset + email, search + OSM + paid Featured, reviews, favorites, merchant dashboard (S-033 charts, S-037 area/deltas, S-038 benchmark, S-039 AI draft, S-040 QR collect), admin queues (S-034) + placement refund, **S-036** featured SKU (mock/Razorpay port), **S-045** dark mode (system default + toggle, ~65-file sweep), **S-046** review-list sort/filter/truncate/lightbox + half-star ratings, **S-047** home social proof rail + problem section, **S-048** Google review sample (link + Sync now, native ratings unchanged), **S-049** AI topic clustering ("Common Themes" panel), **S-053** WhatsApp admin approval gate (global review queue at `/admin/whatsapp`, editable AI suggestions, merchant self-apply removed), **S-065** one in-app notice per workflow scenario (listing / review / WhatsApp / featured payment; duplicate notice rows pruned, seed shops untouched), **S-010** Playwright journeys + manual `web-e2e.yml`, **S-057** mobile dark mode (system default + explicit toggle + persistence, parity for M-75), **S-058** mobile review-list interactivity (sort/filter bottom sheet, truncate + "Read more", photo lightbox, half-star ratings, parity for M-72), **S-059** / **S-118** mobile review-collection (merchant QR/share sheet + `/collect/:slug` UUID-or-slug + Android App Links; `partial` M-71 until `assetlinks.json` SHA-256 matches the installed APK), **S-060** mobile merchant dashboard analytics (`fl_chart` volume + rating-mix charts, date-range filter, reply-rate, CSV export via `share_plus`, parity for M-61), **S-061** mobile admin ops parity (`fl_chart` platform time-series chart row, `/admin/categories` create/list with tap-to-search chips, `/admin/users` suspend/reactivate with self/admin controls hidden, parity for M-62/M-63/M-64 — Tier 4 fully closed), **S-062** mobile featured listing boost, browse-only (SKU catalog + placement status panel, `Featured` badge + disclaimer on `BusinessCard`/search, `partial` parity for M-66 — checkout stays web-only by design, no Razorpay mobile SDK added), **S-063** mobile dashboard trend chart + period-over-period deltas (`LineChart` area fill on the existing volume series, reply-rate / reviews-in-range delta badges, parity for M-68), **S-064** mobile home marketing (public `/home`, guest Home tab, web section order, parity for M-13–M-18 / M-76 / M-77 — Tier 5 fully closed), **S-085** click-to-upload profile avatar (Navbar + `/profile`, `POST /auth/me/avatar`; not AI-analyzed), **S-093–S-095** Flutter M-81–M-91 (admin queue polish, support/shop reports, ops console + avatar), **S-123** partner review channel **mock loop** (dev billing console → signed push API → login-free `/c/{token}` → native verified-purchase review → signed callback; `PARTNERS_PROVIDER=mock`, ADR-019) | Leftovers: structured logs, isolated test DB, CSP, **S-026** cookies, Azure stub, Play Store phase 5, remaining mobile `partial` rows (M-10, M-54, M-65, M-71, M-74) and FCM (`future`), optional re-enable pytest/Jest on PR; **S-050..052** WhatsApp foundation (Testing, **not Accepted** — pending a real Tester re-run now that S-053 fixed the shared `draftstatus` enum bug blocking real-DB draft writes; Meta cutover in §14); **partner review channel beyond the mock** — real onboarding, read API + embed widget, per-partner rate limiting, merchant auto-provision — gated on a written partner pilot (`PARTNER_REVIEW_CHANNEL_STRATEGY.md`) |
 
 
 Play Store packaging is distribution (`ANDROID_APP_STRATEGY.md` phase 5), not this story.

@@ -165,10 +165,25 @@ class Settings(BaseSettings):
     meta_whatsapp_verify_token: str = ""
     meta_whatsapp_app_secret: str = ""
 
+    # Partner review channel (app/services/partners/, S-123). mock (default) needs
+    # no vendor keys -- it verifies HMAC for real against the seeded demo
+    # partner's secret and logs outbound callbacks instead of making HTTP calls.
+    # Unregistered values fail at startup (main.py lifespan), same pattern as
+    # ai_provider / email_provider / payments_provider above.
+    partners_provider: str = "mock"
+    # The seeded demo partner's credentials -- the mock billing console
+    # (/dev/partner-console) signs as this partner server-side via
+    # /api/v1/partner-mock/dispatch. Never shipped to the browser.
+    partner_demo_api_key: str = "mhk_demo_partner"
+    partner_demo_hmac_secret: str = "mhs_demo_partner_secret"  # noqa: S105 - dev-only mock secret
+    # Single-use collect token lifetime. 14 days matches a typical invoice
+    # follow-up window.
+    partner_review_token_ttl_hours: int = 336
+
     # Demo seed gate (scripts/seed.py). Default `off` so production boots never
     # re-upsert; Compose sets `if_outdated`. Manual refresh: SEED_MODE=force.
     seed_mode: Literal["off", "if_empty", "if_outdated", "force"] = "off"
-    seed_version: str = "2026-08-19-demo-otp-phones-v1"
+    seed_version: str = "2026-08-29-partner-review-channel-v1"
 
     # Public support inbox (S-087). Display-only; not a vendor integration.
     support_email: str = "support@merchanthub.example"
