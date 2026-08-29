@@ -37,6 +37,9 @@ Monorepo: local-business review platform with AI insights.
  `git config core.hooksPath .githooks`). See `.cursor/rules/testing.mdc` and, for mobile CI
  specifics, `ANDROID_APP_STRATEGY.md` § "Testing & CI flow" (includes a known gap: `main`
  isn't yet branch-protection-gated on CI passing, so Railway can still deploy a failing build).
+9. Land on `main` only through a GitHub pull request. Never commit on `main`/`master`, never
+ `git push` to `origin/main` or `origin/master`, and never set a feature branch's upstream to
+ `origin/main`. Create a named branch, then `git push -u origin HEAD` so GitHub can open a PR.
 
 ## RBAC
 Use `require_roles()` from `app/dependencies.py`.
