@@ -119,7 +119,7 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
               DropdownButtonFormField<String>(
                 key: const Key('businessCountryField'),
                 isExpanded: true,
-                value: getCountries().any((c) => c.code == _country) ? _country : null,
+                initialValue: getCountries().any((c) => c.code == _country) ? _country : null,
                 decoration: const InputDecoration(labelText: 'Country'),
                 items: [
                   for (final country in getCountries())
@@ -138,7 +138,7 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
                 DropdownButtonFormField<String>(
                   key: const Key('businessStateField'),
                   isExpanded: true,
-                  value: states.any((s) => s.code == _stateCode) ? _stateCode : null,
+                  initialValue: states.any((s) => s.code == _stateCode) ? _stateCode : null,
                   decoration: const InputDecoration(labelText: 'State'),
                   items: [
                     for (final state in states)
@@ -157,7 +157,7 @@ class _BusinessEditorScreenState extends ConsumerState<BusinessEditorScreen> {
                 DropdownButtonFormField<String>(
                   key: const Key('businessCityPicker'),
                   isExpanded: true,
-                  value: () {
+                  initialValue: () {
                     final typed = _city.text.trim();
                     if (typed.isEmpty) return null;
                     for (final city in cities) {
