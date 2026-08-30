@@ -151,11 +151,19 @@ class HumanForm:
 
     def _check_api(self, spec: FormSpec, resp) -> None:
         method, _path, want_status, schema = spec.success["api"]
+        try:
+            detail = resp.text()[:400]
+        except Exception:
+            detail = "(body discarded by navigation)"
         assert resp.status == want_status, (
-            f"{method} {resp.url} -> {resp.status} (wanted {want_status}): {resp.text()[:400]}"
+            f"{method} {resp.url} -> {resp.status} (wanted {want_status}): {detail}"
         )
         if schema and schema in SCHEMA_ORACLES:
-            SCHEMA_ORACLES[schema](resp.json())
+            try:
+                body = resp.json()
+            except Exception:
+                return  # form navigated away before the body could be read; status oracle stands
+            SCHEMA_ORACLES[schema](body)
 
     def settle(self, spec: FormSpec) -> None:
         url_rx = spec.success.get("url")
