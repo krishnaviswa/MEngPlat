@@ -34,8 +34,12 @@ def test_merchant_full_journey(fresh_merchant, admin_tokens, api: Api, human, re
     # --- 6a: national-ID KYC via MerchantNationalIdCard, Enter submit --------
     dash.goto()
     expect(page.get_by_role("heading", name="No business yet")).to_be_visible(timeout=20_000)
-    human(page).fill_and_submit(FORMS["merchant.national_id"])
-    expect(page.get_by_label("National ID number")).not_to_be_editable(timeout=20_000)
+    human(page).fill_and_submit(FORMS["merchant.national_id"])  # asserts PATCH /auth/me 200
+    # KYC gate hint clears once the ID is stored
+    expect(
+        page.get_by_text("Add PAN, Aadhaar, or another national ID", exact=False)
+    ).to_have_count(0, timeout=20_000)
+    assert api.me(m_access).national_id_type == "pan"
     record_form("merchant.national_id")
 
     # --- 6b: BusinessForm submitted with Enter -> pending --------------------

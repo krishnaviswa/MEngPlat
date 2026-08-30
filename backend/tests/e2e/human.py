@@ -36,7 +36,10 @@ class HumanForm:
 
     def locate(self, f: FieldValue) -> Locator:
         if f.kind == "star":
-            return self.page.get_by_role("button", name=f.name)
+            # readonly RatingWidgets share the "N stars" aria-label but are disabled.
+            return self.page.locator(
+                f'button[aria-label="{f.name}"]:not([disabled])'
+            ).first
         if f.by in ("label", "aria"):
             # get_by_label also resolves aria-label; works for password inputs,
             # which get_by_role("textbox") does not match.
@@ -60,9 +63,8 @@ class HumanForm:
         if isinstance(value, str) and subs:
             value = value.format(**subs)
         loc = self.locate(f)
-        loc.scroll_into_view_if_needed()
         if f.kind in ("text", "textarea", "otp"):
-            loc.click()
+            loc.click()  # Playwright auto-scrolls on click/fill
             loc.fill("")  # clear any prefill / default value
             self.page.keyboard.type(str(value), delay=TYPE_DELAY)
         elif f.kind == "select":

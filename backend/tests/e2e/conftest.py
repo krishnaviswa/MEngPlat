@@ -11,7 +11,7 @@ from tests.e2e import catalog_coverage
 from tests.e2e.api_client import PASSWORD, Api
 from tests.e2e.form_data import SAMPLE_IMAGE, SAMPLE_PNG_BYTES, unique_email
 from tests.e2e.human import HumanForm
-from tests.e2e.pages.login import LoginPage
+from tests.e2e.session_helpers import inject_session
 
 E2E_ENABLED = os.environ.get("E2E") == "1"
 E2E_FULL = os.environ.get("E2E_FULL") == "1"
@@ -103,30 +103,23 @@ def record_form():
     return catalog_coverage.record
 
 
-def _register_and_login(api: Api, page, role: str) -> dict:
-    """Register via API, then log in through the browser (first login enrolls TOTP
-    with a fresh secret), and lift the real session tokens straight out of
-    localStorage — a second API login can't reproduce the UI's random TOTP secret.
-    """
+def _register_and_login(api: Api, page, frontend_url: str, role: str) -> dict:
     email = unique_email(role)
     user = api.register(email, role=role, password=PASSWORD)
-    LoginPage(page).login(email, PASSWORD)
-    HumanForm(page).wait_for_token()
-    access = page.evaluate("() => window.localStorage.getItem('access_token')")
-    refresh = page.evaluate("() => window.localStorage.getItem('refresh_token')")
-    assert access, "no access_token in localStorage after login"
+    tokens = api.tokens(email, PASSWORD)  # API handles first-login TOTP enrollment
+    inject_session(page, frontend_url, tokens.access_token, tokens.refresh_token)
     return {"page": page, "email": email, "user": user,
-            "access": access, "refresh": refresh}
+            "access": tokens.access_token, "refresh": tokens.refresh_token}
 
 
 @pytest.fixture
-def fresh_customer(api: Api, page) -> dict:
-    return _register_and_login(api, page, "customer")
+def fresh_customer(api: Api, page, frontend_url: str) -> dict:
+    return _register_and_login(api, page, frontend_url, "customer")
 
 
 @pytest.fixture
-def fresh_merchant(api: Api, page) -> dict:
-    return _register_and_login(api, page, "merchant")
+def fresh_merchant(api: Api, page, frontend_url: str) -> dict:
+    return _register_and_login(api, page, frontend_url, "merchant")
 
 
 @pytest.fixture(scope="session")

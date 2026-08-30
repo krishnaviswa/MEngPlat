@@ -64,8 +64,9 @@ def test_anonymous_review_gate_no_post(page, seeded_business):
     posts: list[str] = []
     page.on("request", lambda r: posts.append(r.url) if r.method == "POST" and "/reviews" in r.url else None)
     page.goto(f"/businesses/{seeded_business.slug}/review")
-    expect(page.get_by_text("Sign in to write a review.", exact=False)).to_be_visible(timeout=20_000)
-    expect(page.get_by_role("link", name="Sign in")).to_have_attribute("href", "/login")
+    gate = page.locator("div", has=page.get_by_text("Sign in to write a review.", exact=False)).last
+    expect(gate).to_be_visible(timeout=20_000)
+    expect(gate.get_by_role("link", name="Sign in")).to_have_attribute("href", "/login")
     assert not posts, f"anonymous review must not POST: {posts}"
 
 

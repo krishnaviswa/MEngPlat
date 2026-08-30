@@ -34,11 +34,13 @@ class AdminPanelPage:
 
     def expect_all_sections(self) -> None:
         for h in SECTION_HEADINGS:
-            expect(self.page.get_by_role("heading", name=h)).to_be_visible()
+            expect(
+                self.page.get_by_role("heading", name=h, exact=True).first
+            ).to_be_visible()
 
     def expect_stat_tiles(self) -> None:
-        expect(self.page.get_by_text("Total users", exact=False)).to_be_visible(timeout=20_000)
-        expect(self.page.get_by_text("Pending businesses", exact=False)).to_be_visible()
+        expect(self.page.get_by_text("Total users", exact=False).first).to_be_visible(timeout=20_000)
+        expect(self.page.get_by_text("Total reviews", exact=False).first).to_be_visible()
 
     # --- queue actions, scoped to a row by its (uuid-suffixed) visible text ---
 

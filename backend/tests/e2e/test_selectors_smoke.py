@@ -17,7 +17,7 @@ pytestmark = [pytest.mark.e2e, pytest.mark.catalog]
 
 # (route, [(kind, name), ...]) — routes with no auth needed / stable seed copy.
 PUBLIC_CHECKS = [
-    ("/", [("placeholder", "Search restaurants, salons, shops...")]),
+    ("/", [("placeholder", "Try café, salon, pharmacy, Chrompet")]),
     ("/search", [
         ("name", "city"), ("name", "category"), ("name", "sort"), ("name", "min_rating"),
         ("button", "Apply filters"),

@@ -21,17 +21,15 @@ from tests.e2e.oracles import (
     validate_user,
 )
 from tests.e2e.pages.admin_panel import AdminPanelPage
-from tests.e2e.pages.login import LoginPage
+from tests.e2e.session_helpers import inject_session
 
 pytestmark = [pytest.mark.e2e, pytest.mark.journey_admin, pytest.mark.slow]
 
-ADMIN_EMAIL = "admin@merchanthub.ai"
-ADMIN_PASSWORD = "admin12345ok"
-
 
 @pytest.fixture
-def admin_browser(page, admin_tokens):
-    LoginPage(page).login(ADMIN_EMAIL, ADMIN_PASSWORD)
+def admin_browser(page, admin_tokens, frontend_url):
+    inject_session(page, frontend_url, admin_tokens.access_token, admin_tokens.refresh_token)
+    page.goto("/admin")
     return page
 
 
@@ -133,7 +131,7 @@ def test_user_suspend_reactivate(admin_browser, admin_tokens, api: Api):
     user = api.register(u_email, role="customer", password=PASSWORD)
     panel = AdminPanelPage(admin_browser)
     panel.goto()
-    admin_browser.get_by_role("link", name="Total users").click()
+    admin_browser.get_by_role("button", name="Total users").click()  # scrolls to #admin-users
     panel.toggle_user(u_email, "Suspend")
     panel.toggle_user(u_email, "Reactivate")
     # technical oracle: the round-trip validates against UserResponse

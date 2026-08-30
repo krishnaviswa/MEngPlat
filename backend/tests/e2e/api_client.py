@@ -201,8 +201,10 @@ class Api:
     def set_national_id(
         self, token: str, *, id_type: str = "pan", number: str = DEMO_PAN
     ) -> UserResponse:
+        # National-ID change is reauth-gated (S-114) — step up with the password first.
+        rt = self.reauth_token(token)
         res = self.patch(
-            "auth/me",
+            f"auth/me?reauth_token={rt}",
             token=token,
             json={"national_id_type": id_type, "national_id_number": number},
         )

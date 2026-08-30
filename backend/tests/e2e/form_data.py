@@ -105,7 +105,7 @@ FORMS: dict[str, FormSpec] = dict(
             route="/",
             submit_label="Search",
             enter_submits=True,
-            fields=(FieldValue("placeholder", "Search restaurants, salons, shops...", "cafe"),),
+            fields=(FieldValue("placeholder", "Try café, salon, pharmacy, Chrompet", "cafe"),),
             success={"url": r"/search\?.*q=cafe", "text": None, "api": None},
         ),
         _spec(

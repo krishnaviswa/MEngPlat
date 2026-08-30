@@ -29,7 +29,8 @@ class CollectPage:
         return "gamified"
 
     def pick_rating(self, stars: int) -> None:
-        self.page.get_by_role("button", name=f"{stars} stars").first.click()
+        # readonly hero RatingWidget shares the aria-label but is disabled
+        self.page.locator(f'button[aria-label="{stars} stars"]:not([disabled])').first.click()
 
     def continue_to_text(self) -> None:
         self.page.get_by_role("button", name="Continue →").click()
