@@ -52,15 +52,15 @@ class AdminPanelPage:
         row = self._row(business_name).filter(
             has=self.page.get_by_role("button", name="Approve")
         ).last
-        row.scroll_into_view_if_needed()
-        if row.get_by_role("button", name="Start review").count():
-            with self.page.expect_response(
-                lambda r: "/start-review" in r.url, timeout=20_000
-            ) as ri:
-                row.get_by_role("button", name="Start review").click()
+        approve = row.get_by_role("button", name="Approve")
+        expect(approve).to_be_visible(timeout=20_000)
+        start = row.get_by_role("button", name="Start review")
+        if start.count():
+            with self.page.expect_response(lambda r: "/start-review" in r.url, timeout=20_000) as ri:
+                start.click()
             assert ri.value.status == 200, ri.value.text()
         with self.page.expect_response(lambda r: "/approve" in r.url, timeout=20_000) as ri:
-            row.get_by_role("button", name="Approve").click()
+            approve.click()
         assert ri.value.status == 200, ri.value.text()
 
     def moderate_reported(self, snippet: str, action: str) -> None:
@@ -68,11 +68,12 @@ class AdminPanelPage:
         row = self._row(snippet).filter(
             has=self.page.get_by_role("button", name=label)
         ).last
-        row.scroll_into_view_if_needed()
+        btn = row.get_by_role("button", name=label)
+        expect(btn).to_be_visible(timeout=20_000)
         with self.page.expect_response(
             lambda r: "/moderate" in r.url and f"action={action}" in r.url, timeout=20_000
         ) as ri:
-            row.get_by_role("button", name=label).click()
+            btn.click()
         assert ri.value.status == 200, ri.value.text()
 
     def toggle_user(self, email: str, expect_label: str) -> None:

@@ -99,9 +99,10 @@ def test_report_review(fresh_customer, seeded_business, api: Api):
 
     page = fresh_customer["page"]
     page.goto(f"/businesses/{seeded_business.slug}")
-    # ReviewsList defaults to newest-first, so our just-created review is the first card
+    # ReviewsList defaults to newest-first, so our just-created review is the first card.
+    # exact=True: "Report" must not also match "Report this shop" (ReportShopButton).
     expect(page.get_by_text(review.body, exact=False).first).to_be_visible(timeout=20_000)
-    page.get_by_role("button", name="Report").first.click()
+    page.get_by_role("button", name="Report", exact=True).first.click()
     box = page.get_by_placeholder("Why are you reporting this review? (min 10 characters)")
     box.fill("This looks like duplicated spam with a promo link.")
     with page.expect_response(

@@ -30,7 +30,7 @@ class EditBusinessPage:
         expect(self.page.get_by_role("heading", name="Edit business")).to_be_visible(timeout=20_000)
 
     def change_address_and_save(self, new_address: str) -> None:
-        field = self.page.get_by_label("Street address", exact=False)
+        field = self.page.get_by_label("Street address ★", exact=False)
         field.click()
         field.fill(new_address)
         self.page.get_by_role("button", name="Save changes").click()

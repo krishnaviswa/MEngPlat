@@ -91,8 +91,7 @@ def test_anonymous_collect_inline_auth_on_submit(page, seeded_business, record_f
     cp.write_and_submit("Lovely spot, the staff were friendly and it was spotless throughout.")
     page.get_by_role("button", name="Submit review").click()
     expect(
-        page.get_by_role("radiogroup", name=re.compile("Sign in with", re.I))
-        .or_(page.get_by_text("Mobile OTP", exact=False))
+        page.get_by_role("radiogroup", name="Sign in with")
     ).to_be_visible(timeout=20_000)
     expect(page).to_have_url(url_before)  # no navigation to /login
     record_form("anon.collect_inline_auth")

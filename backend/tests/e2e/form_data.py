@@ -218,11 +218,14 @@ FORMS: dict[str, FormSpec] = dict(
             submit_label="Submit for approval",
             enter_submits=True,  # AC 6b: BusinessForm submitted with Enter
             fields=(
-                FieldValue("label", "Business name", "{name}", "text"),
-                FieldValue("label", "Street address", DEFAULTS["address_line1"], "text"),
-                FieldValue("label", "City", DEFAULTS["city"], "text"),
-                FieldValue("label", "Phone", DEFAULTS["business_phone"], "text"),
-                FieldValue("label", "Email", DEFAULTS["business_email"], "text"),
+                # BusinessForm marks required labels with a ★ span — the bare word
+                # "City" also substring-matches the Country <select> a11y name
+                # (option list contains "…City").
+                FieldValue("label", "Business name ★", "{name}", "text"),
+                FieldValue("label", "Street address ★", DEFAULTS["address_line1"], "text"),
+                FieldValue("label", "City ★", DEFAULTS["city"], "text"),
+                FieldValue("label", "Phone ★", DEFAULTS["business_phone"], "text"),
+                FieldValue("label", "Email ★", DEFAULTS["business_email"], "text"),
             ),
             success={
                 "url": r"/merchant/dashboard",

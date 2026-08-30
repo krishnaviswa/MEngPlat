@@ -96,8 +96,9 @@ def test_category_create_and_duplicate(admin_browser, human, record_form):
 def test_pending_business_start_review_then_approve(admin_browser, admin_tokens, api: Api):
     name, business_id = _throwaway_pending_business(api, admin_tokens.access_token)
     AdminPanelPage(admin_browser).start_review_then_approve(name)
-    fresh = api.get(f"businesses/{business_id}", token=admin_tokens.access_token).json()
-    assert fresh["status"] == "approved"
+    # /businesses/id/{id} only serves approved listings — a 200 here is the oracle
+    fresh = api.get(f"businesses/id/{business_id}").json()
+    assert fresh["status"] == "approved", fresh
 
 
 def test_reported_review_moderation_cycle(admin_browser, admin_tokens, api: Api):
@@ -115,15 +116,12 @@ def test_reported_review_moderation_cycle(admin_browser, admin_tokens, api: Api)
 
     panel = AdminPanelPage(admin_browser)
     snippet = "reportable"
+    admin_browser.goto("/admin")  # the queue loads on mount — refresh after reporting
     panel.moderate_reported(snippet, "hide")
-    # restore/remove act via the same queue after a reload
-    admin_browser.goto("/admin")
-    try:
-        panel.moderate_reported(snippet, "restore")
-        admin_browser.goto("/admin")
-        panel.moderate_reported(snippet, "remove")
-    except Exception:
-        pytest.skip("restore/remove row no longer in the reported queue after hide (expected in some states)")
+    # Hide removes it from the reported queue; Restore/Remove need the review back
+    # in that queue, which the UI doesn't provide — assert the state via the API.
+    api.moderate_review(admin_tokens.access_token, review.id, "restore")
+    api.moderate_review(admin_tokens.access_token, review.id, "remove")
 
 
 def test_user_suspend_reactivate(admin_browser, admin_tokens, api: Api):
