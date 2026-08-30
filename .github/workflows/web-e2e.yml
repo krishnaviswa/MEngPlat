@@ -42,6 +42,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Make frontend writable for the container user
+        # docker-compose bind-mounts ./frontend:/app; the image runs as `node`
+        # (uid 1000) but the runner checks out as uid 1001, so `next dev` cannot
+        # rewrite next-env.d.ts / .next → EACCES. Loosen perms on the mount source.
+        run: chmod -R a+rwX frontend
+
       - name: Start Compose stack
         run: docker compose up --build -d
 
