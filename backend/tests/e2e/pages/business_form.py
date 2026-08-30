@@ -27,7 +27,9 @@ class EditBusinessPage:
         self.page.goto(f"/merchant/businesses/{business_id}/edit")
 
     def expect_loaded(self) -> None:
-        expect(self.page.get_by_role("heading", name="Edit business")).to_be_visible(timeout=20_000)
+        expect(
+            self.page.get_by_role("heading", name="Edit business").first
+        ).to_be_visible(timeout=20_000)
 
     def change_address_and_save(self, new_address: str) -> None:
         field = self.page.get_by_label("Street address ★", exact=False)
