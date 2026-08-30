@@ -148,8 +148,10 @@ class Api:
         return list(res.json())
 
     def create_business(self, token: str, name: str, city: str = "Chennai") -> BusinessResponse:
+        # National-ID change is reauth-gated (S-114) — step up before the KYC PATCH.
+        rt = self.reauth_token(token)
         kyc = self.patch(
-            "auth/me",
+            f"auth/me?reauth_token={rt}",
             token=token,
             json={"national_id_type": "pan", "national_id_number": "ABCDE1234F"},
         )
