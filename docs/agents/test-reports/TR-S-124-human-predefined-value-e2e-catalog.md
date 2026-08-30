@@ -23,6 +23,13 @@ Run **[33315709751](https://github.com/krishnaviswa/MEngPlat/actions/runs/333157
 40 passed, 2 skipped in 365.36s
 ```
 
+Full-layer run **[33318504010](https://github.com/krishnaviswa/MEngPlat/actions/runs/33318504010)**,
+`suite=all` (S-124 journeys + S-010 `test_flow_*` + smoke + rbac + token):
+
+```
+50 passed, 2 skipped in 450.40s
+```
+
 - **`test_merchant_full_journey` PASSED** end to end: 6a KYC (Enter) → 6b BusinessForm
   (Enter) → 6c date-range / refresh-insights / CSV download → 6d AI disclaimer copy →
   admin approve → 6e address re-verification OTP → 6f photo add + remove (`window.confirm`)
@@ -43,7 +50,8 @@ product change) are in the branch history:
 | 2 | `get_by_label("City")` matched the Country `<select>` (option list contains "…City") → `"City ★"`; `/businesses/{slug}` route 404s on a UUID → `/businesses/id/{id}`; reported-review queue loads on mount → reload; `"Report"` matched `"Report this shop"` → `exact=True` |
 | 3 | `EditBusinessPage` heading is `h1`+`h2` → `.first` |
 | 4 | `BusinessForm` navigates via `window.location.href` before the driver reads the API response body → assert status always, schema check best-effort |
-| 5 | green |
+| 5 | S-124 journeys green (40/2) |
+| 6–9 (`suite=all`) | S-010 flow-pack drift, unmasked because the workflow now runs: `create_business` needs a reauth token; `pages/merchant.py` `"Business name *"`→`"★"` + missing Phone/Email on create (S-072); `pages/admin.py` `approve_named` strict/`"Approve boost"`; `test_flow_customer` "Full name"→`#full_name` + post-logout "Login" link scope (S-122 navbar); `RegisterPage.sign_up` re-submit through the 5/min register limit. Full layer green: **50 passed, 2 skipped**. |
 
 Verdict upgraded **Hold → Pass**. Remaining for PM: accept the AC 5c disposition
 (Blocked — cover via AC 6a, or descope) and the AC 7g skip (needs a seeded WhatsApp
