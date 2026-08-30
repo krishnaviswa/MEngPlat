@@ -2,14 +2,34 @@ name: Web e2e (Playwright)
 
 # Second view: headless Chromium against Docker Compose (mock AI/email/payments, local storage).
 # Manual only — never on push/PR, never after a deploy, never mixed into pytest/Jest jobs.
-# Actions → Web e2e (Playwright) → Run workflow → download playwright-traces.
-# Inspect locally: playwright show-trace <test-name>.zip
+# Actions → Web e2e (Playwright) → Run workflow → pick a branch + `suite` → download playwright-traces.
+#   suite=all       full tests/e2e pack (S-010 flows + S-124 journeys + smoke + rbac + token)
+#   suite=journeys  S-124 predefined-value journeys + selector canary only (coverage guard armed)
+#   suite=journey-* one role file (no coverage guard)
+# The GitHub runner provides Docker — no local Docker needed. Inspect: playwright show-trace <zip>
 
 on:
   workflow_dispatch:
+    inputs:
+      suite:
+        description: "Which e2e subset to run"
+        type: choice
+        default: all
+        options:
+          - all            # tests/e2e  (S-010 flows + S-124 journeys + smoke + rbac + token)
+          - journeys       # tests/e2e/journeys + test_selectors_smoke.py  (S-124 only)
+          - journey-anonymous
+          - journey-customer
+          - journey-merchant
+          - journey-admin
+          - smoke          # tests/e2e/test_smoke_compose.py
+      pytest_args:
+        description: "Extra args appended to pytest (e.g. -x -k report)"
+        type: string
+        default: ""
 
 concurrency:
-  group: web-e2e-${{ github.ref }}
+  group: web-e2e-${{ github.ref }}-${{ inputs.suite }}
   cancel-in-progress: true
 
 permissions:
@@ -71,24 +91,43 @@ jobs:
           pip install -r requirements.txt
           playwright install chromium --with-deps
 
+      - name: Resolve pytest target
+        id: target
+        run: |
+          case "${{ inputs.suite || 'all' }}" in
+            all)               path="tests/e2e";                          full=1 ;;
+            journeys)          path="tests/e2e/journeys tests/e2e/test_selectors_smoke.py"; full=1 ;;
+            journey-anonymous) path="tests/e2e/journeys/test_journey_anonymous.py"; full=0 ;;
+            journey-customer)  path="tests/e2e/journeys/test_journey_customer.py";  full=0 ;;
+            journey-merchant)  path="tests/e2e/journeys/test_journey_merchant.py";  full=0 ;;
+            journey-admin)     path="tests/e2e/journeys/test_journey_admin.py";     full=0 ;;
+            smoke)             path="tests/e2e/test_smoke_compose.py";              full=0 ;;
+            *)                 path="tests/e2e";                          full=1 ;;
+          esac
+          echo "path=$path"   >> "$GITHUB_OUTPUT"
+          echo "full=$full"   >> "$GITHUB_OUTPUT"
+
       - name: Run Playwright e2e
         working-directory: backend
         env:
           E2E: "1"
-          E2E_FULL: "1"  # S-124: enable the session-teardown catalogue-coverage guard
+          # S-124 catalogue-coverage guard — only meaningful when every journey runs
+          E2E_FULL: ${{ steps.target.outputs.full }}
           FRONTEND_URL: http://localhost:3000
           API_URL: http://localhost:8000/api/v1
           PYTHONPATH: .
           SECRET_KEY: ci-only-secret
         run: |
           set -o pipefail
-          pytest tests/e2e -v 2>&1 | tee pytest-e2e.log
+          pytest ${{ steps.target.outputs.path }} ${{ inputs.pytest_args }} -v 2>&1 | tee pytest-e2e.log
 
       - name: Surface result in job summary
         if: always()
         run: |
           {
-            echo "### Web e2e (Playwright)"
+            echo "### Web e2e (Playwright) — suite: \`${{ inputs.suite || 'all' }}\`"
+            echo "Target: \`${{ steps.target.outputs.path }}\` (coverage guard: ${{ steps.target.outputs.full }})"
+            echo
             echo "Download the **playwright-traces** artifact from this run, then:"
             echo '```'
             echo "playwright show-trace path/to/<test-name>.zip"
