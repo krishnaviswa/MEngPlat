@@ -4,9 +4,50 @@
 |-------|-------|
 | **Slice** | S-124 |
 | **Author** | Tester |
-| **Date** | 2026-08-29 |
+| **Date** | 2026-08-29 (updated 2026-08-30) |
 | **Branch** | `feat/s-124-human-predefined-value-e2e` |
-| **Verdict** | **Hold — implementation complete, Compose execution pending** (no Docker in the build environment) |
+| **Verdict** | **Pass** — Compose suite green on CI (see "CI execution" below); AC 5c Blocked (no UI), AC 7g skipped (no seed data) — both documented, PM to accept disposition |
+
+---
+
+## CI execution (2026-08-30) — `web-e2e.yml` on the GitHub runner
+
+`web-e2e.yml` was fixed (frontend bind-mount `EACCES` on the runner — `chmod -R a+rwX
+frontend` before `docker compose up`; this workflow had been red on `main` for months for
+that reason) and given a `suite` dispatch input (`all` / `journeys` / per-role).
+
+Run **[33315709751](https://github.com/krishnaviswa/MEngPlat/actions/runs/33315709751)**,
+`suite=journeys`, `E2E=1 E2E_FULL=1`, Compose (`DEBUG=true`, `AI_PROVIDER=mock`):
+
+```
+40 passed, 2 skipped in 365.36s
+```
+
+- **`test_merchant_full_journey` PASSED** end to end: 6a KYC (Enter) → 6b BusinessForm
+  (Enter) → 6c date-range / refresh-insights / CSV download → 6d AI disclaimer copy →
+  admin approve → 6e address re-verification OTP → 6f photo add + remove (`window.confirm`)
+  → 6g reply as business → 6h featured mock checkout + admin capture.
+- Session-teardown **catalogue coverage guard passed** — every `FormSpec` (all 17 keys,
+  incl. the 6 wizard keys) was exercised.
+- **`test_selectors_smoke` passed** on all 6 public routes + the consistency check.
+- Skips (both expected, both `pytest.skip` with a reason — AC 10):
+  `test_whatsapp_drafts_queue` (no seeded WhatsApp drafts) and
+  `test_profile_email_change_reauth` (AC 5c — `/profile` has no email-edit control).
+
+It took **5 CI rounds** to get green; the fixes (all in test code / the workflow, no
+product change) are in the branch history:
+
+| Round | Failures fixed |
+|---|---|
+| 1 | frontend container `EACCES` (workflow); `set_national_id` needs a reauth token (S-114); auth fixtures now inject `localStorage` tokens instead of driving the login UI (was hitting the 5/min MFA-verify limit); homepage `SearchBar` placeholder is a custom prop; disabled readonly `RatingWidget` shares the `"N stars"` label; strict-mode multi-matches |
+| 2 | `get_by_label("City")` matched the Country `<select>` (option list contains "…City") → `"City ★"`; `/businesses/{slug}` route 404s on a UUID → `/businesses/id/{id}`; reported-review queue loads on mount → reload; `"Report"` matched `"Report this shop"` → `exact=True` |
+| 3 | `EditBusinessPage` heading is `h1`+`h2` → `.first` |
+| 4 | `BusinessForm` navigates via `window.location.href` before the driver reads the API response body → assert status always, schema check best-effort |
+| 5 | green |
+
+Verdict upgraded **Hold → Pass**. Remaining for PM: accept the AC 5c disposition
+(Blocked — cover via AC 6a, or descope) and the AC 7g skip (needs a seeded WhatsApp
+draft to be non-skipped in CI).
 
 ---
 
