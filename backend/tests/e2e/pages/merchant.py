@@ -27,8 +27,9 @@ class NewBusinessPage:
 
     def submit(self, *, name: str, address: str, city: str) -> None:
         expect(self.page.get_by_text("New listings start as")).to_be_visible()
-        self.page.get_by_label("Business name *").fill(name)
-        self.page.get_by_label("Street address *").fill(address)
-        self.page.get_by_label("City *").fill(city)
+        # BusinessForm marks required labels with a ★ span (not "*")
+        self.page.get_by_label("Business name ★").fill(name)
+        self.page.get_by_label("Street address ★").fill(address)
+        self.page.get_by_label("City ★", exact=False).fill(city)
         self.page.get_by_role("button", name="Submit for approval").click()
         expect(self.page).to_have_url(re.compile(r"/merchant/dashboard"), timeout=20_000)

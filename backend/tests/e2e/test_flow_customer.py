@@ -70,6 +70,6 @@ def test_customer_full_journey(page: Page, api: Api) -> None:
 
     page.goto("/settings")
     page.get_by_role("button", name="Log out").click()
-    expect(page.get_by_role("link", name="Login")).to_be_visible()
+    expect(page.get_by_role("navigation").get_by_role("link", name="Login").first).to_be_visible()
     blocked = api.get("auth/me", token=access)
     assert blocked.status == 401
