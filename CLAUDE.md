@@ -46,6 +46,10 @@ See also `[AGENTS.md](AGENTS.md)` for the repo map and where each tool's config 
    Sonnet 4.6) explicitly set — never a different tier. **This is Claude Code-specific**: it is a
    deliberate exception to the Cursor ↔ Claude Code parity-sync rule below and must NOT be ported
    into `.cursor/rules/agents/workflow.mdc` or any other Cursor rule.
+10. Land on `main` only through a GitHub pull request. Never commit on `main`/`master`, never
+    `git push` to `origin/main` or `origin/master`, and never set a feature branch's upstream
+    to `origin/main`. Create a named branch, then `git push -u origin HEAD` so GitHub can open
+    a PR. (Mirrors Cursor `project.mdc` non-negotiable 9.)
 
 ## Multi-agent workflow
 
