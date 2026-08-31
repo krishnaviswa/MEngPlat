@@ -5,11 +5,11 @@ apps (Vyapar, myBillBook, Khatabook, Razorpay, PhonePe/Paytm for Business, Petpo
 a **free API** that turns every invoice or receipt into a verified review on
 MerchantHub — and turn their merchant base into ours.
 
-This file is a **strategy + integration-design** doc for a capability that is **not
-yet built**. It is the peer of `[ANDROID_APP_STRATEGY.md](ANDROID_APP_STRATEGY.md)`,
-not a second product bible. When any slice below is **Accepted**, the living roadmap
-entries move into `[README.md](README.md)` §14 (Known gaps) and §16 (investor
-overview) per `docs/CLAUDE.md`; the API contract moves into README §7.
+This file is a **strategy + integration-design** doc — a sibling of the other
+strategy / analysis docs under `docs/` and the root `[ANDROID_APP_STRATEGY.md](../ANDROID_APP_STRATEGY.md)`,
+not a second product bible. The shipped state lives in `[README.md](../README.md)`
+§14 (Known gaps) and §16 (investor overview) per `docs/CLAUDE.md`; the API contract
+is in README §7. This doc keeps the *why* and the *not-yet-built* roadmap.
 
 | Field | Value |
 | ----- | ----- |
@@ -459,3 +459,4 @@ available on request; a working mock is ready to demo now.
 | 2026-08-29 | Created. Proposal stage — captured from the "Partner-Led Review Capture" plan. No slices started. |
 | 2026-08-29 | Mock loop shipped as **S-123** (ADR-019, PR #77). Metadata + §D updated to reflect one shipped slice; stale S-120–S-125 sketch kept for the remaining-scope descriptions. |
 | 2026-08-29 | Added **§F. The money flow** — free-as-acquisition framing, the levers table (featured boost / Product A insights tier / Product B data product / neighbourhood density), direct-merchant-outreach rules (merchant ≠ customer), and the partner-contract checklist. Renumbered channel plan → G, risks → H, do-next → I. Added a Product-B reputational-risk row to §H. |
+| 2026-08-29 | Moved from repo root into `docs/` (sibling of `competitive-analysis-lentlo.md`, `pivot-crowdsourced-live-status.md`). References updated in README, ADR-019, S-123. |

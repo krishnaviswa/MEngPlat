@@ -10,7 +10,7 @@
 
 ## Context
 
-`PARTNER_REVIEW_CHANNEL_STRATEGY.md` proposes letting billing / invoicing / POS apps push
+`docs/PARTNER_REVIEW_CHANNEL_STRATEGY.md` proposes letting billing / invoicing / POS apps push
 customer reviews into MerchantHub at transaction time via a free API. Before committing to
 real partner integration we want to build and demo **one end-to-end mock loop** so the
 team can experience the flow and decide.

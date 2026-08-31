@@ -12,7 +12,7 @@
 
 ## Context
 
-`PARTNER_REVIEW_CHANNEL_STRATEGY.md` (repo root) proposes giving billing / invoicing /
+`docs/PARTNER_REVIEW_CHANNEL_STRATEGY.md` proposes giving billing / invoicing /
 POS apps (Vyapar, Razorpay, PhonePe for Business, Petpooja…) a **free API** that turns
 every invoice into a verified review on MerchantHub. The strategy doc sketched a
 six-slice build numbered S-120–S-125 — **those IDs are stale** (S-120/121/122 are taken
