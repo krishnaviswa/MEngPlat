@@ -8,7 +8,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 from app.schemas import BusinessResponse
-from tests.e2e.api_client import Api
+from tests.e2e.api_client import PASSWORD, Api
 from tests.e2e.pages.merchant import MerchantDashboardPage, NewBusinessPage
 from tests.e2e.pages.register import RegisterPage
 
@@ -30,6 +30,7 @@ def test_merchant_full_journey(page: Page, api: Api) -> None:
     expect(page.get_by_label("National ID type")).to_be_visible()
     page.get_by_label("National ID type").select_option("pan")
     page.get_by_label("National ID number").fill("ABCDE1234F")
+    page.get_by_label("Confirm with password").fill(PASSWORD)  # S-114 reauth step-up
     page.get_by_role("button", name="Save national ID").click()
     expect(page.get_by_text("Add PAN, Aadhaar, or another national ID")).not_to_be_visible()
     mine = api.get("businesses/mine", token=page.evaluate("() => localStorage.getItem('access_token')"))

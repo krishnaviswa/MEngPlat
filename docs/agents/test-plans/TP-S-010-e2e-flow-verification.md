@@ -241,6 +241,28 @@ Directly from `README.md` §9's authorization table — each row becomes one par
 
 ---
 
+## Systematic layer — S-124 predefined-value catalogue (extends this plan)
+
+TP-S-010's `test_flow_*.py` are **hand-picked happy paths**. S-124 adds the
+*systematic* companion under `backend/tests/e2e/journeys/` — same harness, same
+opt-in gate (`E2E=1`), same dual-oracle rule:
+
+- **`form_data.py`** — one `FormSpec` per form on every route, holding the
+  predefined field values (the auditable "predefined values for every page").
+- **`human.py`** — `HumanForm`: per-keystroke typing, Tab between fields, submit
+  by **Enter** where the real `<form onSubmit>` supports it (button-click +
+  Enter-is-a-no-op negative check otherwise). No `time.sleep`.
+- **`journeys/test_journey_{anonymous,customer,merchant,admin}.py`** — walk the
+  full per-role surface; every submission asserts a UI `expect()` **and** the
+  backend Pydantic response schema/status.
+- **`test_selectors_smoke.py`** — copy-drift canary (zero `data-testid`s).
+- Session teardown (`E2E_FULL=1`) fails if any catalogued form was never
+  exercised.
+
+Oracles and mechanics in this document (SSR callout, `APIRequestContext`
+technical oracle, "a test with no `expect()` is a recording") apply unchanged.
+S-124 detail: `docs/agents/test-plans/TP-S-124-human-predefined-value-e2e-catalog.md`.
+
 ## Manual checklist (if applicable)
 
 - [ ] M-001: Full Google OAuth sign-in with a live Google test account (client-side ID token flow can't be scripted headlessly without real Google credentials)

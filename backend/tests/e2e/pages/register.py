@@ -21,6 +21,15 @@ class RegisterPage:
             PASSWORD
         )
         self.page.get_by_role("combobox", name="Account type").select_option(role)
-        self.page.get_by_role("button", name="Sign up").click()
-        expect(self.page).to_have_url(re.compile(r"/login"), timeout=20_000)
+        # /auth/register is 5/min per IP; a full e2e run can bunch registrations,
+        # so re-submit through the rate-limit window instead of failing outright.
+        for attempt in range(4):
+            self.page.get_by_role("button", name="Sign up").click()
+            try:
+                expect(self.page).to_have_url(re.compile(r"/login"), timeout=15_000)
+                break
+            except AssertionError:
+                if attempt == 3:
+                    raise
+                self.page.wait_for_timeout(15_000)  # rate-limit window
         LoginPage(self.page).login(email, PASSWORD)
