@@ -1,0 +1,1483 @@
+<!--
+  MerchantHub AI — interactive role decision-flow walkthrough.
+
+  Single self-contained HTML file. No build step, no network calls beyond the
+  Google Fonts stylesheet. Open it directly in a browser, or serve docs/ statically.
+
+  It is NOT prose documentation (README.md stays the one prose doc). It is a
+  navigable model of the customer / merchant / admin decision gates on the main
+  branch, generated from README.md sections 2, 5, 6, 7, 9 and the FastAPI routers
+  under backend/app/routers/. Update the FLOWS data below when a gate changes.
+-->
+<meta charset="utf-8" />
+<title>MerchantHub Role Flows</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
+
+<style>
+  :root {
+    --ground: #f4f6f8;
+    --raised: #ffffff;
+    --sunk: #eef1f5;
+    --ink: #1a2230;
+    --muted: #55606f;
+    --faint: #8b95a4;
+    --border: #e1e5ec;
+    --brand: #3a4d74;
+    --customer: #0f766e;
+    --merchant: #2258d6;
+    --admin: #7c3aed;
+    --good: #15803d;
+    --warn: #a1580f;
+    --crit: #b3261e;
+    --shadow-sm: 0 1px 2px rgba(20, 28, 44, .05);
+    --shadow-md: 0 1px 2px rgba(20, 28, 44, .04), 0 10px 26px rgba(20, 28, 44, .07);
+    --role: var(--brand);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0f1218; --raised: #191d26; --sunk: #14181f; --ink: #e7ebf1;
+      --muted: #9aa4b3; --faint: #6b7482; --border: #2a313d; --brand: #9db4dd;
+      --customer: #3fbdb0; --merchant: #7ba6ff; --admin: #b79cf6;
+      --good: #4cbf78; --warn: #e0994a; --crit: #ef7169;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+      --shadow-md: 0 1px 2px rgba(0,0,0,.3), 0 12px 30px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0f1218; --raised: #191d26; --sunk: #14181f; --ink: #e7ebf1;
+    --muted: #9aa4b3; --faint: #6b7482; --border: #2a313d; --brand: #9db4dd;
+    --customer: #3fbdb0; --merchant: #7ba6ff; --admin: #b79cf6;
+    --good: #4cbf78; --warn: #e0994a; --crit: #ef7169;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+    --shadow-md: 0 1px 2px rgba(0,0,0,.3), 0 12px 30px rgba(0,0,0,.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  body[data-role="customer"] { --role: var(--customer); }
+  body[data-role="merchant"] { --role: var(--merchant); }
+  body[data-role="admin"] { --role: var(--admin); }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 22px; }
+  a { color: var(--brand); }
+  :focus-visible { outline: 2px solid var(--role); outline-offset: 2px; border-radius: 4px; }
+  code, .mono { font-family: "IBM Plex Mono", monospace; }
+
+  /* ---------- header ---------- */
+  header {
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--ground) 90%, transparent);
+    backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 30;
+  }
+  .head-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 58px; flex-wrap: wrap; }
+  .brand { font-weight: 700; font-size: .95rem; letter-spacing: .01em; display: flex; align-items: baseline; gap: 9px; }
+  .brand .tag {
+    font-family: "IBM Plex Mono", monospace; font-size: .66rem; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .12em; color: var(--faint);
+  }
+  .roleswitch { display: flex; gap: 4px; background: var(--sunk); padding: 4px; border-radius: 10px; border: 1px solid var(--border); }
+  .roleswitch button {
+    font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer;
+    border: 0; background: transparent; color: var(--muted);
+    padding: 6px 14px; border-radius: 7px; transition: background .15s, color .15s;
+  }
+  .roleswitch button:hover { color: var(--ink); }
+  .roleswitch button[aria-pressed="true"] {
+    background: var(--raised); color: var(--rolehue); box-shadow: var(--shadow-sm);
+  }
+  .roleswitch button[data-role="customer"] { --rolehue: var(--customer); }
+  .roleswitch button[data-role="merchant"] { --rolehue: var(--merchant); }
+  .roleswitch button[data-role="admin"] { --rolehue: var(--admin); }
+
+  /* ---------- intro ---------- */
+  .intro { padding: 40px 0 12px; }
+  .intro h1 {
+    font-size: clamp(1.8rem, 4.4vw, 2.7rem); line-height: 1.1; letter-spacing: -0.02em;
+    margin: 0 0 14px; font-weight: 700; text-wrap: balance; max-width: 20ch;
+  }
+  .intro p { color: var(--muted); max-width: 66ch; margin: 0 0 10px; font-size: 1.02rem; }
+  .intro .src {
+    font-family: "IBM Plex Mono", monospace; font-size: .76rem; color: var(--faint);
+    margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);
+  }
+
+  /* ---------- app layout ---------- */
+  .app { display: grid; grid-template-columns: 300px 1fr; gap: 26px; padding: 26px 0 20px; align-items: start; }
+  @media (max-width: 880px) { .app { grid-template-columns: 1fr; } }
+
+  .side { position: sticky; top: 78px; display: flex; flex-direction: column; gap: 16px; }
+  @media (max-width: 880px) { .side { position: static; } }
+
+  .panel { background: var(--raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-sm); }
+  .panel > h2 {
+    margin: 0; padding: 12px 15px; font-size: .72rem; text-transform: uppercase;
+    letter-spacing: .09em; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 600;
+  }
+  .panel-body { padding: 13px 15px; }
+
+  /* path rail */
+  .rail { list-style: none; margin: 0; padding: 6px 0; display: flex; flex-direction: column; }
+  .rail li { position: relative; }
+  .rail button {
+    font: inherit; text-align: left; width: 100%; cursor: pointer;
+    background: transparent; border: 0; color: var(--muted);
+    padding: 7px 15px 7px 34px; font-size: .82rem; line-height: 1.35;
+    display: block; border-left: 2px solid var(--border); margin-left: 15px;
+  }
+  .rail button:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 4%, transparent); }
+  .rail li::before {
+    content: ""; position: absolute; left: 11px; top: 12px; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--border); border: 2px solid var(--raised); z-index: 1;
+  }
+  .rail li.done::before { background: var(--role); }
+  .rail li.handoff::before { background: var(--admin); box-shadow: 0 0 0 2px color-mix(in srgb, var(--admin) 40%, transparent); }
+  .rail .choice { color: var(--ink); font-weight: 500; }
+  .rail .switched { font-family: "IBM Plex Mono", monospace; font-size: .72rem; color: var(--admin); text-transform: uppercase; letter-spacing: .05em; }
+  .rail-empty { color: var(--faint); font-size: .82rem; padding: 4px 15px 10px; }
+
+  .controls { display: flex; gap: 8px; padding: 12px 15px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .controls button {
+    font: inherit; font-size: .8rem; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--border); background: var(--raised); color: var(--ink);
+    padding: 6px 12px; border-radius: 7px;
+  }
+  .controls button:hover { background: var(--sunk); }
+  .controls button:disabled { opacity: .4; cursor: not-allowed; }
+
+  .keyhint { padding: 11px 15px; border-top: 1px solid var(--border); font-size: .74rem; color: var(--faint); }
+  .keyhint kbd {
+    font-family: "IBM Plex Mono", monospace; font-size: .72rem;
+    background: var(--sunk); border: 1px solid var(--border); border-bottom-width: 2px;
+    border-radius: 4px; padding: 1px 5px; color: var(--muted);
+  }
+
+  /* ---------- stage ---------- */
+  .stage { min-height: 380px; }
+  .node {
+    background: var(--raised); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow-md); overflow: hidden;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .node { animation: rise .22s ease both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+  }
+  .node-top { height: 4px; background: var(--accent, var(--brand)); }
+  .node[data-kind="action"] { --accent: var(--role); }
+  .node[data-kind="decision"] { --accent: var(--brand); }
+  .node[data-kind="process"] { --accent: var(--faint); }
+  .node[data-kind="outcome"][data-status="success"] { --accent: var(--good); }
+  .node[data-kind="outcome"][data-status="warn"] { --accent: var(--warn); }
+  .node[data-kind="outcome"][data-status="error"] { --accent: var(--crit); }
+  .node[data-kind="outcome"][data-status="info"] { --accent: var(--brand); }
+
+  .node-body { padding: 22px 24px 24px; }
+  .node-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .kindtag {
+    font-family: "IBM Plex Mono", monospace; font-size: .66rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .1em; color: var(--accent, var(--brand));
+    padding: 2px 7px; border-radius: 5px; background: color-mix(in srgb, var(--accent, var(--brand)) 12%, transparent);
+  }
+  .lanetag {
+    font-size: .74rem; color: var(--muted); display: inline-flex; align-items: center; gap: 5px;
+  }
+  .lanetag::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: var(--lanehue, var(--faint)); }
+  .lane-customer { --lanehue: var(--customer); }
+  .lane-merchant { --lanehue: var(--merchant); }
+  .lane-admin { --lanehue: var(--admin); }
+  .lane-system { --lanehue: var(--muted); }
+  .lane-partner, .lane-gateway { --lanehue: var(--faint); }
+
+  .node h3 { margin: 0 0 8px; font-size: 1.28rem; line-height: 1.28; letter-spacing: -0.01em; font-weight: 600; text-wrap: balance; }
+  .node .detail { color: var(--muted); font-size: .95rem; margin: 0 0 4px; max-width: 62ch; }
+  .node .api {
+    display: inline-block; margin: 10px 0 0; font-family: "IBM Plex Mono", monospace;
+    font-size: .82rem; color: var(--ink); background: var(--sunk);
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px 9px;
+  }
+
+  .opts { display: flex; flex-direction: column; gap: 9px; margin-top: 20px; }
+  .opt {
+    font: inherit; text-align: left; cursor: pointer; width: 100%;
+    background: var(--raised); border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px 15px 13px 46px; position: relative; color: var(--ink);
+    transition: border-color .15s, background .15s, transform .1s;
+  }
+  .opt:hover { border-color: var(--role); background: color-mix(in srgb, var(--role) 5%, var(--raised)); }
+  .opt:active { transform: translateY(1px); }
+  .opt .num {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center;
+    font-family: "IBM Plex Mono", monospace; font-size: .78rem; font-weight: 600;
+    background: var(--sunk); color: var(--muted); border: 1px solid var(--border);
+  }
+  .opt .l { font-weight: 500; display: block; }
+  .opt .h { display: block; font-size: .82rem; color: var(--muted); margin-top: 2px; }
+  .opt.handoff .num { background: color-mix(in srgb, var(--admin) 15%, transparent); color: var(--admin); border-color: color-mix(in srgb, var(--admin) 30%, transparent); }
+  .opt.handoff:hover { border-color: var(--admin); background: color-mix(in srgb, var(--admin) 6%, var(--raised)); }
+  .opt.cont { padding-left: 15px; font-weight: 600; }
+  .opt.cont .num { display: none; }
+
+  /* outcome extras */
+  .verdict { display: flex; align-items: center; gap: 10px; margin: 2px 0 12px; }
+  .code {
+    font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: .95rem;
+    padding: 3px 10px; border-radius: 7px;
+  }
+  .st-success .code { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+  .st-warn .code { color: var(--warn); background: color-mix(in srgb, var(--warn) 15%, transparent); }
+  .st-error .code { color: var(--crit); background: color-mix(in srgb, var(--crit) 14%, transparent); }
+  .st-info .code { color: var(--brand); background: color-mix(in srgb, var(--brand) 14%, transparent); }
+  .verdict .word { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+
+  .changed {
+    margin-top: 14px; border-left: 3px solid var(--accent, var(--brand));
+    background: var(--sunk); border-radius: 0 8px 8px 0; padding: 11px 14px;
+    font-size: .88rem; color: var(--muted);
+  }
+  .changed b { color: var(--ink); display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 3px; }
+
+  .trace { margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--border); }
+  .trace .lbl { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin-bottom: 8px; }
+  .trace .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .trace .chip {
+    font-family: "IBM Plex Mono", monospace; font-size: .74rem; color: var(--muted);
+    background: var(--sunk); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px;
+  }
+  .trace .chip.role-c { color: var(--customer); border-color: color-mix(in srgb, var(--customer) 35%, var(--border)); }
+  .trace .chip.role-m { color: var(--merchant); border-color: color-mix(in srgb, var(--merchant) 35%, var(--border)); }
+  .trace .chip.role-a { color: var(--admin); border-color: color-mix(in srgb, var(--admin) 35%, var(--border)); }
+  .trace .arrow { color: var(--faint); }
+  .trace .copy { margin-top: 12px; font: inherit; font-size: .78rem; cursor: pointer; border: 1px solid var(--border); background: var(--raised); color: var(--ink); border-radius: 7px; padding: 5px 11px; }
+  .trace .copy:hover { background: var(--sunk); }
+
+  .endbtns { display: flex; gap: 9px; margin-top: 20px; flex-wrap: wrap; }
+  .endbtns button {
+    font: inherit; font-weight: 600; font-size: .85rem; cursor: pointer; border-radius: 9px; padding: 9px 16px; border: 1px solid var(--border);
+  }
+  .endbtns .primary { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+  .endbtns .primary:hover { opacity: .9; }
+  .endbtns .ghost { background: var(--raised); color: var(--ink); }
+  .endbtns .ghost:hover { background: var(--sunk); }
+
+  /* ---------- reference ---------- */
+  .ref { padding: 30px 0 60px; border-top: 1px solid var(--border); margin-top: 20px; }
+  .ref h2 { font-size: 1.4rem; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .ref p.sub { color: var(--muted); max-width: 64ch; margin: 0 0 18px; font-size: .95rem; }
+  details.gate {
+    background: var(--raised); border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 9px; overflow: hidden;
+  }
+  details.gate > summary {
+    cursor: pointer; list-style: none; padding: 13px 16px; display: flex; gap: 12px; align-items: baseline;
+    font-weight: 600; font-size: .96rem;
+  }
+  details.gate > summary::-webkit-details-marker { display: none; }
+  details.gate > summary::before { content: "▸"; color: var(--faint); font-size: .8rem; }
+  details.gate[open] > summary::before { content: "▾"; }
+  details.gate > summary .g-api { font-family: "IBM Plex Mono", monospace; font-size: .76rem; font-weight: 500; color: var(--muted); margin-left: auto; text-align: right; }
+  .gate-body { padding: 4px 16px 15px 40px; }
+  .gate-body table { width: 100%; border-collapse: collapse; font-size: .87rem; }
+  .gate-body td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .gate-body tr:last-child td { border-bottom: 0; }
+  .gate-body td.opt-l { font-weight: 500; width: 42%; }
+  .gate-body td.opt-r { color: var(--muted); }
+  .minicode {
+    font-family: "IBM Plex Mono", monospace; font-size: .74rem; font-weight: 600; padding: 1px 6px; border-radius: 5px; white-space: nowrap;
+  }
+  .mc-success { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+  .mc-warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 15%, transparent); }
+  .mc-error { color: var(--crit); background: color-mix(in srgb, var(--crit) 14%, transparent); }
+  .mc-info { color: var(--brand); background: color-mix(in srgb, var(--brand) 13%, transparent); }
+  .mc-step { color: var(--muted); background: var(--sunk); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 16px 0 24px; font-size: .8rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 20px; height: 4px; border-radius: 2px; display: inline-block; }
+
+  footer { border-top: 1px solid var(--border); padding: 26px 0 50px; color: var(--faint); font-size: .8rem; }
+  footer code { color: var(--muted); }
+
+  .noscript { max-width: 60ch; margin: 40px auto; padding: 20px; border: 1px solid var(--crit); border-radius: 10px; color: var(--crit); }
+</style>
+
+<header>
+  <div class="wrap head-row">
+    <div class="brand">MerchantHub&nbsp;AI <span class="tag">role flows · main</span></div>
+    <div class="roleswitch" role="group" aria-label="Choose a role">
+      <button data-role="customer" aria-pressed="true">Customer</button>
+      <button data-role="merchant" aria-pressed="false">Merchant</button>
+      <button data-role="admin" aria-pressed="false">Admin</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="intro">
+    <h1>Walk a role through every decision gate</h1>
+    <p>Pick a role, then step through the process the way the backend does — one juncture at a time. Every diamond is a real check in a FastAPI router; choose an answer and the flow shows you the outcome, the state that changed, and the HTTP status a caller would get.</p>
+    <p>Where one role hands off to another — a merchant waiting on approval, a captured payment waiting on an admin — you can <strong>switch roles mid-flow</strong> and keep going. The full reference of gates sits below the walkthrough.</p>
+    <p class="src">Built from <code>README.md</code> §2 · §5 · §6 · §7 · §9 and <code>backend/app/routers/</code> — auth · businesses · reviews · partner · payments · admin. Reflects work through S-123 / S-124.</p>
+  </section>
+
+  <noscript><div class="noscript">This is an interactive walkthrough and needs JavaScript. The decision gates are also documented in <code>README.md</code> §6 Feature flows and §9 Security.</div></noscript>
+
+  <div class="app" id="app">
+    <aside class="side">
+      <div class="panel">
+        <h2>Path so far</h2>
+        <ol class="rail" id="rail"></ol>
+        <div class="controls">
+          <button id="back">&larr; Step back</button>
+          <button id="restart">Restart role</button>
+        </div>
+        <div class="keyhint">
+          <kbd>1</kbd>–<kbd>9</kbd> choose · <kbd>&larr;</kbd> back · <kbd>Esc</kbd> restart
+        </div>
+      </div>
+    </aside>
+
+    <main class="stage" id="stage" aria-live="polite"></main>
+  </div>
+
+  <section class="ref" id="ref">
+    <h2>All decision gates for <span id="refRole">the customer</span></h2>
+    <p class="sub">Every branch point in this role's flow, in the order it is reached. Generated from the same model that drives the walkthrough.</p>
+    <div class="legend">
+      <span><i style="background:var(--role)"></i> action taken by the person</span>
+      <span><i style="background:var(--brand)"></i> decision the API makes</span>
+      <span><i style="background:var(--faint)"></i> system / async step</span>
+      <span><i style="background:var(--good)"></i> success</span>
+      <span><i style="background:var(--warn)"></i> allowed but held / no refund</span>
+      <span><i style="background:var(--crit)"></i> caller stopped</span>
+    </div>
+    <div id="gates"></div>
+  </section>
+</div>
+
+<footer>
+  <div class="wrap">
+    Model lives in this file's <code>FLOWS</code> object — keep it in step with <code>README.md</code> §6/§7/§9 when a gate changes. <code>README.md</code> §6 holds the sequence diagrams; this tool carries the exact conditions and codes. AI output on every surface is a suggestion, never a verdict.
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------ *
+   *  FLOW MODEL
+   *  kind: action | decision | process | outcome
+   *  options[]: { label, hint?, to, handoff?: {role,to} }
+   *  outcome:   { status: success|warn|error|info, code?, changed?, to? }
+   * ------------------------------------------------------------------ */
+  const FLOWS = {
+
+    /* =========================== CUSTOMER =========================== */
+    customer: {
+      label: "the customer",
+      start: "start",
+      nodes: [
+        { id: "start", kind: "action", lane: "customer",
+          title: "A visitor wants to use MerchantHub",
+          detail: "Browsing, search, and reading reviews are fully public. Everything that writes needs identity — except one login-free partner path.",
+          options: [{ label: "Continue", to: "haveAccount" }] },
+
+        { id: "haveAccount", kind: "decision", lane: "customer",
+          title: "How are you coming in?",
+          options: [
+            { label: "I'm new — need to register", to: "register" },
+            { label: "I already have an account", to: "method" },
+            { label: "I got a review link on a shop receipt", hint: "login-free partner path", to: "pStart" },
+          ] },
+
+        /* ---- registration ---- */
+        { id: "register", kind: "decision", lane: "system", api: "POST /auth/register",
+          title: "What role are you registering as?",
+          detail: "Password must be ≥ 12 chars with a letter and a digit. 5 registrations / minute / IP.",
+          options: [
+            { label: "Customer or Merchant", to: "regOk" },
+            { label: "Admin", hint: "blocked for the public", to: "regAdmin" },
+          ] },
+        { id: "regAdmin", kind: "outcome", lane: "system",
+          title: "Self-registration as admin is refused",
+          status: "error", code: "403",
+          changed: "Nothing. Admin accounts are seeded only — there is no public path to the admin role, on register or on phone-OTP verify." },
+        { id: "regOk", kind: "outcome", lane: "system",
+          title: "Account created — but you are not logged in",
+          status: "success", code: "201",
+          changed: "A users row (and a merchants row if role = merchant). No access or refresh token is issued here — you still have to log in.",
+          to: "method" },
+
+        /* ---- sign-in method ---- */
+        { id: "method", kind: "decision", lane: "customer",
+          title: "Which sign-in method?",
+          options: [
+            { label: "Email + password (Authenticator)", to: "pwLock" },
+            { label: "Continue with Google", to: "google" },
+            { label: "Mobile OTP", to: "otpKind" },
+          ] },
+
+        { id: "pwLock", kind: "decision", lane: "system", api: "POST /auth/login",
+          title: "Have there been 5+ failed attempts for this email in 15 minutes?",
+          detail: "Redis-backed per-email lockout. Best-effort — skipped entirely if Redis is unreachable.",
+          options: [
+            { label: "No", to: "pwCreds" },
+            { label: "Yes — locked out", to: "pwLocked" },
+          ] },
+        { id: "pwLocked", kind: "outcome", lane: "system",
+          title: "Temporarily locked",
+          status: "error", code: "429",
+          changed: "auth:lock:{email} is set for 15 minutes. Google sign-in is not counted toward this." },
+
+        { id: "pwCreds", kind: "decision", lane: "system", api: "POST /auth/login",
+          title: "Password check",
+          options: [
+            { label: "Correct password", to: "pwActive" },
+            { label: "Wrong password", to: "pw401" },
+            { label: "This email is a Google-only account", to: "pwGoogle" },
+          ] },
+        { id: "pw401", kind: "outcome", lane: "system",
+          title: "Invalid credentials",
+          status: "error", code: "401",
+          changed: "record_login_failure() increments the counter — the 5th failure trips the 15-minute lock." },
+        { id: "pwGoogle", kind: "outcome", lane: "system",
+          title: "That account has no password",
+          status: "error", code: "400",
+          changed: "hashed_password is null. The message tells you to continue with Google. Forgot-password will not convert it either." },
+
+        { id: "pwActive", kind: "decision", lane: "system",
+          title: "Is the account active?",
+          options: [
+            { label: "Active", to: "totp" },
+            { label: "Suspended by an admin", to: "pw403" },
+          ] },
+        { id: "pw403", kind: "outcome", lane: "system",
+          title: "Account suspended",
+          status: "error", code: "403",
+          changed: "is_active = false. login, refresh and get_current_user all reject it. An admin must reactivate." },
+
+        { id: "totp", kind: "decision", lane: "system",
+          title: "Is an authenticator already enrolled?",
+          detail: "A password account never receives session tokens from /auth/login — it always gets an mfa_token first.",
+          options: [
+            { label: "Yes — totp_enabled", hint: "mfa_required", to: "totpCode" },
+            { label: "No — first password login", hint: "mfa_enrollment_required", to: "totpEnroll" },
+          ] },
+        { id: "totpEnroll", kind: "process", lane: "customer", api: "POST /auth/mfa/totp/setup → /confirm",
+          title: "Enrol an authenticator",
+          detail: "Scan the QR / enter the secret, then confirm the first 6-digit code.",
+          options: [{ label: "Continue", to: "totpCode" }] },
+        { id: "totpCode", kind: "decision", lane: "system", api: "POST /auth/mfa/totp/verify",
+          title: "Is the 6-digit code correct?",
+          detail: "5 attempts / minute / IP on verify and confirm.",
+          options: [
+            { label: "Correct", to: "tokens" },
+            { label: "Wrong or expired", to: "totp401" },
+          ] },
+        { id: "totp401", kind: "outcome", lane: "system",
+          title: "MFA code rejected",
+          status: "error", code: "401",
+          changed: "No tokens. The mfa_token is still valid until it expires; brute-forcing it is what the rate limit caps." },
+
+        { id: "google", kind: "process", lane: "system", api: "POST /auth/google",
+          title: "Google Identity sign-in",
+          detail: "The GIS button returns a signed ID token; the API verifies it against Google's JWKS and looks up or creates a user by google_sub.",
+          options: [{ label: "Token verified", hint: "TOTP is skipped for Google", to: "tokens" }] },
+
+        { id: "otpKind", kind: "decision", lane: "system", api: "POST /auth/phone/request → /verify",
+          title: "Is this a known number or a new one?",
+          detail: "request returns a generic 200 (mock logs the code; demo shortcut 123456). 400 invalid number, 503 if Redis/SMS is down.",
+          options: [
+            { label: "Existing User.phone", to: "otpCode" },
+            { label: "New number, role customer or merchant", to: "otpCode" },
+            { label: "New number, asking for role admin", to: "otpAdmin" },
+          ] },
+        { id: "otpAdmin", kind: "outcome", lane: "system",
+          title: "New admin via OTP is refused",
+          status: "error", code: "403",
+          changed: "Nothing. Only an existing seeded admin User.phone can OTP-login into the admin role." },
+        { id: "otpCode", kind: "decision", lane: "system", api: "POST /auth/phone/verify",
+          title: "Is the OTP correct?",
+          options: [
+            { label: "Correct", hint: "TOTP is skipped", to: "tokens" },
+            { label: "Wrong code", to: "otp401" },
+          ] },
+        { id: "otp401", kind: "outcome", lane: "system",
+          title: "Invalid code",
+          status: "error", code: "401",
+          changed: "No tokens. A first-time verified number with no name is stored as \"User {last 4 of E.164}\"." },
+
+        { id: "tokens", kind: "process", lane: "customer",
+          title: "Signed in",
+          detail: "access + refresh tokens are issued and kept in localStorage (known weakness — httpOnly cookies are the deferred S-026). Every protected request now sends Authorization: Bearer.",
+          options: [{ label: "Continue", to: "act" }] },
+
+        /* ---- what now ---- */
+        { id: "act", kind: "decision", lane: "customer",
+          title: "What do you want to do?",
+          options: [
+            { label: "Browse and open a business", to: "browse" },
+            { label: "Write a review", to: "revTarget" },
+            { label: "Like / report / edit a review, favourite, report a shop", to: "manage" },
+          ] },
+
+        { id: "browse", kind: "process", lane: "system", api: "GET /search/businesses · GET /businesses/{slug}",
+          title: "Browsing is public and Redis-cached",
+          detail: "The reviews list shows only active reviews with AI suggestion labels. \"Also reviewed on Google\" appears only if synced rows exist. Featured-active listings rank first.",
+          options: [{ label: "Open a business, then write a review", to: "revTarget" }] },
+
+        /* ---- review submission ---- */
+        { id: "revTarget", kind: "decision", lane: "system", api: "POST /reviews",
+          title: "Does the target business exist and is it approved?",
+          options: [
+            { label: "Yes — an approved listing", to: "revOwn" },
+            { label: "Missing or not approved", to: "rev404" },
+          ] },
+        { id: "rev404", kind: "outcome", lane: "system",
+          title: "Business not found or not approved",
+          status: "error", code: "404",
+          changed: "Nothing. Pending, processing, suspended and rejected listings cannot receive reviews." },
+
+        { id: "revOwn", kind: "decision", lane: "system",
+          title: "Are you the merchant who owns this business?",
+          options: [
+            { label: "No", to: "revDup" },
+            { label: "Yes — it's my own listing", to: "rev403" },
+          ] },
+        { id: "rev403", kind: "outcome", lane: "system",
+          title: "You can't review your own business",
+          status: "error", code: "403",
+          changed: "Nothing. Checked by matching the caller's merchant id against business.merchant_id." },
+
+        { id: "revDup", kind: "decision", lane: "system",
+          title: "Have you already reviewed this business?",
+          detail: "One review per author per business — uq_author_business_review.",
+          options: [
+            { label: "No — first time", to: "revKw" },
+            { label: "Yes — already reviewed it", to: "rev409" },
+          ] },
+        { id: "rev409", kind: "outcome", lane: "system",
+          title: "Already reviewed",
+          status: "error", code: "409",
+          changed: "Nothing. A concurrent double-submit hits the same unique index and also returns 409." },
+
+        { id: "revKw", kind: "decision", lane: "system", api: "content_moderation.contains_disallowed_language",
+          title: "Does the title or body hit the slur / obscenity keyword filter?",
+          detail: "A conservative word-boundary list — not a general toxicity classifier. This is the only automatic gate on a review.",
+          options: [
+            { label: "Clean text", to: "revLive" },
+            { label: "Matches a disallowed word", to: "revHeld" },
+          ] },
+        { id: "revLive", kind: "outcome", lane: "system",
+          title: "Review is live immediately",
+          status: "success", code: "201",
+          changed: "reviews row status = active — no merchant or admin approval step. The owning merchant gets the new_review in-app notice (one row per scenario) and a best-effort email.",
+          to: "revAi" },
+        { id: "revHeld", kind: "outcome", lane: "system",
+          title: "Review is held for moderation",
+          status: "warn", code: "201",
+          changed: "reviews row status = reported — it goes to the admin queue and is not shown publicly. The merchant is NOT notified.",
+          to: "revAi", handoff: { role: "admin", to: "review" } },
+
+        { id: "revAi", kind: "process", lane: "system", api: "AIProvider (mock by default)",
+          title: "The AI + aggregate pipeline runs",
+          detail: "analyze_review_text → sentiment, summary, positives, complaints, a suggested owner reply → stored as ai_analyses. Each photo → analyze_image. update_business_rating. Invalidate search:* cache. Background, debounced: refresh the merchant's rolling summary.",
+          options: [{ label: "Continue", to: "revDone" }] },
+        { id: "revDone", kind: "outcome", lane: "customer",
+          title: "Done — review + AI analysis returned",
+          status: "success", code: "201",
+          changed: "You see a confirmation and an AI badge. The merchant sees it on their dashboard feed; if held, an admin sees it in the reported queue." },
+
+        /* ---- manage ---- */
+        { id: "manage", kind: "decision", lane: "customer",
+          title: "Which action?",
+          options: [
+            { label: "Edit or delete my review", to: "edit" },
+            { label: "Like a review", to: "like" },
+            { label: "Report a review", to: "reportRev" },
+            { label: "Favourite a business", to: "fav" },
+          ] },
+        { id: "edit", kind: "decision", lane: "system", api: "PATCH · DELETE /reviews/{id}",
+          title: "Are you the author of this review?",
+          options: [
+            { label: "Yes — my review", to: "editOk" },
+            { label: "No", to: "edit404" },
+          ] },
+        { id: "editOk", kind: "outcome", lane: "system",
+          title: "Edit / delete allowed",
+          status: "info", code: "200",
+          changed: "A body change re-runs the AI analysis and update_business_rating. Note: the API exists but there is no web UI for it yet (parity M-40 / M-41)." },
+        { id: "edit404", kind: "outcome", lane: "system",
+          title: "Not your review",
+          status: "error", code: "404",
+          changed: "Nothing. Author-scoped like ownership — 404, not 403, so another user's review isn't confirmed to exist." },
+        { id: "like", kind: "outcome", lane: "system", api: "POST /reviews/{id}/like",
+          title: "Liked",
+          status: "success", code: "200",
+          changed: "A review_likes row (unique on user+review) and like_count++. Idempotent — a second like is a no-op." },
+        { id: "reportRev", kind: "outcome", lane: "system", api: "POST /reviews/{id}/report",
+          title: "Review reported",
+          status: "warn", code: "200",
+          changed: "The review's status flips to reported and a review_reports row is filed. Any signed-in user can do this.",
+          handoff: { role: "admin", to: "review" } },
+        { id: "fav", kind: "decision", lane: "system", api: "POST /favorites",
+          title: "Are you a customer, and is the business approved?",
+          options: [
+            { label: "Yes", to: "favOk" },
+            { label: "Not a customer / not approved", to: "favNo" },
+          ] },
+        { id: "favOk", kind: "outcome", lane: "system",
+          title: "Favourited",
+          status: "success", code: "201",
+          changed: "A favorites row (unique on user+business). DELETE /favorites/{business_id} is an idempotent 204." },
+        { id: "favNo", kind: "outcome", lane: "system",
+          title: "Favourite refused",
+          status: "error", code: "403 / 400",
+          changed: "Favourites are customer-role only and approved-business only." },
+
+        /* ---- partner login-free path ---- */
+        { id: "pStart", kind: "action", lane: "partner",
+          title: "You tap /c/{token} from the invoice or receipt SMS",
+          detail: "A billing / POS partner minted this single-use token for one closed transaction. The token is the only capability — you cannot forge it, choose the business, or replay it. The organic /collect/{businessId} QR path keeps its login gate; this one does not.",
+          options: [{ label: "Open the link", to: "pToken" }] },
+        { id: "pToken", kind: "decision", lane: "system", api: "GET /collect/{token}",
+          title: "What state is the token in?",
+          options: [
+            { label: "Pending — unused and not expired", to: "pSubmit" },
+            { label: "Already redeemed", to: "p409" },
+            { label: "Past expires_at", to: "p410" },
+            { label: "Unknown token", to: "p404" },
+          ] },
+        { id: "p409", kind: "outcome", lane: "system", title: "Link already used", status: "error", code: "409",
+          changed: "The token was burned when the review was submitted. One review per real transaction — UNIQUE(partner_id, txn_ref)." },
+        { id: "p410", kind: "outcome", lane: "system", title: "Link expired", status: "error", code: "410",
+          changed: "The request row is marked expired. The partner would have to push a new review-request." },
+        { id: "p404", kind: "outcome", lane: "system", title: "Unknown review link", status: "error", code: "404",
+          changed: "Nothing." },
+        { id: "pSubmit", kind: "action", lane: "customer", api: "POST /collect/{token}",
+          title: "Submit a rating and text — no login",
+          detail: "Invoice amounts, line items and customer names are never accepted. An optional phone is stored only as a salted hash.",
+          options: [{ label: "Submit", to: "pKw" }] },
+        { id: "pKw", kind: "decision", lane: "system",
+          title: "Keyword filter — the same check as an organic review",
+          options: [
+            { label: "Clean text", to: "pLive" },
+            { label: "Matches a disallowed word", to: "pHeld" },
+          ] },
+        { id: "pLive", kind: "outcome", lane: "system",
+          title: "Native verified-purchase review, live",
+          status: "success", code: "201",
+          changed: "A real reviews row: source = 'partner', verified_purchase = true, written through a pseudonymous shadow user. Token burned (redeemed_at set). status = active.",
+          to: "pPipe" },
+        { id: "pHeld", kind: "outcome", lane: "system",
+          title: "Native review, held for moderation",
+          status: "warn", code: "201",
+          changed: "Same native partner row but status = reported. Still runs the pipeline; still can be batch-quarantined.",
+          to: "pPipe", handoff: { role: "admin", to: "review" } },
+        { id: "pPipe", kind: "process", lane: "partner",
+          title: "Pipeline + signed callback",
+          detail: "Same AI + moderation as any review. If not flagged: merchant notified + emailed. Background: a signed review.captured event is POSTed to the partner's callback_url (status: published or held_for_moderation) — the mock provider logs it.",
+          options: [{ label: "Continue", to: "pDone" }] },
+        { id: "pDone", kind: "outcome", lane: "customer",
+          title: "\"Your verified review is live\" — or \"held for moderation\"",
+          status: "success", code: "201",
+          changed: "No MerchantHub account was created for you. The merchant's review carries a \"Verified purchase\" badge." },
+      ],
+    },
+
+    /* =========================== MERCHANT =========================== */
+    merchant: {
+      label: "the merchant",
+      start: "start",
+      nodes: [
+        { id: "start", kind: "action", lane: "merchant",
+          title: "You want to list your business and see what customers think",
+          options: [{ label: "Continue", to: "auth" }] },
+
+        { id: "auth", kind: "decision", lane: "merchant",
+          title: "Sign in as a merchant",
+          detail: "Registering with role = merchant also creates a merchants profile row. Auth itself is the same chain as any user — password + mandatory TOTP, or Google, or Mobile OTP.",
+          options: [
+            { label: "Register, then sign in", to: "nid" },
+            { label: "Existing merchant login", to: "nid" },
+          ] },
+
+        { id: "nid", kind: "decision", lane: "system", api: "POST /businesses",
+          title: "Is a national ID on file?",
+          detail: "merchant_national_id_required(user) — PAN, Aadhaar or Other. Admin lists mask the number; it is not UIDAI / GSTN verified.",
+          options: [
+            { label: "Yes — PAN / Aadhaar / Other is set", to: "createForm" },
+            { label: "No", to: "nidGate" },
+          ] },
+        { id: "nidGate", kind: "outcome", lane: "system",
+          title: "National ID required before a listing",
+          status: "error", code: "400",
+          changed: "Nothing is created. Set it on /profile — Aadhaar goes through a mock OTP challenge (S-070). Then retry.",
+          to: "createForm" },
+
+        { id: "createForm", kind: "action", lane: "merchant", api: "/merchant/businesses/new",
+          title: "Fill the listing form",
+          detail: "Name, description, plain-text address and city, Country (default IN) then a cascading State, categories, phone / email / website, hours. No geocoder and no latitude / longitude inputs — S-084 removed them.",
+          options: [{ label: "Submit for approval", to: "createSubmit" }] },
+        { id: "createSubmit", kind: "process", lane: "system", api: "POST /businesses",
+          title: "Listing created as pending",
+          detail: "A merchants row is created if missing. The business row is written with status = pending; latitude / longitude stay null.",
+          options: [{ label: "Continue", to: "wait" }] },
+        { id: "wait", kind: "process", lane: "merchant",
+          title: "The listing is invisible until an admin acts",
+          detail: "Not in search, not on the map. It waits in the admin queue.",
+          options: [
+            { label: "Continue as the merchant (wait for the outcome)", to: "adminDecision" },
+          ],
+          handoffPrimary: { role: "admin", to: "biz", label: "Switch to the admin and work the queue" } },
+
+        { id: "adminDecision", kind: "decision", lane: "admin",
+          title: "What does the admin do with your pending listing?",
+          options: [
+            { label: "Approve it", to: "approved" },
+            { label: "Start review — move to processing", to: "processing" },
+            { label: "Suspend it", to: "suspended" },
+          ] },
+        { id: "processing", kind: "outcome", lane: "admin",
+          title: "Marked processing",
+          status: "info", code: "200",
+          changed: "status = processing — visibility only, NOT a lock. Any admin can still approve or suspend it, or return it to pending. audit_logs row 'start_review'.",
+          to: "adminDecision" },
+        { id: "suspended", kind: "outcome", lane: "admin",
+          title: "Listing suspended",
+          status: "warn", code: "200",
+          changed: "status = suspended — dropped from search. audit_logs row. The merchant can edit and an admin can re-approve later." },
+        { id: "approved", kind: "outcome", lane: "admin",
+          title: "Listing approved — now live",
+          status: "success", code: "200",
+          changed: "status = approved. audit_logs 'approve'. Merchant gets the listing_approved notice + best-effort email. search:* cache invalidated. Approve works straight from pending or from processing.",
+          to: "ops" },
+
+        { id: "ops", kind: "decision", lane: "merchant",
+          title: "Your listing is live — what now?",
+          options: [
+            { label: "Open the dashboard", to: "dashOwn" },
+            { label: "Reply to a review", to: "replyOwn" },
+            { label: "Buy a featured boost", to: "boostCheck" },
+            { label: "Link Google reviews / link WhatsApp / edit address", to: "connect" },
+          ] },
+
+        { id: "dashOwn", kind: "decision", lane: "system", api: "GET /dashboard/merchant/{id}",
+          title: "Is this your business?",
+          detail: "get_owned_business() re-queries with merchant_id == me in the WHERE clause.",
+          options: [
+            { label: "Yes — I own it", to: "dashOk" },
+            { label: "No — someone else's listing", to: "dash404" },
+          ] },
+        { id: "dash404", kind: "outcome", lane: "system",
+          title: "Not your business",
+          status: "error", code: "404",
+          changed: "Nothing — 404 not 403, so another merchant's business is not confirmed to exist. Same rule on insights, CSV, benchmark, Google and WhatsApp endpoints." },
+        { id: "dashOk", kind: "outcome", lane: "system",
+          title: "Dashboard loads",
+          status: "success", code: "200",
+          changed: "All-time: total reviews, average rating, sentiment breakdown, recent feed. range = 30 | 90 | all (else 422) filters volume-by-month, rating mix, reply-rate and the S-037 previous-window deltas. CSV export is own-business-only and never cached. Benchmark medians are null with fewer than 3 peers. AI insights + the S-049 Common Themes panel are suggestion-labelled." },
+
+        { id: "replyOwn", kind: "decision", lane: "system", api: "POST /reviews/{id}/reply",
+          title: "Do you own the business this review is on?",
+          options: [
+            { label: "Yes", to: "replyOk" },
+            { label: "No / no merchant profile", to: "reply403" },
+          ] },
+        { id: "reply403", kind: "outcome", lane: "system",
+          title: "Not your business's review",
+          status: "error", code: "403",
+          changed: "Nothing." },
+        { id: "replyOk", kind: "outcome", lane: "system",
+          title: "Public reply posted",
+          status: "success", code: "201",
+          changed: "One replies row per review. A second reply updates the first — there is no thread." },
+
+        { id: "boostCheck", kind: "decision", lane: "system", api: "POST /payments/featured/checkout",
+          title: "Checkout preconditions",
+          detail: "SKUs: ₹299 / 7d, ₹499 / 15d, ₹899 / 30d. The copy on /search calls this a paid boost, not an AI quality judgment.",
+          options: [
+            { label: "Owned, approved, no active placement, known SKU", to: "boostOrder" },
+            { label: "Unknown SKU code", to: "boost400sku" },
+            { label: "Listing not approved", to: "boost400appr" },
+            { label: "Already has an active placement", to: "boost409" },
+          ] },
+        { id: "boost400sku", kind: "outcome", lane: "system", title: "Unknown SKU", status: "error", code: "400", changed: "Nothing." },
+        { id: "boost400appr", kind: "outcome", lane: "system", title: "Listing not approved", status: "error", code: "400", changed: "Nothing — a boost only makes sense on a live listing." },
+        { id: "boost409", kind: "outcome", lane: "system", title: "Already featured", status: "error", code: "409", changed: "Nothing — one active placement at a time." },
+        { id: "boostOrder", kind: "process", lane: "gateway",
+          title: "Order created",
+          detail: "A payments row status = created. The provider (mock or Razorpay) creates an order.",
+          options: [{ label: "Continue to payment", to: "boostPay" }] },
+        { id: "boostPay", kind: "decision", lane: "gateway",
+          title: "How is it captured?",
+          options: [
+            { label: "Razorpay hosted Checkout → signed webhook", hint: "PAN never touches our API", to: "boostPaid" },
+            { label: "Mock (DEBUG): admin POST /payments/mock/complete", to: "boostPaid" },
+          ] },
+        { id: "boostPaid", kind: "process", lane: "system",
+          title: "Captured — but NOT featured yet",
+          detail: "payments status = paid. Fees split into gateway_fee_paise and platform_fee_paise. You get the payment_captured notice: \"Featured payment received\". Capture records the ledger only.",
+          options: [
+            { label: "Continue as the merchant (wait)", to: "boostAdmin" },
+          ],
+          handoffPrimary: { role: "admin", to: "payApprove", label: "Switch to the admin payment desk" } },
+        { id: "boostAdmin", kind: "decision", lane: "admin",
+          title: "Admin decision on the paid payment",
+          options: [
+            { label: "Approve the boost", to: "boostLive" },
+            { label: "Reject the boost", to: "boostReject" },
+            { label: "Disable the placement later", to: "boostDisable" },
+            { label: "Refund", to: "boostRefund" },
+          ] },
+        { id: "boostLive", kind: "outcome", lane: "admin",
+          title: "Boost is live",
+          status: "success", code: "200",
+          changed: "POST /payments/admin/payments/{id}/approve → a featured_placements window (7 / 15 / 30 days). Ranks first in search; among featured, the sooner ends_at wins. payment_boost_approved notice. search:* invalidated." },
+        { id: "boostReject", kind: "outcome", lane: "admin",
+          title: "Boost rejected",
+          status: "warn", code: "200",
+          changed: "No placement is created. No refund. 409 if the payment is not paid or was already approved." },
+        { id: "boostDisable", kind: "outcome", lane: "admin",
+          title: "Placement disabled",
+          status: "warn", code: "200",
+          changed: "disabled_at is set — drops out of the featured rank immediately. No refund." },
+        { id: "boostRefund", kind: "outcome", lane: "admin",
+          title: "Refunded",
+          status: "info", code: "200",
+          changed: "Provider refund + the linked placement is disabled. 409 if the payment is not paid." },
+
+        { id: "connect", kind: "decision", lane: "merchant",
+          title: "Which connection?",
+          options: [
+            { label: "Link a Google Place / Sync now", to: "googleLink" },
+            { label: "Link WhatsApp and send shop details", to: "waLink" },
+            { label: "Edit my business address", to: "addr" },
+          ] },
+        { id: "googleLink", kind: "decision", lane: "system", api: "POST /dashboard/merchant/{id}/google-reviews/*",
+          title: "Google link / sync state",
+          detail: "S-048. Local / CI uses a mock provider unless GOOGLE_PLACES_API_KEY is set. There is no scheduler — sync is manual.",
+          options: [
+            { label: "Link a Place ID — not linked yet", to: "googleLinkOk" },
+            { label: "Link — already linked", to: "google409" },
+            { label: "Sync now — linked, none in flight", to: "googleSyncOk" },
+            { label: "Sync now — not linked / in flight / provider error", to: "googleSyncErr" },
+          ] },
+        { id: "googleLinkOk", kind: "outcome", lane: "system", title: "Place linked", status: "success", code: "200",
+          changed: "external_platform_refs.google is set to the place_id." },
+        { id: "google409", kind: "outcome", lane: "system", title: "Already linked", status: "error", code: "409", changed: "Nothing." },
+        { id: "googleSyncOk", kind: "outcome", lane: "system", title: "Up to 5 Google reviews synced", status: "success", code: "200",
+          changed: "Rows upserted into external_reviews (unique on business + source + external id). Native average_rating / review_count DO NOT change. The public \"Also reviewed on Google\" section appears only when rows exist." },
+        { id: "googleSyncErr", kind: "outcome", lane: "system", title: "Sync not applied", status: "warn", code: "400 / 200 / 502",
+          changed: "Unlinked → 400. A sync already running → 200 {debounced: true}. Provider error → 502 and existing rows are left untouched." },
+
+        { id: "waLink", kind: "process", lane: "system", api: "POST /dashboard/merchant/{id}/whatsapp/link",
+          title: "WhatsApp session bound",
+          detail: "Returns a wa.me URL + session token (mock is always \"available\"). You send a photo or text; the inbound webhook (HMAC) binds the MH-XXXXXXXX session.",
+          options: [{ label: "Send a photo", to: "waPhoto" }, { label: "Send text (shop details)", to: "waText" }] },
+        { id: "waPhoto", kind: "outcome", lane: "system", title: "Photo stored", status: "success", code: "200",
+          changed: "Saved as a 'general' business photo via save_business_photo." },
+        { id: "waText", kind: "process", lane: "system", api: "AIProvider.extract_business_profile",
+          title: "Text becomes a pending draft",
+          detail: "AI extracts profile fields into a business_update_drafts row, status = pending. It NEVER goes live automatically.",
+          options: [{ label: "Continue", to: "waQueue" }] },
+        { id: "waQueue", kind: "outcome", lane: "merchant",
+          title: "Your panel is read-only",
+          status: "info", code: "200",
+          changed: "Since S-053 the merchant dashboard panel shows status only — pending / applied / discarded. Apply and discard moved to the admin cross-business queue at /admin/whatsapp.",
+          handoff: { role: "admin", to: "wa" } },
+
+        { id: "addr", kind: "decision", lane: "system", api: "PATCH /businesses/{id}",
+          title: "Has this business had a prior address edit?",
+          detail: "S-073 / ADR-014. address_edit_count starts at 0. Fields: address, city, state, postal_code, country.",
+          options: [
+            { label: "No — first address edit", to: "addrFree" },
+            { label: "Yes — this is the 2nd+ edit", to: "addrOtp" },
+          ] },
+        { id: "addrFree", kind: "outcome", lane: "system", title: "Applied, no OTP", status: "success", code: "200",
+          changed: "The address fields update; address_edit_count → 1. The next change will need a code." },
+        { id: "addrOtp", kind: "decision", lane: "system",
+          title: "Did you include a valid address_otp_code?",
+          detail: "Request one via POST /businesses/{id}/address-verify/request — SMS to the business phone, falling back to your own. 409 if there is no prior edit, 400 if no phone is on file.",
+          options: [
+            { label: "Yes — valid code", to: "addrOk" },
+            { label: "No code included", to: "addr400" },
+            { label: "Wrong or expired code", to: "addr401" },
+          ] },
+        { id: "addrOk", kind: "outcome", lane: "system", title: "Applied", status: "success", code: "200",
+          changed: "Address updated; counter advances. An admin edit bypasses this gate but still advances the counter, so a later merchant edit is not treated as the free first one." },
+        { id: "addr400", kind: "outcome", lane: "system", title: "Verification code required", status: "error", code: "400", changed: "Nothing." },
+        { id: "addr401", kind: "outcome", lane: "system", title: "Invalid or expired code", status: "error", code: "401", changed: "Nothing." },
+      ],
+    },
+
+    /* ============================ ADMIN ============================ */
+    admin: {
+      label: "the admin",
+      start: "start",
+      nodes: [
+        { id: "start", kind: "action", lane: "admin",
+          title: "You keep the platform trustworthy",
+          detail: "The admin is the only role that moves a business between statuses, changes a review's visibility, activates a paid boost, or writes a WhatsApp draft onto a live listing.",
+          options: [{ label: "Continue", to: "auth" }] },
+        { id: "auth", kind: "decision", lane: "admin",
+          title: "How do you sign in?",
+          options: [
+            { label: "Password + TOTP, or Google", to: "console" },
+            { label: "Mobile OTP", to: "authOtp" },
+          ] },
+        { id: "authOtp", kind: "decision", lane: "system", api: "POST /auth/phone/verify",
+          title: "Is your admin identity a seeded User.phone?",
+          options: [
+            { label: "Yes — existing admin", to: "console" },
+            { label: "No — a new number asking for admin", to: "auth403" },
+          ] },
+        { id: "auth403", kind: "outcome", lane: "system",
+          title: "New admin is refused",
+          status: "error", code: "403",
+          changed: "Nothing. There is no self-service admin creation — on register or on OTP verify." },
+
+        { id: "console", kind: "decision", lane: "admin", api: "/admin",
+          title: "At the ops console — which queue?",
+          options: [
+            { label: "Pending businesses", to: "biz" },
+            { label: "Reported reviews", to: "review" },
+            { label: "Featured payments", to: "payDesk" },
+            { label: "WhatsApp drafts", to: "wa" },
+            { label: "Users", to: "users" },
+            { label: "Support tickets / shop reports / categories / metrics", to: "misc" },
+          ] },
+
+        /* ---- business approval ---- */
+        { id: "biz", kind: "decision", lane: "admin", api: "GET /businesses?status_filter=pending",
+          title: "Pick an action on a listing",
+          detail: "Any non-approved status_filter needs an admin Bearer token — an anonymous caller gets 403.",
+          options: [
+            { label: "Start review", to: "bizStart" },
+            { label: "Return to pending", to: "bizReturn" },
+            { label: "Approve", to: "bizApprove" },
+            { label: "Suspend", to: "bizSuspend" },
+          ] },
+        { id: "bizStart", kind: "decision", lane: "system", api: "POST /businesses/{id}/start-review",
+          title: "Is the business currently pending?",
+          options: [
+            { label: "Yes", to: "bizStartOk" },
+            { label: "No — some other status", to: "bizStart409" },
+          ] },
+        { id: "bizStartOk", kind: "outcome", lane: "system", title: "Moved to processing", status: "info", code: "200",
+          changed: "status = processing. audit_logs 'start_review'. Visibility only — it does not lock the business to you.",
+          handoffPrimary: { role: "merchant", to: "adminDecision", label: "See it from the merchant's side" } },
+        { id: "bizStart409", kind: "outcome", lane: "system", title: "Not pending", status: "error", code: "409", changed: "Nothing." },
+        { id: "bizReturn", kind: "decision", lane: "system", api: "POST /businesses/{id}/return-to-pending",
+          title: "Is the business currently processing?",
+          options: [
+            { label: "Yes", to: "bizReturnOk" },
+            { label: "No", to: "bizReturn409" },
+          ] },
+        { id: "bizReturnOk", kind: "outcome", lane: "system", title: "Back to pending", status: "info", code: "200",
+          changed: "status = pending. audit_logs 'return_to_pending'." },
+        { id: "bizReturn409", kind: "outcome", lane: "system", title: "Not processing", status: "error", code: "409", changed: "Nothing." },
+        { id: "bizApprove", kind: "outcome", lane: "system", api: "POST /businesses/{id}/approve",
+          title: "Approved — live in search",
+          status: "success", code: "200",
+          changed: "status = approved (from pending OR processing). audit_logs 'approve'. Merchant: listing_approved notice + best-effort email. search:* invalidated.",
+          handoffPrimary: { role: "merchant", to: "ops", label: "Continue as the merchant now that it's live" } },
+        { id: "bizSuspend", kind: "outcome", lane: "system", api: "POST /businesses/{id}/suspend",
+          title: "Suspended",
+          status: "warn", code: "200",
+          changed: "status = suspended. audit_logs 'suspend'. search:* invalidated. Reversible — an admin can approve it again." },
+
+        /* ---- review moderation ---- */
+        { id: "review", kind: "decision", lane: "admin", api: "POST /reviews/{id}/moderate?action=",
+          title: "Moderate a reported review",
+          detail: "Queue: GET /reviews/reported. Every action writes an audit_logs row.",
+          options: [
+            { label: "hide", to: "revHide" },
+            { label: "restore", to: "revRestore" },
+            { label: "remove", to: "revRemove" },
+            { label: "any other action value", to: "rev400" },
+          ] },
+        { id: "revHide", kind: "outcome", lane: "system", title: "Hidden", status: "warn", code: "200",
+          changed: "status = hidden — off the public profile, still in the DB. audit_logs." },
+        { id: "revRestore", kind: "outcome", lane: "system", title: "Restored", status: "success", code: "200",
+          changed: "status = active — back on the public profile. audit_logs." },
+        { id: "revRemove", kind: "outcome", lane: "system", title: "Removed", status: "warn", code: "200",
+          changed: "status = removed. audit_logs." },
+        { id: "rev400", kind: "outcome", lane: "system", title: "Invalid action", status: "error", code: "400",
+          changed: "Nothing. action must be exactly hide | restore | remove." },
+
+        /* ---- payments ---- */
+        { id: "payDesk", kind: "decision", lane: "admin", api: "GET /payments/admin/payments",
+          title: "Action on a payment",
+          options: [
+            { label: "Approve boost", to: "payApprove" },
+            { label: "Reject boost", to: "payReject" },
+            { label: "Disable placement", to: "payDisable" },
+            { label: "Refund", to: "payRefund" },
+            { label: "Mock complete (DEBUG only)", to: "payMock" },
+          ] },
+        { id: "payApprove", kind: "decision", lane: "system", api: "POST /payments/admin/payments/{id}/approve",
+          title: "Is the payment paid, not rejected, and not already featured?",
+          options: [
+            { label: "Yes — all clear", to: "payApproveOk" },
+            { label: "No", to: "payApprove409" },
+          ] },
+        { id: "payApproveOk", kind: "outcome", lane: "system", title: "Placement created", status: "success", code: "200",
+          changed: "A featured_placements window opens for the SKU duration. Merchant gets payment_boost_approved. search:* invalidated.",
+          handoffPrimary: { role: "merchant", to: "ops", label: "See the boost live as the merchant" } },
+        { id: "payApprove409", kind: "outcome", lane: "system", title: "Cannot approve", status: "error", code: "409",
+          changed: "Nothing. Distinct messages for not-paid, rejected, and already-featured." },
+        { id: "payReject", kind: "outcome", lane: "system", api: "POST /payments/admin/payments/{id}/reject",
+          title: "Boost rejected — no refund",
+          status: "warn", code: "200",
+          changed: "rejected_at is set. No placement, no money back. 409 if not paid or already approved." },
+        { id: "payDisable", kind: "outcome", lane: "system", api: "POST /payments/admin/placements/{id}/disable",
+          title: "Placement disabled — no refund",
+          status: "warn", code: "200",
+          changed: "disabled_at is set — drops featured rank now. No money back." },
+        { id: "payRefund", kind: "decision", lane: "system", api: "POST /payments/admin/payments/{id}/refund",
+          title: "Is the payment paid?",
+          options: [
+            { label: "Yes", to: "payRefundOk" },
+            { label: "No", to: "payRefund409" },
+          ] },
+        { id: "payRefundOk", kind: "outcome", lane: "system", title: "Refunded + placement disabled", status: "info", code: "200",
+          changed: "Provider refund is issued and any linked placement is disabled." },
+        { id: "payRefund409", kind: "outcome", lane: "system", title: "Not paid", status: "error", code: "409", changed: "Nothing." },
+        { id: "payMock", kind: "decision", lane: "system", api: "POST /payments/mock/complete",
+          title: "Is DEBUG true?",
+          options: [
+            { label: "Yes", to: "payMockOk" },
+            { label: "No", to: "payMock404" },
+          ] },
+        { id: "payMockOk", kind: "outcome", lane: "system", title: "Mock capture applied", status: "info", code: "200",
+          changed: "Ledger only — marks the payment paid or failed. Does not feature the listing; an admin approve still has to follow." },
+        { id: "payMock404", kind: "outcome", lane: "system", title: "Not found", status: "error", code: "404",
+          changed: "The endpoint is hidden entirely when DEBUG = false." },
+
+        /* ---- whatsapp drafts ---- */
+        { id: "wa", kind: "decision", lane: "admin", api: "GET /admin/whatsapp/drafts",
+          title: "Work a WhatsApp-derived draft",
+          detail: "Global, cross-business queue, oldest first (S-053). Fields are editable before you approve.",
+          options: [
+            { label: "Approve (optionally edit fields first)", to: "waApprove" },
+            { label: "Reject", to: "waReject" },
+          ] },
+        { id: "waApprove", kind: "decision", lane: "system", api: "POST /admin/whatsapp/drafts/{id}/approve",
+          title: "Is the draft still pending?",
+          options: [
+            { label: "Yes", to: "waApproveOk" },
+            { label: "Already resolved / unknown", to: "waApproveErr" },
+          ] },
+        { id: "waApproveOk", kind: "outcome", lane: "system", title: "Written to the live listing", status: "success", code: "200",
+          changed: "The (optionally edited) fields are written to the Business row. audit_logs (entity_type = business_update_draft, with ai_fields vs applied_fields). Merchant: whatsapp_applied notice + best-effort email. This is the one place an admin edits merchant content directly." },
+        { id: "waApproveErr", kind: "outcome", lane: "system", title: "Cannot approve", status: "error", code: "404 / 409",
+          changed: "Nothing. 404 unknown draft, 409 already applied or discarded." },
+        { id: "waReject", kind: "outcome", lane: "system", api: "POST /admin/whatsapp/drafts/{id}/reject",
+          title: "Draft rejected",
+          status: "info", code: "200",
+          changed: "The live Business row is untouched. audit_logs + merchant whatsapp_rejected notice." },
+
+        /* ---- users ---- */
+        { id: "users", kind: "decision", lane: "admin", api: "GET /admin/users",
+          title: "Suspend or reactivate a user",
+          detail: "Paged; q matches email / full_name. The response never serializes totp_secret, hashed_password or google_sub.",
+          options: [
+            { label: "Suspend a customer or merchant", to: "userSuspend" },
+            { label: "Reactivate a customer or merchant", to: "userReact" },
+            { label: "Target is myself or another admin", to: "user400" },
+            { label: "Target id doesn't exist", to: "user404" },
+          ] },
+        { id: "userSuspend", kind: "outcome", lane: "system", api: "POST /admin/users/{id}/suspend",
+          title: "User suspended",
+          status: "warn", code: "200",
+          changed: "is_active = false + audit_logs (entity_type = user). Idempotent. Their reviews, businesses and history all stay — there is NO delete endpoint. Existing sessions are rejected on the next request." },
+        { id: "userReact", kind: "outcome", lane: "system", api: "POST /admin/users/{id}/reactivate",
+          title: "User reactivated",
+          status: "success", code: "200",
+          changed: "is_active = true + audit_logs. Idempotent." },
+        { id: "user400", kind: "outcome", lane: "system", title: "Refused", status: "error", code: "400",
+          changed: "Nothing. An admin can never suspend or reactivate their own account or another admin's." },
+        { id: "user404", kind: "outcome", lane: "system", title: "Unknown user", status: "error", code: "404", changed: "Nothing." },
+
+        /* ---- misc ---- */
+        { id: "misc", kind: "decision", lane: "admin",
+          title: "Which surface?",
+          options: [
+            { label: "Create a category", to: "cat" },
+            { label: "Set a support-ticket status / response", to: "ticket" },
+            { label: "Set a shop-report status or reply on the thread", to: "shopReport" },
+            { label: "Read platform counts and trends", to: "metrics" },
+          ] },
+        { id: "cat", kind: "decision", lane: "system", api: "POST /businesses/categories",
+          title: "Does the name or slug already exist?",
+          options: [
+            { label: "No", to: "catOk" },
+            { label: "Yes", to: "cat409" },
+          ] },
+        { id: "catOk", kind: "outcome", lane: "system", title: "Category created", status: "success", code: "201",
+          changed: "Chips on /admin link to /search?category={slug}." },
+        { id: "cat409", kind: "outcome", lane: "system", title: "Duplicate", status: "error", code: "409", changed: "Nothing." },
+        { id: "ticket", kind: "decision", lane: "system", api: "PATCH /admin/support-tickets/{id}",
+          title: "Is the status value valid?",
+          options: [
+            { label: "Valid status / response", to: "ticketOk" },
+            { label: "Invalid status", to: "ticket400" },
+            { label: "Unknown ticket id", to: "ticket404" },
+          ] },
+        { id: "ticketOk", kind: "outcome", lane: "system", title: "Ticket updated", status: "success", code: "200",
+          changed: "status and/or admin_response set (S-088). The reporter sees it under /support-tickets/mine." },
+        { id: "ticket400", kind: "outcome", lane: "system", title: "Invalid status", status: "error", code: "400", changed: "Nothing." },
+        { id: "ticket404", kind: "outcome", lane: "system", title: "Unknown ticket", status: "error", code: "404", changed: "Nothing." },
+        { id: "shopReport", kind: "outcome", lane: "system", api: "PATCH /admin/business-reports/{id} · POST .../messages",
+          title: "Shop report handled",
+          status: "success", code: "200 / 201",
+          changed: "status set, or a message added to the admin ↔ reporter thread (S-089). is_repeat flips at 3+ distinct reports on the shop. Invalid status → 400, unknown id → 404." },
+        { id: "metrics", kind: "outcome", lane: "system", api: "GET /dashboard/admin/platform · /platform/series",
+          title: "Platform snapshot + trends",
+          status: "info", code: "200",
+          changed: "Snapshot tiles: users, businesses, pending, reviews, reported, plus open_support_tickets, repeat_shop_reports (≥3) and processing_businesses (S-090). Series: new_users, businesses_approved (from audit_logs, not Business.updated_at), new_reviews, new_reports — zero-filled, from stored timestamps, never AI. granularity day | week, days 1–365." },
+      ],
+    },
+  };
+
+  /* ------------------------------------------------------------------ *
+   *  ENGINE
+   * ------------------------------------------------------------------ */
+  const LANE_LABEL = {
+    customer: "Customer", merchant: "Merchant", admin: "Admin",
+    system: "API + services", partner: "Partner / callback", gateway: "Payment gateway",
+  };
+  const KIND_LABEL = { action: "you do", decision: "the API decides", process: "system step", outcome: "outcome" };
+  const ROLE_ABBR = { customer: "c", merchant: "m", admin: "a" };
+
+  const stage = document.getElementById("stage");
+  const railEl = document.getElementById("rail");
+  const backBtn = document.getElementById("back");
+  const restartBtn = document.getElementById("restart");
+  const refRoleEl = document.getElementById("refRole");
+  const gatesEl = document.getElementById("gates");
+  const switchBtns = Array.from(document.querySelectorAll(".roleswitch button"));
+
+  let role = "customer";
+  let nodeMap = {};
+  let current = null;
+  // path: [{ id, title, choice, role, handoff:bool }]
+  let path = [];
+
+  function indexRole(r) {
+    nodeMap = {};
+    FLOWS[r].nodes.forEach((n) => { nodeMap[n.id] = n; });
+  }
+
+  function setRole(r, keepGoing) {
+    role = r;
+    document.body.dataset.role = r;
+    switchBtns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.role === r)));
+    indexRole(r);
+    if (!keepGoing) {
+      path = [];
+      current = nodeMap[FLOWS[r].start];
+    }
+    refRoleEl.textContent = FLOWS[r].label;
+    renderGates();
+    render();
+  }
+
+  function go(nextId, choiceLabel, isHandoff) {
+    if (current) {
+      path.push({ id: current.id, title: current.title, choice: choiceLabel, role: role, handoff: !!isHandoff });
+    }
+    current = nodeMap[nextId];
+    render();
+    stage.scrollIntoView({ block: "nearest" });
+  }
+
+  function crossTo(targetRole, targetId, choiceLabel) {
+    path.push({ id: current ? current.id : "", title: current ? current.title : "", choice: choiceLabel, role: role, handoff: true });
+    role = targetRole;
+    document.body.dataset.role = targetRole;
+    switchBtns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.role === targetRole)));
+    indexRole(targetRole);
+    refRoleEl.textContent = FLOWS[targetRole].label;
+    current = nodeMap[targetId];
+    renderGates();
+    render();
+    stage.scrollIntoView({ block: "nearest" });
+  }
+
+  function stepBack() {
+    if (!path.length) return;
+    const prev = path.pop();
+    if (prev.role !== role) {
+      role = prev.role;
+      document.body.dataset.role = role;
+      switchBtns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.role === role)));
+      indexRole(role);
+      refRoleEl.textContent = FLOWS[role].label;
+      renderGates();
+    }
+    current = nodeMap[prev.id];
+    render();
+  }
+
+  function rewindTo(i) {
+    // rewind so that path[i] becomes the current node
+    const target = path[i];
+    path = path.slice(0, i);
+    if (target.role !== role) {
+      role = target.role;
+      document.body.dataset.role = role;
+      switchBtns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.role === role)));
+      indexRole(role);
+      refRoleEl.textContent = FLOWS[role].label;
+      renderGates();
+    }
+    current = nodeMap[target.id];
+    render();
+  }
+
+  function el(tag, cls, txt) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (txt != null) e.textContent = txt;
+    return e;
+  }
+
+  function optionButtons(node) {
+    const opts = (node.options || []).slice();
+    // outcome with a `to` = non-terminal continuation
+    if (node.kind === "outcome" && node.to) {
+      opts.push({ label: nodeMap[node.to] ? "Continue" : "Continue", to: node.to, _cont: true });
+    }
+    return opts;
+  }
+
+  function render() {
+    // ---- rail ----
+    railEl.innerHTML = "";
+    if (!path.length) {
+      const li = el("li");
+      li.appendChild(el("div", "rail-empty", "You're at the start. Pick a branch below."));
+      railEl.appendChild(li);
+    } else {
+      path.forEach((step, i) => {
+        const li = el("li", step.handoff ? "handoff" : "done");
+        const btn = el("button");
+        btn.type = "button";
+        if (step.handoff && step.role !== (path[i + 1] ? path[i + 1].role : role)) {
+          const s = el("span", "switched", "→ " + (FLOWS[path[i + 1] ? path[i + 1].role : role].label).replace("the ", "") + " ");
+          btn.appendChild(s);
+        }
+        btn.appendChild(el("span", "", step.title + "  "));
+        if (step.choice) btn.appendChild(el("span", "choice", "› " + step.choice));
+        btn.addEventListener("click", () => rewindTo(i));
+        li.appendChild(btn);
+        railEl.appendChild(li);
+      });
+    }
+    backBtn.disabled = !path.length;
+
+    // ---- stage ----
+    const n = current;
+    stage.innerHTML = "";
+    const card = el("div", "node");
+    card.dataset.kind = n.kind;
+    if (n.kind === "outcome") card.dataset.status = n.status;
+    card.appendChild(el("div", "node-top"));
+    const body = el("div", "node-body");
+
+    const meta = el("div", "node-meta");
+    meta.appendChild(el("span", "kindtag", KIND_LABEL[n.kind] || n.kind));
+    const lane = el("span", "lanetag lane-" + n.lane, LANE_LABEL[n.lane] || n.lane);
+    meta.appendChild(lane);
+    body.appendChild(meta);
+
+    body.appendChild(el("h3", null, n.title));
+
+    if (n.kind === "outcome") {
+      const v = el("div", "verdict st-" + n.status);
+      if (n.code) v.appendChild(el("span", "code", n.code));
+      v.appendChild(el("span", "word",
+        n.status === "success" ? "proceeds" : n.status === "error" ? "stopped here" : n.status === "warn" ? "allowed, with a catch" : "informational"));
+      body.appendChild(v);
+    }
+
+    if (n.detail) body.appendChild(el("p", "detail", n.detail));
+    if (n.api) body.appendChild(el("code", "api", n.api));
+
+    if (n.kind === "outcome" && n.changed) {
+      const c = el("div", "changed");
+      c.appendChild(el("b", null, "what changed"));
+      c.appendChild(document.createTextNode(n.changed));
+      body.appendChild(c);
+    }
+
+    const opts = optionButtons(n);
+    const terminal = n.kind === "outcome" && !n.to;
+
+    if (opts.length) {
+      const wrap = el("div", "opts");
+      opts.forEach((o, idx) => {
+        const b = el("button", "opt" + (o._cont ? " cont" : ""));
+        b.type = "button";
+        if (!o._cont) {
+          const num = el("span", "num", String(idx + 1));
+          b.appendChild(num);
+        }
+        b.appendChild(el("span", "l", o.label));
+        if (o.hint) b.appendChild(el("span", "h", o.hint));
+        b.addEventListener("click", () => go(o.to, o.label, false));
+        wrap.appendChild(b);
+      });
+      body.appendChild(wrap);
+    }
+
+    // handoff (secondary or primary) on this node
+    const hp = n.handoffPrimary;
+    if (hp) {
+      const wrap = el("div", "opts");
+      const b = el("button", "opt handoff");
+      b.type = "button";
+      b.appendChild(el("span", "num", "»"));
+      b.appendChild(el("span", "l", hp.label));
+      b.appendChild(el("span", "h", "switches you to " + FLOWS[hp.role].label));
+      b.addEventListener("click", () => crossTo(hp.role, hp.to, hp.label));
+      wrap.appendChild(b);
+      body.appendChild(wrap);
+    }
+    if (n.handoff && n.kind === "outcome") {
+      const wrap = el("div", "opts");
+      const b = el("button", "opt handoff");
+      b.type = "button";
+      b.appendChild(el("span", "num", "»"));
+      b.appendChild(el("span", "l", "Pick this up as " + FLOWS[n.handoff.role].label));
+      b.appendChild(el("span", "h", "follow the same event into the other role's queue"));
+      b.addEventListener("click", () => crossTo(n.handoff.role, n.handoff.to, "handoff → " + FLOWS[n.handoff.role].label));
+      wrap.appendChild(b);
+      body.appendChild(wrap);
+    }
+
+    if (terminal) {
+      body.appendChild(buildTrace());
+      const eb = el("div", "endbtns");
+      const p = el("button", "primary", "Start this role over");
+      p.type = "button";
+      p.addEventListener("click", () => setRole(role, false));
+      const g = el("button", "ghost", "Step back");
+      g.type = "button";
+      g.addEventListener("click", stepBack);
+      eb.appendChild(p); eb.appendChild(g);
+      body.appendChild(eb);
+    }
+
+    card.appendChild(body);
+    stage.appendChild(card);
+  }
+
+  function buildTrace() {
+    const t = el("div", "trace");
+    t.appendChild(el("div", "lbl", "the path you took"));
+    const chips = el("div", "chips");
+    const startNode = FLOWS[path.length ? path[0].role : role];
+    let first = true;
+    path.forEach((step) => {
+      if (!first) chips.appendChild(el("span", "arrow", "›"));
+      first = false;
+      const c = el("span", "chip role-" + (ROLE_ABBR[step.role] || "c"), step.choice || step.title);
+      chips.appendChild(c);
+    });
+    if (!first) chips.appendChild(el("span", "arrow", "›"));
+    chips.appendChild(el("span", "chip role-" + (ROLE_ABBR[role] || "c"), current.title));
+    t.appendChild(chips);
+
+    const copy = el("button", "copy", "Copy trace");
+    copy.type = "button";
+    copy.addEventListener("click", () => {
+      const parts = path.map((s) => (s.handoff ? "[" + FLOWS[s.role].label + "] " : "") + (s.choice || s.title));
+      parts.unshift(FLOWS[path.length ? path[0].role : role].label);
+      parts.push("→ " + current.title + (current.code ? " (" + current.code + ")" : ""));
+      const text = parts.join("  ·  ");
+      navigator.clipboard && navigator.clipboard.writeText(text).then(
+        () => { copy.textContent = "Copied"; setTimeout(() => (copy.textContent = "Copy trace"), 1400); },
+        () => { copy.textContent = "Copy failed"; }
+      );
+    });
+    t.appendChild(copy);
+    return t;
+  }
+
+  /* ---- reference: every decision gate for the current role ---- */
+  function renderGates() {
+    gatesEl.innerHTML = "";
+    let firstGate = true;
+    FLOWS[role].nodes.forEach((n) => {
+      if (n.kind !== "decision") return;
+      const d = el("details", "gate");
+      if (firstGate) { d.open = true; firstGate = false; }
+      const s = el("summary");
+      s.appendChild(el("span", "", n.title));
+      if (n.api) s.appendChild(el("span", "g-api", n.api));
+      d.appendChild(s);
+      const gb = el("div", "gate-body");
+      if (n.detail) {
+        const p = el("p", null, n.detail);
+        p.style.cssText = "margin:2px 0 10px;color:var(--muted);font-size:.85rem";
+        gb.appendChild(p);
+      }
+      const tbl = el("table");
+      (n.options || []).forEach((o) => {
+        const tr = el("tr");
+        tr.appendChild(el("td", "opt-l", o.label));
+        const right = el("td", "opt-r");
+        const tgt = nodeMap[o.to];
+        if (tgt && tgt.kind === "outcome") {
+          const mc = el("span", "minicode mc-" + tgt.status, tgt.code || "—");
+          right.appendChild(mc);
+          right.appendChild(document.createTextNode(" " + tgt.title));
+        } else if (tgt) {
+          right.appendChild(el("span", "minicode mc-step", "→"));
+          right.appendChild(document.createTextNode(" " + tgt.title));
+        } else {
+          right.textContent = "—";
+        }
+        tr.appendChild(right);
+        tbl.appendChild(tr);
+      });
+      gb.appendChild(tbl);
+      d.appendChild(gb);
+      gatesEl.appendChild(d);
+    });
+  }
+
+  /* ---- wiring ---- */
+  switchBtns.forEach((b) => b.addEventListener("click", () => setRole(b.dataset.role, false)));
+  backBtn.addEventListener("click", stepBack);
+  restartBtn.addEventListener("click", () => setRole(role, false));
+
+  document.addEventListener("keydown", (e) => {
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    if (e.key === "Backspace") { e.preventDefault(); stepBack(); return; }
+    if (e.key === "Escape") { setRole(role, false); return; }
+    if (/^[1-9]$/.test(e.key)) {
+      const btns = stage.querySelectorAll(".opts .opt");
+      const i = parseInt(e.key, 10) - 1;
+      if (btns[i]) { e.preventDefault(); btns[i].click(); }
+    }
+  });
+
+  setRole("customer", false);
+})();
+</script>
