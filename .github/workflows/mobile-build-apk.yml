@@ -71,7 +71,7 @@ jobs:
             --dart-define=GAMIFIED_REVIEW=${{ vars.MOBILE_GAMIFIED_REVIEW || 'false' }}
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: app-release-apk
           path: mobile/build/app/outputs/flutter-apk/app-release.apk

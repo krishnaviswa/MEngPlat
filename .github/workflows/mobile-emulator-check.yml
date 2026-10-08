@@ -130,7 +130,7 @@ jobs:
 
       - name: Upload backend log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: backend-log
           path: backend/backend.log
@@ -162,7 +162,7 @@ jobs:
 
       - name: Upload screenshot
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: emulator-screenshots
           path: mobile/build/screenshots/*.png
