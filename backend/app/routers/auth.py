@@ -60,6 +60,7 @@ from app.services.mfa import (
     qr_svg_for_uri,
     verify_totp_code,
 )
+from app.services.password_reset import consume_reset_token, create_reset_token
 from app.services.phone_otp import (
     OTP_GENERIC_MESSAGE,
     InvalidPhoneError,
