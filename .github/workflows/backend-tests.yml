@@ -8,6 +8,7 @@ name: Backend tests
 # Re-enable the push + pull_request blocks below when ready to enforce checks again.
 on:
   workflow_dispatch:
+  workflow_call: # reused as a pre-deploy gate by deploy-railway.yml
   # push:
   #   branches: [main]
   #   paths:

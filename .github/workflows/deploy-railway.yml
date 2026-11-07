@@ -1,0 +1,137 @@
+name: Deploy to Railway
+
+# Deploys backend, then frontend, to Railway from GitHub Actions.
+# Manual-first: Actions -> "Deploy to Railway" -> Run workflow (branch: main).
+#
+# One-time setup
+#   1. Railway -> project -> Settings -> Tokens -> create a PROJECT token for the
+#      `production` environment. Store it as the GitHub secret RAILWAY_TOKEN.
+#   2. GitHub -> Settings -> Secrets and variables -> Actions -> Variables:
+#        RAILWAY_BACKEND_SERVICE    service name or ID of the FastAPI service
+#        RAILWAY_FRONTEND_SERVICE   service name or ID of the Next.js service
+#        RAILWAY_BACKEND_URL        https://<backend>.up.railway.app   (no trailing slash)
+#        RAILWAY_FRONTEND_URL       https://www.localreview.co.in      (no trailing slash)
+#   3. Optional: GitHub -> Settings -> Environments -> `production` -> required
+#      reviewers, so every deploy needs a click.
+#   4. BEFORE enabling the commented `push:` trigger: in Railway, turn off the
+#      GitHub auto-deploy on both services (Settings -> Source), otherwise each
+#      push deploys twice (once from Railway's GitHub app, once from here).
+#
+# Order matters. Backend first: its start command runs `alembic upgrade head`
+# (backend/railway.json). Frontend second: NEXT_PUBLIC_API_URL is baked into the
+# client bundle at build time, so the frontend must build against a live API.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: What to deploy
+        type: choice
+        options: [both, backend, frontend]
+        default: both
+      run_checks:
+        description: Run pytest + Jest first (untick only for an emergency restart)
+        type: boolean
+        default: true
+  # push:
+  #   branches: [main]
+
+permissions:
+  contents: read
+
+# Queue, never cancel: aborting a deploy half-way can leave a migration applied
+# with no matching API build running. Same philosophy as CLAUDE.md rule 8.
+concurrency:
+  group: deploy-railway
+  cancel-in-progress: false
+
+jobs:
+  backend-checks:
+    # On push there are no inputs, so checks always run; on manual runs honour the box.
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_checks }}
+    uses: ./.github/workflows/backend-tests.yml
+
+  frontend-checks:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_checks }}
+    uses: ./.github/workflows/frontend-tests.yml
+
+  deploy:
+    needs: [backend-checks, frontend-checks]
+    # Skipped checks (run_checks unticked) are fine; a failed or cancelled one blocks the deploy.
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      BACKEND_SERVICE: ${{ vars.RAILWAY_BACKEND_SERVICE }}
+      FRONTEND_SERVICE: ${{ vars.RAILWAY_FRONTEND_SERVICE }}
+      BACKEND_URL: ${{ vars.RAILWAY_BACKEND_URL }}
+      FRONTEND_URL: ${{ vars.RAILWAY_FRONTEND_URL }}
+      # `inputs` is empty on push; treat that as "both".
+      TARGET: ${{ inputs.target || 'both' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli@4
+
+      - name: Preflight - required secret and variables
+        run: |
+          missing=0
+          for name in RAILWAY_TOKEN BACKEND_SERVICE FRONTEND_SERVICE BACKEND_URL FRONTEND_URL; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not set (see the setup block at the top of deploy-railway.yml)"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      # --- backend ---------------------------------------------------------
+      - name: Deploy backend (start command runs alembic upgrade head)
+        if: ${{ env.TARGET != 'frontend' }}
+        # --ci: stream the build, exit non-zero if the build fails.
+        run: railway up --service "$BACKEND_SERVICE" --ci
+
+      - name: Wait for backend /health
+        if: ${{ env.TARGET != 'frontend' }}
+        run: |
+          for i in $(seq 1 36); do
+            code=$(curl -s -o /dev/null -m 10 -w '%{http_code}' "$BACKEND_URL/health" || true)
+            echo "attempt $i/36: HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "::error::Backend never answered 200 on /health. Check Railway -> backend -> Deployments -> Logs (alembic error? bad env var? DB down?)."
+          exit 1
+
+      # --- frontend --------------------------------------------------------
+      - name: Deploy frontend (bakes NEXT_PUBLIC_API_URL at build time)
+        if: ${{ env.TARGET != 'backend' }}
+        run: railway up --service "$FRONTEND_SERVICE" --ci
+
+      - name: Wait for frontend
+        if: ${{ env.TARGET != 'backend' }}
+        run: |
+          for i in $(seq 1 36); do
+            code=$(curl -s -o /dev/null -m 10 -w '%{http_code}' "$FRONTEND_URL/" || true)
+            echo "attempt $i/36: HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "::error::Frontend never answered 200. Check Railway -> frontend -> Deployments -> Logs."
+          exit 1
+
+      - name: Summary
+        run: |
+          {
+            echo "### Railway deploy finished"
+            echo "- target: \`$TARGET\`"
+            echo "- commit: \`${GITHUB_SHA::7}\`"
+            echo "- backend: $BACKEND_URL/health"
+            echo "- frontend: $FRONTEND_URL"
+          } >> "$GITHUB_STEP_SUMMARY"
