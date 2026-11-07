@@ -82,9 +82,19 @@ async def register_and_get_token(
     tokens = await complete_password_login(client, email, password)
     token = tokens["access_token"]
     if role == "merchant":
+        # Setting national ID requires a fresh re-authentication proof.
+        reauth = await client.post(
+            "/api/v1/auth/reauth",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"password": password},
+        )
+        assert reauth.status_code == 200, reauth.text
         patch = await client.patch(
             "/api/v1/auth/me",
-            headers={"Authorization": f"Bearer {token}"},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "X-Reauth-Token": reauth.json()["reauth_token"],
+            },
             json={"national_id_type": "pan", "national_id_number": "ABCDE1234F"},
         )
         assert patch.status_code == 200, patch.text

@@ -2,7 +2,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError
 from passlib.context import CryptContext
 
 from app.config import get_settings
@@ -56,5 +57,5 @@ def create_reauth_token(subject: str) -> str:
 def decode_token(token: str) -> dict[str, Any]:
     try:
         return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-    except JWTError as exc:
+    except PyJWTError as exc:
         raise ValueError("Invalid token") from exc

@@ -3,8 +3,11 @@ import uuid
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.core.security import get_password_hash
+from app.database import AsyncSessionLocal
 from app.main import app
-from tests.auth_helpers import register_and_get_token
+from app.models import User, UserRole
+from tests.auth_helpers import complete_password_login, register_and_get_token
 
 
 @pytest.fixture
@@ -34,7 +37,20 @@ async def _create_approved_business(client: AsyncClient, name: str) -> dict:
     created = create.json()
 
     admin_email = f"admin-{uuid.uuid4().hex[:8]}@example.com"
-    admin_token = await register_and_get_token(client, admin_email, role="admin", full_name="Test Admin")
+    # POST /auth/register blocks self-registering as admin, so seed the row directly.
+    admin_password = "testpass1234"
+    async with AsyncSessionLocal() as db:
+        db.add(
+            User(
+                email=admin_email,
+                full_name="Test Admin",
+                hashed_password=get_password_hash(admin_password),
+                role=UserRole.ADMIN,
+                is_active=True,
+            )
+        )
+        await db.commit()
+    admin_token = (await complete_password_login(client, admin_email, admin_password))["access_token"]
     approve = await client.post(
         f"/api/v1/businesses/{created['id']}/approve",
         headers={"Authorization": f"Bearer {admin_token}"},

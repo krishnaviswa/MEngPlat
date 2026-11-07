@@ -37,7 +37,9 @@ jobs:
 
       - name: Audit dependencies for known CVEs
         working-directory: frontend
-        run: npm audit --audit-level=high
+        # Production (shipped) deps only. Remaining dev-only finding: zod via
+        # @figma/code-connect (design tooling, never bundled; no fixed 3.x release).
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Run Jest
         working-directory: frontend

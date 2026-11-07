@@ -6,7 +6,7 @@ import re
 from uuid import uuid4
 
 import pytest
-from jose import jwt
+import jwt
 from playwright.sync_api import Page, expect
 
 from app.schemas import ReviewResponse, TokenResponse, UserResponse
@@ -36,7 +36,7 @@ def test_customer_full_journey(page: Page, api: Api) -> None:
             "refresh_token": page.evaluate("() => localStorage.getItem('refresh_token')") or "x",
         }
     )
-    claims = jwt.get_unverified_claims(access)
+    claims = jwt.decode(access, options={"verify_signature": False})
     assert claims.get("type") == "access"
     assert claims.get("role") == "customer"
 
