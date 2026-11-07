@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.services.merchant_dashboard import _count_reviews, _range_cutoff, _reply_rate_previous
+from app.services.merchant_dashboard import _range_cutoff, _range_kpis
 
 
 def test_range_cutoff_all_is_none():
@@ -23,9 +23,13 @@ def test_range_cutoff_30_and_90_are_that_many_days_ago():
 
 @pytest.mark.asyncio
 async def test_previous_count_and_reply_rate_are_null_for_all_time():
+    row = MagicMock(
+        count_in_range=4, r1=0, r2=0, r3=0, r4=2, r5=2, replied=1,
+    )
     db = MagicMock()
-    db.execute = AsyncMock()
-    biz = uuid.uuid4()
-    assert await _count_reviews(db, biz, "all", previous=True) is None
-    assert await _reply_rate_previous(db, biz, "all") is None
-    db.execute.assert_not_called()
+    db.execute = AsyncMock(return_value=MagicMock(one=MagicMock(return_value=row)))
+    kpis = await _range_kpis(db, uuid.uuid4(), "all")
+    assert kpis["review_count_previous"] is None
+    assert kpis["reply_rate_previous"] is None
+    assert kpis["reply_rate"] == 0.25
+    db.execute.assert_awaited_once()

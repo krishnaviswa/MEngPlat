@@ -5,7 +5,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
-from jose import jwt
+import jwt
 
 from tests.e2e.api_client import Api
 
@@ -16,7 +16,7 @@ def test_access_token_claims(api: Api) -> None:
     email = f"e2e-jwt-{uuid4().hex[:10]}@example.com"
     user = api.register(email, role="customer")
     tokens = api.tokens(email)
-    claims = jwt.get_unverified_claims(tokens.access_token)
+    claims = jwt.decode(tokens.access_token, options={"verify_signature": False})
     assert claims.get("type") == "access"
     assert claims.get("role") == "customer"
     assert claims.get("exp")
