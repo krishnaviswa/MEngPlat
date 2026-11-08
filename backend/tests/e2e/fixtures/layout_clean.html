@@ -9,6 +9,11 @@
   .row { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
   button { padding: 8px 14px; }
   p { max-width: 100%; line-height: 1.5; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+  ul.foot { list-style: none; padding: 0; margin: 8px 0; line-height: 20px; }
+  ul.foot a { display: inline-flex; min-height: 44px; align-items: center; margin-bottom: -24px; }
+  .stat-label { font-size: 14px; line-height: 14px; margin: 0; }
+  .stat-value { font-size: 24px; line-height: 24px; margin: 0; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -20,5 +25,9 @@
     <button type="button">Delete everything</button>
   </div>
   <p>Another short paragraph under the buttons.</p>
+  <!-- real-world patterns that are NOT defects: invisible overlapping 44px tap areas, 2px line-box touch, sr-only text -->
+  <ul class="foot"><li><a href="/a">Search businesses</a></li><li><a href="/b">Home</a></li><li><a href="/c">Browse by city</a></li></ul>
+  <div style="margin-top:40px"><p class="stat-label">Total reviews</p><p class="stat-value">12</p></div>
+  <span class="sr-only">Screen reader only text that is wider than its 1px box</span>
 </body>
 </html>
