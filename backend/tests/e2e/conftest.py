@@ -33,6 +33,18 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             item.add_marker(skip)
 
 
+@pytest.fixture(autouse=True)
+def _isolate_engine_and_limiter():
+    """Override tests/conftest.py's async autouse fixture for browser tests.
+
+    pytest-playwright's sync `playwright` fixture keeps an asyncio loop running in this thread,
+    so pytest-asyncio's `Runner.run()` for that async fixture raises "cannot be called from a
+    running event loop". Browser e2e talks to Compose over HTTP and never touches the
+    in-process DB engine or rate limiter, so there is nothing to isolate here.
+    """
+    yield
+
+
 @pytest.fixture(scope="session")
 def frontend_url() -> str:
     return FRONTEND_URL

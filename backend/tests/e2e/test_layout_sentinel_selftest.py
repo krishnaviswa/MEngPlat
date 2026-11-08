@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 
 import pytest
+from playwright.sync_api import sync_playwright
 
 from tests.e2e.layout_sentinel import WIDTHS, check_layout
 
@@ -21,18 +22,22 @@ ALL_RULES = {"horizontal-scroll", "overlap", "clipped-text", "offscreen-interact
 
 
 @pytest.fixture(scope="module")
-def sentinel_page(playwright):
-    try:
-        browser = playwright.chromium.launch()
-    except Exception as exc:  # noqa: BLE001 - any launch failure means "no browser here"
-        if os.environ.get("LAYOUT_SELFTEST_REQUIRE_BROWSER") == "1":
-            raise
-        pytest.skip(f"chromium not installed: run `playwright install chromium` ({exc.__class__.__name__})")
-    context = browser.new_context(viewport={"width": 1000, "height": 700})
-    page = context.new_page()
-    yield page
-    context.close()
-    browser.close()
+def sentinel_page():
+    # Own sync_playwright (not pytest-playwright's session-scoped `playwright`): that one keeps an
+    # asyncio loop running for the rest of the pytest session and would break every async-fixture
+    # test collected after this module in a default `pytest` run. This one is stopped at module end.
+    with sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch()
+        except Exception as exc:  # noqa: BLE001 - any launch failure means "no browser here"
+            if os.environ.get("LAYOUT_SELFTEST_REQUIRE_BROWSER") == "1":
+                raise
+            pytest.skip(f"chromium not installed: run `playwright install chromium` ({exc.__class__.__name__})")
+        context = browser.new_context(viewport={"width": 1000, "height": 700})
+        page = context.new_page()
+        yield page
+        context.close()
+        browser.close()
 
 
 def test_sentinel_detects_all_four_defects(sentinel_page):
