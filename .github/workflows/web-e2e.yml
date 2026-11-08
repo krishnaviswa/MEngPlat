@@ -159,7 +159,7 @@ jobs:
 
       - name: Upload Playwright traces
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-traces
           path: backend/tests/e2e/test-results/
@@ -168,7 +168,7 @@ jobs:
 
       - name: Upload pytest log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-pytest-log
           path: backend/pytest-e2e.log
@@ -177,7 +177,7 @@ jobs:
 
       - name: Upload Compose logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: compose-logs
           path: compose-e2e.log
