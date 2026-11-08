@@ -586,6 +586,10 @@ Mobile: no new test (deferred); regression only if `mobile/` is touched, which i
 
 ---
 
+## Product-owner decisions (defaults accepted by the Builder, 2026-11-08)
+
+The product owner asked for the slice to be finished end to end; the five Open decisions were resolved to the Architect's defaults and are to be confirmed by the PM at acceptance: (1) fan-out capped at 200; (2) AC 12 reads "can never read or change" another user's notice (a foreign id on `read` stays a 200 no-op); (3) an admin editing the four fields also notifies reviewers; (4) WhatsApp-applied drafts are a follow-up; (5) restoring a REMOVED review also sends "visible again".
+
 ## Changelog
 
 | Date | Agent | Change |

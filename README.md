@@ -2263,7 +2263,7 @@ Treat mocks as **the staging truth** until keys exist. Assertions belong on the 
 | Live Resend / Razorpay / S3-CDN | **Optional later** — adapters exist |
 | Azure storage | **Stub** |
 | Structured request logs / APM | **Not built** |
-| Cross-role workflow chains (one actor's action → another role's browser) | **Built (S-125), verified on GitHub 2026-11-08** (10 passed / 2 known gaps / 1 skipped; the 2 gaps closed by S-126) — 8 chains in `backend/tests/e2e/chains/` via manual `web-workflows.yml` (5 full, 3 partial / known-gap); see [Cross-role workflow chains](#cross-role-workflow-chains) |
+| Cross-role workflow chains (one actor's action → another role's browser) | **Built (S-125), verified on GitHub 2026-11-08** (10 passed / 2 known gaps / 1 skipped; the 2 gaps closed by S-126) — 8 chains in `backend/tests/e2e/chains/` via manual `web-workflows.yml` (all full chains; 1 skips on a fresh stack); see [Cross-role workflow chains](#cross-role-workflow-chains) |
 | Layout sentinel (overlap / clipping / horizontal scroll / off-screen controls at 375·768·1280) | **Built (S-125)** — `layout_sentinel.py`; self-test on static HTML passes with no stack (`test_layout_sentinel_selftest.py`); runs on every page the chains visit |
 
 ### Cross-role workflow chains
@@ -2272,7 +2272,7 @@ A **chain** is one event that starts with one role and must produce a visible ef
 
 **How people are told (one mechanism).** Services call `upsert_notice(user_id, scenario, …)` ([`notifications.py`](backend/app/services/notifications.py)) → one `notifications` row per `(user_id, scenario, dedupe_key)` (`dedupe_key` is the review / shop id for customer notices, S-126); a later event of the same scenario and entity **overwrites** the row and marks it unread → `GET /api/v1/notifications` (current user only) → `NotificationBell` (web) / notifications screen (mobile). Email is best-effort and never fails the request; in Compose it is `mock` (logs only). A chain test must therefore assert "unread and showing the latest event", never "N rows".
 
-**Chains that exist today (6 scenarios, all notify a merchant):**
+**Chains that exist today (6 merchant scenarios + 3 customer scenarios, S-126):**
 
 
 | # | Scenario | Trigger | Channel | Code |
@@ -2283,9 +2283,12 @@ A **chain** is one event that starts with one role and must produce a visible ef
 | 4 | `whatsapp_rejected` | Admin rejects a WhatsApp draft | bell | `services/whatsapp_ingest_service.py` |
 | 5 | `payment_captured` | Featured payment captured | bell | `services/payments/featured.py` |
 | 6 | `payment_boost_approved` | Admin approves featured placement | bell | `services/payments/featured.py` |
+| 7 | `review_reply` | Merchant replies to (or edits the reply on) an active review → the review author | bell | `routers/reviews.py`, `services/customer_notices.py` |
+| 8 | `review_moderation` | Admin hides / removes / restores a review → the review author | bell | `routers/reviews.py`, `services/customer_notices.py` |
+| 9 | `shop_details_updated` | Description, phone, hours or address of an approved shop really changes → authors of its active reviews (max 200) | bell | `routers/businesses.py`, `services/customer_notices.py` |
 
 
-**Cross-role effects with no proactive notice** (visible only on the next page load; listed in §14): merchant reply to a review (author not told), business edit via `PATCH /businesses/{id}` (nobody told; applied immediately, no re-approval), admin hide/remove of a review (author not told), admin suspend (user learns at next login → 403). Whether a ticket/report reporter can see `admin_response` was **not** traced.
+**Cross-role effects with no proactive notice** (visible only on the next page load; listed in §14): a shop edit that applies immediately with no admin re-approval (reviewers are told since S-126, nobody else), admin suspend (user learns at next login → 403), and the WhatsApp-draft approval that rewrites shop fields (no reviewer notice yet). Reply, hide/remove/restore and shop-edit are no longer silent: see rows 7-9.
 
 **Coverage.** Before S-125: 47 e2e test functions (anonymous 14, customer 9, merchant 1 long journey, admin 11, S-010 flows 4, RBAC/token/smoke/selectors 8), none opening a second role's browser. S-125 adds 8 chain test functions (8 chains; two were 10 until S-126 folded their known-gap checks into the main chain) where each role gets its own browser context and the bell is asserted (`backend/tests/e2e/chains/`). Notifications remain unit-tested too (`tests/test_notification_scenarios.py`, `tests/test_notifications.py`, `NotificationBell.test.tsx`, mobile `notifications_screen_test.dart`).
 
@@ -2701,8 +2704,8 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-92 | Chrome            | Navbar current-page state + ≥44px touch targets + responsive collapse below `md` | Navbar `NavLink` (`aria-current` + underline/weight) · `NavbarMobileMenu` disclosure · `Footer` link hit areas | Native `NavigationBar` selected state + native touch targets (no hamburger) | `future`        | **S-122** (web). Related to M-10. Flutter's bottom `NavigationBar` already gives a selected-tab indicator and platform-minimum touch targets natively; a dedicated port of the web active-link / mobile-menu chrome is not planned. |
 | M-93 | Reviews           | Login-free partner review page (`/c/{token}`)                       | `/c/[token]` gamified wizard, no auth (S-123)   | —                                                                     | `future`        | S-123 mock loop. Mobile follows only if a real partner pilot commits — a plain `https://` review link opens the web page for any device meanwhile |
 | M-94 | Reviews           | "Verified purchase" badge on partner-sourced reviews               | `ReviewCard` chip (`verified_purchase`)         | —                                                                     | `unimplemented` | S-123. Small `ReviewCard` add on mobile once the field is surfaced by the review list |
-| M-96 | Notifications     | Customer notices: review reply, review hidden/removed/restored, shop details updated | Bell dropdown (same `NotificationBell`) | Existing Notifications tab renders them (no deep link) | `partial`       | S-126. Mobile code unchanged: the shared list API feeds the existing tab; tap goes to the businesses list; no push |
 | M-95 | Merchant          | Partner review channel / mock billing console                      | `/dev/partner-console` (dev-only) + `/api/v1/partner/*` | —                                                             | `future`        | S-123. Dev/demo surface — no mobile equivalent planned for the mock loop |
+| M-96 | Notifications     | Customer notices: review reply, review hidden/removed/restored, shop details updated | Bell dropdown (same `NotificationBell`) | Existing Notifications tab renders them (no deep link) | `partial`       | S-126. Mobile code unchanged: the shared list API feeds the existing tab; tap goes to the businesses list; no push |
 
 
 **Rollup (2026-11-08):** `implemented` 79 · `partial` 5 (M-10 chrome, M-65 reset completion, M-71 cold QR, M-74 phone OTP chooser/admin OTP, M-96 customer notices) · `unimplemented` 1 (M-94 verified-purchase badge) · `n/a` 7 · `future` 4 (FCM, M-92 navbar chrome polish, M-93 login-free partner page, M-95 partner console) · **total 96**.

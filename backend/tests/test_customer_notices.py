@@ -177,7 +177,7 @@ async def test_reply_edit_different_text_refreshes_same_row():
     assert len(db.notifications) == 1 and db.notifications[0].is_read is False
 
 
-@pytest.mark.parametrize("new", ["one", "  one  ", "o ne".replace("o ne", "one")])
+@pytest.mark.parametrize("new", ["one", "  one  ", "one\n"])
 async def test_reply_edit_same_text_is_noop(new):
     db, biz = FakeDB(), make_business()
     review = make_review(biz)
@@ -401,3 +401,144 @@ async def test_notice_payload_has_no_foreign_pii(reviewers):
         blob = f"{n.title} {n.message} {n.extra_data}"
         assert "secret reply text" not in blob and "+919111111111" not in blob and "a@example.com" not in blob
         assert set(n.extra_data) <= {"scenario", "review_id", "business_id", "action", "changed"}
+
+
+# --- the recipient query (AC 8, 11, 13): compile it, since the shop-edit tests stub it ---------------
+
+
+async def test_active_reviewer_query_filters_status_source_actor_and_limit():
+    from sqlalchemy.dialects import postgresql
+
+    captured = {}
+
+    class Capture:
+        async def execute(self, stmt):
+            captured["sql"] = str(stmt.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": False}))
+
+            class R:
+                def scalars(self):
+                    return self
+
+                def all(self):
+                    return []
+
+            return R()
+
+    await cn._active_reviewer_ids(Capture(), uuid.uuid4(), uuid.uuid4(), 201)
+    sql = captured["sql"]
+    assert "reviews.status =" in sql
+    assert "reviews.source !=" in sql
+    assert "reviews.author_id !=" in sql
+    assert "reviews.business_id =" in sql
+    assert "ORDER BY reviews.created_at DESC" in sql
+    assert "LIMIT" in sql
+
+
+# --- router hooks fire with the values captured BEFORE the mutation (AC 2, 4-6) ------------------------
+
+
+class HookDB:
+    def __init__(self, review, business, merchant=None):
+        self.review, self.business, self.merchant = review, business, merchant
+        self.added = []
+
+    async def get(self, model, id_, options=None):
+        return self.review if model.__name__ == "Review" else self.business
+
+    async def execute(self, stmt):
+        merchant = self.merchant
+
+        class R:
+            def scalar_one_or_none(self):
+                return merchant
+
+        return R()
+
+    def add(self, obj):
+        self.added.append(obj)
+
+    async def flush(self):
+        return None
+
+    async def refresh(self, obj):
+        return None
+
+
+@pytest.fixture
+def recorder(monkeypatch):
+    from app.routers import reviews as reviews_router
+
+    calls = []
+
+    async def fake_reply(db, **kw):
+        calls.append(("reply", kw))
+        return True
+
+    async def fake_moderation(db, **kw):
+        calls.append(("moderation", kw))
+        return True
+
+    monkeypatch.setattr(reviews_router, "notify_review_reply", fake_reply)
+    monkeypatch.setattr(reviews_router, "notify_review_moderation", fake_moderation)
+    monkeypatch.setattr(reviews_router, "ReplyResponse", SimpleNamespace(model_validate=lambda o: o))
+    return calls
+
+
+async def test_reply_router_hook_first_reply_passes_no_previous_body(recorder):
+    from app.routers import reviews as reviews_router
+
+    biz = make_business()
+    merchant = SimpleNamespace(id=uuid.uuid4())
+    biz.merchant_id = merchant.id
+    review = make_review(biz, reply=None)
+    db = HookDB(review, biz, merchant)
+    user = SimpleNamespace(id=MERCHANT)
+    await reviews_router.reply_to_review(review.id, SimpleNamespace(body="Thanks!"), db, user)
+    (kind, kw), = recorder
+    assert kind == "reply" and kw["previous_body"] is None and kw["new_body"] == "Thanks!" and kw["actor_id"] == MERCHANT
+
+
+async def test_reply_router_hook_edit_passes_previous_body_captured_before_overwrite(recorder):
+    from app.routers import reviews as reviews_router
+
+    biz = make_business()
+    merchant = SimpleNamespace(id=uuid.uuid4())
+    biz.merchant_id = merchant.id
+    review = make_review(biz, reply=SimpleNamespace(body="old text"))
+    db = HookDB(review, biz, merchant)
+    await reviews_router.reply_to_review(review.id, SimpleNamespace(body="new text"), db, SimpleNamespace(id=MERCHANT))
+    (_, kw), = recorder
+    assert kw["previous_body"] == "old text" and kw["new_body"] == "new text"
+    assert review.reply.body == "new text"
+
+
+@pytest.mark.parametrize(
+    ("action", "start", "end"),
+    [
+        ("hide", ReviewStatus.REPORTED, ReviewStatus.HIDDEN),
+        ("remove", ReviewStatus.ACTIVE, ReviewStatus.REMOVED),
+        ("restore", ReviewStatus.HIDDEN, ReviewStatus.ACTIVE),
+    ],
+)
+async def test_moderation_router_hook_passes_previous_status(recorder, action, start, end):
+    from app.routers import reviews as reviews_router
+
+    biz = make_business()
+    review = make_review(biz, status=start)
+    db = HookDB(review, biz)
+    await reviews_router.moderate_review(review.id, action, db, SimpleNamespace(id=ADMIN))
+    (kind, kw), = recorder
+    assert kind == "moderation" and kw["previous_status"] == start and review.status == end
+    assert kw["action"] == action and kw["admin_id"] == ADMIN
+
+
+async def test_moderation_router_invalid_action_notifies_nobody(recorder):
+    from fastapi import HTTPException
+
+    from app.routers import reviews as reviews_router
+
+    biz = make_business()
+    review = make_review(biz)
+    with pytest.raises(HTTPException):
+        await reviews_router.moderate_review(review.id, "nonsense", HookDB(review, biz), SimpleNamespace(id=ADMIN))
+    assert recorder == []
