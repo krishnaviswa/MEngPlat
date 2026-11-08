@@ -223,6 +223,11 @@ async def create_review(
     # reviews meant one summary call per review. Debounced in the background
     # task itself (see refresh_merchant_ai_summary_bg) so a burst produces one
     # call, not N, and review submission no longer waits on it at all.
+    # Commit BEFORE scheduling background work. Newer FastAPI runs get_db's exit (the commit) after
+    # background tasks, so the task's own session would wait on this request's still-uncommitted
+    # rows (businesses/notifications) while this request waits for the task: a stall that also
+    # blocks every later review for the same merchant (unique notice row). Found by web e2e.
+    await db.commit()
     background_tasks.add_task(refresh_merchant_ai_summary_bg, business.id)
 
     await db.refresh(review)
