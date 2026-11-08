@@ -130,10 +130,10 @@ Not run — no frontend files changed.
 | M-008..M-012 | Static review: seeded creds, role_state, Wf.actor, unique names, no sleeps | Pass (static); runtime Not run |
 | M-013 | Every page visited in each chain is passed through `Wf.visit`/`Wf.scan` (exceptions: D3) | Pass (static) |
 | M-014 | README §10 / §11 / §14 edits | Pass with D1 |
-| GH-001 | Run workflow form on GitHub | **Not run — needs GitHub dispatch** |
-| GH-002 | Real `suite=all` run: URL, chain table, layout findings, artifacts, teardown | **Not run — needs GitHub dispatch** |
-| GH-003 | S-124 `web-e2e.yml` `suite=all` still green | **Not run — needs GitHub dispatch** |
-| GH-004 | Real `suite=layout` run (no Compose) | **Not run — needs GitHub dispatch** |
+| GH-001 | Run workflow form on GitHub | **Pass** — dispatched with `suite=layout` and `suite=all` from the Actions tab / `gh workflow run` |
+| GH-002 | Real `suite=all` run: URL, chain table, layout findings, artifacts, teardown | **Pass** — [run 42479397763](https://github.com/krishnaviswa/MEngPlat/actions/runs/42479397763) `suite=all`: 10 passed, 2 xfailed (known gaps), 1 skipped (whatsapp, fresh stack); 0 layout findings |
+| GH-003 | S-124 `web-e2e.yml` `suite=all` still green | **Pass** — [run 42481006744](https://github.com/krishnaviswa/MEngPlat/actions/runs/42481006744) `web-e2e` `suite=all`: 53 passed, 2 skipped (after the PR #90 fix; see Addendum) |
+| GH-004 | Real `suite=layout` run (no Compose) | **Pass** — [run 42477244963](https://github.com/krishnaviswa/MEngPlat/actions/runs/42477244963) `suite=layout`: 3/3 |
 | GH-005 | A failing run still produces summary, artifacts and `down -v` | **Not run — needs GitHub dispatch** |
 | GH-006 | `playwright show-trace` on a chain zip | **Not run — needs GitHub dispatch** |
 
@@ -211,3 +211,15 @@ Nothing below has been executed in a browser against the app. "Verified" means I
 - [x] RBAC tested — no RBAC change; suspend-login negative is a chain (Not run); existing RBAC suites unchanged
 - [x] AI disclaimer verified (if applicable) — N/A, no AI surface added
 - [ ] Ready for PM acceptance — **No**: pending GH-002 / GH-004 / GH-003 and D1. Recommendation: Pass-with-conditions (merge the tooling on a feature branch + PR, then dispatch, then PM accepts)
+
+---
+
+## Addendum — first real GitHub runs (2026-11-08)
+
+What the first dispatches found, in order (all fixed and merged):
+
+1. `suite=layout` errored 3/3 (run 42461845105): `tests/conftest.py` (added to main after this branch was cut) has an async autouse fixture that cannot run while pytest-playwright's sync loop is live. Fixed in PR #88 (no-op override under `tests/e2e`; self-test owns its Playwright).
+2. `web-e2e` `suite=all` (run 42477328919) ran the chains first, which used the per-IP login/register rate limits and cascaded into S-124 failures; and every chain reported 44-144 layout findings that were false positives (invisible 44px tap boxes, 2px line-box touches, sr-only 1px box). Fixed in PR #89 (`--ignore=tests/e2e/chains` in `web-e2e.yml`; sentinel compares text for bare links and needs >=25% of the shorter box height; boxes <=2px are not clipping).
+3. The remaining 5 S-124 failures were a **real product regression**, not test noise: FastAPI 0.115.6 -> 0.162.0 (PR #86) commits `get_db` after background tasks, so `POST /reviews` deadlocked against its own `refresh_merchant_ai_summary_bg`. Fixed in PR #90 (commit before scheduling background tasks in `create_review` and the partner path). Evidence: run 42481006744, 53 passed.
+
+Not yet covered: GH-005 (a failing run still uploading artifacts and tearing down; run 42461845105 uploaded its pytest log, so partially seen), GH-006 (`show-trace` on a chain zip). Open items: D5 (AC 7 wording, PM to confirm); an intermittent `mfa/totp/confirm` 400 seen once in a fixture (not reproduced after PR #90).
