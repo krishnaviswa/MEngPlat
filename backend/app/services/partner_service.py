@@ -271,6 +271,11 @@ async def submit_token_review(
 
     await update_business_rating(db, business.id)
     await cache_delete_pattern("search:*")
+    # Commit BEFORE scheduling background work. Newer FastAPI runs get_db's exit (the commit) after
+    # background tasks, so the task's own session would wait on this request's still-uncommitted
+    # rows (businesses/notifications) while this request waits for the task: a stall that also
+    # blocks every later review for the same merchant (unique notice row). Found by web e2e.
+    await db.commit()
     background_tasks.add_task(refresh_merchant_ai_summary_bg, business.id)
     background_tasks.add_task(send_partner_callback_bg, request.id)
 
