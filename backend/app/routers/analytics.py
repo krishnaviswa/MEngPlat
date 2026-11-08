@@ -16,7 +16,7 @@ router = APIRouter(prefix="/analytics", tags=["Merchant Analytics"])
 @router.get("/merchant/{business_id}", response_model=MerchantInsightsResponse)
 async def merchant_analytics(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> MerchantInsightsResponse:
     """
@@ -31,7 +31,7 @@ async def merchant_analytics(
 @router.get("/merchant/{business_id}/summary")
 async def analytics_summary(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> dict:
     """Quick KPI summary for merchant header widgets."""

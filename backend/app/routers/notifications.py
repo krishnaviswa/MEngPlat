@@ -15,7 +15,7 @@ router = APIRouter(prefix="/notifications", tags=["Notifications"])
 @router.get("", response_model=list[NotificationResponse])
 async def list_notifications(
     unread_only: bool = False,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ) -> list[NotificationResponse]:
     """
@@ -34,7 +34,7 @@ async def list_notifications(
 @router.post("/{notification_id}/read", response_model=MessageResponse)
 async def mark_read(
     notification_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ) -> MessageResponse:
     """Mark a single notification as read."""
@@ -46,7 +46,7 @@ async def mark_read(
 
 @router.post("/read-all", response_model=MessageResponse)
 async def mark_all_read(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ) -> MessageResponse:
     """Mark all notifications as read for current user."""

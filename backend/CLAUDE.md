@@ -15,6 +15,7 @@
 - Eager-load with `selectinload` for nested JSON
 - Static routes before dynamic (e.g. `/categories/all` before `/{slug}`)
 - Invalidate search cache after writes: `cache_delete_pattern("search:*")`
+- DB session dependency is always `Depends(get_db, scope="function")`: with FastAPI >= 0.118 the default scope commits *after* the response is sent, so a client's next request can run before the first is saved, and background tasks can deadlock on uncommitted rows
 
 ## New endpoint checklist
 1. Pydantic schema in `schemas/`

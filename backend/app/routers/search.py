@@ -46,7 +46,7 @@ async def search_businesses(
     page: int = 1,
     page_size: int = 20,
     sort: str = Query(default="rating", description="rating | name | reviews"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ) -> list[BusinessResponse]:
     """
     Search and filter businesses.

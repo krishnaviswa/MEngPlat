@@ -89,7 +89,7 @@ async def list_businesses(
     city: str | None = None,
     slugs: str | None = None,
     status_filter: BusinessStatus | None = BusinessStatus.APPROVED,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User | None = Depends(get_optional_user),
 ) -> list[BusinessResponse]:
     """List businesses with optional city/slugs filter. Non-approved status filters require admin."""
@@ -111,7 +111,7 @@ async def list_businesses(
 
 
 @router.get("/categories/all", response_model=list[CategoryResponse])
-async def list_categories(q: str | None = None, db: AsyncSession = Depends(get_db)) -> list[CategoryResponse]:
+async def list_categories(q: str | None = None, db: AsyncSession = Depends(get_db, scope="function")) -> list[CategoryResponse]:
     """List business categories. Optional `q` filters by case-insensitive name substring (S-081)."""
     query = select(Category).order_by(Category.name)
     if q:
@@ -121,7 +121,7 @@ async def list_categories(q: str | None = None, db: AsyncSession = Depends(get_d
 
 
 @router.get("/cities", response_model=list[str])
-async def list_cities(db: AsyncSession = Depends(get_db)) -> list[str]:
+async def list_cities(db: AsyncSession = Depends(get_db, scope="function")) -> list[str]:
     """Distinct city names for approved businesses (search filter chips)."""
     result = await db.execute(
         select(Business.city)
@@ -137,7 +137,7 @@ async def list_cities(db: AsyncSession = Depends(get_db)) -> list[str]:
 
 
 @router.get("/stats/summary", response_model=PublicPlatformStats)
-async def public_stats_summary(db: AsyncSession = Depends(get_db)) -> PublicPlatformStats:
+async def public_stats_summary(db: AsyncSession = Depends(get_db, scope="function")) -> PublicPlatformStats:
     """
     Public platform counts for the home page.
     Excludes admin-only signals (users, pending, reported).
@@ -166,7 +166,7 @@ async def public_stats_summary(db: AsyncSession = Depends(get_db)) -> PublicPlat
 
 @router.get("/mine", response_model=list[BusinessResponse])
 async def list_my_businesses(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT)),
 ) -> list[BusinessResponse]:
     """List businesses owned by the current merchant (any status)."""
@@ -187,7 +187,7 @@ async def list_my_businesses(
 async def list_all_businesses_admin(
     page: int = 1,
     page_size: int = 20,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> list[BusinessResponse]:
     """
@@ -212,7 +212,7 @@ async def list_all_businesses_admin(
 @router.post("/categories", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
 async def create_category(
     payload: CategoryCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> CategoryResponse:
     """Admin: create a new category. 409 if name or slug already exists."""
@@ -230,7 +230,7 @@ async def create_category(
 
 
 @router.get("/id/{business_id}", response_model=BusinessResponse)
-async def get_business_by_id(business_id: UUID, db: AsyncSession = Depends(get_db)) -> BusinessResponse:
+async def get_business_by_id(business_id: UUID, db: AsyncSession = Depends(get_db, scope="function")) -> BusinessResponse:
     """Public collect/QR lookup by listing UUID. Approved listings only."""
     result = await db.execute(
         select(Business)
@@ -245,7 +245,7 @@ async def get_business_by_id(business_id: UUID, db: AsyncSession = Depends(get_d
 
 
 @router.get("/{slug}", response_model=BusinessResponse)
-async def get_business(slug: str, db: AsyncSession = Depends(get_db)) -> BusinessResponse:
+async def get_business(slug: str, db: AsyncSession = Depends(get_db, scope="function")) -> BusinessResponse:
     """Get business profile by slug."""
     result = await db.execute(
         select(Business)
@@ -261,7 +261,7 @@ async def get_business(slug: str, db: AsyncSession = Depends(get_db)) -> Busines
 @router.post("", response_model=BusinessResponse, status_code=status.HTTP_201_CREATED)
 async def create_business(
     payload: BusinessCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT)),
 ) -> BusinessResponse:
     """Register a new business (merchant only). Status starts as pending."""
@@ -315,7 +315,7 @@ async def create_business(
 async def update_business(
     business_id: UUID,
     payload: BusinessUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> BusinessResponse:
     """Update business details."""
@@ -371,7 +371,7 @@ async def update_business(
 @router.post("/{business_id}/address-verify/request", response_model=MessageResponse)
 async def request_address_verify(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT)),
 ) -> MessageResponse:
     """
@@ -405,7 +405,7 @@ async def request_address_verify(
 @router.post("/{business_id}/approve", response_model=BusinessResponse)
 async def approve_business(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> BusinessResponse:
     """Admin: approve a pending business. Notifies the merchant in-app and by best-effort email."""
@@ -445,7 +445,7 @@ async def approve_business(
 @router.post("/{business_id}/suspend", response_model=MessageResponse)
 async def suspend_business(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> MessageResponse:
     """Admin: suspend a business."""
@@ -463,7 +463,7 @@ async def suspend_business(
 @router.post("/{business_id}/start-review", response_model=BusinessResponse)
 async def start_review(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> BusinessResponse:
     """Admin: mark a pending business as being actively reviewed (S-079). Visibility-only --
@@ -488,7 +488,7 @@ async def start_review(
 @router.post("/{business_id}/return-to-pending", response_model=BusinessResponse)
 async def return_to_pending(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> BusinessResponse:
     """Admin: un-claim a business under review, returning it to the plain pending queue (S-079)."""
@@ -514,7 +514,7 @@ async def return_to_pending(
 @router.get("/{business_id}/external-reviews", response_model=list[ExternalReviewResponse])
 async def list_external_reviews(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ) -> list[ExternalReviewResponse]:
     """
     Public: up to 5 synced third-party (Google) reviews for a business (S-048
@@ -537,7 +537,7 @@ async def list_external_reviews(
 async def report_business(
     business_id: UUID,
     payload: BusinessReportCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ) -> BusinessReportResponse:
     """Signed-in user: report a shop (not a review). Merchants cannot report their own listing (S-089)."""
