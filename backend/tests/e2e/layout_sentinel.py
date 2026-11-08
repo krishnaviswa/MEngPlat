@@ -22,6 +22,7 @@ HEIGHTS = {375: 812, 768: 1024, 1280: 800}
 OVERLAP_MIN_SIDE_PX = 2        # intersection must be at least this wide AND this tall
 OVERLAP_MIN_AREA_PX2 = 16      # ... and larger than this area
 OVERLAP_MIN_FRACTION = 0.05    # ... and cover >= 5% of the smaller rect (kills 1px borders)
+OVERLAP_MIN_HEIGHT_FRACTION = 0.25  # ... and >= 25% of the shorter rect's height (kills line-box touches)
 MAX_OVERLAP_FINDINGS = 20      # per page+width
 MAX_CANDIDATES = 3000          # per page+width
 CLIP_TOLERANCE_PX = 2
@@ -66,6 +67,14 @@ _JS = r"""
     return !hiddenByAttr(el) && !ignored(el);
   };
   const okRect = (r) => r.width >= 2 && r.height >= 2;
+  const painted = (el) => {
+    if (/^(BUTTON|INPUT|SELECT|TEXTAREA|SUMMARY)$/.test(el.tagName)) return true;
+    const cs = getComputedStyle(el);
+    const bg = cs.backgroundColor;
+    const hasBg = bg && bg !== 'transparent' && !/rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)/.test(bg);
+    const hasBorder = ['Top', 'Right', 'Bottom', 'Left'].some((s) => parseFloat(cs['border' + s + 'Width']) > 0 && cs['border' + s + 'Style'] !== 'none');
+    return hasBg || cs.backgroundImage !== 'none' || hasBorder;
+  };
   const rectObj = (r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height });
   const fixedRoot = (el) => {
     for (let cur = el; cur && cur.nodeType === 1; cur = cur.parentElement) {
@@ -105,9 +114,23 @@ _JS = r"""
     if (!visible(el)) return;
     const interactive = el.matches(INTERACTIVE);
     let rects = [];
-    if (interactive) {
+    if (interactive && painted(el)) {
       const r = el.getBoundingClientRect();
       if (okRect(r)) rects = [rectObj(r)];
+    } else if (interactive) {
+      // bare link: its 44px tap area is invisible and may legitimately touch its neighbours, so
+      // compare what the eye sees (its text); icon-only links fall back to the box
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      const range = document.createRange();
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        if (!n.nodeValue.trim()) continue;
+        range.selectNodeContents(n);
+        for (const r of range.getClientRects()) if (okRect(r)) rects.push(rectObj(r));
+      }
+      if (!rects.length) {
+        const r = el.getBoundingClientRect();
+        if (okRect(r)) rects = [rectObj(r)];
+      }
     } else {
       const range = document.createRange();
       for (const n of el.childNodes) {
@@ -151,6 +174,7 @@ _JS = r"""
         if (area <= A.minArea) continue;
         const smaller = Math.min(ra.width * ra.height, rb.width * rb.height);
         if (area < A.minFraction * smaller) continue;
+        if (h < A.minHeightFraction * Math.min(ra.height, rb.height)) continue;
         if (!best || area > best.area) best = { w, h, area };
       }
       if (!best) continue;
@@ -170,12 +194,12 @@ _JS = r"""
     const el = it.el;
     const cs = getComputedStyle(el);
     const ellipsis = cs.textOverflow === 'ellipsis';
-    if (clipVals.has(cs.overflowX) && el.clientWidth > 0 && el.scrollWidth > el.clientWidth + A.clipTol && !(ellipsis && !it.interactive)) {
+    if (clipVals.has(cs.overflowX) && el.clientWidth > 2 && el.scrollWidth > el.clientWidth + A.clipTol && !(ellipsis && !it.interactive)) {
       push('clipped-text', `content is ${el.scrollWidth}px wide inside a ${el.clientWidth}px box with overflow:${cs.overflowX}`, el, null);
       continue;
     }
     const lineClamp = cs.getPropertyValue('-webkit-line-clamp');
-    if (clipVals.has(cs.overflowY) && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + A.clipTol && (!lineClamp || lineClamp === 'none')) {
+    if (clipVals.has(cs.overflowY) && el.clientHeight > 2 && el.scrollHeight > el.clientHeight + A.clipTol && (!lineClamp || lineClamp === 'none')) {
       push('clipped-text', `content is ${el.scrollHeight}px tall inside a ${el.clientHeight}px box with overflow:${cs.overflowY}`, el, null);
       continue;
     }
@@ -233,6 +257,7 @@ def check_layout_at(page: Any, width: int, *, ignore_selectors: tuple[str, ...] 
             "minSide": OVERLAP_MIN_SIDE_PX,
             "minArea": OVERLAP_MIN_AREA_PX2,
             "minFraction": OVERLAP_MIN_FRACTION,
+            "minHeightFraction": OVERLAP_MIN_HEIGHT_FRACTION,
             "clipTol": CLIP_TOLERANCE_PX,
         },
     )

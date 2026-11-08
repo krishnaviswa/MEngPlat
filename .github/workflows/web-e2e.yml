@@ -101,14 +101,14 @@ jobs:
         id: target
         run: |
           case "${{ inputs.suite || 'all' }}" in
-            all)               path="tests/e2e";                          full=1 ;;
+            all)               path="tests/e2e --ignore=tests/e2e/chains"; full=1 ;;  # chains are S-125: web-workflows.yml
             journeys)          path="tests/e2e/journeys tests/e2e/test_selectors_smoke.py"; full=1 ;;
             journey-anonymous) path="tests/e2e/journeys/test_journey_anonymous.py"; full=0 ;;
             journey-customer)  path="tests/e2e/journeys/test_journey_customer.py";  full=0 ;;
             journey-merchant)  path="tests/e2e/journeys/test_journey_merchant.py";  full=0 ;;
             journey-admin)     path="tests/e2e/journeys/test_journey_admin.py";     full=0 ;;
             smoke)             path="tests/e2e/test_smoke_compose.py";              full=0 ;;
-            *)                 path="tests/e2e";                          full=1 ;;
+            *)                 path="tests/e2e --ignore=tests/e2e/chains"; full=1 ;;
           esac
           echo "path=$path"   >> "$GITHUB_OUTPUT"
           echo "full=$full"   >> "$GITHUB_OUTPUT"

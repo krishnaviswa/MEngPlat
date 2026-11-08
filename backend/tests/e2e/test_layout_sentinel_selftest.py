@@ -8,6 +8,7 @@ Skips when Chromium is not installed, unless LAYOUT_SELFTEST_REQUIRE_BROWSER=1 (
 from __future__ import annotations
 
 import os
+from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
@@ -22,11 +23,13 @@ ALL_RULES = {"horizontal-scroll", "overlap", "clipped-text", "offscreen-interact
 
 
 @pytest.fixture(scope="module")
-def sentinel_page():
-    # Own sync_playwright (not pytest-playwright's session-scoped `playwright`): that one keeps an
-    # asyncio loop running for the rest of the pytest session and would break every async-fixture
-    # test collected after this module in a default `pytest` run. This one is stopped at module end.
-    with sync_playwright() as pw:
+def sentinel_page(request):
+    # Default `pytest` (E2E unset): own sync_playwright, stopped at module end — pytest-playwright's
+    # session-scoped `playwright` would keep an asyncio loop running and break every async-fixture
+    # test collected after this module. With E2E=1 pytest-playwright's loop is already running for the
+    # whole session, and a second sync_playwright cannot start inside it, so share that instance.
+    shared = os.environ.get("E2E") == "1"
+    with nullcontext(request.getfixturevalue("playwright")) if shared else sync_playwright() as pw:
         try:
             browser = pw.chromium.launch()
         except Exception as exc:  # noqa: BLE001 - any launch failure means "no browser here"
