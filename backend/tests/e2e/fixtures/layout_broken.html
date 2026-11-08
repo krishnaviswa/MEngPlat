@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Layout sentinel — deliberately broken fixture</title>
+<style>
+  body { font-family: sans-serif; margin: 0; position: relative; min-height: 700px; }
+  /* every value is absolute px so all four defects appear identically at 375 / 768 / 1280 */
+</style>
+</head>
+<body>
+  <!-- (i) horizontal scroll: wider than every tested viewport -->
+  <div style="width:1500px;height:8px;background:#ccc"></div>
+
+  <!-- (ii) overlap: two buttons whose boxes intersect -->
+  <button type="button" style="position:absolute;left:20px;top:120px;width:140px;height:24px">Overlap A</button>
+  <button type="button" style="position:absolute;left:80px;top:130px;width:140px;height:24px">Overlap B</button>
+
+  <!-- (iii) clipped text: long sentence inside a narrow overflow:hidden box -->
+  <div style="position:absolute;left:20px;top:220px;width:100px;overflow:hidden;white-space:nowrap">
+    This sentence is far too long for the narrow box that contains it.
+  </div>
+
+  <!-- (iv) off-screen control: right edge beyond 1280 at every width -->
+  <button type="button" style="position:absolute;left:1400px;top:300px">Off screen</button>
+</body>
+</html>

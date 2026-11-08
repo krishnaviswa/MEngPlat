@@ -2094,7 +2094,7 @@ ID-token flow via Google Identity Services — no client secret, no redirect rou
 
 ### CI/CD
 
-GitHub Actions **defines** `pytest` (`[backend-tests.yml](.github/workflows/backend-tests.yml)`, throwaway Postgres/Redis) and `npm test` (`[frontend-tests.yml](.github/workflows/frontend-tests.yml)`). **As of 2026-08-15 those jobs are `workflow_dispatch` only** (PR/push triggers commented out). Playwright is a **separate** dispatch-only workflow ([`web-e2e.yml`](.github/workflows/web-e2e.yml)) — Compose + Chromium, traces as downloadable artifacts; not on push/PR and not a deploy step. Auto-deploy of `main` to Railway/Vercel on green CI is still a recommended next step, not wired up. See [§11](#11-testing).
+GitHub Actions **defines** `pytest` (`[backend-tests.yml](.github/workflows/backend-tests.yml)`, throwaway Postgres/Redis) and `npm test` (`[frontend-tests.yml](.github/workflows/frontend-tests.yml)`). **As of 2026-08-15 those jobs are `workflow_dispatch` only** (PR/push triggers commented out). Playwright is a **separate** dispatch-only workflow ([`web-e2e.yml`](.github/workflows/web-e2e.yml)) — Compose + Chromium, traces as downloadable artifacts; not on push/PR and not a deploy step. Cross-role chains + the layout sentinel are another ([`web-workflows.yml`](.github/workflows/web-workflows.yml), S-125), also manual-only. Auto-deploy of `main` to Railway/Vercel on green CI is still a recommended next step, not wired up. See [§11](#11-testing).
 
 ---
 
@@ -2215,6 +2215,7 @@ Paths below are shortened: backend `tests/` = `backend/tests/`; web files live u
 | Mobile friendly errors / restyle | — | — | `friendly_error_test.dart`, `relative_time_test.dart`, `home_screen_test.dart`, `merchant_dashboard_screen_test.dart`, `admin_home_screen_test.dart` | — | TR-S-097, 098, 099, 100, 101 |
 | Full role journeys (opt-in) | — | — | `../integration_test/app_test.dart` (emulator, not `flutter test`) | `test_flow_*.py`, `test_rbac_matrix.py`, `test_smoke_compose.py`, `test_token_security.py` | TP-S-010, TR-S-091 |
 | Full role journeys — predefined-value human-driven catalogue (S-124) | — | — | — | `journeys/test_journey_anonymous.py`, `journeys/test_journey_customer.py`, `journeys/test_journey_merchant.py`, `journeys/test_journey_admin.py`, `test_selectors_smoke.py` (opt-in `E2E=1`; `E2E_FULL=1` for the coverage guard) | TR-S-124 |
+| Cross-role workflow chains + layout sentinel (S-125) | — | — | — | `chains/test_wf_*.py` (manual `web-workflows.yml`, opt-in `E2E=1`), `test_layout_sentinel_selftest.py` (runs without `E2E=1`), `tests/test_workflow_summary.py` (unit) | TP-S-125, TR-S-125 |
 
 
 If a file is listed on **more than one row**, run it once when the change sits on that overlap (for example `test_dashboard.py` for merchant stats **and** admin platform keys).
@@ -2250,6 +2251,42 @@ Treat mocks as **the staging truth** until keys exist. Assertions belong on the 
 | Live Resend / Razorpay / S3-CDN | **Optional later** — adapters exist |
 | Azure storage | **Stub** |
 | Structured request logs / APM | **Not built** |
+| Cross-role workflow chains (one actor's action → another role's browser) | **Built (S-125), first GitHub run pending** — 8 chains in `backend/tests/e2e/chains/` via manual `web-workflows.yml` (5 full, 3 partial / known-gap); see [Cross-role workflow chains](#cross-role-workflow-chains) |
+| Layout sentinel (overlap / clipping / horizontal scroll / off-screen controls at 375·768·1280) | **Built (S-125)** — `layout_sentinel.py`; self-test on static HTML passes with no stack (`test_layout_sentinel_selftest.py`); runs on every page the chains visit |
+
+### Cross-role workflow chains
+
+A **chain** is one event that starts with one role and must produce a visible effect for a different role (*A acts → system records → B finds out → B reacts*).
+
+**How people are told (one mechanism).** Services call `upsert_notice(user_id, scenario, …)` ([`notifications.py`](backend/app/services/notifications.py)) → one `notifications` row per `(user_id, scenario)`; a later event of the same scenario **overwrites** the row and marks it unread → `GET /api/v1/notifications` (current user only) → `NotificationBell` (web) / notifications screen (mobile). Email is best-effort and never fails the request; in Compose it is `mock` (logs only). A chain test must therefore assert "unread and showing the latest event", never "N rows".
+
+**Chains that exist today (6 scenarios, all notify a merchant):**
+
+
+| # | Scenario | Trigger | Channel | Code |
+| - | -------- | ------- | ------- | ---- |
+| 1 | `listing_approved` | Admin approves a pending business | bell + email | `routers/businesses.py` |
+| 2 | `new_review` | Customer review (skipped when moderation flags it); also the login-free partner path | bell + email | `routers/reviews.py`, `services/partner_service.py` |
+| 3 | `whatsapp_applied` | Admin approves a WhatsApp draft | bell + email | `services/whatsapp_ingest_service.py` |
+| 4 | `whatsapp_rejected` | Admin rejects a WhatsApp draft | bell | `services/whatsapp_ingest_service.py` |
+| 5 | `payment_captured` | Featured payment captured | bell | `services/payments/featured.py` |
+| 6 | `payment_boost_approved` | Admin approves featured placement | bell | `services/payments/featured.py` |
+
+
+**Cross-role effects with no proactive notice** (visible only on the next page load; listed in §14): merchant reply to a review (author not told), business edit via `PATCH /businesses/{id}` (nobody told; applied immediately, no re-approval), admin hide/remove of a review (author not told), admin suspend (user learns at next login → 403). Whether a ticket/report reporter can see `admin_response` was **not** traced.
+
+**Coverage.** Before S-125: 47 e2e test functions (anonymous 14, customer 9, merchant 1 long journey, admin 11, S-010 flows 4, RBAC/token/smoke/selectors 8), none opening a second role's browser. S-125 adds 10 chain test functions (8 chains) where each role gets its own browser context and the bell is asserted (`backend/tests/e2e/chains/`). Notifications remain unit-tested too (`tests/test_notification_scenarios.py`, `tests/test_notifications.py`, `NotificationBell.test.tsx`, mobile `notifications_screen_test.dart`).
+
+**Design (built, S-125).** One pytest test, one Playwright browser context **per role**, each seeded role signed in **once per run** through the real login page (seeded accounts + known TOTP via `enable_demo_totp`) and then reusing `storage_state`; assertions wait and retry (no fixed sleeps); every page a chain visits is scanned by the layout sentinel at 375/768/1280 px and a chain that passes functionally still **fails** if it recorded findings. Bell oracle: reload, open the dropdown, assert an **unread** row whose text contains this run's unique business name (never row counts). Per-run data comes from the existing `unique_email` / `unique_name` helpers; seeded admin/merchant/customer are used for every chain.
+
+| Chain | Status |
+| ----- | ------ |
+| `wf-listing-approval`, `wf-new-review`, `wf-suspend`, `wf-review-moderation` | Full chain |
+| `wf-featured-boost` | Full chain; **SKIPPED** with a reason when `DEBUG` is not true (Compose sets it) |
+| `wf-review-reply`, `wf-shop-edit` | Visibility part must **pass**; the "is anyone notified" part is an `xfail(strict)` known gap that turns into a **FAIL** the day the notification feature lands (remove the xfail and update §14) |
+| `wf-whatsapp-draft` | **SKIPPED** on a fresh Compose stack — `seed.py` creates no drafts and ingest needs a live webhook |
+
+**Non-blocking by decision (2026-11-08).** [`web-workflows.yml`](.github/workflows/web-workflows.yml) triggers on `workflow_dispatch` **only** — never `push` / `pull_request` / `schedule`, never a required check, no git hooks, no deploy step. Output: a job-summary table (PASS / FAIL / KNOWN-GAP / SKIPPED per chain) plus a layout-findings table, and the `playwright-traces` artifact. On a feature change, dispatch only the affected chain (`suite=wf-<id>`); the Architect names affected chains in the slice and the Tester records the run. Runs on GitHub runners (no local Docker).
 
 ### How to run (today)
 
@@ -2277,6 +2314,18 @@ E2E=1 FRONTEND_URL=http://localhost:3000 API_URL=http://localhost:8000/api/v1 \
 # PowerShell: $env:E2E=1; pytest tests/e2e -v
 ```
 
+**Chains and layout (S-125):**
+
+```bash
+# one chain against a running Compose stack
+E2E=1 FRONTEND_URL=http://localhost:3000 API_URL=http://localhost:8000/api/v1 \
+  pytest tests/e2e/chains/test_wf_new_review.py -v
+# layout sentinel self-test — static HTML, no stack, no E2E=1 (needs `playwright install chromium`)
+pytest tests/e2e/test_layout_sentinel_selftest.py -v
+```
+
+**GitHub (manual, chains):** Actions → **Web workflows (cross-role chains + layout)** → Run workflow → pick `suite` (`all`, one `wf-<chain>`, or `layout`). Same artifacts as below, plus the chain table and layout findings in the job summary.
+
 **GitHub (manual):** Actions → **Web e2e (Playwright)** → Run workflow. The job starts Compose, runs the same `E2E=1 pytest tests/e2e`, and always uploads artifacts (`playwright-traces`, pytest log, Compose logs; 14-day retention). Download the zip and run `playwright show-trace <test-name>.zip`. This is not tied to push, pull request, or deploy.
 
 A hosted staging URL with the same mock vendors is optional later; point `FRONTEND_URL` / `API_URL` at that stack if it exists.
@@ -2289,7 +2338,7 @@ SSR caveat (must stay in the e2e design): Home, Search, and Business detail fetc
 
 ### CI honesty
 
-README §10 still describes pytest/Jest on every PR. **Current YAML:** `backend-tests.yml` and `frontend-tests.yml` are `workflow_dispatch` only (PR/push commented as a POC). Playwright is a **third** workflow, [`web-e2e.yml`](.github/workflows/web-e2e.yml), also dispatch-only — it must stay off push/PR and off deploy. Re-enabling pytest/Jest on PR is a separate choice and does **not** make Chromium a required check. Until then, **the §11 index row is the day-to-day gate**; the full local pytest + npm test pack is for pre-merge or shared-helper changes.
+README §10 still describes pytest/Jest on every PR. **Current YAML:** `backend-tests.yml` and `frontend-tests.yml` are `workflow_dispatch` only (PR/push commented as a POC). Playwright is a **third** workflow, [`web-e2e.yml`](.github/workflows/web-e2e.yml), and the cross-role chains + layout sentinel are a **fourth**, [`web-workflows.yml`](.github/workflows/web-workflows.yml) — both dispatch-only; they must stay off push/PR and off deploy. Re-enabling pytest/Jest on PR is a separate choice and does **not** make Chromium a required check. Until then, **the §11 index row is the day-to-day gate**; the full local pytest + npm test pack is for pre-merge or shared-helper changes.
 
 ---
 
@@ -2943,7 +2992,8 @@ An honest delta between the original specification and what the code actually do
 | Gap                         | Detail                                                                                                                                                                                                                                                                           |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Azure storage is a stub** | Raises `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). `local` and `s3` both work.                                                                                                                                                                  |
-| **Thin tests / incomplete browser e2e** | Layers 1–3 (pytest + RTL) are real. Playwright journeys exist (`E2E=1`); GitHub run is **manual** [`web-e2e.yml`](.github/workflows/web-e2e.yml) (artifact traces). pytest/Jest workflows are also dispatch-only. **S-124** adds an exhaustive predefined-value, Enter-to-submit Playwright catalogue across every customer / merchant / admin route and form (`backend/tests/e2e/journeys/`, `form_data.py`, `human.py`) — still opt-in, still manual `web-e2e.yml`, still **not** a merge gate. See §11. |
+| **Thin tests / incomplete browser e2e** | Layers 1–3 (pytest + RTL) are real. Playwright journeys exist (`E2E=1`); GitHub run is **manual** [`web-e2e.yml`](.github/workflows/web-e2e.yml) (artifact traces); cross-role chains + layout sentinel are a second manual workflow, [`web-workflows.yml`](.github/workflows/web-workflows.yml) (S-125). pytest/Jest workflows are also dispatch-only. **S-124** adds an exhaustive predefined-value, Enter-to-submit Playwright catalogue across every customer / merchant / admin route and form (`backend/tests/e2e/journeys/`, `form_data.py`, `human.py`) — still opt-in, still manual `web-e2e.yml`, still **not** a merge gate. See §11. |
+| **No customer notifications; no cross-role chain tests** | The bell is merchant-only (6 scenarios, §11 [Cross-role workflow chains](#cross-role-workflow-chains)). No notice to customers when a merchant replies to their review, when an admin hides/removes it, or when a shop they reviewed/favourited changes; suspended users learn at next login. Open product questions: should customers be notified, and should a description edit need admin re-approval (today it applies immediately). Cross-role chains now run through two browsers (S-125, manual `web-workflows.yml`); the reply, shop-edit and customer-facing notification assertions are recorded as `xfail(strict)` known gaps and flip to FAIL-on-XPASS when the notification slice lands. Layout (overlap / clipping / horizontal scroll at 375·768·1280) is asserted by the sentinel on every page a chain visits (first real-app run may surface product layout findings — see TR-S-125). Each customer notice is still a feature slice; chain tests are non-blocking and dispatch-only. |
 | **Design-system migration** | Complete. `Select` / `StatCard` / `ui/RatingWidget` (S-017) now back every remaining call site — native `<select>`s, inline stat tiles, and the duplicate top-level `RatingWidget` (removed, canonical copy is `ui/RatingWidget`) all migrated.                                  |
 | **Security items 1–6**      | §9: rate limit, upload MIME/size, lockout, refresh rotation, headers, password policy are in. Remaining: `localStorage` tokens (S-026) and world-readable `/uploads`. Commercial SaaS/legal items: [Deferred](#deferred-for-commercial--enterprise).                             |
 | **No structured logging**   | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                                                                                                           |
