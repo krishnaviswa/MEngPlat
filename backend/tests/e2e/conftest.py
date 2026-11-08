@@ -26,6 +26,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         return
     skip = pytest.mark.skip(reason="e2e opt-in: set E2E=1 with Compose up (frontend :3000, API :8000)")
     for item in items:
+        if item.get_closest_marker("layout_selftest"):
+            continue  # S-125: static-HTML sentinel self-test needs no Compose stack / E2E=1
         path = Path(str(item.path if hasattr(item, "path") else item.fspath))
         if "e2e" in path.parts:
             item.add_marker(skip)
