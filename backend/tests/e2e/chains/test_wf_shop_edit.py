@@ -1,8 +1,5 @@
-"""wf-shop-edit — merchant edits the description -> it is public immediately (PASS, no re-approval).
-
-Known gap (README §14): nobody is notified of a business edit. The gap assertion is an
-xfail(strict) that flips to FAIL-on-XPASS once the notification feature lands.
-"""
+"""wf-shop-edit — merchant edits the description -> it is public immediately (no re-approval) and a
+reviewer of the shop is told (S-126)."""
 
 from __future__ import annotations
 
@@ -22,6 +19,12 @@ def test_wf_shop_edit(wf, api, merchant_ready):
     chain = wf.chain_id
     biz = make_approved_business(api, wf.token("merchant"), wf.token("admin"), unique_name("WF Edit"))
     desc = f"Edited by WF {uuid4().hex[:8]}"
+
+    # setup: a fresh customer has an active review of this shop (S-126: reviewers are told about edits)
+    reviewer_email = unique_email("customer")
+    api.register(reviewer_email, role="customer", password=PASSWORD)
+    reviewer_tokens = api.tokens(reviewer_email, PASSWORD)
+    api.create_review(reviewer_tokens.access_token, biz.id, f"{REVIEW_BODY} wf-edit-{uuid4().hex[:6]}")
 
     # 1. merchant edits the DESCRIPTION (an address edit can demand the address-OTP gate; this never does)
     merchant = wf.actor("merchant")
@@ -48,26 +51,8 @@ def test_wf_shop_edit(wf, api, merchant_ready):
 
     eventually(_desc_visible, chain=chain, what="edited description visible publicly")
 
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="business edits notify nobody (README §14)",
-)
-def test_wf_shop_edit_gap(wf, api, merchant_ready):
-    chain = wf.chain_id
-    biz = make_approved_business(api, wf.token("merchant"), wf.token("admin"), unique_name("WF Edit Gap"))
-    email = unique_email("customer")
-    api.register(email, role="customer", password=PASSWORD)
-    tokens = api.tokens(email, PASSWORD)
-    api.create_review(tokens.access_token, biz.id, f"{REVIEW_BODY} wf-edit-{uuid4().hex[:6]}")
-
-    res = api.patch(f"businesses/{biz.id}", token=wf.token("merchant"), json={"description": f"Gap edit {uuid4().hex[:8]}"})
-    assert res.status == 200, res.text()
-
-    reviewer = wf.session_actor(tokens.access_token, tokens.refresh_token)
+    # 3. the reviewer is told the shop changed (S-126)
+    reviewer = wf.session_actor(reviewer_tokens.access_token, reviewer_tokens.refresh_token)
     reviewer.goto("/")
-    wf.skip_scan("/")  # only touched to open the bell and assert absence
-    # Today this raises AssertionError (no notice) -> XFAIL. Once the feature lands it returns
-    # normally -> strict XPASS -> FAIL: "known gap now passes - remove xfail and update README §14".
-    bell_expect(reviewer, contains=biz.name, timeout_ms=8_000, chain=chain, role="reviewer")
+    wf.skip_scan("/")  # only touched to open the bell
+    bell_expect(reviewer, contains=biz.name, title="Shop details updated", chain=chain, role="reviewer")

@@ -1,4 +1,5 @@
-"""wf-review-moderation — customer reports a review -> admin hides it -> it disappears from the public page."""
+"""wf-review-moderation — customer reports a review -> admin hides it -> it disappears from the public page
+and the review author is told (S-126)."""
 
 from __future__ import annotations
 
@@ -8,7 +9,7 @@ import pytest
 from playwright.sync_api import expect
 
 from tests.e2e.api_client import PASSWORD
-from tests.e2e.chains.helpers import eventually, make_approved_business
+from tests.e2e.chains.helpers import bell_expect, eventually, make_approved_business
 from tests.e2e.form_data import REPORT_REASON, REVIEW_BODY, unique_email, unique_name
 from tests.e2e.pages.admin_panel import AdminPanelPage
 
@@ -63,3 +64,9 @@ def test_wf_review_moderation(wf, api, merchant_ready):
         expect(anon.get_by_text(marker)).to_have_count(0, timeout=4_000)
 
     eventually(_gone, chain=chain, what="hidden review disappears from the public page")
+
+    # 5. the review's author is told it was hidden (S-126)
+    author_page = wf.session_actor(author.access_token, author.refresh_token)
+    author_page.goto("/")
+    wf.skip_scan("/")  # only touched to open the bell
+    bell_expect(author_page, contains=biz.name, title="Your review was hidden", chain=chain, role="review author")

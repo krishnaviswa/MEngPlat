@@ -359,11 +359,16 @@ class ReviewReport(Base):
 
 class Notification(Base):
     __tablename__ = "notifications"
-    __table_args__ = (UniqueConstraint("user_id", "scenario", name="uq_user_notification_scenario"),)
+    # S-126: customer notices are keyed per entity (review / shop) via dedupe_key; the six merchant
+    # scenarios leave it '' and so keep exactly one row per (user, scenario).
+    __table_args__ = (
+        UniqueConstraint("user_id", "scenario", "dedupe_key", name="uq_user_notification_scenario_key"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     scenario: Mapped[str] = mapped_column(String(64), nullable=False)
+    dedupe_key: Mapped[str] = mapped_column(String(64), nullable=False, default="", server_default="")
     type: Mapped[NotificationType] = mapped_column(Enum(NotificationType), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)

@@ -42,6 +42,7 @@ from app.services.business_service import (
 from app.services.content_moderation import contains_disallowed_language
 from app.services.cache import cache_delete_pattern
 from app.services.email import try_send_new_review
+from app.services.customer_notices import notify_review_moderation, notify_review_reply
 from app.services.notifications import SCENARIO_NEW_REVIEW, upsert_notice
 from app.services.review_pipeline import build_review_ai_analysis
 
@@ -363,13 +364,20 @@ async def reply_to_review(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your business review")
 
     if review.reply:
+        previous_body = review.reply.body  # captured before the overwrite: a same-text edit notifies nobody
         review.reply.body = payload.body
+        await notify_review_reply(
+            db, review=review, business=business, actor_id=user.id, previous_body=previous_body, new_body=payload.body
+        )
         await db.refresh(review.reply)
         return ReplyResponse.model_validate(review.reply)
 
     reply = Reply(review_id=review_id, merchant_id=merchant.id, body=payload.body)
     db.add(reply)
     await db.flush()
+    await notify_review_reply(
+        db, review=review, business=business, actor_id=user.id, previous_body=None, new_body=payload.body
+    )
     await db.refresh(reply)
     return ReplyResponse.model_validate(reply)
 
@@ -388,6 +396,7 @@ async def moderate_review(
     if not review:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
 
+    previous_status = review.status
     if action == "hide":
         review.status = ReviewStatus.HIDDEN
     elif action == "restore":
@@ -398,4 +407,8 @@ async def moderate_review(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid action")
 
     db.add(AuditLog(admin_id=admin.id, action=action, entity_type="review", entity_id=str(review_id)))
+    business = await db.get(Business, review.business_id)
+    await notify_review_moderation(
+        db, review=review, business=business, admin_id=admin.id, previous_status=previous_status, action=action
+    )
     return MessageResponse(message=f"Review {action}d")
