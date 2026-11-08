@@ -2251,7 +2251,7 @@ Treat mocks as **the staging truth** until keys exist. Assertions belong on the 
 | Live Resend / Razorpay / S3-CDN | **Optional later** — adapters exist |
 | Azure storage | **Stub** |
 | Structured request logs / APM | **Not built** |
-| Cross-role workflow chains (one actor's action → another role's browser) | **Built (S-125), first GitHub run pending** — 8 chains in `backend/tests/e2e/chains/` via manual `web-workflows.yml` (5 full, 3 partial / known-gap); see [Cross-role workflow chains](#cross-role-workflow-chains) |
+| Cross-role workflow chains (one actor's action → another role's browser) | **Built (S-125), verified on GitHub 2026-11-08** (10 passed / 2 known gaps / 1 skipped) — 8 chains in `backend/tests/e2e/chains/` via manual `web-workflows.yml` (5 full, 3 partial / known-gap); see [Cross-role workflow chains](#cross-role-workflow-chains) |
 | Layout sentinel (overlap / clipping / horizontal scroll / off-screen controls at 375·768·1280) | **Built (S-125)** — `layout_sentinel.py`; self-test on static HTML passes with no stack (`test_layout_sentinel_selftest.py`); runs on every page the chains visit |
 
 ### Cross-role workflow chains
