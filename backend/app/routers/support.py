@@ -55,7 +55,7 @@ async def support_contact() -> SupportContactResponse:
 @router.post("/support-tickets", response_model=SupportTicketResponse, status_code=status.HTTP_201_CREATED)
 async def create_support_ticket(
     payload: SupportTicketCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> SupportTicketResponse:
     """Create a support ticket. Auth optional; logged-in users can later list via /mine."""
@@ -83,7 +83,7 @@ async def create_support_ticket(
 
 @router.get("/support-tickets/mine", response_model=list[SupportTicketResponse])
 async def list_my_support_tickets(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ) -> list[SupportTicketResponse]:
     tickets = await tickets_service.list_mine(db, user)
@@ -93,7 +93,7 @@ async def list_my_support_tickets(
 @router.get("/support-tickets/{ticket_id}", response_model=SupportTicketResponse)
 async def get_my_support_ticket(
     ticket_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ) -> SupportTicketResponse:
     """Reporter or admin: one ticket. Other users get 404."""
@@ -106,7 +106,7 @@ async def get_my_support_ticket(
 
 @router.get("/business-reports/mine", response_model=list[BusinessReportResponse])
 async def list_my_business_reports(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ) -> list[BusinessReportResponse]:
     reports = await reports_service.list_mine(db, user)
@@ -122,7 +122,7 @@ async def list_my_business_reports(
 async def add_report_message(
     report_id: UUID,
     payload: BusinessReportMessageCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ) -> BusinessReportMessageResponse:
     try:

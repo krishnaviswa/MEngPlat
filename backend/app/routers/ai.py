@@ -19,7 +19,7 @@ router = APIRouter(prefix="/ai", tags=["AI Analysis"])
 
 
 @router.get("/reviews/{review_id}", response_model=AIAnalysisResponse)
-async def get_review_analysis(review_id: UUID, db: AsyncSession = Depends(get_db)) -> AIAnalysisResponse:
+async def get_review_analysis(review_id: UUID, db: AsyncSession = Depends(get_db, scope="function")) -> AIAnalysisResponse:
     """
     Get AI analysis for a specific review.
 
@@ -37,7 +37,7 @@ async def get_review_analysis(review_id: UUID, db: AsyncSession = Depends(get_db
 async def get_merchant_insights(
     business_id: UUID,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> MerchantInsightsResponse:
     """
@@ -96,7 +96,7 @@ async def get_merchant_insights(
 async def refresh_insights(
     business_id: UUID,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> MerchantInsightsResponse:
     """Manually trigger AI summary refresh for a business. Synchronous,
@@ -117,7 +117,7 @@ async def _assert_owns_or_admin(db: AsyncSession, business: Business, user: User
 @router.get("/businesses/{business_id}/topics", response_model=TopicClusterResponse)
 async def get_topic_clusters(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> TopicClusterResponse:
     """

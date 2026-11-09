@@ -48,7 +48,7 @@ async def _approved_businesses_in_radius(
 @router.post("/nearby", response_model=list[BusinessResponse])
 async def nearby_businesses(
     payload: NearbyBusinessRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ) -> list[BusinessResponse]:
     """
     Approved businesses within radius of a point (OpenStreetMap / Haversine).

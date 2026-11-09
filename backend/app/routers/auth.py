@@ -119,7 +119,7 @@ async def _consume_mfa_token(mfa_token: str) -> None:
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
-async def register(request: Request, payload: UserRegister, db: AsyncSession = Depends(get_db)) -> User:
+async def register(request: Request, payload: UserRegister, db: AsyncSession = Depends(get_db, scope="function")) -> User:
     """
     Register a new user account.
 
@@ -152,7 +152,7 @@ async def register(request: Request, payload: UserRegister, db: AsyncSession = D
 
 @router.post("/login", response_model=LoginResult)
 @limiter.limit("10/minute")
-async def login(request: Request, payload: UserLogin, db: AsyncSession = Depends(get_db)) -> LoginResult:
+async def login(request: Request, payload: UserLogin, db: AsyncSession = Depends(get_db, scope="function")) -> LoginResult:
     """
     Authenticate with email and password.
 
@@ -206,7 +206,7 @@ async def login(request: Request, payload: UserLogin, db: AsyncSession = Depends
 @router.post("/forgot-password", response_model=MessageResponse)
 @limiter.limit("5/minute")
 async def forgot_password(
-    request: Request, payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)
+    request: Request, payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db, scope="function")
 ) -> MessageResponse:
     """
     Request a password-reset email. Always returns the same generic message,
@@ -242,7 +242,7 @@ async def forgot_password(
 @router.post("/reset-password", response_model=MessageResponse)
 @limiter.limit("5/minute")
 async def reset_password(
-    request: Request, payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)
+    request: Request, payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db, scope="function")
 ) -> MessageResponse:
     """
     Complete a password reset with a token from the reset email.
@@ -277,7 +277,7 @@ async def reset_password(
 
 
 @router.post("/mfa/totp/setup", response_model=TotpSetupResponse)
-async def totp_setup(payload: MfaTokenRequest, db: AsyncSession = Depends(get_db)) -> TotpSetupResponse:
+async def totp_setup(payload: MfaTokenRequest, db: AsyncSession = Depends(get_db, scope="function")) -> TotpSetupResponse:
     """
     Start TOTP enrollment after password login (mfa_enrollment_required).
     Returns otpauth URI, manual secret, and QR SVG for the authenticator app.
@@ -297,7 +297,7 @@ async def totp_setup(payload: MfaTokenRequest, db: AsyncSession = Depends(get_db
 
 @router.post("/mfa/totp/confirm", response_model=TokenResponse)
 @limiter.limit("5/minute")
-async def totp_confirm(request: Request, payload: MfaTotpCodeRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+async def totp_confirm(request: Request, payload: MfaTotpCodeRequest, db: AsyncSession = Depends(get_db, scope="function")) -> TokenResponse:
     """Confirm TOTP enrollment with a first code from the authenticator app; issues session tokens."""
     user = await _user_from_mfa_token(payload.mfa_token, purpose="enroll", db=db)
     if not user.totp_secret:
@@ -322,7 +322,7 @@ async def totp_confirm(request: Request, payload: MfaTotpCodeRequest, db: AsyncS
 
 @router.post("/mfa/totp/verify", response_model=TokenResponse)
 @limiter.limit("5/minute")
-async def totp_verify(request: Request, payload: MfaTotpCodeRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+async def totp_verify(request: Request, payload: MfaTotpCodeRequest, db: AsyncSession = Depends(get_db, scope="function")) -> TokenResponse:
     """Complete password login by verifying the authenticator code; issues session tokens."""
     user = await _user_from_mfa_token(payload.mfa_token, purpose="verify", db=db)
     if not user.totp_enabled or not user.totp_secret:
@@ -343,7 +343,7 @@ async def totp_verify(request: Request, payload: MfaTotpCodeRequest, db: AsyncSe
 
 @router.post("/refresh", response_model=TokenResponse)
 @limiter.limit("10/minute")
-async def refresh_token(request: Request, refresh_token: str, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+async def refresh_token(request: Request, refresh_token: str, db: AsyncSession = Depends(get_db, scope="function")) -> TokenResponse:
     """
     Exchange a valid refresh token for a new access + refresh pair. The presented
     refresh token's jti is blocklisted so it cannot be reused (rotation).
@@ -501,7 +501,7 @@ async def reauth(
 async def update_me(
     payload: UserProfileUpdate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     reauth_token: str | None = Query(None),
     x_reauth_token: str | None = Header(None, alias="X-Reauth-Token"),
 ) -> User:
@@ -543,7 +543,7 @@ async def update_me(
 async def upload_my_avatar(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ) -> User:
     """
     Upload/replace the caller's own profile avatar (S-085). Always targets
@@ -598,7 +598,7 @@ async def request_aadhaar_mock_otp(
 async def verify_aadhaar_mock_otp(
     payload: MockOtpVerifyRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ) -> MessageResponse:
     """Verify the mock Aadhaar OTP code; on success, saves the pending Aadhaar number."""
     ok = await consume_otp(_aadhaar_mock_key(current_user.id), payload.code)
@@ -626,7 +626,7 @@ def google_config() -> GoogleConfigResponse:
 
 
 @router.post("/google", response_model=TokenResponse)
-async def google_auth(payload: GoogleAuthRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+async def google_auth(payload: GoogleAuthRequest, db: AsyncSession = Depends(get_db, scope="function")) -> TokenResponse:
     """
     Sign in (or register) with Google. ID-token flow: the frontend obtains a
     signed credential from Google Identity Services client-side and sends it
@@ -709,7 +709,7 @@ async def phone_otp_request(request: Request, payload: PhoneOtpRequest) -> Messa
 @router.post("/phone/verify", response_model=TokenResponse)
 @limiter.limit("10/minute")
 async def phone_otp_verify(
-    request: Request, payload: PhoneOtpVerifyRequest, db: AsyncSession = Depends(get_db)
+    request: Request, payload: PhoneOtpVerifyRequest, db: AsyncSession = Depends(get_db, scope="function")
 ) -> TokenResponse:
     """Verify SMS code; register-or-login. Skips TOTP (same as Google)."""
     try:

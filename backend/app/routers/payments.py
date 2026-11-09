@@ -115,7 +115,7 @@ async def featured_skus(
 @router.post("/featured/checkout", response_model=FeaturedCheckoutResponse)
 async def featured_checkout(
     body: FeaturedCheckoutRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT)),
 ) -> FeaturedCheckoutResponse:
     """Start featured checkout for an owned approved listing. Auth: merchant. sku_code required."""
@@ -176,7 +176,7 @@ async def featured_checkout(
 @router.post("/webhooks/razorpay", response_model=WebhookAck)
 async def razorpay_webhook(
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     x_razorpay_signature: str | None = Header(default=None),
 ) -> WebhookAck:
     """Razorpay (or signed mock) webhook. Unauthenticated; HMAC required."""
@@ -211,7 +211,7 @@ async def _apply_webhook_event(db: AsyncSession, event: WebhookEvent) -> Webhook
 @router.post("/mock/complete", response_model=WebhookAck)
 async def mock_complete(
     body: MockCompleteRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> WebhookAck:
     """DEBUG-only: admin completes a mock order (ledger only). 404 when DEBUG is false."""
@@ -241,7 +241,7 @@ async def mock_complete(
 @router.get("/businesses/{business_id}/placement", response_model=PlacementResponse)
 async def get_placement(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> PlacementResponse:
     """Active/expiry for a listing. Fee split is admin-only. Catalog always included."""
@@ -317,7 +317,7 @@ async def get_placement(
 async def admin_list_payments(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> list[AdminPaymentRow]:
     """Admin: all featured payments, newest first, with per-merchant counts."""
@@ -359,7 +359,7 @@ async def admin_list_payments(
 @router.post("/admin/payments/{payment_id}/approve", response_model=PaymentApproveResponse)
 async def admin_approve_payment(
     payment_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> PaymentApproveResponse:
     """Admin: after capture, create the featured placement window."""
@@ -389,7 +389,7 @@ async def admin_approve_payment(
 @router.post("/admin/payments/{payment_id}/reject", response_model=PaymentRejectResponse)
 async def admin_reject_payment(
     payment_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> PaymentRejectResponse:
     """Admin: refuse the boost. Does not refund."""
@@ -412,7 +412,7 @@ async def admin_reject_payment(
 @router.post("/admin/placements/{placement_id}/disable", response_model=PlacementDisableResponse)
 async def admin_disable_placement(
     placement_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> PlacementDisableResponse:
     """Admin: drop featured rank without refund."""
@@ -427,7 +427,7 @@ async def admin_disable_placement(
 @router.post("/admin/payments/{payment_id}/refund", response_model=PaymentRefundResponse)
 async def admin_refund_payment(
     payment_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> PaymentRefundResponse:
     """Admin: refund provider charge and disable linked placement."""
