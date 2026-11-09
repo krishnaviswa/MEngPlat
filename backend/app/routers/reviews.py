@@ -68,7 +68,7 @@ def _review_response(review: Review) -> ReviewResponse:
 
 
 @router.get("/business/{business_id}", response_model=list[ReviewResponse])
-async def list_business_reviews(business_id: UUID, db: AsyncSession = Depends(get_db)) -> list[ReviewResponse]:
+async def list_business_reviews(business_id: UUID, db: AsyncSession = Depends(get_db, scope="function")) -> list[ReviewResponse]:
     """
     List active reviews for a business.
 
@@ -92,7 +92,7 @@ async def list_business_reviews(business_id: UUID, db: AsyncSession = Depends(ge
 
 @router.get("/reported", response_model=list[ReviewResponse])
 async def list_reported_reviews(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> list[ReviewResponse]:
     """Admin: list reviews flagged for moderation."""
@@ -116,7 +116,7 @@ async def list_admin_reviews(
     business_id: UUID | None = None,
     page: int = 1,
     page_size: int = 20,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> list[ReviewResponse]:
     """
@@ -150,7 +150,7 @@ async def list_admin_reviews(
 async def create_review(
     payload: ReviewCreate,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.CUSTOMER, UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> ReviewResponse:
     """
@@ -249,7 +249,7 @@ async def create_review(
 async def update_review(
     review_id: UUID,
     payload: ReviewUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ) -> ReviewResponse:
     """Edit own review. Re-runs AI analysis if body changes."""
@@ -291,7 +291,7 @@ async def update_review(
 @router.delete("/{review_id}", response_model=MessageResponse)
 async def delete_review(
     review_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ) -> MessageResponse:
     """Delete own review."""
@@ -307,7 +307,7 @@ async def delete_review(
 @router.post("/{review_id}/like", response_model=MessageResponse)
 async def like_review(
     review_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ) -> MessageResponse:
     """Like a review (idempotent)."""
@@ -328,7 +328,7 @@ async def like_review(
 async def report_review(
     review_id: UUID,
     payload: ReviewReportCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ) -> MessageResponse:
     """Report inappropriate review."""
@@ -345,7 +345,7 @@ async def report_review(
 async def reply_to_review(
     review_id: UUID,
     payload: ReplyCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT)),
 ) -> ReplyResponse:
     """Merchant responds to a review."""
@@ -378,7 +378,7 @@ async def reply_to_review(
 async def moderate_review(
     review_id: UUID,
     action: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> MessageResponse:
     """Admin: hide or restore a review. action=hide|restore|remove"""

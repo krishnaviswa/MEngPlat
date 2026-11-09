@@ -28,7 +28,7 @@ async def whatsapp_verify(
 @router.post("/whatsapp", response_model=WhatsAppWebhookAck)
 async def whatsapp_inbound(
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     x_hub_signature_256: str | None = Header(default=None),
 ) -> WhatsAppWebhookAck:
     """Inbound WhatsApp messages. Unauthenticated; `X-Hub-Signature-256` HMAC required."""

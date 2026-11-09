@@ -17,7 +17,7 @@ security = HTTPBearer(auto_error=False)
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ) -> User:
     if not credentials:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
@@ -42,7 +42,7 @@ async def get_current_user(
 
 async def get_optional_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ) -> User | None:
     if not credentials:
         return None

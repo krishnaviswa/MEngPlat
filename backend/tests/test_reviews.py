@@ -157,6 +157,10 @@ class FakeDB:
             if review is not None:
                 review.reply = obj
 
+    async def commit(self):
+        # the handler commits before scheduling background work (PR #90)
+        return None
+
     async def flush(self):
         for obj in self.added:
             _apply_pending_defaults(obj)

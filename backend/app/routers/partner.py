@@ -63,7 +63,7 @@ def _bearer_token(authorization: str | None) -> str | None:
 async def create_partner_review_request(
     request: Request,
     response: Response,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     authorization: str | None = Header(default=None),
     x_mh_signature: str | None = Header(default=None),
 ) -> PartnerReviewRequestResponse:
@@ -96,7 +96,7 @@ async def create_partner_review_request(
 
 
 @router.get("/collect/{token}", response_model=CollectTokenContext)
-async def get_collect_context(token: str, db: AsyncSession = Depends(get_db)) -> CollectTokenContext:
+async def get_collect_context(token: str, db: AsyncSession = Depends(get_db, scope="function")) -> CollectTokenContext:
     """Public: what the login-free ``/c/{token}`` page needs. No authentication."""
     request, business, computed = await load_request_for_collect(db, token)
     return CollectTokenContext(
@@ -115,7 +115,7 @@ async def submit_collect_review(
     token: str,
     payload: CollectTokenReviewCreate,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ) -> CollectTokenReviewResponse:
     """Public: submit a review against a token. Writes a native partner review
     (``source='partner'``, ``verified_purchase=true``), burns the token, runs
@@ -144,7 +144,7 @@ _RECEIVED_CALLBACKS: deque[dict] = deque(maxlen=20)
 
 @router.post("/partner-mock/dispatch", dependencies=[Depends(_require_mock_console)])
 async def partner_mock_dispatch(
-    req: PartnerMockDispatchRequest, db: AsyncSession = Depends(get_db)
+    req: PartnerMockDispatchRequest, db: AsyncSession = Depends(get_db, scope="function")
 ) -> dict:
     """Dev-only: stand in for a billing app calling the real push API. The server
     signs as the seeded demo partner so the browser never holds the secret."""
@@ -162,7 +162,7 @@ async def partner_mock_dispatch(
     dependencies=[Depends(_require_mock_console)],
     response_model=list[PartnerMockRequestRow],
 )
-async def partner_mock_requests(db: AsyncSession = Depends(get_db)) -> list[PartnerMockRequestRow]:
+async def partner_mock_requests(db: AsyncSession = Depends(get_db, scope="function")) -> list[PartnerMockRequestRow]:
     """Dev-only: the demo partner's review requests, newest first -- watch
     ``pending -> submitted`` as reviews are left."""
     return [PartnerMockRequestRow(**row) for row in await dev_list_requests(db)]

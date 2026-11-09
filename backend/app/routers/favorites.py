@@ -42,7 +42,7 @@ def _business_response(business: Business) -> BusinessResponse:
 
 @router.get("", response_model=list[BusinessResponse])
 async def list_favorites(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.CUSTOMER)),
 ) -> list[BusinessResponse]:
     """List the current customer's favorited businesses (newest first)."""
@@ -59,7 +59,7 @@ async def list_favorites(
 @router.post("", response_model=FavoriteResponse, status_code=status.HTTP_201_CREATED)
 async def create_favorite(
     payload: FavoriteCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.CUSTOMER)),
 ) -> FavoriteResponse:
     """Favorite an approved business (idempotent). 404 if missing or not approved."""
@@ -79,7 +79,7 @@ async def create_favorite(
 @router.delete("/{business_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_favorite(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.CUSTOMER)),
 ) -> Response:
     """Un-favorite a business (idempotent)."""

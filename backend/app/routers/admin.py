@@ -33,7 +33,7 @@ async def list_users(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     q: str | None = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> list[User]:
     """
@@ -49,7 +49,7 @@ async def list_users(
 @router.post("/users/{user_id}/suspend", response_model=UserResponse)
 async def suspend_user(
     user_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> User:
     """
@@ -71,7 +71,7 @@ async def suspend_user(
 @router.post("/users/{user_id}/reactivate", response_model=UserResponse)
 async def reactivate_user(
     user_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> User:
     """
@@ -94,7 +94,7 @@ async def reactivate_user(
 async def list_admin_whatsapp_drafts(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> AdminWhatsAppDraftQueueResponse:
     """
@@ -123,7 +123,7 @@ async def list_admin_whatsapp_drafts(
 async def approve_admin_whatsapp_draft(
     draft_id: UUID,
     payload: AdminWhatsAppDraftApproveRequest | None = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> WhatsAppDraftResponse:
     """
@@ -139,7 +139,7 @@ async def approve_admin_whatsapp_draft(
 @router.post("/whatsapp/drafts/{draft_id}/reject", response_model=WhatsAppDraftResponse)
 async def reject_admin_whatsapp_draft(
     draft_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> WhatsAppDraftResponse:
     """Admin: reject a WhatsApp draft. The live Business row is left untouched (S-053)."""
@@ -168,7 +168,7 @@ def _admin_report_response(report, counts: dict) -> BusinessReportResponse:
 @router.get("/support-tickets", response_model=list[SupportTicketResponse])
 async def admin_list_support_tickets(
     status_filter: str | None = Query(None, alias="status"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> list[SupportTicketResponse]:
     """Admin: all support tickets, oldest first (S-088)."""
@@ -183,7 +183,7 @@ async def admin_list_support_tickets(
 async def admin_update_support_ticket(
     ticket_id: UUID,
     payload: SupportTicketAdminUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> SupportTicketResponse:
     """Admin: set ticket status and/or response (S-088)."""
@@ -201,7 +201,7 @@ async def admin_update_support_ticket(
 @router.get("/business-reports", response_model=list[BusinessReportResponse])
 async def admin_list_business_reports(
     status_filter: str | None = Query(None, alias="status"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> list[BusinessReportResponse]:
     """Admin: shop-level reports with per-shop counts and repeat flag (S-089)."""
@@ -217,7 +217,7 @@ async def admin_list_business_reports(
 async def admin_update_business_report(
     report_id: UUID,
     payload: BusinessReportAdminUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> BusinessReportResponse:
     try:
@@ -242,7 +242,7 @@ async def admin_update_business_report(
 async def admin_add_business_report_message(
     report_id: UUID,
     payload: BusinessReportMessageCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> BusinessReportMessageResponse:
     try:

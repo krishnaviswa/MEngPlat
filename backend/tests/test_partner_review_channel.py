@@ -199,6 +199,10 @@ class FakePartnerDB:
         elif isinstance(obj, PartnerReviewRequest):
             self.requests.append(obj)
 
+    async def commit(self):
+        # the handler commits before scheduling background work (PR #90)
+        return None
+
     async def flush(self):
         for obj in self.added:
             if getattr(obj, "id", None) is None:

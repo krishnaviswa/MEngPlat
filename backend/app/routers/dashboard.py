@@ -72,7 +72,7 @@ async def _load_owned_business(db: AsyncSession, business_id: UUID, user: User) 
 async def merchant_dashboard(
     business_id: UUID,
     date_range: DateRange = RANGE_QUERY,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> DashboardStats:
     """
@@ -103,7 +103,7 @@ async def merchant_dashboard(
 @router.get("/merchant/{business_id}/benchmark", response_model=BenchmarkResponse)
 async def merchant_benchmark(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> BenchmarkResponse:
     """Category and city rating medians from approved listings. Not an AI judgment."""
@@ -116,7 +116,7 @@ async def merchant_benchmark(
 async def merchant_dashboard_reviews_csv(
     business_id: UUID,
     date_range: DateRange = RANGE_QUERY,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> StreamingResponse:
     """
@@ -162,7 +162,7 @@ async def merchant_dashboard_reviews_csv(
 
 @router.get("/admin/platform", response_model=PlatformAnalytics)
 async def platform_analytics(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> PlatformAnalytics:
     """Admin platform-wide analytics (S-090 adds ops-queue snapshot counts)."""
@@ -201,7 +201,7 @@ async def platform_analytics(
 async def platform_analytics_series(
     granularity: Granularity = GRANULARITY_QUERY,
     days: int = Query(90, ge=1, le=365),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     admin: User = Depends(require_roles(UserRole.ADMIN)),
 ) -> PlatformAnalyticsSeries:
     """
@@ -223,7 +223,7 @@ async def platform_analytics_series(
 async def search_google_places(
     business_id: UUID,
     payload: GooglePlacesSearchRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> GooglePlacesSearchResponse:
     """
@@ -244,7 +244,7 @@ async def search_google_places(
 @router.get("/merchant/{business_id}/google-reviews", response_model=GoogleReviewsStatusResponse)
 async def get_google_reviews_status(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> GoogleReviewsStatusResponse:
     """Link/sync status powering the dashboard card's unlinked/linked/synced states (AC3, AC6, AC7)."""
@@ -257,7 +257,7 @@ async def get_google_reviews_status(
 async def link_google_place(
     business_id: UUID,
     payload: GooglePlaceLinkRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> GooglePlaceLinkResponse:
     """
@@ -280,7 +280,7 @@ async def link_google_place(
 @router.post("/merchant/{business_id}/google-reviews/sync", response_model=GoogleReviewsSyncResponse)
 async def sync_google_reviews(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> GoogleReviewsSyncResponse:
     """
@@ -305,7 +305,7 @@ async def sync_google_reviews(
 @router.post("/merchant/{business_id}/whatsapp/link", response_model=WhatsAppLinkResponse)
 async def create_whatsapp_link(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> WhatsAppLinkResponse:
     """Generate a short-lived wa.me link that binds inbound WhatsApp to this listing (S-050)."""
@@ -317,7 +317,7 @@ async def create_whatsapp_link(
 @router.get("/merchant/{business_id}/whatsapp/drafts", response_model=list[WhatsAppDraftResponse])
 async def list_whatsapp_drafts(
     business_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> list[WhatsAppDraftResponse]:
     """Read-only status of every WhatsApp-derived suggestion for this business, any status,

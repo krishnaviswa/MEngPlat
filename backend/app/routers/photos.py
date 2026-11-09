@@ -22,7 +22,7 @@ async def upload_photo(
     review_id: UUID | None = Form(default=None),
     photo_type: str = Form(default="gallery"),
     caption: str | None = Form(default=None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(get_current_user),
 ) -> PhotoResponse:
     """
@@ -108,7 +108,7 @@ async def upload_photo(
 
 
 @router.get("/business/{business_id}", response_model=list[PhotoResponse])
-async def list_business_photos(business_id: UUID, db: AsyncSession = Depends(get_db)) -> list[PhotoResponse]:
+async def list_business_photos(business_id: UUID, db: AsyncSession = Depends(get_db, scope="function")) -> list[PhotoResponse]:
     """List gallery photos for a business."""
     result = await db.execute(
         select(Photo)
@@ -122,7 +122,7 @@ async def list_business_photos(business_id: UUID, db: AsyncSession = Depends(get
 @router.delete("/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_photo(
     photo_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     user: User = Depends(require_roles(UserRole.MERCHANT, UserRole.ADMIN)),
 ) -> None:
     """Delete a photo. Merchants can delete their business photos."""
