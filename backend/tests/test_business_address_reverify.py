@@ -29,6 +29,12 @@ class FakeResult:
     def scalar_one_or_none(self):
         return self._items[0] if self._items else None
 
+    def scalars(self):
+        return self
+
+    def all(self):
+        return list(self._items)
+
 
 def _clause_matches(obj, clause) -> bool:
     if hasattr(clause, "clauses"):
@@ -54,7 +60,8 @@ class FakeDB:
 
     async def execute(self, stmt):
         entity = stmt.column_descriptions[0]["entity"]
-        pool = self.businesses if entity is Business else self.merchants
+        # any other entity (e.g. the S-126 reviewer lookup) has no rows in this fake
+        pool = self.businesses if entity is Business else self.merchants if entity is Merchant else []
         items = list(pool)
         wc = stmt.whereclause
         if wc is not None:

@@ -1,4 +1,4 @@
-"""One in-app notice per workflow scenario per user (S-065).
+"""One in-app notice per workflow scenario per user (S-065), per entity for customer notices (S-126).
 
 Does not create or mutate businesses, photos, or addresses.
 """
@@ -23,6 +23,18 @@ SCENARIO_WHATSAPP_REJECTED = "whatsapp_rejected"
 SCENARIO_PAYMENT_CAPTURED = "payment_captured"
 SCENARIO_PAYMENT_BOOST_APPROVED = "payment_boost_approved"
 
+# S-126 customer notices: keyed per entity via dedupe_key (review id / business id). Deliberately NOT in
+# SCENARIOS below (that tuple is the six merchant scenarios; tests/test_notification_scenarios.py pins it).
+SCENARIO_REVIEW_REPLY = "review_reply"
+SCENARIO_REVIEW_MODERATION = "review_moderation"
+SCENARIO_SHOP_DETAILS_UPDATED = "shop_details_updated"
+
+CUSTOMER_SCENARIOS: tuple[str, ...] = (
+    SCENARIO_REVIEW_REPLY,
+    SCENARIO_REVIEW_MODERATION,
+    SCENARIO_SHOP_DETAILS_UPDATED,
+)
+
 SCENARIOS: tuple[str, ...] = (
     SCENARIO_LISTING_APPROVED,
     SCENARIO_NEW_REVIEW,
@@ -42,10 +54,19 @@ async def upsert_notice(
     title: str,
     message: str,
     extra_data: dict[str, Any] | None = None,
+    dedupe_key: str | None = None,
 ) -> Notification:
-    """Create or refresh the single notice for this user + scenario. Marks unread."""
+    """Create or refresh the single notice for this user + scenario (+ entity key). Marks unread.
+
+    `dedupe_key=None` keeps the legacy one-row-per-scenario behaviour (stored as '').
+    """
+    key = dedupe_key or ""
     result = await db.execute(
-        select(Notification).where(Notification.user_id == user_id, Notification.scenario == scenario)
+        select(Notification).where(
+            Notification.user_id == user_id,
+            Notification.scenario == scenario,
+            Notification.dedupe_key == key,
+        )
     )
     row = result.scalar_one_or_none()
     payload = dict(extra_data or {})
@@ -62,6 +83,7 @@ async def upsert_notice(
     row = Notification(
         user_id=user_id,
         scenario=scenario,
+        dedupe_key=key,
         type=ntype,
         title=title,
         message=message,

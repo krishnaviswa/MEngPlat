@@ -127,6 +127,10 @@ class FakeDB:
     async def get(self, model, id_, options=None):
         return next((o for o in self._table_for(model) if o.id == id_), None)
 
+    async def commit(self):
+        # create_review commits before scheduling background work (PR #90)
+        return None
+
     async def execute(self, stmt):
         self.executed_statements.append(stmt)
         items = self._table_for(stmt.column_descriptions[0]["type"])

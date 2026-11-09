@@ -569,7 +569,7 @@ erDiagram
 | `ai_analyses`         | Text and image AI results                                           |
 | `replies`             | Merchant responses to reviews                                       |
 | `favorites`           | Customer saved businesses — **model exists, not wired up**, see §14 |
-| `notifications`       | User notification queue. Unique `(user_id, scenario)` — one in-app notice per workflow scenario (**S-065**); duplicate rows pruned in migration `j4k5l6m7n8o9` (notifications table only) |
+| `notifications`       | User notification queue. Unique `(user_id, scenario, dedupe_key)` — one in-app notice per workflow scenario, and for customer notices one per review / shop via `dedupe_key` (**S-065**, **S-126**; `''` for the six merchant scenarios); duplicate rows pruned in migration `j4k5l6m7n8o9` (notifications table only) |
 | `audit_logs`          | Admin action trail                                                  |
 | `review_likes`        | Customer likes on reviews                                           |
 | `review_reports`      | Reported reviews queue                                              |
@@ -605,7 +605,7 @@ SQLAlchemy models live in a single file: `[backend/app/models/__init__.py](backe
 | Review → Reply      | 1:1         | One public merchant reply per review                 |
 | User → ReviewLike   | M:N         | Via `review_likes`                                   |
 | User → Favorite     | M:N         | Customers save businesses                            |
-| User → Notification | 1:N         | One row per `scenario` per user (**S-065**)          |
+| User → Notification | 1:N         | One row per `scenario` per user (**S-065**); customer notices one per `scenario` + review / shop (**S-126**) |
 | User → AuditLog     | 1:N         | Admin actions are logged                             |
 | Business → Payment  | 1:N         | Featured-boost checkout rows                         |
 | Payment → Placement | 1:0..1      | Successful capture may create one 7-day window       |
@@ -640,6 +640,18 @@ In-app bell: **one row per merchant user per scenario**. A later event of the sa
 | `payment_captured` | Featured payment captured (awaiting boost approve) | Featured payment received | `payment_captured` |
 | `payment_boost_approved` | Admin approves featured placement | Featured boost is live | `payment_boost_approved` |
 
+
+#### Customer notices (S-126)
+
+Customers (and anyone who authored a review) get three more notices, keyed per entity through `notifications.dedupe_key` (the review id or the shop id; internal, never returned by the API), so a second shop never overwrites the first. They are **not** in the merchant-only `SCENARIOS` tuple. Rules live in [`customer_notices.py`](backend/app/services/customer_notices.py); tests: `backend/tests/test_customer_notices.py`.
+
+| Scenario key | `dedupe_key` | When | Copy |
+| ------------ | ------------ | ---- | ---- |
+| `review_reply` | review id | Merchant replies to an **active** review, or edits the reply text (same text, or a partner-sourced review, notifies nobody) | Reply to your review / {shop} replied to your review. |
+| `review_moderation` | review id | Admin hides, removes, or restores (from hidden/removed) a review; one row, the latest action wins | Your review was hidden / removed / is visible again |
+| `shop_details_updated` | shop id | Description, phone, hours or address of an **approved** shop really changes (cosmetic or no-op saves notify nobody). Goes to authors of **active** reviews, newest first, capped at 200 per edit | Shop details updated |
+
+Never notified: the actor themself, auto-flagged or user-reported reviews (only the later admin action notifies), partner-channel reviewers (login-less shadow users), pending shops.
 
 ### Indexes & constraints
 
@@ -1462,7 +1474,7 @@ Legacy aliases. The frontend must use `/dashboard` and `/ai`, not these routes. 
 
 | Method | Path                       | Auth   | Description        |
 | ------ | -------------------------- | ------ | ------------------ |
-| GET    | `/notifications`           | Bearer | List notices (at most one per `scenario` per user, **S-065**) |
+| GET    | `/notifications`           | Bearer | List the caller's own notices, newest first, max 50 (one per `scenario` per user, **S-065**; one per review / shop for the customer scenarios, **S-126**) |
 | POST   | `/notifications/{id}/read` | Bearer | Mark one read      |
 | POST   | `/notifications/read-all`  | Bearer | Mark all read      |
 
@@ -2202,7 +2214,7 @@ Paths below are shortened: backend `tests/` = `backend/tests/`; web files live u
 | Featured boost / payments | `test_payments.py` | `FeaturedBoostPanel`, `admin/AdminPaymentPanel` | `merchant_dashboard_screen_test.dart` (grow/boost) | `journeys/test_journey_merchant.py`, `journeys/test_journey_admin.py` (S-124 boost + admin approve/refund) | TR-S-036, 042, 062, **124** |
 | Admin platform / queues / ops nav | `test_admin_platform.py`, `test_admin_platform_asgi.py`, `test_admin_browse.py`, `test_admin_browse_asgi.py`, `test_dashboard.py` (platform keys) | `app/admin/page`, `AdminOpsNav`, `PendingBusinessQueue`, `AllBusinessesQueue`, `AllReviewsQueue`, `drilldown-back-links`, `AdminBackLink` | `admin_home_screen_test.dart`, `admin_route_gating_test.dart`, `admin_copy_test.dart` | `test_flow_admin.py`, `test_rbac_matrix.py`, `journeys/test_journey_admin.py` (S-124) | TR-S-021, 034, 079, 086, 091, 093, 101, **115**, **117**, **124** |
 | Admin users / categories | (browse + platform files) | `AdminUserPanel`, `AdminCategoryPanel`, `app/admin/page` (Users helper), `app/admin/businesses/page` | `admin_users_screen_test.dart`, `admin_categories_screen_test.dart` | `journeys/test_journey_admin.py` (S-124: category create + 409, user suspend/reactivate) | TR-S-041, 080, 082, 083, **115**, **124** |
-| Notifications | `test_notifications.py`, `test_notification_scenarios.py` | `NotificationBell` | `notifications_screen_test.dart`, `notification_badge_test.dart`, `unread_count_provider_test.dart` | — | TR-S-025 |
+| Notifications | `test_notifications.py`, `test_notification_scenarios.py`, `test_customer_notices.py` (S-126) | `NotificationBell` | `notifications_screen_test.dart`, `notification_badge_test.dart`, `unread_count_provider_test.dart` | — | TR-S-025 |
 | Support contact / tickets | `test_support_tickets_and_reports.py` | `SupportTicketForm`, `app/support/page`, `admin/AdminSupportQueue`, `Footer` | `support_screen_test.dart`, `admin_support_queue_screen_test.dart` | `journeys/test_journey_anonymous.py`, `journeys/test_journey_admin.py` (S-124) | TR-S-087, 088, 094, **124** |
 | Shop / business reports | `test_support_tickets_and_reports.py` | `ReportShopButton`, `admin/AdminBusinessReportsQueue` | `admin_business_reports_screen_test.dart`, `business_detail_screen_test.dart` | `journeys/test_journey_admin.py` (S-124) | TR-S-089, 094, **124** |
 | WhatsApp link / drafts / admin | `test_whatsapp.py`, `test_whatsapp_admin_asgi.py` | `WhatsAppDraftsPanel`, `WhatsAppUpdateCard`, `AdminWhatsAppDraftsQueue`, `CollectQrCard` | `admin_whatsapp_queue_screen_test.dart` | — | TR-S-050, 051, 052, 053, 078 |
@@ -2251,16 +2263,16 @@ Treat mocks as **the staging truth** until keys exist. Assertions belong on the 
 | Live Resend / Razorpay / S3-CDN | **Optional later** — adapters exist |
 | Azure storage | **Stub** |
 | Structured request logs / APM | **Not built** |
-| Cross-role workflow chains (one actor's action → another role's browser) | **Built (S-125), verified on GitHub 2026-11-08** (10 passed / 2 known gaps / 1 skipped) — 8 chains in `backend/tests/e2e/chains/` via manual `web-workflows.yml` (5 full, 3 partial / known-gap); see [Cross-role workflow chains](#cross-role-workflow-chains) |
+| Cross-role workflow chains (one actor's action → another role's browser) | **Built (S-125), verified on GitHub 2026-11-08** (10 passed / 2 known gaps / 1 skipped; the 2 gaps closed by S-126) — 8 chains in `backend/tests/e2e/chains/` via manual `web-workflows.yml` (all full chains; 1 skips on a fresh stack); see [Cross-role workflow chains](#cross-role-workflow-chains) |
 | Layout sentinel (overlap / clipping / horizontal scroll / off-screen controls at 375·768·1280) | **Built (S-125)** — `layout_sentinel.py`; self-test on static HTML passes with no stack (`test_layout_sentinel_selftest.py`); runs on every page the chains visit |
 
 ### Cross-role workflow chains
 
 A **chain** is one event that starts with one role and must produce a visible effect for a different role (*A acts → system records → B finds out → B reacts*).
 
-**How people are told (one mechanism).** Services call `upsert_notice(user_id, scenario, …)` ([`notifications.py`](backend/app/services/notifications.py)) → one `notifications` row per `(user_id, scenario)`; a later event of the same scenario **overwrites** the row and marks it unread → `GET /api/v1/notifications` (current user only) → `NotificationBell` (web) / notifications screen (mobile). Email is best-effort and never fails the request; in Compose it is `mock` (logs only). A chain test must therefore assert "unread and showing the latest event", never "N rows".
+**How people are told (one mechanism).** Services call `upsert_notice(user_id, scenario, …)` ([`notifications.py`](backend/app/services/notifications.py)) → one `notifications` row per `(user_id, scenario, dedupe_key)` (`dedupe_key` is the review / shop id for customer notices, S-126); a later event of the same scenario and entity **overwrites** the row and marks it unread → `GET /api/v1/notifications` (current user only) → `NotificationBell` (web) / notifications screen (mobile). Email is best-effort and never fails the request; in Compose it is `mock` (logs only). A chain test must therefore assert "unread and showing the latest event", never "N rows".
 
-**Chains that exist today (6 scenarios, all notify a merchant):**
+**Chains that exist today (6 merchant scenarios + 3 customer scenarios, S-126):**
 
 
 | # | Scenario | Trigger | Channel | Code |
@@ -2271,19 +2283,21 @@ A **chain** is one event that starts with one role and must produce a visible ef
 | 4 | `whatsapp_rejected` | Admin rejects a WhatsApp draft | bell | `services/whatsapp_ingest_service.py` |
 | 5 | `payment_captured` | Featured payment captured | bell | `services/payments/featured.py` |
 | 6 | `payment_boost_approved` | Admin approves featured placement | bell | `services/payments/featured.py` |
+| 7 | `review_reply` | Merchant replies to (or edits the reply on) an active review → the review author | bell | `routers/reviews.py`, `services/customer_notices.py` |
+| 8 | `review_moderation` | Admin hides / removes / restores a review → the review author | bell | `routers/reviews.py`, `services/customer_notices.py` |
+| 9 | `shop_details_updated` | Description, phone, hours or address of an approved shop really changes → authors of its active reviews (max 200) | bell | `routers/businesses.py`, `services/customer_notices.py` |
 
 
-**Cross-role effects with no proactive notice** (visible only on the next page load; listed in §14): merchant reply to a review (author not told), business edit via `PATCH /businesses/{id}` (nobody told; applied immediately, no re-approval), admin hide/remove of a review (author not told), admin suspend (user learns at next login → 403). Whether a ticket/report reporter can see `admin_response` was **not** traced.
+**Cross-role effects with no proactive notice** (visible only on the next page load; listed in §14): a shop edit that applies immediately with no admin re-approval (reviewers are told since S-126, nobody else), admin suspend (user learns at next login → 403), and the WhatsApp-draft approval that rewrites shop fields (no reviewer notice yet). Reply, hide/remove/restore and shop-edit are no longer silent: see rows 7-9.
 
-**Coverage.** Before S-125: 47 e2e test functions (anonymous 14, customer 9, merchant 1 long journey, admin 11, S-010 flows 4, RBAC/token/smoke/selectors 8), none opening a second role's browser. S-125 adds 10 chain test functions (8 chains) where each role gets its own browser context and the bell is asserted (`backend/tests/e2e/chains/`). Notifications remain unit-tested too (`tests/test_notification_scenarios.py`, `tests/test_notifications.py`, `NotificationBell.test.tsx`, mobile `notifications_screen_test.dart`).
+**Coverage.** Before S-125: 47 e2e test functions (anonymous 14, customer 9, merchant 1 long journey, admin 11, S-010 flows 4, RBAC/token/smoke/selectors 8), none opening a second role's browser. S-125 adds 8 chain test functions (8 chains; two were 10 until S-126 folded their known-gap checks into the main chain) where each role gets its own browser context and the bell is asserted (`backend/tests/e2e/chains/`). Notifications remain unit-tested too (`tests/test_notification_scenarios.py`, `tests/test_notifications.py`, `NotificationBell.test.tsx`, mobile `notifications_screen_test.dart`).
 
 **Design (built, S-125).** One pytest test, one Playwright browser context **per role**, each seeded role signed in **once per run** through the real login page (seeded accounts + known TOTP via `enable_demo_totp`) and then reusing `storage_state`; assertions wait and retry (no fixed sleeps); every page a chain visits is scanned by the layout sentinel at 375/768/1280 px and a chain that passes functionally still **fails** if it recorded findings. Bell oracle: reload, open the dropdown, assert an **unread** row whose text contains this run's unique business name (never row counts). Per-run data comes from the existing `unique_email` / `unique_name` helpers; seeded admin/merchant/customer are used for every chain.
 
 | Chain | Status |
 | ----- | ------ |
-| `wf-listing-approval`, `wf-new-review`, `wf-suspend`, `wf-review-moderation` | Full chain |
+| `wf-listing-approval`, `wf-new-review`, `wf-suspend`, `wf-review-moderation`, `wf-review-reply`, `wf-shop-edit` | Full chain (the last three also assert the customer's bell, S-126) |
 | `wf-featured-boost` | Full chain; **SKIPPED** with a reason when `DEBUG` is not true (Compose sets it) |
-| `wf-review-reply`, `wf-shop-edit` | Visibility part must **pass**; the "is anyone notified" part is an `xfail(strict)` known gap that turns into a **FAIL** the day the notification feature lands (remove the xfail and update §14) |
 | `wf-whatsapp-draft` | **SKIPPED** on a fresh Compose stack — `seed.py` creates no drafts and ingest needs a live webhook |
 
 **Non-blocking by decision (2026-11-08).** [`web-workflows.yml`](.github/workflows/web-workflows.yml) triggers on `workflow_dispatch` **only** — never `push` / `pull_request` / `schedule`, never a required check, no git hooks, no deploy step. Output: a job-summary table (PASS / FAIL / KNOWN-GAP / SKIPPED per chain) plus a layout-findings table, and the `playwright-traces` artifact. On a feature change, dispatch only the affected chain (`suite=wf-<id>`); the Architect names affected chains in the slice and the Tester records the run. Runs on GitHub runners (no local Docker).
@@ -2691,9 +2705,10 @@ Combined `flutter analyze` / `flutter test` is deferred until you ask.
 | M-93 | Reviews           | Login-free partner review page (`/c/{token}`)                       | `/c/[token]` gamified wizard, no auth (S-123)   | —                                                                     | `future`        | S-123 mock loop. Mobile follows only if a real partner pilot commits — a plain `https://` review link opens the web page for any device meanwhile |
 | M-94 | Reviews           | "Verified purchase" badge on partner-sourced reviews               | `ReviewCard` chip (`verified_purchase`)         | —                                                                     | `unimplemented` | S-123. Small `ReviewCard` add on mobile once the field is surfaced by the review list |
 | M-95 | Merchant          | Partner review channel / mock billing console                      | `/dev/partner-console` (dev-only) + `/api/v1/partner/*` | —                                                             | `future`        | S-123. Dev/demo surface — no mobile equivalent planned for the mock loop |
+| M-96 | Notifications     | Customer notices: review reply, review hidden/removed/restored, shop details updated | Bell dropdown (same `NotificationBell`) | Existing Notifications tab renders them (no deep link) | `partial`       | S-126. Mobile code unchanged: the shared list API feeds the existing tab; tap goes to the businesses list; no push |
 
 
-**Rollup (2026-08-29):** `implemented` 79 · `partial` 4 (M-10 chrome, M-65 reset completion, M-71 cold QR, M-74 phone OTP chooser/admin OTP) · `unimplemented` 1 (M-94 verified-purchase badge) · `n/a` 7 · `future` 4 (FCM, M-92 navbar chrome polish, M-93 login-free partner page, M-95 partner console) · **total 95**.
+**Rollup (2026-11-08):** `implemented` 79 · `partial` 5 (M-10 chrome, M-65 reset completion, M-71 cold QR, M-74 phone OTP chooser/admin OTP, M-96 customer notices) · `unimplemented` 1 (M-94 verified-purchase badge) · `n/a` 7 · `future` 4 (FCM, M-92 navbar chrome polish, M-93 login-free partner page, M-95 partner console) · **total 96**.
 
 #### Mobile parity roadmap
 
@@ -2993,7 +3008,7 @@ An honest delta between the original specification and what the code actually do
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Azure storage is a stub** | Raises `NotImplementedError` ([storage](backend/app/services/storage/__init__.py)). `local` and `s3` both work.                                                                                                                                                                  |
 | **Thin tests / incomplete browser e2e** | Layers 1–3 (pytest + RTL) are real. Playwright journeys exist (`E2E=1`); GitHub run is **manual** [`web-e2e.yml`](.github/workflows/web-e2e.yml) (artifact traces); cross-role chains + layout sentinel are a second manual workflow, [`web-workflows.yml`](.github/workflows/web-workflows.yml) (S-125). pytest/Jest workflows are also dispatch-only. **S-124** adds an exhaustive predefined-value, Enter-to-submit Playwright catalogue across every customer / merchant / admin route and form (`backend/tests/e2e/journeys/`, `form_data.py`, `human.py`) — still opt-in, still manual `web-e2e.yml`, still **not** a merge gate. See §11. |
-| **No customer notifications; no cross-role chain tests** | The bell is merchant-only (6 scenarios, §11 [Cross-role workflow chains](#cross-role-workflow-chains)). No notice to customers when a merchant replies to their review, when an admin hides/removes it, or when a shop they reviewed/favourited changes; suspended users learn at next login. Open product questions: should customers be notified, and should a description edit need admin re-approval (today it applies immediately). Cross-role chains now run through two browsers (S-125, manual `web-workflows.yml`); the reply, shop-edit and customer-facing notification assertions are recorded as `xfail(strict)` known gaps and flip to FAIL-on-XPASS when the notification slice lands. Layout (overlap / clipping / horizontal scroll at 375·768·1280) is asserted by the sentinel on every page a chain visits (first real-app run may surface product layout findings — see TR-S-125). Each customer notice is still a feature slice; chain tests are non-blocking and dispatch-only. |
+| **Customer notices: remaining gaps** | Customers are now told about review replies, hide/remove/restore and shop detail edits (**S-126**, web bell; mobile shows them in the existing tab without deep link or push). Still open: no email/push for these; no notice for shops a customer only favourited; admin approval of a WhatsApp draft changes shop fields but does not yet notify reviewers; a shop edit notifies at most the 200 newest active reviewers; suspended users still learn at next login; a description edit still applies immediately (no re-approval). Cross-role chains run through two browsers (S-125, manual `web-workflows.yml`); layout is asserted by the sentinel on every page a chain visits. |
 | **Design-system migration** | Complete. `Select` / `StatCard` / `ui/RatingWidget` (S-017) now back every remaining call site — native `<select>`s, inline stat tiles, and the duplicate top-level `RatingWidget` (removed, canonical copy is `ui/RatingWidget`) all migrated.                                  |
 | **Security items 1–6**      | §9: rate limit, upload MIME/size, lockout, refresh rotation, headers, password policy are in. Remaining: `localStorage` tokens (S-026) and world-readable `/uploads`. Commercial SaaS/legal items: [Deferred](#deferred-for-commercial--enterprise).                             |
 | **No structured logging**   | `/health` exists, but there is no request logging or structured log output — an observability requirement not yet met.                                                                                                                                                           |

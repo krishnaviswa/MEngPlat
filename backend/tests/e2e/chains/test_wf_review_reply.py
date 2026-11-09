@@ -1,9 +1,4 @@
-"""wf-review-reply — merchant replies -> the reply is visible publicly (PASS).
-
-Known gap (README §14): the review author is NOT notified of the reply. The gap assertion is an
-xfail(strict) — when the notification feature lands it XPASSes, which FAILS the run until the
-xfail and README §14 are updated.
-"""
+"""wf-review-reply — merchant replies -> the reply is visible publicly and the review author is told (S-126)."""
 
 from __future__ import annotations
 
@@ -32,7 +27,7 @@ def _author_with_review(api, wf, merchant_ready, label: str):
 
 def test_wf_review_reply(wf, api, merchant_ready):
     chain = wf.chain_id
-    biz, _tokens, _review, _marker = _author_with_review(api, wf, merchant_ready, "WF Reply")
+    biz, tokens, _review, _marker = _author_with_review(api, wf, merchant_ready, "WF Reply")
     reply = f"Thanks from WF {uuid4().hex[:8]}"
 
     # 1. merchant replies on their dashboard
@@ -57,20 +52,8 @@ def test_wf_review_reply(wf, api, merchant_ready):
 
     eventually(_reply_visible, chain=chain, what="merchant reply visible on the public page")
 
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="customer is not notified of replies (README §14)",
-)
-def test_wf_review_reply_gap(wf, api, merchant_ready):
-    chain = wf.chain_id
-    biz, tokens, review, _marker = _author_with_review(api, wf, merchant_ready, "WF Reply Gap")
-    api.reply_to_review(wf.token("merchant"), review.id, f"Gap reply {uuid4().hex[:8]}")
-
+    # 3. the review's author is told about the reply (S-126)
     author = wf.session_actor(tokens.access_token, tokens.refresh_token)
     author.goto("/")
-    wf.skip_scan("/")  # only touched to open the bell and assert absence
-    # Today this raises AssertionError (no notice) -> XFAIL. Once the feature lands it returns
-    # normally -> strict XPASS -> FAIL: "known gap now passes - remove xfail and update README §14".
-    bell_expect(author, contains=biz.name, timeout_ms=8_000, chain=chain, role="review author")
+    wf.skip_scan("/")  # only touched to open the bell
+    bell_expect(author, contains=biz.name, title="Reply to your review", chain=chain, role="review author")

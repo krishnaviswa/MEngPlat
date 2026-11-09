@@ -161,7 +161,8 @@ def bell_expect(
 
     The bell polls only the unread COUNT; the list is fetched when the dropdown opens, so each
     attempt reloads, opens the dropdown and looks. One row per (user, scenario) is overwritten
-    by later events, so callers pass a per-run unique name in `contains` — never assert counts.
+    by later events (customer notices are keyed per review / shop, S-126), so callers pass a per-run
+    unique name in `contains` — never assert counts.
     """
     deadline = time.monotonic() + timeout_ms / 1000
     last: Exception | None = None

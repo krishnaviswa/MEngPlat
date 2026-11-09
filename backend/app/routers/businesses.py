@@ -34,6 +34,7 @@ from app.schemas import (
 )
 from app.services import business_reports as reports_service
 from app.services import review_sync_service
+from app.services.customer_notices import notify_shop_details_changed, snapshot_shop_details
 from app.services.cache import cache_delete_pattern
 from app.services.email import try_send_listing_approved
 from app.services.notifications import SCENARIO_LISTING_APPROVED, upsert_notice
@@ -350,6 +351,7 @@ async def update_business(
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired code")
         business.address_edit_count += 1
 
+    details_before = snapshot_shop_details(business)  # S-126: compare after the edit, not by payload keys
     for field, value in payload_fields.items():
         setattr(business, field, value)
 
@@ -358,6 +360,7 @@ async def update_business(
         for cat_id in payload.category_ids:
             db.add(BusinessCategory(business_id=business_id, category_id=cat_id))
 
+    await notify_shop_details_changed(db, business=business, before=details_before, actor_id=user.id)
     await cache_delete_pattern("search:*")
 
     result = await db.execute(
